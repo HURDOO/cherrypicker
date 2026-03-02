@@ -1,0 +1,114 @@
+이 코드는 현재 프론트엔드(React) 내부의 **상수 데이터(Array/Object)**와 **상태(State)**로 데이터베이스 역할을 대신하고 있습니다.
+
+실제 백엔드 DB로 구축한다면 다음과 같은 관계형 데이터베이스(RDBMS) 또는 NoSQL(Document DB) 구조로 설계될 수 있습니다. 코드 내 데이터 흐름을 기반으로 역설계한 DB 구조입니다.
+
+1. 마스터 데이터 (변하지 않는 기준 정보)
+A. Categories (카테고리)
+결제처를 그룹핑하기 위한 기준 테이블입니다.
+
+id (PK): cafe, convenience 등
+
+name: 카테고리 표시명 (예: 카페/디저트)
+
+B. Brands (가맹점/브랜드)
+실제 사용자가 결제하는 장소들의 목록입니다.
+
+id (PK): starbucks, gs25 등
+
+name: 브랜드명
+
+category_id (FK): 해당 브랜드가 속한 카테고리
+
+icon: UI 표시용 아이콘
+
+C. Cards (카드 상품 정보)
+카드 상품 자체에 대한 정보입니다.
+
+id (PK): kb_nara, shinhan_heyoung 등
+
+name: 카드 이름
+
+company: 카드사 이름
+
+limit_table: (JSON) 전월 실적 구간 정보
+
+예: [{ threshold: 300000, limit: 20000 }, ...] (30만원 이상 시 2만원 한도)
+
+2. 핵심 로직 데이터 (혜택 규칙 엔진)
+이 앱의 핵심인 BenefitRules 테이블입니다. Cards와 1:N 관계를 가집니다. 카드가 어떤 상황에서 어떤 혜택을 주는지 정의합니다.
+
+id (PK): 규칙 고유 ID (예: hy_cvs)
+
+card_id (FK): 어떤 카드의 규칙인가?
+
+type: 혜택 타겟 타입 (BRAND_SPECIFIC vs CATEGORY_WIDE)
+
+included_brands: (Array/JSON) 적용되는 브랜드 ID 목록
+
+예: ['gs25', 'cu'] (특정 브랜드만 콕 집어서 적용)
+
+target_category: 적용되는 카테고리 (브랜드 지정이 없을 경우 사용)
+
+condition (JSON): 혜택 발동 조건
+
+min_spend: 최소 결제 금액 (예: 10000)
+
+action (JSON): 혜택 내용
+
+type: 할인 방식 (PERCENT, FLAT, FIXED_PRICE)
+
+value: 할인 값 (예: 20(%), 1000(원))
+
+max_discount: 건당 최대 할인 한도
+
+limit (JSON): 횟수 제한 (핵심 기능)
+
+daily: 일 최대 횟수
+
+monthly: 월 최대 횟수
+
+3. 사용자 데이터 (유저별 변동 데이터)
+A. UserCardPerformance (유저 실적 현황)
+사용자가 보유한 카드의 전월 실적을 저장합니다. (코드의 cardPerformances 상태)
+
+user_id (PK)
+
+card_id (PK)
+
+amount: 전월 실적 인정 금액 (예: 300,000)
+
+이 금액과 Cards.limit_table을 대조하여 이번 달 총 통합 한도를 산출합니다.
+
+B. TransactionHistory (결제/소비 내역)
+사용자가 "기록하기"를 눌렀을 때 저장되는 로그입니다. (코드의 history 상태) 이 내역을 집계하여 **'잔여 한도'**와 **'남은 횟수'**를 실시간으로 계산합니다.
+
+id (PK): 트랜잭션 ID
+
+date: 결제 일시 (오늘 사용 여부 체크용)
+
+card_id: 사용한 카드
+
+rule_id: 적용된 혜택 규칙 ID (횟수 차감용)
+
+amount: 결제 금액
+
+discount_amount: 할인받은 금액 (통합 한도 차감용)
+
+📊 데이터 흐름 요약
+입력: 사용자가 Starbucks에서 12,000원 결제 시도.
+
+규칙 검색 (BenefitRules):
+
+included_brands에 starbucks가 있거나, category가 cafe인 규칙을 찾음.
+
+조건 검사:
+
+condition.min_spend(10,000원) 넘었는지 확인.
+
+실적 체크: UserCardPerformance 조회 -> Cards.limit_table 대조 -> 이번 달 총 한도 산출.
+
+한도 잔액 체크: TransactionHistory에서 이번 달 discount_amount 합계 조회 -> 총 한도에서 뺌.
+
+횟수 체크: TransactionHistory에서 해당 rule_id가 오늘/이번 달 몇 번 쓰였는지 카운트 -> limit 조건과 비교.
+
+결과: 최적의 할인 금액 도출 및 리턴.
