@@ -1,131 +1,104 @@
-'use client';
-
-import { useState } from 'react';
-import { supabase } from '@/supabase/client';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
 
-export default function SignupPage() {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
-    const router = useRouter();
+type SignupPageProps = {
+    searchParams: Promise<{
+        error?: string | string[];
+    }>;
+};
 
-    const handleSignup = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
+const ERROR_MESSAGES: Record<string, string> = {
+    email_exists: '이미 사용 중인 이메일입니다. 로그인해주세요.',
+    invalid_form: '이름, 이메일, 비밀번호를 다시 확인해주세요.',
+    rate_limited: '회원가입 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
+    signup_closed: '현재 신규 회원가입이 닫혀 있습니다.',
+    signup_failed: '회원가입을 완료하지 못했습니다. 입력값을 확인해주세요.',
+    server_error: '회원가입 서버를 준비하지 못했습니다. 잠시 후 다시 시도해주세요.',
+};
 
-        try {
-            const { error, data } = await supabase.auth.signUp({
-                email,
-                password,
-            });
+function firstValue(value: string | string[] | undefined) {
+    return Array.isArray(value) ? value[0] : value;
+}
 
-            if (error) throw error;
-
-            // If email confirmation is enabled, user might not be signed in immediately
-            if (data.user && !data.session) {
-                setSuccess(true);
-            } else {
-                router.push('/');
-                router.refresh();
-            }
-
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (success) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-                <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg border border-gray-100 text-center">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Check your email</h2>
-                    <p className="text-gray-600 mb-6">
-                        We've sent a confirmation link to <strong>{email}</strong>.
-                        Please check your inbox to confirm your account.
-                    </p>
-                    <Link href="/login" className="text-blue-600 hover:text-blue-500 font-medium">
-                        Back to Sign in
-                    </Link>
-                </div>
-            </div>
-        );
-    }
+export default async function SignupPage({ searchParams }: SignupPageProps) {
+    const params = await searchParams;
+    const errorCode = firstValue(params.error);
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
             <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
                 <div className="text-center">
-                    <h2 className="text-3xl font-extrabold text-gray-900">Create Account</h2>
+                    <h1 className="text-3xl font-extrabold text-gray-900">회원가입</h1>
                     <p className="mt-2 text-sm text-gray-600">
-                        Get started with Cherry Picker
+                        가입 완료 후 로그인 화면에서 새 계정으로 로그인합니다.
                     </p>
                 </div>
 
-                <form className="mt-8 space-y-6" onSubmit={handleSignup}>
+                <form
+                    className="mt-8 space-y-6"
+                    method="post"
+                    action="/auth/signup"
+                    encType="application/x-www-form-urlencoded"
+                >
                     <div className="space-y-4">
                         <div>
-                            <label htmlFor="email" className="sr-only">Email address</label>
+                            <label htmlFor="name" className="sr-only">이름</label>
+                            <input
+                                id="name"
+                                name="name"
+                                type="text"
+                                autoComplete="name"
+                                required
+                                maxLength={100}
+                                className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="이름"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="email" className="sr-only">이메일</label>
                             <input
                                 id="email"
                                 name="email"
                                 type="email"
                                 autoComplete="email"
                                 required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                maxLength={320}
                                 className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Email address"
+                                placeholder="이메일"
                             />
                         </div>
                         <div>
-                            <label htmlFor="password" className="sr-only">Password</label>
+                            <label htmlFor="password" className="sr-only">비밀번호</label>
                             <input
                                 id="password"
                                 name="password"
                                 type="password"
                                 autoComplete="new-password"
                                 required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                minLength={8}
+                                maxLength={128}
                                 className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Password (min 6 characters)"
-                                minLength={6}
+                                placeholder="비밀번호 (8자 이상)"
                             />
                         </div>
                     </div>
 
-                    {error && (
-                        <div className="text-red-500 text-sm text-center">
-                            {error}
-                        </div>
+                    {errorCode && (
+                        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-center text-sm font-medium text-red-600">
+                            {ERROR_MESSAGES[errorCode] || ERROR_MESSAGES.signup_failed}
+                        </p>
                     )}
 
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {loading ? (
-                                <Loader2 className="animate-spin h-5 w-5" />
-                            ) : (
-                                'Sign up'
-                            )}
-                        </button>
-                    </div>
+                    <button
+                        type="submit"
+                        className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                        회원가입
+                    </button>
 
                     <div className="text-center text-sm">
-                        <span className="text-gray-600">Already have an account? </span>
+                        <span className="text-gray-600">이미 계정이 있나요? </span>
                         <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
-                            Sign in
+                            로그인
                         </Link>
                     </div>
                 </form>

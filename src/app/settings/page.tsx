@@ -1,32 +1,85 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
-import { supabase } from '@/supabase/client';
 import {
     Database, RefreshCw, CreditCard, ChevronRight,
-    PieChart, AlertTriangle, Settings2, Trash2, CheckCircle2
+    PieChart, Settings2, Trash2, LogOut, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import CardDetailModal from '@/components/settings/CardDetailModal';
 import MasterDataModal from '@/components/settings/MasterDataModal';
-import { INITIAL_CATEGORIES, INITIAL_BRANDS, INITIAL_CARDS, INITIAL_RULES } from '@/utils/seedData';
 import clsx from 'clsx';
-import { TEST_USER_ID } from '@/constants/auth';
+import { apiClient, getErrorMessage } from '@/lib/api-client';
+import { useAuth } from '@/hooks/useAuth';
+import {
+    formatPerformanceMonthLabel,
+    getCurrentMonthInKst,
+    getPreviousMonthInKst,
+} from '@/lib/monthly-performance';
 
 export default function SettingsPage() {
-    const { cards, performances, updatePerformance } = useAppStore();
+    const { cards, rules, performances, history, resetData, updatePerformance } = useAppStore();
     const { addToast } = useToastStore();
+    const { user, signOut } = useAuth();
+    const router = useRouter();
     const [isSeeding, setIsSeeding] = useState(false);
     const [confirmStep, setConfirmStep] = useState(false);
+    const [isSigningOut, setIsSigningOut] = useState(false);
+    const [performanceDrafts, setPerformanceDrafts] = useState<Record<string, string>>({});
+    const [savingPerformanceCards, setSavingPerformanceCards] = useState<Record<string, boolean>>({});
+    const [performancePeriod] = useState(() => {
+        const referenceDate = new Date();
+        return {
+            performanceMonth: getPreviousMonthInKst(referenceDate),
+            benefitMonth: getCurrentMonthInKst(referenceDate),
+        };
+    });
+    const performanceRequestVersions = useRef<Record<string, number>>({});
+    const performanceMonthLabel = formatPerformanceMonthLabel(performancePeriod.performanceMonth);
+    const benefitMonthLabel = formatPerformanceMonthLabel(performancePeriod.benefitMonth);
+
+    const currentPerformances = useMemo(
+        () => performances.filter(
+            performance => performance.performanceMonth === performancePeriod.performanceMonth
+        ),
+        [performances, performancePeriod.performanceMonth]
+    );
+
+    const performanceCards = useMemo(
+        () => cards.filter(card => card.limitTable.some(tier => tier.threshold > 0)
+            || rules.some(rule => rule.cardId === card.id && (rule.condition?.minPerformance || 0) > 0)),
+        [cards, rules]
+    );
+
+    const managedPerformanceCards = useMemo(() => {
+        const activeCardIds = new Set([
+            ...performances.map(performance => performance.cardId),
+            ...history.map(transaction => transaction.cardId),
+        ]);
+        return performanceCards.filter(card => activeCardIds.has(card.id));
+    }, [performanceCards, performances, history]);
+
+    const completedPerformanceCount = useMemo(() => {
+        const completedCardIds = new Set(currentPerformances.map(performance => performance.cardId));
+        return managedPerformanceCards.filter(card => completedCardIds.has(card.id)).length;
+    }, [currentPerformances, managedPerformanceCards]);
+
+    const handleSignOut = async () => {
+        setIsSigningOut(true);
+        try {
+            await signOut();
+            resetData();
+            router.replace('/login');
+            router.refresh();
+        } catch (error: unknown) {
+            addToast(getErrorMessage(error, '로그아웃하지 못했습니다.'), 'error');
+            setIsSigningOut(false);
+        }
+    };
 
     const handleSeedData = async () => {
-        const user = (await supabase.auth.getUser()).data.user;
-        if (!user) {
-            addToast('로그인이 필요합니다.', 'error');
-            return;
-        }
-
         if (!confirmStep) {
             setConfirmStep(true);
             setTimeout(() => setConfirmStep(false), 3000); // 3초 후 자동 취소
@@ -36,62 +89,43 @@ export default function SettingsPage() {
         setIsSeeding(true);
         setConfirmStep(false);
         try {
-            // 1. Delete existing data for this user
-            // Note: RLS should handle this, but explicit check is good
-            // System data (user_id is null) should NOT be deleted by user
-
-            // Actually, "Reset Data" for a user might mean clearing their custom cards/preferences
-            // or resetting their performance data.
-            // If the intention is to seed SYSTEM data, that should be an admin function or handled differently.
-            // For now, let's assume this button resets the USER'S personal data (performances, history, custom cards).
-
-            const userId = user.id;
-
-            await supabase.from('transaction_history').delete().eq('user_id', userId);
-            await supabase.from('user_card_performances').delete().eq('user_id', userId);
-            await supabase.from('benefit_rules').delete().eq('user_id', userId);
-            await supabase.from('cards').delete().eq('user_id', userId);
-
-            // Brands and Categories are shared/system for now? 
-            // If users can add custom brands, we should delete those too.
-            // await supabase.from('brands').delete().eq('user_id', userId); 
-            // await supabase.from('categories').delete().eq('user_id', userId);
-
-            // Re-seed? Maybe just clear data is better for "Reset"?
-            // Or if "Seed" means "Load Defaults onto User Account" (like copying system cards to user cards?)
-            // The original logic acted like a dev tool to reset the entire DB.
-            // Let's change it to "Clear My Data".
-
+            await apiClient.resetAccountData();
             addToast('개인 데이터 초기화 완료! 새로고침합니다.', 'success');
             setTimeout(() => window.location.reload(), 1000);
-        } catch (e: any) {
-            console.error(e);
-            addToast('오류 발생: ' + e.message, 'error');
+        } catch (error: unknown) {
+            addToast(getErrorMessage(error, '개인 데이터를 초기화하지 못했습니다.'), 'error');
         } finally {
             setIsSeeding(false);
         }
     };
 
     const handleUpdatePerformance = async (cardId: string, value: number) => {
-        // Optimistic update store
-        updatePerformance({ cardId, amount: value });
+        const requestVersion = (performanceRequestVersions.current[cardId] || 0) + 1;
+        performanceRequestVersions.current[cardId] = requestVersion;
+        setSavingPerformanceCards(current => ({ ...current, [cardId]: true }));
 
-        // Sync to DB (Upsert)
-        const user = (await supabase.auth.getUser()).data.user;
-        if (!user) {
-            // For guest/demo mode, maybe just local state? 
-            // But we want to encourage login.
-            // console.warn('No user logged in, performance not saved to DB');
-            return;
+        try {
+            const performance = await apiClient.updatePerformance(
+                cardId,
+                value,
+                performancePeriod.performanceMonth
+            );
+            if (performanceRequestVersions.current[cardId] !== requestVersion) return;
+            updatePerformance(performance);
+            setPerformanceDrafts(current => {
+                const next = { ...current };
+                delete next[cardId];
+                return next;
+            });
+            addToast(`${performanceMonthLabel} 실적을 저장했습니다.`, 'success');
+        } catch (error: unknown) {
+            if (performanceRequestVersions.current[cardId] !== requestVersion) return;
+            addToast(getErrorMessage(error, '전월 실적을 저장하지 못했습니다.'), 'error');
+        } finally {
+            if (performanceRequestVersions.current[cardId] === requestVersion) {
+                setSavingPerformanceCards(current => ({ ...current, [cardId]: false }));
+            }
         }
-
-        const { error } = await supabase.from('user_card_performances').upsert({
-            user_id: user.id,
-            card_id: cardId,
-            amount: value
-        }, { onConflict: 'user_id,card_id' });
-
-        if (error) console.error('Perf sync failed', error);
     };
 
     const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -119,44 +153,108 @@ export default function SettingsPage() {
             <div className="px-5 pt-6 space-y-8 max-w-lg mx-auto">
 
                 {/* 1. Performance Tuning */}
-                <section>
+                <section id="performance" className="scroll-mt-24">
                     <div className="flex items-center gap-2 mb-4 px-1">
                         <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
                             <PieChart className="w-4 h-4" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-bold text-gray-900">전월 실적 설정</h2>
-                            <p className="text-[10px] text-gray-500">카드별 실적에 따라 혜택 구간이 달라집니다.</p>
+                            <h2 className="text-sm font-bold text-gray-900">{performanceMonthLabel} 실적 입력</h2>
+                            <p className="text-[10px] text-gray-500">
+                                {benefitMonthLabel} 혜택 계산에 사용할 카드별 실적입니다.
+                            </p>
                         </div>
                     </div>
 
                     <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-6">
-                        {cards.map(card => {
-                            const myPerf = performances.find(p => p.cardId === card.id)?.amount || 0;
-                            const percentage = Math.min(100, (myPerf / 1000000) * 100);
+                        {performanceCards.length > 0 && (
+                            <div className="flex items-center justify-between rounded-2xl bg-blue-50 px-4 py-3 text-xs">
+                                <span className="font-bold text-blue-900">관리 중 카드 입력 현황</span>
+                                <span className="font-black text-blue-700">
+                                    {managedPerformanceCards.length > 0
+                                        ? `${completedPerformanceCount}/${managedPerformanceCards.length}개 완료`
+                                        : '관리 중 카드 없음'}
+                                </span>
+                            </div>
+                        )}
+
+                        {performanceCards.map(card => {
+                            const storedPerformance = currentPerformances.find(
+                                performance => performance.cardId === card.id
+                            );
+                            const hasDraft = Object.prototype.hasOwnProperty.call(performanceDrafts, card.id);
+                            const draft = performanceDrafts[card.id];
+                            const inputValue = hasDraft
+                                ? draft
+                                : (storedPerformance ? String(storedPerformance.amount) : '');
+                            const draftAmount = inputValue === '' ? null : Number(inputValue);
+                            const hasChangedValue = hasDraft
+                                && draftAmount !== null
+                                && (!storedPerformance || storedPerformance.amount !== draftAmount);
+                            const displayAmount = draftAmount ?? storedPerformance?.amount ?? 0;
+                            const percentage = Math.min(100, (displayAmount / 1000000) * 100);
+                            const isSaving = Boolean(savingPerformanceCards[card.id]);
 
                             return (
                                 <div key={card.id} className="group">
-                                    <div className="flex justify-between items-end mb-3">
+                                    <div className="mb-3 flex items-start justify-between gap-3">
                                         <div>
                                             <span className="font-bold text-sm text-gray-800 block mb-0.5">{card.name}</span>
                                             <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">{card.company}</span>
                                         </div>
-                                        <div className="text-right flex items-end gap-1">
+                                        <span className={clsx(
+                                            'inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-black',
+                                            storedPerformance
+                                                ? 'bg-emerald-50 text-emerald-700'
+                                                : 'bg-amber-50 text-amber-700'
+                                        )}>
+                                            {storedPerformance
+                                                ? <CheckCircle2 className="h-3 w-3" />
+                                                : <AlertCircle className="h-3 w-3" />}
+                                            {storedPerformance ? '입력 완료' : '미입력'}
+                                        </span>
+                                    </div>
+
+                                    <div className="mb-3 flex items-end gap-2">
+                                        <div className="flex min-w-0 flex-1 items-end gap-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-400 focus-within:bg-white">
                                             <input
                                                 type="text"
                                                 inputMode="numeric"
-                                                value={myPerf === 0 ? '' : myPerf}
-                                                placeholder="0"
+                                                value={inputValue}
+                                                placeholder="실적 금액"
+                                                aria-label={`${card.name} ${performanceMonthLabel} 실적`}
+                                                disabled={isSaving}
                                                 onChange={(e) => {
-                                                    const val = Number(e.target.value.replace(/[^0-9]/g, ''));
-                                                    handleUpdatePerformance(card.id, val);
+                                                    const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 12);
+                                                    setPerformanceDrafts(current => ({
+                                                        ...current,
+                                                        [card.id]: value,
+                                                    }));
                                                 }}
-                                                className="block w-24 text-right text-lg font-black text-blue-600 tracking-tight border-b border-gray-200 focus:border-blue-500 focus:outline-none bg-transparent placeholder-gray-300"
+                                                className="block min-w-0 flex-1 bg-transparent text-right text-lg font-black tracking-tight text-blue-600 outline-none placeholder:text-sm placeholder:font-bold placeholder:text-gray-300 disabled:cursor-wait disabled:opacity-60"
                                             />
-                                            <span className="text-xs font-bold text-gray-400 mb-1">원</span>
+                                            <span className="mb-1 text-xs font-bold text-gray-400">원</span>
                                         </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => draftAmount !== null && handleUpdatePerformance(card.id, draftAmount)}
+                                            disabled={!hasChangedValue || isSaving}
+                                            className="rounded-xl bg-blue-600 px-3 py-3 text-xs font-black text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
+                                        >
+                                            {isSaving ? '저장 중' : '저장'}
+                                        </button>
                                     </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => handleUpdatePerformance(card.id, 0)}
+                                        disabled={isSaving || (storedPerformance?.amount === 0 && !hasDraft)}
+                                        className="mb-3 text-[10px] font-bold text-gray-400 underline decoration-gray-200 underline-offset-4 transition-colors hover:text-blue-600 disabled:cursor-default disabled:text-emerald-600 disabled:no-underline"
+                                    >
+                                        {storedPerformance?.amount === 0 && !hasDraft
+                                            ? '0원 입력 완료'
+                                            : '사용 실적 없음 (0원으로 저장)'}
+                                    </button>
 
                                     <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
                                         <div
@@ -173,9 +271,9 @@ export default function SettingsPage() {
                                 </div>
                             );
                         })}
-                        {cards.length === 0 && (
+                        {performanceCards.length === 0 && (
                             <div className="text-center py-8">
-                                <p className="text-gray-400 text-xs">등록된 카드가 없습니다.</p>
+                                <p className="text-gray-400 text-xs">실적 조건이 필요한 카드가 없습니다.</p>
                             </div>
                         )}
                     </div>
@@ -189,7 +287,7 @@ export default function SettingsPage() {
                         </div>
                         <div>
                             <h2 className="text-sm font-bold text-gray-900">데이터 관리</h2>
-                            <p className="text-[10px] text-gray-500">앱 데이터를 초기화하거나 관리합니다.</p>
+                            <p className="text-[10px] text-gray-500">개인 데이터와 사용자 항목을 관리합니다.</p>
                         </div>
                     </div>
 
@@ -223,10 +321,10 @@ export default function SettingsPage() {
                                     {isSeeding ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                 </div>
                                 <span className={clsx("font-bold text-sm", confirmStep ? "text-red-700" : "text-gray-800")}>
-                                    {isSeeding ? '초기화 중...' : confirmStep ? '정말 삭제?' : '데이터 초기화'}
+                                    {isSeeding ? '삭제 중...' : confirmStep ? '정말 삭제?' : '개인 데이터 삭제'}
                                 </span>
                                 <span className="text-[10px] text-gray-400 mt-0.5">
-                                    {confirmStep ? '클릭하여 확정' : '샘플 데이터 복원'}
+                                    {confirmStep ? '클릭하여 확정' : '기록/실적/내 항목 삭제'}
                                 </span>
                             </button>
                         </div>
@@ -242,7 +340,7 @@ export default function SettingsPage() {
                             </div>
                             <div>
                                 <h2 className="text-sm font-bold text-gray-900">등록된 카드 목록</h2>
-                                <p className="text-[10px] text-gray-500">카드를 선택하여 상세 정보를 수정하세요.</p>
+                                <p className="text-[10px] text-gray-500">직접 추가한 카드를 선택해 수정할 수 있습니다.</p>
                             </div>
                         </div>
                         <button
@@ -260,11 +358,18 @@ export default function SettingsPage() {
                         {cards.map((card, idx) => (
                             <button
                                 key={card.id}
+                                disabled={!card.userId}
                                 onClick={() => {
+                                    if (!card.userId) return;
                                     setSelectedCardId(card.id);
                                     setIsCardModalOpen(true);
                                 }}
-                                className="w-full bg-white p-4 rounded-2xl border border-gray-100 flex items-center justify-between group transition-all hover:shadow-md hover:border-gray-200 hover:-translate-y-0.5 duration-300 text-left"
+                                className={clsx(
+                                    'w-full bg-white p-4 rounded-2xl border border-gray-100 flex items-center justify-between group transition-all duration-300 text-left',
+                                    card.userId
+                                        ? 'hover:shadow-md hover:border-gray-200 hover:-translate-y-0.5'
+                                        : 'cursor-default opacity-75'
+                                )}
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="w-8 text-center font-bold text-gray-300 text-xs italic">
@@ -276,14 +381,39 @@ export default function SettingsPage() {
                                         <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
                                             <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
                                             {card.company}
+                                            {!card.userId && (
+                                                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-gray-400">기본 카드</span>
+                                            )}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
-                                    <ChevronRight className="w-4 h-4" />
-                                </div>
+                                {card.userId && (
+                                    <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors">
+                                        <ChevronRight className="w-4 h-4" />
+                                    </div>
+                                )}
                             </button>
                         ))}
+                    </div>
+                </section>
+
+                <section className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                            <p className="text-sm font-bold text-gray-900 truncate">
+                                {user?.name || '내 계정'}
+                            </p>
+                            <p className="text-[11px] text-gray-400 truncate">{user?.email}</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleSignOut}
+                            disabled={isSigningOut}
+                            className="flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2.5 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50"
+                        >
+                            <LogOut className="h-4 w-4" />
+                            {isSigningOut ? '로그아웃 중' : '로그아웃'}
+                        </button>
                     </div>
                 </section>
 
@@ -307,5 +437,3 @@ export default function SettingsPage() {
         </main>
     );
 }
-
-

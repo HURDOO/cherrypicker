@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { BenefitRule, ActionType, PlatformType, BrandId, CategoryId } from '@/types';
+import React, { useState } from 'react';
+import { BenefitRule, ActionType, PlatformType } from '@/types';
 import { useAppStore } from '@/store/useAppStore';
-import { supabase } from '@/supabase/client';
-import { X, Plus, Trash2, Check, AlertCircle } from 'lucide-react';
-import clsx from 'clsx';
+import { X, Trash2, Check } from 'lucide-react';
 import { useToastStore } from '@/store/useToastStore';
+import { apiClient, getErrorMessage } from '@/lib/api-client';
 
 interface EditRuleModalProps {
     isOpen: boolean;
@@ -13,185 +12,111 @@ interface EditRuleModalProps {
     existingRule?: BenefitRule | null; // null means create new
 }
 
+const createInitialFormData = (cardId: string, existingRule?: BenefitRule | null): Partial<BenefitRule> => {
+    if (existingRule) {
+        const rule = structuredClone(existingRule);
+        return {
+            ...rule,
+            condition: {
+                ...rule.condition,
+                minSpend: rule.condition.minSpend || 0,
+                minPerformance: rule.condition.minPerformance || 0
+            },
+            action: {
+                ...rule.action,
+                maxDiscount: rule.action.maxDiscount || 0
+            },
+            limitConfig: {
+                dailyCount: 0,
+                monthlyCount: 0,
+                yearlyCount: 0,
+                monthlyAmount: 0,
+                ...rule.limitConfig
+            },
+            includedBrands: rule.includedBrands || [],
+            excludedBrands: rule.excludedBrands || [],
+            platformType: rule.platformType || 'ALL'
+        };
+    }
+
+    return {
+        cardId,
+        description: '',
+        detail: '',
+        category: '',
+        platformType: 'ALL',
+        condition: { minSpend: 0, minPerformance: 0 },
+        action: { type: 'PERCENT', value: 0, maxDiscount: 0 },
+        limitConfig: {
+            dailyCount: 0,
+            monthlyCount: 0,
+            yearlyCount: 0,
+            monthlyAmount: 0
+        },
+        includedBrands: [],
+        excludedBrands: []
+    };
+};
+
 export default function EditRuleModal({ isOpen, onClose, cardId, existingRule }: EditRuleModalProps) {
-    const { brands, categories, addRule, updateRule } = useAppStore();
+    const { brands, categories, addRule, updateRule, removeRule } = useAppStore();
     const { addToast } = useToastStore();
 
     // Local State
-    const [formData, setFormData] = useState<Partial<BenefitRule>>({
-        // Defaults
-        condition: { minSpend: 0, minPerformance: 0 },
-        action: { type: 'PERCENT', value: 0 },
-        limitConfig: { monthlyAmount: 0 },
-        platformType: 'ALL',
-        includedBrands: [],
-        excludedBrands: [],
-    });
-
-    useEffect(() => {
-        if (isOpen) {
-            if (existingRule) {
-                // Merge existing rule with defaults to ensure no undefined fields
-                const defaults: Partial<BenefitRule> = {
-                    condition: { minSpend: 0, minPerformance: 0 },
-                    action: { type: 'PERCENT', value: 0, maxDiscount: 0 },
-                    limitConfig: {
-                        dailyCount: 0,
-                        monthlyCount: 0,
-                        yearlyCount: 0,
-                        monthlyAmount: 0
-                    },
-                    includedBrands: [],
-                    excludedBrands: [],
-                    platformType: 'ALL'
-                };
-                setFormData({ ...defaults, ...JSON.parse(JSON.stringify(existingRule)) });
-            } else {
-                setFormData({
-                    cardId,
-                    description: '',
-                    detail: '',
-                    category: '',
-                    platformType: 'ALL',
-                    condition: { minSpend: 0, minPerformance: 0 },
-                    action: { type: 'PERCENT', value: 0, maxDiscount: 0 },
-                    limitConfig: {
-                        dailyCount: 0,
-                        monthlyCount: 0,
-                        yearlyCount: 0,
-                        monthlyAmount: 0
-                    },
-                    includedBrands: [],
-                    excludedBrands: []
-                });
-            }
-        }
-    }, [isOpen, existingRule, cardId]);
+    const [formData, setFormData] = useState<Partial<BenefitRule>>(() =>
+        createInitialFormData(cardId, existingRule)
+    );
 
     const handleSave = async () => {
-        if (!formData.description) return addToast('설명을 입력해주세요.', 'error');
-        if (!formData.action?.value) return addToast('혜택 값을 입력해주세요.', 'error');
-
-        const user = (await supabase.auth.getUser()).data.user;
-        if (!user) {
-            addToast('로그인이 필요합니다.', 'error');
-            return;
-        }
+        const description = formData.description?.trim();
+        const action = formData.action;
+        if (!description) return addToast('설명을 입력해주세요.', 'error');
+        if (!action?.value) return addToast('혜택 값을 입력해주세요.', 'error');
 
         try {
-
-            // Safety check: Don't edit system rules
-            if (existingRule) {
-                // If existingRule.userId is missing or not me, block
-                if (!existingRule.userId && existingRule.id.length > 0) {
-                    addToast('시스템 제공 혜택은 수정할 수 없습니다.', 'error');
-                    return;
-                }
-                if (existingRule.userId !== user.id) {
-                    addToast('권한이 없는 혜택입니다.', 'error');
-                    return;
-                }
-            }
-
-            // Prepare payload
-            const payload: BenefitRule = {
-                // @ts-ignore: ID will be generated or is existing
-                id: formData.id || crypto.randomUUID(), // Temp ID if new
-                cardId: cardId,
-                userId: user.id,
-                ...formData
-            } as BenefitRule;
-
-            // DB Update
-            const dbPayload = {
-                id: existingRule ? existingRule.id : undefined,
-                card_id: cardId,
-                user_id: user.id, // Explicitly set owner
-                category: payload.category || null,
-                included_brands: payload.includedBrands || [],
-                excluded_brands: payload.excludedBrands || [],
-                platform_type: payload.platformType,
-                description: payload.description,
-                detail: payload.detail,
-                condition: payload.condition,
-                action: payload.action,
-                limit_config: payload.limitConfig
+            const payload = {
+                cardId,
+                category: formData.category || null,
+                includedBrands: formData.includedBrands || [],
+                excludedBrands: formData.excludedBrands || [],
+                platformType: formData.platformType || 'ALL',
+                sharedGroupId: formData.sharedGroupId || null,
+                usesCardLimit: formData.usesCardLimit,
+                description,
+                detail: formData.detail || '',
+                condition: formData.condition || {},
+                action,
+                limitConfig: formData.limitConfig || {}
             };
 
-            let savedData;
             if (existingRule) {
-                const { data, error } = await supabase.from('benefit_rules')
-                    .update(dbPayload)
-                    .eq('id', existingRule.id)
-                    .eq('user_id', user.id) // Security
-                    .select()
-                    .single();
-
-                if (error) throw error;
-                savedData = data;
-                updateRule({ ...payload, userId: user.id }); // Optimistic
+                const savedRule = await apiClient.updateRule(existingRule.id, payload);
+                updateRule(savedRule);
             } else {
-                const { data, error } = await supabase.from('benefit_rules').insert({
-                    ...dbPayload,
-                    id: payload.id
-                }).select().single();
-                if (error) throw error;
-                savedData = data;
-                // Update local store with real ID
-                addRule({
-                    ...payload,
-                    id: data.id,
-                    userId: user.id
-                });
+                const savedRule = await apiClient.createRule(payload);
+                addRule(savedRule);
             }
 
             addToast('혜택이 저장되었습니다.', 'success');
             onClose();
 
-        } catch (e: any) {
-            console.error(e);
-            addToast('저장 실패: ' + e.message, 'error');
+        } catch (error: unknown) {
+            addToast(getErrorMessage(error, '혜택을 저장하지 못했습니다.'), 'error');
         }
     };
 
     const handleDelete = async () => {
         if (!existingRule || !confirm('정말 삭제하시겠습니까?')) return;
 
-        const user = (await supabase.auth.getUser()).data.user;
-        if (!user) {
-            addToast('로그인이 필요합니다.', 'error');
-            return;
-        }
-
-        if (!existingRule.userId || existingRule.userId !== user.id) {
-            addToast('권한이 없습니다.', 'error');
-            return;
-        }
-
         try {
-            const { error } = await supabase
-                .from('benefit_rules')
-                .delete()
-                .eq('id', existingRule.id)
-                .eq('user_id', user.id);
-
-            if (error) throw error;
-
-            // Should add a deleteRule action to store
-            // For now, reloading or re-fetching might be simplest or adding the action
-            // Assuming store has no removeRule? Let's check store later.
-            // Just refresh page for safety or implement removeRule in store.
-
-            // Quick fix: Remove from local state if store supports it, otherwise reload
-            // window.location.reload(); 
-            // Better: 
-            addToast('삭제되었습니다. (새로고침 권장)', 'success');
-            setTimeout(() => window.location.reload(), 500);
-
-        } catch (e: any) {
-            addToast('삭제 실패: ' + e.message, 'error');
+            await apiClient.deleteRule(existingRule.id);
+            removeRule(existingRule.id);
+            addToast('삭제되었습니다.', 'success');
+            onClose();
+        } catch (error: unknown) {
+            addToast(getErrorMessage(error, '혜택을 삭제하지 못했습니다.'), 'error');
         }
-    }
+    };
 
     if (!isOpen) return null;
 
@@ -388,7 +313,6 @@ export default function EditRuleModal({ isOpen, onClose, cardId, existingRule }:
                                     type="number"
                                     placeholder="0 (무제한)"
                                     className="w-full p-2 border border-gray-200 rounded-lg text-sm text-right"
-                                    // @ts-ignore
                                     value={formData.action?.maxDiscount || 0}
                                     onChange={e => setFormData({
                                         ...formData,

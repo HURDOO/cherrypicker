@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS public.benefit_rules (
     -- Grouping for Shared Limits (e.g. "Conv & Cafe share 5k limit")
     -- If multiple rules have the same shared_group_id, their usage is aggregated together.
     shared_group_id TEXT, 
+    uses_card_limit BOOLEAN DEFAULT TRUE,
 
     description TEXT, -- UI display e.g. "Starbucks 20%"
     detail TEXT, -- UI display e.g. "Min spend 10k, Max 4k"

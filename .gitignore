@@ -20,6 +20,13 @@
 # production
 /build
 
+# sqlite databases and online backups
+/data/*.db
+/data/*.db-*
+/data/*.sqlite
+/data/*.sqlite-*
+/backups/
+
 # misc
 .DS_Store
 *.pem

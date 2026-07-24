@@ -39,6 +39,8 @@ export type ActionType = 'PERCENT' | 'FLAT' | 'FIXED_PRICE';
 export interface RuleCondition {
     minSpend?: number;
     minPerformance?: number;
+    manualCheckRequired?: boolean;
+    requiredNote?: string;
 }
 
 export interface RuleAction {
@@ -64,6 +66,7 @@ export interface BenefitRule {
 
     platformType?: PlatformType;
     sharedGroupId?: string; // For grouping limits
+    usesCardLimit?: boolean; // false for benefits with separate/non-integrated caps
 
     description: string;
     detail: string;
@@ -76,6 +79,7 @@ export interface BenefitRule {
 // User Data
 export interface UserCardPerformance {
     cardId: CardId;
+    performanceMonth: string; // YYYY-MM, based on Korea Standard Time
     amount: number; // Previous month performance
 }
 

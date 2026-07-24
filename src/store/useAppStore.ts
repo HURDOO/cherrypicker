@@ -29,14 +29,17 @@ interface AppState {
     }) => void;
 
     addTransaction: (transaction: TransactionHistory) => void;
+    clearHistory: () => void;
     updatePerformance: (perf: UserCardPerformance) => void;
     setLoading: (loading: boolean) => void;
+    resetData: () => void;
 
     // Data Management Actions
     addCard: (card: Card) => void;
     updateCard: (card: Card) => void;
     addRule: (rule: BenefitRule) => void;
     updateRule: (rule: BenefitRule) => void;
+    removeRule: (id: string) => void;
     addBrand: (brand: Brand) => void;
     updateBrand: (brand: Brand) => void;
     removeBrand: (id: string) => void;
@@ -74,10 +77,13 @@ export const useAppStore = create<AppState>((set) => ({
     addTransaction: (transaction) => set((state) => ({
         history: [transaction, ...state.history]
     })),
+    clearHistory: () => set({ history: [] }),
 
     updatePerformance: (perf) => set((state) => {
-        const existingIndex = state.performances.findIndex(p => p.cardId === perf.cardId);
-        let newPerformances = [...state.performances];
+        const existingIndex = state.performances.findIndex(p =>
+            p.cardId === perf.cardId && p.performanceMonth === perf.performanceMonth
+        );
+        const newPerformances = [...state.performances];
         if (existingIndex >= 0) {
             newPerformances[existingIndex] = perf;
         } else {
@@ -87,6 +93,16 @@ export const useAppStore = create<AppState>((set) => ({
     }),
 
     setLoading: (loading) => set({ isLoading: loading }),
+    resetData: () => set({
+        categories: [],
+        brands: [],
+        cards: [],
+        rules: [],
+        performances: [],
+        history: [],
+        selectedBrandId: '',
+        isLoading: false,
+    }),
 
     addCard: (card) => set(state => ({ cards: [...state.cards, card] })),
     updateCard: (card) => set(state => ({
@@ -96,6 +112,9 @@ export const useAppStore = create<AppState>((set) => ({
     addRule: (rule) => set(state => ({ rules: [...state.rules, rule] })),
     updateRule: (rule) => set(state => ({
         rules: state.rules.map(r => r.id === rule.id ? rule : r)
+    })),
+    removeRule: (id) => set(state => ({
+        rules: state.rules.filter(rule => rule.id !== id)
     })),
 
     addBrand: (brand) => set(state => ({ brands: [...state.brands, brand] })),

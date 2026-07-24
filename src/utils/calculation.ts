@@ -1,41 +1,371 @@
 import {
-    Card, BenefitRule, Brand, TransactionHistory, UserCardPerformance, CalculatedCard, LimitTableItem
+    BenefitRule,
+    Brand,
+    CalculatedCard,
+    Card,
+    LimitConfig,
+    RuleAction,
+    TransactionHistory,
+    UserCardPerformance,
 } from '@/types';
 
-/**
- * Helper: Check if a date is today
- */
-const isToday = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const now = new Date();
-    return d.toDateString() === now.toDateString();
+type RuleUsage = {
+    dailyCount: number;
+    monthlyCount: number;
+    yearlyCount: number;
+    monthlyAmount: number;
+    isDailyLimitReached?: boolean;
+    isMonthlyLimitReached?: boolean;
+    isYearlyLimitReached?: boolean;
+    isMonthlyAmountLimitReached?: boolean;
 };
 
-/**
- * Helper: Check if a date is in this month
- */
+type RuleEvaluation = {
+    rule: BenefitRule;
+    discount: number;
+    reason: string;
+    isApplicable: boolean;
+    usage: RuleUsage;
+};
+
+type CalculationContext = {
+    usageByCard: Map<string, Map<string, RuleUsage>>;
+    monthlyDiscountByCard: Map<string, number>;
+    integratedMonthlyDiscountByCard: Map<string, number>;
+};
+
+const INFINITE_LIMIT = 999999999;
+const KST_OFFSET_MILLISECONDS = 9 * 60 * 60 * 1_000;
+
+const getKstDateParts = (date: Date) => {
+    const kstDate = new Date(date.getTime() + KST_OFFSET_MILLISECONDS);
+    return {
+        year: kstDate.getUTCFullYear(),
+        month: kstDate.getUTCMonth(),
+        day: kstDate.getUTCDate(),
+    };
+};
+
+const isToday = (dateStr: string) => {
+    const date = getKstDateParts(new Date(dateStr));
+    const now = getKstDateParts(new Date());
+    return date.year === now.year && date.month === now.month && date.day === now.day;
+};
+
 const isThisMonth = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const now = new Date();
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    const date = getKstDateParts(new Date(dateStr));
+    const now = getKstDateParts(new Date());
+    return date.month === now.month && date.year === now.year;
 };
 
 const isThisYear = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const now = new Date();
-    return d.getFullYear() === now.getFullYear();
+    const date = getKstDateParts(new Date(dateStr));
+    const now = getKstDateParts(new Date());
+    return date.year === now.year;
 };
 
-/**
- * Calculate the best cards for a given payment
- * @param amount Payment amount
- * @param brand Target brand
- * @param cards All available cards
- * @param rules All available rules
- * @param history Full transaction history
- * @param performances User's card performance
- * @param isOnline Is this an online payment? (Toggle from UI)
- */
+const getSnakeOrCamel = <T>(obj: unknown, camelKey: string, snakeKey: string, fallback: T): T => {
+    if (!obj || typeof obj !== 'object') return fallback;
+    const record = obj as Record<string, T | undefined>;
+    return record[camelKey] ?? record[snakeKey] ?? fallback;
+};
+
+const getIncludedBrands = (rule: BenefitRule) =>
+    getSnakeOrCamel<string[]>(rule, 'includedBrands', 'included_brands', []);
+
+const getExcludedBrands = (rule: BenefitRule) =>
+    getSnakeOrCamel<string[]>(rule, 'excludedBrands', 'excluded_brands', []);
+
+const getPlatformType = (rule: BenefitRule) =>
+    getSnakeOrCamel(rule, 'platformType', 'platform_type', 'ALL');
+
+const getSharedGroupId = (rule: BenefitRule) =>
+    getSnakeOrCamel<string | undefined>(rule, 'sharedGroupId', 'shared_group_id', undefined);
+
+const getLimitConfig = (rule: BenefitRule): LimitConfig =>
+    getSnakeOrCamel<LimitConfig>(rule, 'limitConfig', 'limit_config', {});
+
+const getLimitValue = (limitConfig: LimitConfig, camelKey: keyof LimitConfig, snakeKey: string) =>
+    getSnakeOrCamel<number | undefined>(limitConfig, camelKey, snakeKey, undefined);
+
+const getAction = (rule: BenefitRule): RuleAction => rule.action || { type: 'FLAT', value: 0 };
+
+const getActionMaxDiscount = (action: RuleAction) =>
+    getSnakeOrCamel<number | undefined>(action, 'maxDiscount', 'max_discount', undefined);
+
+const getConditionMinSpend = (rule: BenefitRule) =>
+    getSnakeOrCamel<number | undefined>(rule.condition, 'minSpend', 'min_spend', undefined) || 0;
+
+const getConditionMinPerformance = (rule: BenefitRule) =>
+    getSnakeOrCamel<number | undefined>(rule.condition, 'minPerformance', 'min_performance', undefined) || 0;
+
+const getConditionManualCheckRequired = (rule: BenefitRule) =>
+    getSnakeOrCamel<boolean>(rule.condition, 'manualCheckRequired', 'manual_check_required', false);
+
+const getConditionRequiredNote = (rule: BenefitRule) =>
+    getSnakeOrCamel<string | undefined>(rule.condition, 'requiredNote', 'required_note', undefined);
+
+const ruleUsesCardLimit = (rule: BenefitRule) =>
+    getSnakeOrCamel<boolean>(rule, 'usesCardLimit', 'uses_card_limit', true);
+
+const getRuleSpecificity = (rule: BenefitRule, brand: Brand) => {
+    const includedBrands = getIncludedBrands(rule);
+    if (includedBrands.includes(brand.id)) return 3;
+    if (rule.category === brand.categoryId && includedBrands.length === 0) return 2;
+    if (!rule.category && includedBrands.length === 0) return 1;
+    return 0;
+};
+
+const matchesRule = (rule: BenefitRule, brand: Brand) => {
+    if (getExcludedBrands(rule).includes(brand.id)) return false;
+    return getRuleSpecificity(rule, brand) > 0;
+};
+
+const getTrackingId = (rule: BenefitRule) => getSharedGroupId(rule) || rule.id;
+
+const addAmount = (totals: Map<string, number>, cardId: string, amount: number) => {
+    totals.set(cardId, (totals.get(cardId) ?? 0) + amount);
+};
+
+const buildCalculationContext = (
+    rules: BenefitRule[],
+    history: TransactionHistory[]
+): CalculationContext => {
+    const ruleById = new Map(rules.map(rule => [rule.id, rule]));
+    const usageByCard = new Map<string, Map<string, RuleUsage>>();
+    const monthlyDiscountByCard = new Map<string, number>();
+    const integratedMonthlyDiscountByCard = new Map<string, number>();
+
+    history.forEach((transaction) => {
+        const isDaily = isToday(transaction.date);
+        const isMonthly = isThisMonth(transaction.date);
+        const isYearly = isThisYear(transaction.date);
+        const transactionRule = transaction.ruleId
+            ? ruleById.get(transaction.ruleId)
+            : undefined;
+
+        if (isMonthly) {
+            addAmount(
+                monthlyDiscountByCard,
+                transaction.cardId,
+                transaction.discountAmount || 0
+            );
+
+            if (!transactionRule || ruleUsesCardLimit(transactionRule)) {
+                addAmount(
+                    integratedMonthlyDiscountByCard,
+                    transaction.cardId,
+                    transaction.discountAmount || 0
+                );
+            }
+        }
+
+        if (!transactionRule) return;
+
+        let cardUsage = usageByCard.get(transaction.cardId);
+        if (!cardUsage) {
+            cardUsage = new Map();
+            usageByCard.set(transaction.cardId, cardUsage);
+        }
+
+        const trackingId = getTrackingId(transactionRule);
+        let usage = cardUsage.get(trackingId);
+        if (!usage) {
+            usage = {
+                dailyCount: 0,
+                monthlyCount: 0,
+                yearlyCount: 0,
+                monthlyAmount: 0,
+            };
+            cardUsage.set(trackingId, usage);
+        }
+
+        if (isDaily) usage.dailyCount += 1;
+        if (isMonthly) {
+            usage.monthlyCount += 1;
+            usage.monthlyAmount += transaction.discountAmount || 0;
+        }
+        if (isYearly) usage.yearlyCount += 1;
+    });
+
+    return {
+        usageByCard,
+        monthlyDiscountByCard,
+        integratedMonthlyDiscountByCard,
+    };
+};
+
+const getUsageStat = (
+    matchedRule: BenefitRule,
+    card: Card,
+    context: CalculationContext,
+): RuleUsage => {
+    const usage = context.usageByCard
+        .get(card.id)
+        ?.get(getTrackingId(matchedRule));
+
+    return {
+        dailyCount: usage?.dailyCount ?? 0,
+        monthlyCount: usage?.monthlyCount ?? 0,
+        yearlyCount: usage?.yearlyCount ?? 0,
+        monthlyAmount: usage?.monthlyAmount ?? 0,
+        isDailyLimitReached: false,
+        isMonthlyLimitReached: false,
+        isYearlyLimitReached: false,
+        isMonthlyAmountLimitReached: false,
+    };
+};
+
+const getMonthlyMaxLimit = (card: Card, myPerformance: number) => {
+    if (!card.limitTable || card.limitTable.length === 0) return INFINITE_LIMIT;
+
+    const sortedTable = [...card.limitTable].sort((a, b) => b.threshold - a.threshold);
+    const tier = sortedTable.find(t => myPerformance >= t.threshold);
+    return tier ? tier.limit : 0;
+};
+
+const getUsedIntegratedLimit = (
+    card: Card,
+    context: CalculationContext,
+) => {
+    if (!card.limitTable || card.limitTable.length === 0) {
+        return context.monthlyDiscountByCard.get(card.id) ?? 0;
+    }
+
+    return context.integratedMonthlyDiscountByCard.get(card.id) ?? 0;
+};
+
+const calculateRuleDiscount = (amount: number, action: RuleAction) => {
+    if (action.type === 'PERCENT') {
+        const rawDiscount = Math.floor(amount * (action.value / 100));
+        const maxDiscount = getActionMaxDiscount(action);
+        return maxDiscount ? Math.min(rawDiscount, maxDiscount) : rawDiscount;
+    }
+
+    if (action.type === 'FLAT') return action.value;
+    if (action.type === 'FIXED_PRICE') return Math.max(0, amount - action.value);
+
+    return 0;
+};
+
+const evaluateRule = ({
+    rule,
+    amount,
+    card,
+    context,
+    myPerformance,
+    isOnline,
+    remainingLimit,
+}: {
+    rule: BenefitRule;
+    amount: number;
+    card: Card;
+    context: CalculationContext;
+    myPerformance: number;
+    isOnline: boolean;
+    remainingLimit: number;
+}): RuleEvaluation => {
+    const usage = getUsageStat(rule, card, context);
+    const result: RuleEvaluation = {
+        rule,
+        discount: 0,
+        reason: '',
+        isApplicable: false,
+        usage,
+    };
+
+    const platformType = getPlatformType(rule);
+    if ((platformType === 'ONLINE' || platformType === 'OFFICIAL_SITE') && !isOnline) {
+        result.reason = platformType === 'OFFICIAL_SITE' ? '공식 홈페이지/앱 결제 전용' : '온라인 결제 전용';
+        return result;
+    }
+    if (platformType === 'OFFLINE' && isOnline) {
+        result.reason = '현장 결제 전용';
+        return result;
+    }
+
+    const minSpend = getConditionMinSpend(rule);
+    if (amount < minSpend) {
+        result.reason = `최소 결제금액(${minSpend.toLocaleString()}원) 부족`;
+        return result;
+    }
+
+    const minPerformance = getConditionMinPerformance(rule);
+    if (myPerformance < minPerformance) {
+        result.reason = `실적 조건(${minPerformance.toLocaleString()}원) 부족`;
+        return result;
+    }
+
+    if (getConditionManualCheckRequired(rule)) {
+        result.reason = getConditionRequiredNote(rule) || '추가 조건 확인 필요';
+        return result;
+    }
+
+    const limitConfig = getLimitConfig(rule);
+    const dailyCountLimit = getLimitValue(limitConfig, 'dailyCount', 'daily_count');
+    const monthlyCountLimit = getLimitValue(limitConfig, 'monthlyCount', 'monthly_count');
+    const yearlyCountLimit = getLimitValue(limitConfig, 'yearlyCount', 'yearly_count');
+    const monthlyAmountLimit = getLimitValue(limitConfig, 'monthlyAmount', 'monthly_amount');
+
+    if (dailyCountLimit && usage.dailyCount >= dailyCountLimit) {
+        result.reason = '일 횟수 제한 초과';
+        usage.isDailyLimitReached = true;
+        return result;
+    }
+
+    if (monthlyCountLimit && usage.monthlyCount >= monthlyCountLimit) {
+        result.reason = '월 횟수 제한 초과';
+        usage.isMonthlyLimitReached = true;
+        return result;
+    }
+
+    if (yearlyCountLimit && usage.yearlyCount >= yearlyCountLimit) {
+        result.reason = '연 횟수 제한 초과';
+        usage.isYearlyLimitReached = true;
+        return result;
+    }
+
+    if (monthlyAmountLimit && usage.monthlyAmount >= monthlyAmountLimit) {
+        result.reason = '월 혜택 한도 소진';
+        usage.isMonthlyAmountLimitReached = true;
+        return result;
+    }
+
+    let discount = calculateRuleDiscount(amount, getAction(rule));
+
+    if (monthlyAmountLimit) {
+        const ruleRemaining = Math.max(0, monthlyAmountLimit - usage.monthlyAmount);
+        if (discount > ruleRemaining) {
+            discount = ruleRemaining;
+            result.reason = `혜택 한도 잔여(${ruleRemaining}원) 적용`;
+        }
+    }
+
+    if (card.limitTable && card.limitTable.length > 0 && ruleUsesCardLimit(rule)) {
+        if (remainingLimit <= 0) {
+            result.reason = '월 통합 한도 소진';
+            return result;
+        }
+
+        if (discount > remainingLimit) {
+            discount = remainingLimit;
+            result.reason = `통합 한도 잔여(${remainingLimit}원) 적용`;
+        }
+    }
+
+    discount = Math.min(amount, Math.max(0, Math.floor(discount)));
+
+    result.discount = discount;
+    result.isApplicable = discount > 0;
+
+    if (!result.reason) {
+        if (getAction(rule).type === 'FLAT') result.reason = '정액 할인';
+        if (getAction(rule).type === 'FIXED_PRICE') result.reason = `정가제 적용(${getAction(rule).value}원)`;
+    }
+
+    return result;
+};
+
 export function calculateBestCards(
     amount: number,
     brand: Brand,
@@ -43,195 +373,57 @@ export function calculateBestCards(
     rules: BenefitRule[],
     history: TransactionHistory[],
     performances: UserCardPerformance[],
-    isOnline: boolean = false
+    isOnline: boolean = false,
 ): CalculatedCard[] {
+    const context = buildCalculationContext(rules, history);
 
     return cards.map(card => {
-        // 1. Determine User's Performance for this card
         const perf = performances.find(p => p.cardId === card.id);
-        const myPerformance = perf ? perf.amount : 0; // Default to 0 if not found
+        const myPerformance = perf ? perf.amount : 0;
 
-        // 2. Determine Monthly Total Limit (Integrated Limit) based on Performance
-        // LimitTable: [{ threshold: 300000, limit: 10000 }, { threshold: 0, limit: 0 }]
-        // Find the highest threshold met
-        let monthlyMaxLimit = 999999999; // Default infinity if no table
-        if (card.limitTable && card.limitTable.length > 0) {
-            // Sort desc just in case
-            const sortedTable = [...card.limitTable].sort((a, b) => b.threshold - a.threshold);
-            const tier = sortedTable.find(t => myPerformance >= t.threshold);
-            monthlyMaxLimit = tier ? tier.limit : 0;
-        }
-
-        // 3. Calculate "Used Integration Limit" (Total discount received on this card this month)
-        const usedDiscount = history
-            .filter(tx => tx.cardId === card.id && isThisMonth(tx.date))
-            .reduce((sum, tx) => sum + (tx.discountAmount || 0), 0);
-
+        const monthlyMaxLimit = getMonthlyMaxLimit(card, myPerformance);
+        const usedDiscount = getUsedIntegratedLimit(card, context);
         const remainingLimit = Math.max(0, monthlyMaxLimit - usedDiscount);
 
-        // 4. Find Matching Rule
-        // Priority: Included Brand > Category > All
-        // Also check Excluded Brands & Platform
+        const candidateRules = rules
+            .filter(rule => rule.cardId === card.id && matchesRule(rule, brand))
+            .sort((a, b) => {
+                const specificity = getRuleSpecificity(b, brand) - getRuleSpecificity(a, brand);
+                return specificity || a.id.localeCompare(b.id);
+            });
 
-        // Filter rules belonging to this card
-        const cardRules = rules.filter(r => r.cardId === card.id);
+        const evaluations = candidateRules.map(rule => evaluateRule({
+            rule,
+            amount,
+            card,
+            context,
+            myPerformance,
+            isOnline,
+            remainingLimit,
+        }));
 
-        let matchedRule: BenefitRule | undefined;
+        const bestEvaluation = evaluations
+            .filter(evaluation => evaluation.isApplicable && evaluation.discount > 0)
+            .sort((a, b) => {
+                if (b.discount !== a.discount) return b.discount - a.discount;
+                const specificity = getRuleSpecificity(b.rule, brand)
+                    - getRuleSpecificity(a.rule, brand);
+                return specificity || a.rule.id.localeCompare(b.rule.id);
+            })[0];
 
-        // Sort rules by specificity (Brand -> Category -> All) might be complex if they overlap.
-        // Heuristic: Check specific brand match first.
-
-        // Attempt 1: Explicit Include
-        matchedRule = cardRules.find(r =>
-            r.includedBrands?.includes(brand.id) &&
-            !r.excludedBrands?.includes(brand.id)
-        );
-
-        // Attempt 2: Category Match (if no brand specific rule found OR found rule suggests fallback?)
-        // Usually specific overrides category.
-        if (!matchedRule) {
-            matchedRule = cardRules.find(r =>
-                r.category === brand.categoryId &&
-                (!r.includedBrands || r.includedBrands.length === 0) && // Ensure it's a category generic rule
-                !r.excludedBrands?.includes(brand.id)
-            );
-        }
-
-        // Attempt 3: 'ALL' category or catch-all
-        if (!matchedRule) {
-            matchedRule = cardRules.find(r => !r.category && (!r.includedBrands || r.includedBrands.length === 0));
-        }
-
-
-        let discount = 0;
-        let reason = '';
-        let isApplicable = false;
-        let usageStat = {
-            dailyCount: 0, monthlyCount: 0, yearlyCount: 0, monthlyAmount: 0,
-            isDailyLimitReached: false, isMonthlyLimitReached: false, isYearlyLimitReached: false,
-            isMonthlyAmountLimitReached: false
-        };
-
-        if (matchedRule) {
-            // 5. Check Platform/Channel
-            // 'ALL', 'ONLINE', 'OFFLINE', 'OFFICIAL_SITE'
-            // Simplification: if rule is ONLINE, require isOnline=true.
-            // If rule is OFFLINE, require isOnline=false.
-            // OFFICIAL_SITE is treated as ONLINE for now, or user manual check.
-            let platformMatch = true;
-            if (matchedRule.platformType === 'ONLINE' && !isOnline) {
-                platformMatch = false; reason = '온라인 결제 전용';
-            } else if (matchedRule.platformType === 'OFFLINE' && isOnline) {
-                platformMatch = false; reason = '현장 결제 전용';
-            }
-
-            // 6. Check Conditions
-            if (platformMatch) {
-                if (amount < (matchedRule.condition.minSpend || 0)) {
-                    reason = `최소 결제금액(${matchedRule.condition.minSpend?.toLocaleString()}원) 부족`;
-                } else {
-                    // 7. Check Usage Limits (Shared Group handling)
-                    // We need to count usage across ALL rules that share the same sharedGroupId
-                    // Or just this rule if no group.
-                    const trackingId = matchedRule.sharedGroupId || matchedRule.id;
-
-                    // Filter history for this tracking group
-                    const relevantHistory = history.filter(tx => {
-                        if (!tx.ruleId) return false;
-                        if (tx.cardId !== card.id) return false; // Should be same card usually? or cross-card group? Assuming same card.
-
-                        // Find rule for this tx to check its group
-                        // OPTIMIZATION: In real app, might want to store sharedGroupId in history or map quickly.
-                        // For now, scan rules.
-                        const txRule = rules.find(r => r.id === tx.ruleId);
-                        if (!txRule) return false;
-
-                        const txTrackingId = txRule.sharedGroupId || txRule.id;
-                        return txTrackingId === trackingId;
-                    });
-
-                    // Count
-                    usageStat.dailyCount = relevantHistory.filter(tx => isToday(tx.date)).length;
-                    usageStat.monthlyCount = relevantHistory.filter(tx => isThisMonth(tx.date)).length;
-                    usageStat.yearlyCount = relevantHistory.filter(tx => isThisYear(tx.date)).length;
-                    usageStat.monthlyAmount = relevantHistory
-                        .filter(tx => isThisMonth(tx.date))
-                        .reduce((sum, tx) => sum + (tx.discountAmount || 0), 0);
-
-                    // Check Limits
-                    const { limitConfig } = matchedRule;
-
-                    if (limitConfig.dailyCount && usageStat.dailyCount >= limitConfig.dailyCount) {
-                        reason = '일 횟수 제한 초과';
-                        usageStat.isDailyLimitReached = true;
-                    } else if (limitConfig.monthlyCount && usageStat.monthlyCount >= limitConfig.monthlyCount) {
-                        reason = '월 횟수 제한 초과';
-                        usageStat.isMonthlyLimitReached = true;
-                    } else if (limitConfig.yearlyCount && usageStat.yearlyCount >= limitConfig.yearlyCount) {
-                        reason = '연 횟수 제한 초과';
-                        usageStat.isYearlyLimitReached = true;
-                    } else if (limitConfig.monthlyAmount && usageStat.monthlyAmount >= limitConfig.monthlyAmount) {
-                        reason = '월 혜택 한도 소진'; // This rule-specific amount limit
-                        usageStat.isMonthlyAmountLimitReached = true;
-                    } else {
-                        // All checks passed! Calculate Discount
-                        isApplicable = true;
-                        const { action } = matchedRule;
-
-                        if (action.type === 'PERCENT') {
-                            discount = Math.floor(amount * (action.value / 100));
-                            if (action.maxDiscount && discount > action.maxDiscount) {
-                                discount = action.maxDiscount;
-                                if (!reason) reason = '건당 한도 적용';
-                            }
-                        } else if (action.type === 'FLAT') {
-                            discount = action.value;
-                            if (!reason) reason = '정액 할인';
-                        } else if (action.type === 'FIXED_PRICE') {
-                            // e.g. Paying 12000, Fixed Price 6000 -> Discount 6000
-                            discount = Math.max(0, amount - action.value);
-                            if (!reason) reason = `정가제 적용(${action.value}원)`;
-                        }
-
-                        // 8. Apply Rule-Specific Amount Limit CAP (Remaining part)
-                        // If I have 1000 left in monthlyAmount limit, and discount is 2000, cap it.
-                        if (limitConfig.monthlyAmount) {
-                            const ruleRemaining = Math.max(0, limitConfig.monthlyAmount - usageStat.monthlyAmount);
-                            if (discount > ruleRemaining) {
-                                discount = ruleRemaining;
-                                reason = `혜택 한도 잔여(${ruleRemaining}원) 적용`;
-                            }
-                        }
-
-                        // 9. Apply Card Integrated Limit CAP
-                        // If total card limit is 10000, and used 9000 -> 1000 left.
-                        if (card.limitTable && card.limitTable.length > 0) {
-                            if (remainingLimit <= 0) {
-                                discount = 0;
-                                isApplicable = false;
-                                reason = '월 통합 한도 소진';
-                            } else if (discount > remainingLimit) {
-                                discount = remainingLimit;
-                                reason = `통합 한도 잔여(${remainingLimit}원) 적용`;
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            reason = '혜택 없음';
-        }
+        const fallbackEvaluation = bestEvaluation || evaluations[0];
 
         return {
             ...card,
-            calculatedDiscount: discount,
-            reason,
-            isApplicable: isApplicable && discount > 0, // Must have positive discount
+            calculatedDiscount: bestEvaluation?.discount || 0,
+            reason: fallbackEvaluation?.reason || '혜택 없음',
+            isApplicable: Boolean(bestEvaluation),
             monthlyMaxLimit,
             remainingLimit,
             usedDiscount,
-            matchedRule: matchedRule ? { ...matchedRule, usage: usageStat } : undefined
+            matchedRule: fallbackEvaluation
+                ? { ...fallbackEvaluation.rule, usage: fallbackEvaluation.usage }
+                : undefined,
         };
-
     }).sort((a, b) => b.calculatedDiscount - a.calculatedDiscount);
 }

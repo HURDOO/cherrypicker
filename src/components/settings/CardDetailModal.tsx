@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Card, LimitTableItem } from '@/types';
+import { Card } from '@/types';
 import { useAppStore } from '@/store/useAppStore';
-import { X, Check, Trash2, Plus, Edit2, CreditCard } from 'lucide-react';
-import { supabase } from '@/supabase/client';
+import { X, Plus, Edit2, CreditCard } from 'lucide-react';
 import { useToastStore } from '@/store/useToastStore';
 import EditRuleModal from './EditRuleModal';
+import { apiClient, getErrorMessage } from '@/lib/api-client';
 
 interface CardDetailModalProps {
     isOpen: boolean;
@@ -51,68 +51,27 @@ export default function CardDetailModal({ isOpen, onClose, initialCard }: CardDe
     const handleSave = async () => {
         if (!cardData.name) return addToast('카드 이름을 입력해주세요.', 'error');
 
-        const user = (await supabase.auth.getUser()).data.user;
-        if (!user) {
-            addToast('로그인이 필요합니다.', 'error');
-            return;
-        }
-
         try {
-            const dbPayload = {
+            const payload = {
                 name: cardData.name,
-                company: cardData.company,
-                color: cardData.color,
-                limit_table: cardData.limitTable,
-                user_id: user.id
+                company: cardData.company || '',
+                color: cardData.color || 'bg-gradient-to-br from-gray-700 to-gray-900',
+                limitTable: cardData.limitTable || []
             };
 
-            let savedCard: Card;
-
             if (initialCard) {
-                // Safety check: Don't edit system cards
-                if (!initialCard.userId && initialCard.id.length > 0) { // Assuming system cards have IDs and no userId
-                    // Check if it's a real system card or just a new one being edited (though new ones should go to else)
-                    // If initialCard exists, check ownership
-                    if (initialCard.userId !== user.id) {
-                        // Attempting to edit system card -> This should probably be "Copy to My Cards" or blocked
-                        addToast('시스템 카드는 수정할 수 없습니다.', 'error');
-                        return;
-                    }
-                }
-
-                // Update
-                const { data, error } = await supabase
-                    .from('cards')
-                    .update(dbPayload)
-                    .eq('id', initialCard.id)
-                    .eq('user_id', user.id) // RLS handles this, but explicit check
-                    .select()
-                    .single();
-
-                if (error) throw error;
-                savedCard = { ...cardData, id: initialCard.id, userId: user.id } as Card; // Optimistic-ish
+                const savedCard = await apiClient.updateCard(initialCard.id, payload);
                 updateCard(savedCard);
             } else {
-                // Insert
-                const { data, error } = await supabase
-                    .from('cards')
-                    .insert({
-                        ...dbPayload,
-                        id: crypto.randomUUID()
-                    })
-                    .select()
-                    .single();
-                if (error) throw error;
-                savedCard = { ...cardData, id: data.id, userId: user.id } as Card;
+                const savedCard = await apiClient.createCard(payload);
                 addCard(savedCard);
             }
 
             addToast('카드 정보가 저장되었습니다.', 'success');
             onClose();
 
-        } catch (e: any) {
-            console.error(e);
-            addToast('저장 실패: ' + e.message, 'error');
+        } catch (error: unknown) {
+            addToast(getErrorMessage(error, '카드 정보를 저장하지 못했습니다.'), 'error');
         }
     };
 
@@ -323,6 +282,7 @@ export default function CardDetailModal({ isOpen, onClose, initialCard }: CardDe
             {/* Nested Rule Modal */}
             {initialCard && (
                 <EditRuleModal
+                    key={`${selectedRuleId || 'new'}-${isRuleModalOpen ? 'open' : 'closed'}`}
                     isOpen={isRuleModalOpen}
                     onClose={() => setIsRuleModalOpen(false)}
                     cardId={initialCard.id}
