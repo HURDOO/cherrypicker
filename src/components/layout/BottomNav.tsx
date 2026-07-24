@@ -11,6 +11,10 @@ export default function BottomNav() {
     const pathname = usePathname();
     const { setSelectedBrandId } = useAppStore();
 
+    if (pathname === '/login' || pathname === '/signup' || pathname.startsWith('/design-lab')) {
+        return null;
+    }
+
     const tabs = [
         { name: '추천', href: '/', icon: Home, onClick: () => setSelectedBrandId('') },
         { name: '히스토리', href: '/history', icon: History },

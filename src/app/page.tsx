@@ -1,35 +1,240 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { calculateBestCards } from '@/utils/calculation';
 import { IconByName } from '@/components/ui/IconByName';
 import {
     CheckCircle2, AlertCircle, PieChart,
-    Wallet, Search, Wifi, WifiOff, X
+    Wallet, Search, Wifi, WifiOff, X, ClipboardList, ChevronDown, ChevronUp
 } from 'lucide-react';
-import { useSupabaseSync } from '@/hooks/useSupabaseSync';
 import clsx from 'clsx';
 import Link from 'next/link';
 import { useToastStore } from '@/store/useToastStore';
 import { NumericKeypad } from '@/components/ui/NumericKeypad';
+import { MonthlyPerformanceReminder } from '@/components/performance/MonthlyPerformanceReminder';
+import { CalculatedCard, UserCardPerformance } from '@/types';
+import { apiClient, getErrorMessage } from '@/lib/api-client';
+import {
+    formatPerformanceMonthLabel,
+    getCurrentMonthInKst,
+    getPreviousMonthInKst,
+} from '@/lib/monthly-performance';
+
+const formatWon = (value: number) => `${value.toLocaleString()}원`;
+
+const getPlatformLabel = (platformType?: string) => {
+    if (platformType === 'ONLINE') return '온라인 결제';
+    if (platformType === 'OFFLINE') return '현장 결제';
+    if (platformType === 'OFFICIAL_SITE') return '공식 홈페이지';
+    return '온/오프라인 공통';
+};
+
+const getActionLabel = (card: CalculatedCard) => {
+    const action = card.matchedRule?.action;
+    if (!action) return '계산할 혜택 없음';
+    if (action.type === 'PERCENT') {
+        return `${action.value}% 할인${action.maxDiscount ? ` · 건당 최대 ${formatWon(action.maxDiscount)}` : ''}`;
+    }
+    if (action.type === 'FLAT') return `${formatWon(action.value)} 정액 할인`;
+    return `${formatWon(action.value)} 고정가 적용`;
+};
+
+const getConditionLabel = (card: CalculatedCard) => {
+    const condition = card.matchedRule?.condition;
+    const minSpend = condition?.minSpend ? `최소 ${formatWon(condition.minSpend)}` : '최소 금액 없음';
+    const minPerformance = condition?.minPerformance ? `실적 ${formatWon(condition.minPerformance)} 이상` : '별도 실적 조건 없음';
+    return `${minSpend} · ${minPerformance}`;
+};
+
+const getLimitLabel = (card: CalculatedCard) => {
+    if (!card.limitTable || card.limitTable.length === 0) return '통합 한도 없음';
+    if (card.monthlyMaxLimit <= 0) return `통합 한도 0원 · 사용 ${formatWon(card.usedDiscount)}`;
+    return `잔여 ${formatWon(card.remainingLimit)} / ${formatWon(card.monthlyMaxLimit)} · 사용 ${formatWon(card.usedDiscount)}`;
+};
+
+const getUsageLabels = (card: CalculatedCard) => {
+    const rule = card.matchedRule;
+    const usage = rule?.usage;
+    if (!rule || !usage) return [];
+
+    const labels: string[] = [];
+    if (rule.limitConfig.dailyCount) labels.push(`오늘 ${usage.dailyCount}/${rule.limitConfig.dailyCount}회`);
+    if (rule.limitConfig.monthlyCount) labels.push(`이번 달 ${usage.monthlyCount}/${rule.limitConfig.monthlyCount}회`);
+    if (rule.limitConfig.yearlyCount) labels.push(`올해 ${usage.yearlyCount}/${rule.limitConfig.yearlyCount}회`);
+    if (rule.limitConfig.monthlyAmount) {
+        labels.push(`월 혜택 ${formatWon(usage.monthlyAmount)} / ${formatWon(rule.limitConfig.monthlyAmount)}`);
+    }
+    return labels;
+};
+
+function RecommendationExplainer({
+    amount,
+    cards,
+    performances,
+    isOnline,
+    isOpen,
+    onToggle
+}: {
+    amount: number;
+    cards: CalculatedCard[];
+    performances: UserCardPerformance[];
+    isOnline: boolean;
+    isOpen: boolean;
+    onToggle: () => void;
+}) {
+    const bestCard = cards[0];
+    if (!bestCard) return null;
+
+    return (
+        <section className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
+            <button
+                onClick={onToggle}
+                className="w-full p-5 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+            >
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <ClipboardList className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                        <h2 className="text-sm font-black text-gray-900">추천 근거</h2>
+                        <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                            {bestCard.calculatedDiscount > 0
+                                ? `${bestCard.name}이 ${formatWon(bestCard.calculatedDiscount)}으로 가장 큽니다.`
+                                : '적용 가능한 혜택이 없는 이유를 확인해요.'}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] font-bold text-gray-400 shrink-0">
+                    {isOpen ? '접기' : '보기'}
+                    {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </div>
+            </button>
+
+            {isOpen && (
+                <div className="px-5 pb-5 space-y-4 border-t border-gray-100">
+                    <div className="grid grid-cols-3 gap-2 pt-4">
+                        <div className="bg-gray-50 rounded-2xl p-3">
+                            <p className="text-[10px] font-bold text-gray-400">금액</p>
+                            <p className="text-xs font-black text-gray-900 mt-1">{formatWon(amount)}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-2xl p-3">
+                            <p className="text-[10px] font-bold text-gray-400">채널</p>
+                            <p className="text-xs font-black text-gray-900 mt-1">{isOnline ? '온라인' : '오프라인'}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-2xl p-3">
+                            <p className="text-[10px] font-bold text-gray-400">비교</p>
+                            <p className="text-xs font-black text-gray-900 mt-1">{cards.length}개 카드</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        {cards.map((card, index) => {
+                            const performance = performances.find(item => item.cardId === card.id)?.amount || 0;
+                            const usageLabels = getUsageLabels(card);
+                            const gapFromBest = Math.max(0, bestCard.calculatedDiscount - card.calculatedDiscount);
+
+                            return (
+                                <article
+                                    key={card.id}
+                                    className={clsx(
+                                        "rounded-3xl border p-4 transition-colors",
+                                        index === 0 ? "border-blue-100 bg-blue-50/50" : "border-gray-100 bg-white"
+                                    )}
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={clsx(
+                                                    "text-[10px] font-black px-2 py-0.5 rounded-full",
+                                                    index === 0 ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500"
+                                                )}>
+                                                    #{index + 1}
+                                                </span>
+                                                <h3 className="font-black text-sm text-gray-900 truncate">{card.name}</h3>
+                                            </div>
+                                            <p className="text-[11px] text-gray-500 leading-relaxed">
+                                                {card.matchedRule?.description || '매칭된 혜택 없음'}
+                                            </p>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <p className={clsx("text-lg font-black", card.calculatedDiscount > 0 ? "text-blue-600" : "text-gray-300")}>
+                                                {formatWon(card.calculatedDiscount)}
+                                            </p>
+                                            <p className="text-[10px] font-bold text-gray-400">
+                                                {index === 0 ? '현재 1위' : `${formatWon(gapFromBest)} 차이`}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 grid grid-cols-1 gap-2 text-[11px]">
+                                        <div className="flex justify-between gap-3 rounded-2xl bg-white/70 px-3 py-2">
+                                            <span className="font-bold text-gray-400 shrink-0">판정</span>
+                                            <span className={clsx("font-bold text-right", card.calculatedDiscount > 0 ? "text-gray-800" : "text-orange-500")}>
+                                                {card.calculatedDiscount > 0 ? (card.reason || '혜택 적용 가능') : (card.reason || '혜택 없음')}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between gap-3 rounded-2xl bg-white/70 px-3 py-2">
+                                            <span className="font-bold text-gray-400 shrink-0">계산식</span>
+                                            <span className="font-bold text-gray-800 text-right">{getActionLabel(card)}</span>
+                                        </div>
+                                        <div className="flex justify-between gap-3 rounded-2xl bg-white/70 px-3 py-2">
+                                            <span className="font-bold text-gray-400 shrink-0">조건</span>
+                                            <span className="font-bold text-gray-800 text-right">{getConditionLabel(card)}</span>
+                                        </div>
+                                        <div className="flex justify-between gap-3 rounded-2xl bg-white/70 px-3 py-2">
+                                            <span className="font-bold text-gray-400 shrink-0">채널</span>
+                                            <span className="font-bold text-gray-800 text-right">{getPlatformLabel(card.matchedRule?.platformType)}</span>
+                                        </div>
+                                        <div className="flex justify-between gap-3 rounded-2xl bg-white/70 px-3 py-2">
+                                            <span className="font-bold text-gray-400 shrink-0">실적/한도</span>
+                                            <span className="font-bold text-gray-800 text-right">
+                                                실적 {formatWon(performance)} · {getLimitLabel(card)}
+                                            </span>
+                                        </div>
+                                        {usageLabels.length > 0 && (
+                                            <div className="flex justify-between gap-3 rounded-2xl bg-white/70 px-3 py-2">
+                                                <span className="font-bold text-gray-400 shrink-0">사용량</span>
+                                                <span className="font-bold text-gray-800 text-right">{usageLabels.join(' · ')}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </article>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+        </section>
+    );
+}
 
 export default function HomePage() {
     const {
         categories, brands, cards, rules, history, performances,
         isLoading,
-        selectedBrandId, setSelectedBrandId
+        selectedBrandId, setSelectedBrandId, addTransaction
     } = useAppStore();
-
-    const { saveTransaction } = useSupabaseSync();
 
     // Local UI State
     const [amount, setAmount] = useState<number>(0);
     const [isOnline, setIsOnline] = useState<boolean>(false);
     const [confirmCardId, setConfirmCardId] = useState<string | null>(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const recordRequestInFlight = useRef(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isExplanationOpen, setIsExplanationOpen] = useState(false);
+    const [performancePeriod] = useState(() => {
+        const referenceDate = new Date();
+        return {
+            performanceMonth: getPreviousMonthInKst(referenceDate),
+            benefitMonth: getCurrentMonthInKst(referenceDate),
+        };
+    });
 
     const { addToast } = useToastStore();
+    const performanceMonthLabel = formatPerformanceMonthLabel(performancePeriod.performanceMonth);
+    const benefitMonthLabel = formatPerformanceMonthLabel(performancePeriod.benefitMonth);
 
     // Keypad Handlers
     const handleKeypadChange = (value: string) => {
@@ -75,6 +280,30 @@ export default function HomePage() {
         return grouped;
     }, [categories, filteredBrands]);
 
+    const currentPerformances = useMemo(
+        () => performances.filter(
+            performance => performance.performanceMonth === performancePeriod.performanceMonth
+        ),
+        [performances, performancePeriod.performanceMonth]
+    );
+
+    const missingPerformanceCards = useMemo(() => {
+        const activeCardIds = new Set([
+            ...performances.map(performance => performance.cardId),
+            ...history.map(transaction => transaction.cardId),
+        ]);
+        const enteredCardIds = new Set(currentPerformances.map(performance => performance.cardId));
+
+        return cards.filter(card => {
+            const hasPerformanceCondition = card.limitTable.some(tier => tier.threshold > 0)
+                || rules.some(rule => rule.cardId === card.id && (rule.condition?.minPerformance || 0) > 0);
+
+            return hasPerformanceCondition
+                && activeCardIds.has(card.id)
+                && !enteredCardIds.has(card.id);
+        });
+    }, [cards, rules, history, performances, currentPerformances]);
+
     // Main Logic Calculation
     const calculatedCards = useMemo(() => {
         if (!currentBrand) return [];
@@ -84,15 +313,22 @@ export default function HomePage() {
             cards,
             rules,
             history,
-            performances,
+            currentPerformances,
             isOnline
         );
-    }, [amount, currentBrand, cards, rules, history, performances, isOnline]);
+    }, [amount, currentBrand, cards, rules, history, currentPerformances, isOnline]);
 
     const bestCard = calculatedCards[0];
 
     const handleRecordTransaction = async (card: typeof bestCard) => {
         if (!currentBrand || !card) return;
+
+        if (amount <= 0) {
+            addToast('결제 금액을 먼저 입력해주세요.', 'error');
+            return;
+        }
+
+        if (recordRequestInFlight.current) return;
 
         // Double Tap Confirmation
         if (confirmCardId !== card.id) {
@@ -102,16 +338,24 @@ export default function HomePage() {
         }
 
         setConfirmCardId(null);
+        recordRequestInFlight.current = true;
+        setIsRecording(true);
 
-        await saveTransaction({
-            brandId: currentBrand.id,
-            cardId: card.id,
-            ruleId: card.matchedRule?.id,
-            amount: amount,
-            discountAmount: card.calculatedDiscount
-        });
-
-        addToast('기록되었습니다.', 'success');
+        try {
+            const transaction = await apiClient.createTransaction({
+                brandId: currentBrand.id,
+                cardId: card.id,
+                amount,
+                isOnline,
+            });
+            addTransaction(transaction);
+            addToast('기록되었습니다.', 'success');
+        } catch (error: unknown) {
+            addToast(getErrorMessage(error, '기록을 저장하지 못했습니다.'), 'error');
+        } finally {
+            recordRequestInFlight.current = false;
+            setIsRecording(false);
+        }
     };
 
     // Loading & Empty States
@@ -165,6 +409,12 @@ export default function HomePage() {
             </header>
 
             <div className="px-5 pt-6 space-y-8 max-w-lg mx-auto">
+
+                <MonthlyPerformanceReminder
+                    missingCount={missingPerformanceCards.length}
+                    performanceMonthLabel={performanceMonthLabel}
+                    benefitMonthLabel={benefitMonthLabel}
+                />
 
                 {/* 1. Brand Selector */}
                 <section className={clsx(
@@ -351,6 +601,7 @@ export default function HomePage() {
 
                                         <button
                                             onClick={() => handleRecordTransaction(bestCard)}
+                                            disabled={isRecording}
                                             className={clsx(
                                                 "mt-6 w-full font-bold py-4 rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl group-hover:translate-y-[-2px]",
                                                 confirmCardId === bestCard.id
@@ -358,7 +609,9 @@ export default function HomePage() {
                                                     : "bg-white text-gray-900 hover:bg-blue-50"
                                             )}
                                         >
-                                            {confirmCardId === bestCard.id ? (
+                                            {isRecording ? (
+                                                '기록 중...'
+                                            ) : confirmCardId === bestCard.id ? (
                                                 <>
                                                     <AlertCircle className="w-5 h-5 text-white" />
                                                     {bestCard.name} {amount.toLocaleString()}원 결제?
@@ -382,6 +635,7 @@ export default function HomePage() {
                                         </p>
                                         <button
                                             onClick={() => handleRecordTransaction(bestCard)}
+                                            disabled={isRecording}
                                             className={clsx(
                                                 "mt-6 px-8 py-3 rounded-xl text-sm font-bold transition-all shadow-lg active:scale-95",
                                                 confirmCardId === bestCard.id
@@ -389,11 +643,26 @@ export default function HomePage() {
                                                     : "bg-gray-900 text-white hover:bg-black"
                                             )}
                                         >
-                                            {confirmCardId === bestCard.id ? '정말 기록할까요?' : `${bestCard.name}로 기록하기`}
+                                            {isRecording
+                                                ? '기록 중...'
+                                                : confirmCardId === bestCard.id
+                                                    ? '정말 기록할까요?'
+                                                    : `${bestCard.name}로 기록하기`}
                                         </button>
                                     </div>
                                 )}
                             </section>
+                        )}
+
+                        {bestCard && (
+                            <RecommendationExplainer
+                                amount={amount}
+                                cards={calculatedCards}
+                                performances={currentPerformances}
+                                isOnline={isOnline}
+                                isOpen={isExplanationOpen}
+                                onToggle={() => setIsExplanationOpen(prev => !prev)}
+                            />
                         )}
 
                         {/* 3. Comparison List */}
@@ -430,6 +699,7 @@ export default function HomePage() {
                                         </span>
                                         <button
                                             onClick={() => handleRecordTransaction(card)}
+                                            disabled={isRecording}
                                             className={clsx(
                                                 "mt-1 text-[10px] font-bold transition-colors",
                                                 confirmCardId === card.id
@@ -437,7 +707,7 @@ export default function HomePage() {
                                                     : "text-gray-400 hover:text-blue-600"
                                             )}
                                         >
-                                            {confirmCardId === card.id ? '확인?' : '기록'}
+                                            {isRecording ? '저장 중' : confirmCardId === card.id ? '확인?' : '기록'}
                                         </button>
                                     </div>
                                 </div>

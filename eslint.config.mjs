@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Archived UI prototype; the production app lives under src/.
+    "code from gemini.jsx",
   ]),
 ]);
 

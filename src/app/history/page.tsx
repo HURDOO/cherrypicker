@@ -2,15 +2,15 @@
 
 import React from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { supabase } from '@/supabase/client';
-import { Trash2, AlertCircle, Calendar, PieChart, TrendingUp, History, CreditCard } from 'lucide-react';
+import { Trash2, AlertCircle, Calendar, TrendingUp, History, CreditCard } from 'lucide-react';
 import { TransactionHistory } from '@/types';
 import { IconByName } from '@/components/ui/IconByName';
 import { useToastStore } from '@/store/useToastStore';
 import clsx from 'clsx';
+import { apiClient, getErrorMessage } from '@/lib/api-client';
 
 export default function HistoryPage() {
-    const { history, brands, cards, isLoading, setLoading } = useAppStore();
+    const { history, brands, cards, isLoading, setLoading, clearHistory } = useAppStore();
     const { addToast } = useToastStore();
     const [confirmDelete, setConfirmDelete] = React.useState(false);
     const [selectedCardId, setSelectedCardId] = React.useState<string>('all');
@@ -72,15 +72,15 @@ export default function HistoryPage() {
         setConfirmDelete(false);
         setLoading(true);
 
-        const { error } = await supabase.from('transaction_history').delete().neq('id', 0);
-
-        if (error) {
-            addToast('삭제 실패: ' + error.message, 'error');
-        } else {
+        try {
+            await apiClient.deleteTransactions();
+            clearHistory();
             addToast('모든 기록이 삭제되었습니다.', 'success');
-            setTimeout(() => window.location.reload(), 1000);
+        } catch (error: unknown) {
+            addToast(getErrorMessage(error, '기록을 삭제하지 못했습니다.'), 'error');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     // 1. Filter history by Date (Global for this view)

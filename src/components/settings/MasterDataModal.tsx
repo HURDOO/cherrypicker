@@ -1,6 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { supabase } from '@/supabase/client';
 import { useToastStore } from '@/store/useToastStore';
 import {
     DndContext,
@@ -11,8 +10,6 @@ import {
     useSensors,
     DragEndEvent,
     DragOverlay,
-    defaultDropAnimationSideEffects,
-    DropAnimation,
     UniqueIdentifier,
     DragStartEvent
 } from '@dnd-kit/core';
@@ -25,11 +22,12 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-    X, Plus, Hash, ShoppingBag, GripVertical, ChevronRight, ChevronDown,
-    Trash2, Edit2, Check, AlertCircle, Sparkles
+    X, Plus, ShoppingBag, GripVertical, ChevronRight, ChevronDown,
+    Trash2, Edit2, Check, Sparkles
 } from 'lucide-react';
 import clsx from 'clsx';
 import { Brand, Category } from '@/types';
+import { apiClient, getErrorMessage } from '@/lib/api-client';
 
 interface MasterDataModalProps {
     isOpen: boolean;
@@ -48,6 +46,7 @@ function SortableCategoryItem({ category, brands, isExpanded, onToggle, onDelete
     onDelete: () => void;
     onUpdate: (name: string) => void;
 }) {
+    const isEditable = Boolean(category.userId);
     const {
         attributes,
         listeners,
@@ -57,7 +56,8 @@ function SortableCategoryItem({ category, brands, isExpanded, onToggle, onDelete
         isDragging
     } = useSortable({
         id: category.id,
-        data: { type: 'Category', category }
+        data: { type: 'Category', category },
+        disabled: !isEditable,
     });
 
     const style = {
@@ -80,7 +80,13 @@ function SortableCategoryItem({ category, brands, isExpanded, onToggle, onDelete
             <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 {/* Header Row */}
                 <div className="flex items-center p-3 gap-3 bg-gray-50/50">
-                    <button {...attributes} {...listeners} className="text-gray-300 hover:text-gray-600 cursor-grab active:cursor-grabbing p-1">
+                    <button
+                        {...attributes}
+                        {...listeners}
+                        disabled={!isEditable}
+                        className="p-1 text-gray-300 enabled:cursor-grab enabled:hover:text-gray-600 enabled:active:cursor-grabbing disabled:text-gray-200"
+                        aria-label={isEditable ? '카테고리 순서 변경' : '기본 카테고리'}
+                    >
                         <GripVertical className="w-4 h-4" />
                     </button>
 
@@ -101,17 +107,26 @@ function SortableCategoryItem({ category, brands, isExpanded, onToggle, onDelete
                                 <button onClick={handleSave} className="p-1 text-green-600 hover:bg-green-50 rounded"><Check className="w-4 h-4" /></button>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setIsEditing(true)}>
+                            <div
+                                className={clsx('flex items-center gap-2 group', isEditable && 'cursor-pointer')}
+                                onClick={() => isEditable && setIsEditing(true)}
+                            >
                                 <span className="font-bold text-gray-800 text-sm">{category.name}</span>
                                 <span className="text-xs text-gray-400 font-normal">({brands.length})</span>
-                                <Edit2 className="w-3 h-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                {isEditable ? (
+                                    <Edit2 className="w-3 h-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                ) : (
+                                    <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-gray-400">기본</span>
+                                )}
                             </div>
                         )}
                     </div>
 
-                    <button onClick={onDelete} className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
-                        <Trash2 className="w-4 h-4" />
-                    </button>
+                    {isEditable && (
+                        <button onClick={onDelete} className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -123,6 +138,7 @@ function SortableBrandItem({ brand, onDelete, onUpdate }: {
     onDelete: () => void;
     onUpdate: (name: string) => void;
 }) {
+    const isEditable = Boolean(brand.userId);
     const {
         attributes,
         listeners,
@@ -132,7 +148,8 @@ function SortableBrandItem({ brand, onDelete, onUpdate }: {
         isDragging
     } = useSortable({
         id: brand.id,
-        data: { type: 'Brand', brand }
+        data: { type: 'Brand', brand },
+        disabled: !isEditable,
     });
 
     const style = {
@@ -152,7 +169,13 @@ function SortableBrandItem({ brand, onDelete, onUpdate }: {
 
     return (
         <div ref={setNodeRef} style={style} className={clsx("flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-100 mb-2 group hover:border-blue-200 transition-all", isDragging && 'opacity-50')}>
-            <button {...attributes} {...listeners} className="text-gray-300 hover:text-gray-600 cursor-grab active:cursor-grabbing">
+            <button
+                {...attributes}
+                {...listeners}
+                disabled={!isEditable}
+                className="text-gray-300 enabled:cursor-grab enabled:hover:text-gray-600 enabled:active:cursor-grabbing disabled:text-gray-200"
+                aria-label={isEditable ? '브랜드 순서 변경' : '기본 브랜드'}
+            >
                 <GripVertical className="w-3 h-3" />
             </button>
             <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
@@ -170,19 +193,25 @@ function SortableBrandItem({ brand, onDelete, onUpdate }: {
                     </div>
                 ) : (
                     <span
-                        className="text-xs font-medium text-gray-700 cursor-pointer hover:text-blue-600 flex items-center gap-1"
-                        onClick={() => setIsEditing(true)}
+                        className={clsx(
+                            'flex items-center gap-1 text-xs font-medium text-gray-700',
+                            isEditable && 'cursor-pointer hover:text-blue-600'
+                        )}
+                        onClick={() => isEditable && setIsEditing(true)}
                     >
                         {brand.name}
+                        {!isEditable && <span className="text-[9px] font-bold text-gray-300">기본</span>}
                     </span>
                 )}
             </div>
-            <button
-                onClick={onDelete}
-                className="text-gray-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1"
-            >
-                <Trash2 className="w-3 h-3" />
-            </button>
+            {isEditable && (
+                <button
+                    onClick={onDelete}
+                    className="text-gray-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1"
+                >
+                    <Trash2 className="w-3 h-3" />
+                </button>
+            )}
         </div>
     );
 }
@@ -193,7 +222,7 @@ function SortableBrandItem({ brand, onDelete, onUpdate }: {
 
 export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProps) {
     const {
-        categories, brands, rules,
+        categories, brands,
         addCategory, updateCategory, removeCategory, reorderCategories,
         addBrand, updateBrand, removeBrand, reorderBrands
     } = useAppStore();
@@ -223,30 +252,12 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
     const handleAddCategory = async () => {
         if (!newCategoryName.trim()) return;
         try {
-            const user = (await supabase.auth.getUser()).data.user;
-            const newCat = {
-                id: crypto.randomUUID(),
-                name: newCategoryName.trim(),
-                userId: user?.id,
-                order: categories.length // Append to end
-            };
-
-            // DB Insert
-            if (user) {
-                const { error } = await supabase.from('categories').insert({
-                    id: newCat.id,
-                    name: newCat.name,
-                    user_id: user.id,
-                    order: newCat.order
-                });
-                if (error) throw error;
-            }
-
-            addCategory(newCat);
+            const category = await apiClient.createCategory({ name: newCategoryName.trim() });
+            addCategory(category);
             setNewCategoryName('');
             addToast('카테고리가 추가되었습니다.', 'success');
-        } catch (e: any) {
-            addToast('추가 실패: ' + e.message, 'error');
+        } catch (error: unknown) {
+            addToast(getErrorMessage(error, '카테고리를 추가하지 못했습니다.'), 'error');
         }
     };
 
@@ -255,82 +266,41 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
         if (!name?.trim()) return;
 
         try {
-            const user = (await supabase.auth.getUser()).data.user;
-            const existingCatBrands = brands.filter(b => b.categoryId === catId);
-
-            const newBrand = {
-                id: crypto.randomUUID(),
+            const brand = await apiClient.createBrand({
                 name: name.trim(),
                 categoryId: catId,
-                userId: user?.id,
-                order: existingCatBrands.length,
-                iconName: 'ShoppingBag' // Default
-            };
+                iconName: 'ShoppingBag'
+            });
 
-            // DB Insert
-            if (user) {
-                const { error } = await supabase.from('brands').insert({
-                    id: newBrand.id,
-                    name: newBrand.name,
-                    category_id: catId,
-                    user_id: user.id,
-                    order: newBrand.order,
-                    icon_name: newBrand.iconName
-                });
-                if (error) throw error;
-            }
-
-            addBrand(newBrand);
+            addBrand(brand);
             setNewBrandNames(prev => ({ ...prev, [catId]: '' }));
             addToast('브랜드가 추가되었습니다.', 'success');
-        } catch (e: any) {
-            addToast('추가 실패: ' + e.message, 'error');
+        } catch (error: unknown) {
+            addToast(getErrorMessage(error, '브랜드를 추가하지 못했습니다.'), 'error');
         }
     };
 
     const handleDeleteCategory = async (id: string) => {
-        const catBrands = brands.filter(b => b.categoryId === id);
-        if (catBrands.length > 0) {
-            alert('하위 브랜드가 남아있어 삭제할 수 없습니다. 브랜드를 먼저 정리해주세요.');
-            return;
-        }
-
         if (!confirm('정말 삭제하시겠습니까?')) return;
 
         try {
-            const user = (await supabase.auth.getUser()).data.user;
-            if (user) {
-                await supabase.from('categories').delete().eq('id', id).eq('user_id', user.id);
-            }
+            await apiClient.deleteCategory(id);
             removeCategory(id);
             addToast('삭제되었습니다.', 'info');
-        } catch (e: any) {
-            addToast('삭제 실패: ' + e.message, 'error');
+        } catch (error: unknown) {
+            addToast(getErrorMessage(error, '카테고리를 삭제하지 못했습니다.'), 'error');
         }
     };
 
     const handleDeleteBrand = async (id: string) => {
-        const linkedRules = rules.filter(r => r.includedBrands?.includes(id));
-        if (linkedRules.length > 0) {
-            // Find card names for better error message
-            const { cards } = useAppStore.getState();
-            const cardNames = [...new Set(linkedRules.map(r => cards.find(c => c.id === r.cardId)?.name).filter(Boolean))];
-
-            alert(`이 브랜드를 사용하는 카드가 있습니다:\n[${cardNames.join(', ')}]\n\n먼저 혜택 연결을 해제해주세요.`);
-            return;
-        }
-
         if (!confirm('정말 삭제하시겠습니까?')) return;
 
         try {
-            const user = (await supabase.auth.getUser()).data.user;
-            if (user) {
-                await supabase.from('brands').delete().eq('id', id).eq('user_id', user.id);
-            }
+            await apiClient.deleteBrand(id);
             removeBrand(id);
             addToast('삭제되었습니다.', 'info');
-        } catch (e: any) {
-            addToast('삭제 실패: ' + e.message, 'error');
+        } catch (error: unknown) {
+            addToast(getErrorMessage(error, '브랜드를 삭제하지 못했습니다.'), 'error');
         }
     };
 
@@ -349,14 +319,28 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
         const overType = over.data.current?.type;
 
         if (activeType === 'Category' && overType === 'Category') {
-            const oldIndex = categories.findIndex(c => c.id === active.id);
-            const newIndex = categories.findIndex(c => c.id === over.id);
-            const newPayload = arrayMove(categories, oldIndex, newIndex);
+            const activeCategory = active.data.current?.category as Category;
+            const overCategory = over.data.current?.category as Category;
+            if (!activeCategory.userId || !overCategory.userId) return;
+
+            const systemCategories = categories.filter(category => !category.userId);
+            const userCategories = categories.filter(category => category.userId);
+            const oldIndex = userCategories.findIndex(c => c.id === active.id);
+            const newIndex = userCategories.findIndex(c => c.id === over.id);
+            const reorderedUserCategories = arrayMove(userCategories, oldIndex, newIndex);
+            const newPayload = [...systemCategories, ...reorderedUserCategories];
             reorderCategories(newPayload);
-            // TODO: Persist Order to DB (Background)
+            void apiClient.reorderCategories(
+                reorderedUserCategories.map(category => category.id)
+            ).catch((error: unknown) => {
+                reorderCategories(categories);
+                addToast(getErrorMessage(error, '카테고리 순서를 저장하지 못했습니다.'), 'error');
+            });
         } else if (activeType === 'Brand' && overType === 'Brand') {
             const activeBrand = active.data.current?.brand as Brand;
             const overBrand = over.data.current?.brand as Brand;
+
+            if (!activeBrand.userId || !overBrand.userId) return;
 
             if (activeBrand.categoryId !== overBrand.categoryId) {
                 // Moving between categories - Optional feature, skip for now strictly as per plan
@@ -364,7 +348,9 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
             }
 
             const catId = activeBrand.categoryId;
-            const currentCatBrands = brands.filter(b => b.categoryId === catId);
+            const currentCatBrands = brands.filter(
+                b => b.categoryId === catId && Boolean(b.userId)
+            );
             // We need to reorder the subset via arrayMove
             // But we can't just pass the subset to reorderBrands (it expects full list usually? or we can make it smart)
             // The Store expects "Brand[]". If I pass just the subset, I lose others.
@@ -381,39 +367,37 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
             // Simplest: Just use the new order for the specific IDs.
 
             const otherBrands = brands.filter(b => b.categoryId !== catId);
+            const systemCatBrands = brands.filter(
+                b => b.categoryId === catId && !b.userId
+            );
             // Wait, this puts all category brands at the end or something. We want to preserve their relative global position? 
             // Actually, in the UI we render by category. So global order only matters within category blocks if we rendered flat.
             // But here we render grouped. So just appending valid data is fine.
 
-            reorderBrands([...otherBrands, ...newCatBrands]);
-            // TODO: Persist Order
+            reorderBrands([...otherBrands, ...systemCatBrands, ...newCatBrands]);
+            void apiClient.reorderBrands(catId, newCatBrands.map(brand => brand.id)).catch((error: unknown) => {
+                reorderBrands(brands);
+                addToast(getErrorMessage(error, '브랜드 순서를 저장하지 못했습니다.'), 'error');
+            });
         }
     };
 
     // Updates
     const handleUpdateCategory = async (id: string, name: string) => {
         try {
-            const user = (await supabase.auth.getUser()).data.user;
-            if (user) {
-                await supabase.from('categories').update({ name }).eq('id', id).eq('user_id', user.id);
-            }
-            const cat = categories.find(c => c.id === id);
-            if (cat) updateCategory({ ...cat, name });
-        } catch (e) {
-            console.error(e);
+            const category = await apiClient.updateCategory(id, { name });
+            updateCategory(category);
+        } catch (error: unknown) {
+            addToast(getErrorMessage(error, '카테고리를 수정하지 못했습니다.'), 'error');
         }
     };
 
     const handleUpdateBrand = async (id: string, name: string) => {
         try {
-            const user = (await supabase.auth.getUser()).data.user;
-            if (user) {
-                await supabase.from('brands').update({ name }).eq('id', id).eq('user_id', user.id);
-            }
-            const b = brands.find(brand => brand.id === id);
-            if (b) updateBrand({ ...b, name });
-        } catch (e) {
-            console.error(e);
+            const brand = await apiClient.updateBrand(id, { name });
+            updateBrand(brand);
+        } catch (error: unknown) {
+            addToast(getErrorMessage(error, '브랜드를 수정하지 못했습니다.'), 'error');
         }
     };
 
