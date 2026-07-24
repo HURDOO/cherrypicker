@@ -5,6 +5,7 @@ import {
     brands,
     cards,
     categories,
+    promotionProviders,
 } from '../src/db/schema';
 import type {
     LimitConfig,
@@ -74,8 +75,72 @@ function camelize(value: unknown): unknown {
 const seedBrands = camelize(INITIAL_BRANDS) as SeedBrand[];
 const seedCards = camelize(INITIAL_CARDS) as SeedCard[];
 const seedRules = camelize(INITIAL_RULES) as SeedRule[];
+const providerSeeds = [
+    {
+        id: 'skt',
+        name: 'T멤버십',
+        kind: 'TELECOM' as const,
+        sourceUrl: 'https://sktmembership.tworld.co.kr/mps/pc-bff/benefitbrand/list-tab1.do',
+    },
+    {
+        id: 'kt',
+        name: 'KT멤버십',
+        kind: 'TELECOM' as const,
+        sourceUrl: 'https://membership.kt.com/discount/partner/PartnerList.do',
+    },
+    {
+        id: 'lguplus',
+        name: 'U+멤버십',
+        kind: 'TELECOM' as const,
+        sourceUrl: 'https://www.lguplus.com/benefit-membership',
+    },
+    {
+        id: 'naverpay',
+        name: 'Npay',
+        kind: 'PAY' as const,
+        sourceUrl: 'https://pay.naver.com/benefit/payment/list',
+    },
+    {
+        id: 'kakaopay',
+        name: '카카오페이',
+        kind: 'PAY' as const,
+        sourceUrl: 'https://story.kakaopay.com/130-kakaopay-benefit/',
+    },
+    {
+        id: 'kakaopay-gooddeal',
+        name: '카카오페이 굿딜',
+        kind: 'GOODDEAL' as const,
+        sourceUrl: 'https://story.kakaopay.com/318-kakaopay-benefit/',
+    },
+    {
+        id: 'franchise',
+        name: '프랜차이즈 공식 혜택',
+        kind: 'MERCHANT' as const,
+        sourceUrl: 'https://www.paris.co.kr/affiliate-card/t-%EB%A9%A4%EB%B2%84%EC%8B%AD/',
+    },
+];
 
 db.transaction((tx) => {
+    providerSeeds.forEach((provider, sortOrder) => {
+        tx.insert(promotionProviders)
+            .values({
+                ...provider,
+                isActive: true,
+                sortOrder,
+            })
+            .onConflictDoUpdate({
+                target: promotionProviders.id,
+                set: {
+                    name: provider.name,
+                    kind: provider.kind,
+                    sourceUrl: provider.sourceUrl,
+                    isActive: true,
+                    sortOrder,
+                },
+            })
+            .run();
+    });
+
     INITIAL_CATEGORIES.forEach((category, sortOrder) => {
         tx.insert(categories)
             .values({
@@ -183,5 +248,6 @@ db.transaction((tx) => {
 
 console.log(
     `Seeded ${INITIAL_CATEGORIES.length} categories, ${seedBrands.length} brands, ` +
-    `${seedCards.length} cards, and ${seedRules.length} rules into ${databasePath}.`
+    `${seedCards.length} cards, ${seedRules.length} rules, and ` +
+    `${providerSeeds.length} promotion providers into ${databasePath}.`
 );

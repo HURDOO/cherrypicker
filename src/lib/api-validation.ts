@@ -83,6 +83,25 @@ function optionalNonNegativeInteger(
     return value as number;
 }
 
+export function optionalInteger(
+    input: Input,
+    key: string,
+    label: string,
+    minimum = 0,
+    maximum = Number.MAX_SAFE_INTEGER
+) {
+    const value = input[key];
+    if (value === undefined || value === null || value === '') return undefined;
+    if (
+        !Number.isSafeInteger(value)
+        || (value as number) < minimum
+        || (value as number) > maximum
+    ) {
+        invalid(`${label} 값이 올바르지 않습니다.`);
+    }
+    return value as number;
+}
+
 function objectValue(value: unknown, label: string): Input {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         invalid(`${label} 형식이 올바르지 않습니다.`);

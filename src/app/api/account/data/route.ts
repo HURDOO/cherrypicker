@@ -6,6 +6,7 @@ import {
     cards,
     categories,
     transactionHistory,
+    userBenefitProfiles,
     userCardPerformances,
 } from '@/db/schema';
 import { handleRouteError, requireUser } from '@/lib/api-server';
@@ -17,6 +18,9 @@ export async function DELETE(request: Request) {
         const user = await requireUser(request);
 
         db.transaction((tx) => {
+            tx.delete(userBenefitProfiles)
+                .where(eq(userBenefitProfiles.userId, user.id))
+                .run();
             tx.delete(transactionHistory)
                 .where(eq(transactionHistory.userId, user.id))
                 .run();
@@ -42,4 +46,3 @@ export async function DELETE(request: Request) {
         return handleRouteError(error);
     }
 }
-

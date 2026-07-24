@@ -7,7 +7,11 @@ import type {
     PlatformType,
     RuleAction,
     RuleCondition,
+    RecommendationRequest,
+    RecommendationResponse,
+    PromotionProvider,
     TransactionHistory,
+    UserBenefitProfile,
     UserCardPerformance,
 } from '@/types';
 
@@ -41,6 +45,9 @@ type CategoryInput = Pick<Category, 'name'>;
 type BrandInput = Pick<Brand, 'name' | 'categoryId' | 'iconName'>;
 type TransactionInput = Pick<TransactionHistory, 'brandId' | 'cardId' | 'amount'> & {
     isOnline: boolean;
+};
+type CombinationTransactionInput = RecommendationRequest & {
+    combinationId: string;
 };
 
 type ApiErrorBody = {
@@ -123,6 +130,30 @@ export const apiClient = {
         request<TransactionHistory>('/api/transactions', {
             method: 'POST',
             body: jsonBody(transaction),
+        }),
+
+    getRecommendation: (input: RecommendationRequest) =>
+        request<RecommendationResponse>('/api/recommendations', {
+            method: 'POST',
+            body: jsonBody(input),
+        }),
+
+    createCombinationTransaction: (transaction: CombinationTransactionInput) =>
+        request<TransactionHistory>('/api/transactions', {
+            method: 'POST',
+            body: jsonBody(transaction),
+        }),
+
+    getBenefitProfile: () =>
+        request<{ profile: UserBenefitProfile; providers: PromotionProvider[] }>(
+            '/api/benefit-profile',
+            { cache: 'no-store' }
+        ),
+
+    updateBenefitProfile: (profile: UserBenefitProfile) =>
+        request<UserBenefitProfile>('/api/benefit-profile', {
+            method: 'PUT',
+            body: jsonBody(profile),
         }),
 
     deleteTransactions: () =>

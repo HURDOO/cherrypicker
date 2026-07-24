@@ -137,6 +137,7 @@ const buildCalculationContext = (
     const integratedMonthlyDiscountByCard = new Map<string, number>();
 
     history.forEach((transaction) => {
+        if (!transaction.cardId) return;
         const isDaily = isToday(transaction.date);
         const isMonthly = isThisMonth(transaction.date);
         const isYearly = isThisYear(transaction.date);

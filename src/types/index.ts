@@ -2,6 +2,8 @@ export type CategoryId = string;
 export type BrandId = string;
 export type CardId = string;
 export type RuleId = string;
+export type PromotionId = string;
+export type PromotionProviderId = string;
 
 export interface Category {
     id: CategoryId;
@@ -87,10 +89,20 @@ export interface TransactionHistory {
     id: number;
     date: string; // ISO string
     brandId: BrandId;
-    cardId: CardId;
+    cardId?: CardId;
     ruleId?: RuleId; // Applied rule
     amount: number;
     discountAmount: number;
+    eligibleItemAmount?: number;
+    payProviderId?: PromotionProviderId;
+    fundingType?: FundingType;
+    combinationId?: string;
+    confirmedValue?: number;
+    conditionalValue?: number;
+    estimatedValue?: number;
+    payableAmount?: number;
+    laterReward?: number;
+    combinationSnapshot?: Record<string, unknown>;
 }
 
 // Calculation Result
@@ -113,4 +125,166 @@ export interface CalculatedCard extends Card {
             isMonthlyAmountLimitReached?: boolean;
         }
     };
+}
+
+// Promotion combination engine
+export type PromotionProviderKind = 'TELECOM' | 'PAY' | 'MERCHANT' | 'GOODDEAL';
+export type BenefitLayer = 'DISCOUNT' | 'PAY' | 'PAYMENT_METHOD' | 'POST_REWARD';
+export type BenefitCertainty = 'CONFIRMED' | 'CONDITIONAL' | 'ESTIMATED';
+export type PromotionStatus = 'DRAFT' | 'PUBLISHED' | 'PAUSED' | 'EXPIRED';
+export type FundingType = 'CARD' | 'MONEY' | 'POINTS' | 'GIFT_CERTIFICATE';
+export type PromotionChannel = 'ALL' | 'ONLINE' | 'OFFLINE' | 'OFFICIAL_SITE';
+export type PromotionActionType =
+    | 'PERCENT'
+    | 'FLAT'
+    | 'FIXED_PRICE'
+    | 'POINTS'
+    | 'CASHBACK'
+    | 'GIFT_CERTIFICATE';
+export type PromotionAmountBasis =
+    | 'ORIGINAL_AMOUNT'
+    | 'REMAINING_AMOUNT'
+    | 'ELIGIBLE_ITEM_AMOUNT'
+    | 'FINAL_APPROVED_AMOUNT';
+
+export interface PromotionProvider {
+    id: PromotionProviderId;
+    name: string;
+    kind: PromotionProviderKind;
+    sourceUrl?: string;
+    isActive: boolean;
+    sortOrder: number;
+}
+
+export interface PromotionAction {
+    type: PromotionActionType;
+    value: number;
+    maxBenefit?: number;
+    faceValue?: number;
+}
+
+export interface PromotionCondition {
+    amountBasis?: PromotionAmountBasis;
+    minSpend?: number;
+    telecomTiers?: string[];
+    requiresCoupon?: boolean;
+    requiresEnrollment?: boolean;
+    firstPaymentOnly?: boolean;
+    manualCheckRequired?: boolean;
+    requiredNote?: string;
+    itemSpecific?: boolean;
+}
+
+export interface PromotionCompatibility {
+    requiredPayProviderIds?: PromotionProviderId[];
+    allowedFundingTypes?: FundingType[];
+    excludedPromotionIds?: PromotionId[];
+    exclusiveGroup?: string;
+    allowStackWithSameLayer?: boolean;
+    blocksCardBenefit?: boolean;
+    allowResidualPayment?: boolean;
+}
+
+export interface PromotionOffer {
+    id: PromotionId;
+    providerId: PromotionProviderId;
+    layer: BenefitLayer;
+    title: string;
+    description: string;
+    brandIds: BrandId[];
+    categoryIds: CategoryId[];
+    channels: PromotionChannel[];
+    startsAt?: string;
+    endsAt?: string;
+    action: PromotionAction;
+    condition: PromotionCondition;
+    compatibility: PromotionCompatibility;
+    limitConfig: LimitConfig;
+    certainty: BenefitCertainty;
+    status: PromotionStatus;
+    sourceUrl: string;
+    sourceHash?: string;
+    collectedAt?: string;
+    reviewedAt?: string;
+    publishedAt?: string;
+}
+
+export interface TelecomMembership {
+    providerId: PromotionProviderId;
+    tier?: string;
+}
+
+export interface UserBenefitProfile {
+    telecomMemberships: TelecomMembership[];
+    enabledPayProviderIds: PromotionProviderId[];
+    moneyEnabled: boolean;
+    pointsEnabled: boolean;
+    pointValue: number;
+}
+
+export interface RecommendationRequest {
+    brandId: BrandId;
+    amount: number;
+    eligibleItemAmount?: number;
+    isOnline: boolean;
+    confirmedConditionIds?: string[];
+}
+
+export interface CombinationStep {
+    id: string;
+    layer: BenefitLayer;
+    providerId?: PromotionProviderId;
+    providerName: string;
+    title: string;
+    certainty: BenefitCertainty;
+    amountBefore: number;
+    benefitAmount: number;
+    amountAfter: number;
+    isImmediate: boolean;
+    warning?: string;
+    promotionId?: PromotionId;
+    cardId?: CardId;
+    ruleId?: RuleId;
+}
+
+export interface BenefitCombination {
+    id: string;
+    payProviderId?: PromotionProviderId;
+    payProviderName?: string;
+    fundingType: FundingType;
+    cardId?: CardId;
+    cardName?: string;
+    steps: CombinationStep[];
+    confirmedValue: number;
+    conditionalValue: number;
+    estimatedValue: number;
+    immediateDiscount: number;
+    laterReward: number;
+    payableAmount: number;
+    warnings: string[];
+    requiredChecks: string[];
+}
+
+export interface RecommendationResponse {
+    brandId: BrandId;
+    amount: number;
+    eligibleItemAmount?: number;
+    combinations: BenefitCombination[];
+    itemSpecificOffers: Array<{
+        id: PromotionId;
+        title: string;
+        providerName: string;
+        requiredNote?: string;
+    }>;
+}
+
+export interface MerchantRouteVerification {
+    brandId: BrandId;
+    payProviderId?: PromotionProviderId;
+    cardCompany?: string;
+    channel: PromotionChannel;
+    cardBenefitEligible: boolean;
+    certainty: BenefitCertainty;
+    evidenceUrl: string;
+    verifiedAt: string;
 }

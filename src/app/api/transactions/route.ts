@@ -4,11 +4,18 @@ import {
     benefitRules,
     brands,
     cards,
+    transactionBenefits,
     transactionHistory,
     userCardPerformances,
 } from '@/db/schema';
 import { handleRouteError, HttpError, readJsonObject, requireUser } from '@/lib/api-server';
-import { booleanValue, requiredInteger, requiredString } from '@/lib/api-validation';
+import {
+    booleanValue,
+    optionalInteger,
+    optionalString,
+    requiredInteger,
+    requiredString,
+} from '@/lib/api-validation';
 import {
     assertCanCreateTransaction,
     visibleToUser,
@@ -25,6 +32,7 @@ import {
     getStartOfCurrentYearInKst,
 } from '@/lib/monthly-performance';
 import { calculateBestCards } from '@/utils/calculation';
+import { calculateRecommendationForUser } from '@/lib/recommendation-server';
 
 export const runtime = 'nodejs';
 
@@ -33,9 +41,90 @@ export async function POST(request: Request) {
         const user = await requireUser(request);
         const input = await readJsonObject(request);
         const brandId = requiredString(input, 'brandId', '브랜드 ID');
-        const cardId = requiredString(input, 'cardId', '카드 ID');
         const amount = requiredInteger(input, 'amount', '결제 금액', 1, 1_000_000_000_000);
         const isOnline = booleanValue(input, 'isOnline', false);
+        const combinationId = optionalString(input, 'combinationId', '추천 조합 ID', 100);
+
+        if (combinationId) {
+            const eligibleItemAmount = optionalInteger(
+                input,
+                'eligibleItemAmount',
+                '혜택 대상 상품 금액',
+                0,
+                amount,
+            );
+            const confirmedConditionIds = Array.isArray(input.confirmedConditionIds)
+                ? input.confirmedConditionIds.filter(
+                    (value): value is string => typeof value === 'string'
+                )
+                : [];
+            const recommendation = calculateRecommendationForUser(user.id, {
+                brandId,
+                amount,
+                ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
+                isOnline,
+                confirmedConditionIds,
+            });
+            const selected = recommendation.combinations.find(
+                combination => combination.id === combinationId
+            );
+            if (!selected) {
+                throw new HttpError(
+                    409,
+                    '혜택 조건이 변경되었습니다. 추천 결과를 새로 확인해주세요.'
+                );
+            }
+
+            assertCanCreateTransaction(user.id);
+            const cardStep = selected.steps.find(step => step.cardId);
+            const createdAt = new Date();
+            const row = db.transaction(tx => {
+                const inserted = tx.insert(transactionHistory)
+                    .values({
+                        userId: user.id,
+                        brandId,
+                        cardId: selected.cardId ?? null,
+                        ruleId: cardStep?.ruleId ?? null,
+                        amount,
+                        discountAmount: cardStep?.certainty === 'CONFIRMED'
+                            ? cardStep.benefitAmount
+                            : 0,
+                        eligibleItemAmount: eligibleItemAmount ?? null,
+                        payProviderId: selected.payProviderId ?? null,
+                        fundingType: selected.fundingType,
+                        combinationId: selected.id,
+                        confirmedValue: selected.confirmedValue,
+                        conditionalValue: selected.conditionalValue,
+                        estimatedValue: selected.estimatedValue,
+                        payableAmount: selected.payableAmount,
+                        laterReward: selected.laterReward,
+                        combinationSnapshot: selected as unknown as Record<string, unknown>,
+                        createdAt,
+                    })
+                    .returning()
+                    .get();
+                if (selected.steps.length > 0) {
+                    tx.insert(transactionBenefits)
+                        .values(selected.steps.map(step => ({
+                            transactionId: inserted.id,
+                            promotionId: step.promotionId ?? null,
+                            ruleId: step.ruleId ?? null,
+                            layer: step.layer,
+                            title: step.title,
+                            certainty: step.certainty,
+                            benefitAmount: step.benefitAmount,
+                            isImmediate: step.isImmediate,
+                            snapshot: step as unknown as Record<string, unknown>,
+                        })))
+                        .run();
+                }
+                return inserted;
+            });
+
+            return Response.json(toTransaction(row), { status: 201 });
+        }
+
+        const cardId = requiredString(input, 'cardId', '카드 ID');
 
         assertCanCreateTransaction(user.id);
         const brand = db.select().from(brands)
@@ -99,6 +188,9 @@ export async function POST(request: Request) {
                 ruleId: ruleId ?? null,
                 amount,
                 discountAmount,
+                payableAmount: Math.max(0, amount - discountAmount),
+                confirmedValue: discountAmount,
+                combinationSnapshot: {},
                 createdAt: new Date(),
             })
             .returning()

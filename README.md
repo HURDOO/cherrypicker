@@ -2,6 +2,8 @@
 
 Cherrypicker는 결제처와 금액에 맞는 신용카드 혜택을 비교하고, 카드 실적과 결제 기록을 관리하는 Next.js 애플리케이션입니다. 데이터는 서버의 SQLite 파일에 저장하며 Drizzle ORM으로 접근하고, 계정과 세션은 Better Auth가 관리합니다.
 
+추천기는 통신사·매장 할인, Npay·카카오페이·굿딜, 카드·머니·포인트를 독립된 단계로 계산합니다. 확정 혜택으로 기본 순위를 정하고 쿠폰·응모 같은 조건부 혜택과 승인 가맹점이 검증되지 않은 예상 카드 혜택을 별도로 표시합니다.
+
 ## 기술 구성
 
 - Next.js 16 App Router, React 19, TypeScript
@@ -37,10 +39,12 @@ DATABASE_PATH=data/cherrypicker.db
 BETTER_AUTH_SECRET=<generated-secret>
 BETTER_AUTH_URL=http://localhost:3000
 ALLOW_SIGN_UP=true
+ADMIN_EMAILS=admin@example.com
 ```
 
 `DATABASE_PATH`의 상대 경로는 명령을 실행한 현재 디렉터리를 기준으로 합니다. 운영 환경에서는 절대 경로를 권장합니다. `BETTER_AUTH_URL`은 사용자가 실제로 접속하는 origin과 정확히 같아야 하며 운영 환경에서는 공개 HTTPS 주소를 사용합니다.
 `ALLOW_SIGN_UP`은 정확히 `true`일 때만 가입을 엽니다. 공개 서버에서는 필요한 계정을 만든 뒤 `false`로 바꾸고 서버를 재시작해 신규 가입 API와 가입 화면을 닫으세요.
+`ADMIN_EMAILS`는 `/admin/promotions`에 접근할 관리자 이메일을 쉼표로 구분합니다. 프로모션 수집, 원문 검수, 승인과 카드 승인 경로 검증은 이 계정만 수행할 수 있습니다.
 
 ### 데이터베이스 준비와 실행
 
@@ -68,6 +72,26 @@ npm run db:migrate
 ```
 
 생성된 `drizzle/` 디렉터리를 코드와 함께 커밋하세요. 운영 DB에는 `drizzle-kit push`를 사용하지 말고, 검토·커밋된 migration만 서버 시작 전에 적용합니다. Supabase의 기존 계정, 비밀번호, 결제 기록은 이 과정에서 자동으로 SQLite로 복사되지 않습니다. 필요한 경우 별도의 검증된 export/import 절차가 필요합니다.
+
+## 프로모션 운영
+
+설정 화면의 `보유 혜택 프로필`에서 사용자의 통신사·등급과 사용 가능한 페이·머니·포인트를 저장합니다. 홈 화면은 해당 프로필에 맞는 조합만 계산합니다. 특정 상품 행사는 기본 추천을 방해하지 않으며, 사용자가 해당 행사를 펼쳐 대상 상품 합계를 입력했을 때만 계산에 들어갑니다.
+
+관리자는 `/admin/promotions`에서 다음 작업을 수행합니다.
+
+- 통신 3사, Npay, 카카오페이, 굿딜과 주요 프랜차이즈의 공개 공식 페이지 수집
+- 수집 원문과 이전 해시 변경점 확인
+- 파싱된 조건 수정 후 승인·게시 또는 반려
+- 카카오페이·굿딜 앱 전용 행사 수동 후보 등록
+- 브랜드·페이·카드사별 승인 가맹점/MCC 근거 등록
+
+자동 수집은 후보를 만들 뿐 기존 승인본을 덮어쓰거나 자동 게시하지 않습니다. 로그인이나 앱 내부 화면은 수집하지 않습니다. 외부 스케줄러에서는 아래 명령을 정기 실행할 수 있습니다.
+
+```bash
+npm run promotions:collect
+```
+
+수집 대상 페이지의 정책과 제휴 조건을 운영 전에 확인하고, 선착순·개인별 대상 여부는 조건부 정보로 유지하세요.
 
 저장소 루트의 `schema.sql`과 `migration_*.sql`은 전환 전 Supabase/PostgreSQL 구조를 보존한 레거시 참고 파일입니다. SQLite 운영에는 실행하지 않으며, 현재 기준 스키마와 migration은 각각 `src/db/schema/`와 `drizzle/`입니다.
 

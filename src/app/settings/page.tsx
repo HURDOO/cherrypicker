@@ -18,6 +18,7 @@ import {
     getCurrentMonthInKst,
     getPreviousMonthInKst,
 } from '@/lib/monthly-performance';
+import { BenefitProfileSettings } from '@/components/settings/BenefitProfileSettings';
 
 export default function SettingsPage() {
     const { cards, rules, performances, history, resetData, updatePerformance } = useAppStore();
@@ -151,6 +152,8 @@ export default function SettingsPage() {
             </header>
 
             <div className="px-5 pt-6 space-y-8 max-w-lg mx-auto">
+
+                <BenefitProfileSettings />
 
                 {/* 1. Performance Tuning */}
                 <section id="performance" className="scroll-mt-24">

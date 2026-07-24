@@ -398,20 +398,32 @@ export default function HistoryPage() {
                                                         <div>
                                                             <div className="flex items-center gap-2">
                                                                 <span className="font-bold text-gray-800 text-sm">{brand?.name || tx.brandId}</span>
-                                                                {tx.discountAmount > 0 && (
+                                                                {(tx.confirmedValue || tx.discountAmount) > 0 && (
                                                                     <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold">혜택적용</span>
                                                                 )}
                                                             </div>
                                                             <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
                                                                 <CreditCard className="w-3 h-3" />
-                                                                {txCard?.name || tx.cardId}
+                                                                {txCard?.name || (
+                                                                    tx.fundingType === 'MONEY'
+                                                                        ? '페이머니'
+                                                                        : tx.fundingType === 'POINTS'
+                                                                            ? '포인트'
+                                                                            : tx.fundingType === 'GIFT_CERTIFICATE'
+                                                                                ? '상품권'
+                                                                                : '카드 미지정'
+                                                                )}
                                                             </p>
                                                         </div>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-bold text-gray-900 text-sm">{tx.amount.toLocaleString()}</p>
-                                                        {tx.discountAmount > 0 && (
-                                                            <p className="text-[10px] text-blue-500 font-bold">-{tx.discountAmount.toLocaleString()}</p>
+                                                        <p className="font-bold text-gray-900 text-sm">
+                                                            {(tx.payableAmount ?? tx.amount).toLocaleString()}
+                                                        </p>
+                                                        {(tx.confirmedValue || tx.discountAmount) > 0 && (
+                                                            <p className="text-[10px] text-blue-500 font-bold">
+                                                                혜택 {(tx.confirmedValue || tx.discountAmount).toLocaleString()}
+                                                            </p>
                                                         )}
                                                     </div>
                                                 </div>

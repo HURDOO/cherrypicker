@@ -45,6 +45,20 @@ export async function requireUser(request: Request) {
     return session.user;
 }
 
+export async function requireAdmin(request: Request) {
+    const user = await requireUser(request);
+    const adminEmails = (process.env.ADMIN_EMAILS || '')
+        .split(',')
+        .map(email => email.trim().toLowerCase())
+        .filter(Boolean);
+
+    if (!user.email || !adminEmails.includes(user.email.toLowerCase())) {
+        throw new HttpError(403, '프로모션 관리자 권한이 필요합니다.');
+    }
+
+    return user;
+}
+
 function assertRequestRateLimit(userId: string, method: string) {
     const isRead = SAFE_METHODS.has(method.toUpperCase());
     const limit = isRead ? READ_REQUESTS_PER_WINDOW : WRITE_REQUESTS_PER_WINDOW;

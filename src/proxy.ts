@@ -5,6 +5,8 @@ function isProtectedPath(pathname: string) {
     return pathname === '/' ||
         pathname === '/design-lab' ||
         pathname.startsWith('/design-lab/') ||
+        pathname === '/admin' ||
+        pathname.startsWith('/admin/') ||
         pathname === '/settings' ||
         pathname.startsWith('/settings/') ||
         pathname === '/history' ||
