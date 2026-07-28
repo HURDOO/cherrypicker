@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { and, desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { promotionCandidates, promotionOffers } from '@/db/schema';
+import { decodePromotionHtml } from './html-decoding';
 
 type PromotionSource = {
     providerId: string;
@@ -137,7 +138,10 @@ export async function collectPromotionCandidates() {
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
-            const html = await response.text();
+            const html = decodePromotionHtml(
+                new Uint8Array(await response.arrayBuffer()),
+                response.headers.get('content-type'),
+            );
             const rawContent = cleanHtml(html);
             const sourceHash = createHash('sha256').update(rawContent).digest('hex');
             const existing = db.select({ id: promotionCandidates.id })
@@ -167,23 +171,37 @@ export async function collectPromotionCandidates() {
                 : undefined;
             const sourceTitle = getTitle(html, source.label);
 
-            db.insert(promotionCandidates).values({
-                id: randomUUID(),
-                providerId: source.providerId,
-                sourceUrl: source.url,
-                sourceHash,
-                sourceTitle,
-                rawContent,
-                parsedOffer: buildParsedOffer(source, sourceTitle, sourceHash),
-                diff: {
-                    previousHash: latestCandidate?.sourceHash ?? null,
-                    changed: Boolean(latestCandidate),
-                    linkedPromotionId: linkedOffer?.id ?? null,
-                    linkedPromotionTitle: linkedOffer?.title ?? null,
-                },
-                status: 'PENDING',
-                discoveredAt: new Date(),
-            }).run();
+            const discoveredAt = new Date();
+            db.transaction(tx => {
+                tx.update(promotionCandidates)
+                    .set({
+                        status: 'REJECTED',
+                        reviewedAt: discoveredAt,
+                    })
+                    .where(and(
+                        eq(promotionCandidates.providerId, source.providerId),
+                        eq(promotionCandidates.sourceUrl, source.url),
+                        eq(promotionCandidates.status, 'PENDING')
+                    ))
+                    .run();
+                tx.insert(promotionCandidates).values({
+                    id: randomUUID(),
+                    providerId: source.providerId,
+                    sourceUrl: source.url,
+                    sourceHash,
+                    sourceTitle,
+                    rawContent,
+                    parsedOffer: buildParsedOffer(source, sourceTitle, sourceHash),
+                    diff: {
+                        previousHash: latestCandidate?.sourceHash ?? null,
+                        changed: Boolean(latestCandidate),
+                        linkedPromotionId: linkedOffer?.id ?? null,
+                        linkedPromotionTitle: linkedOffer?.title ?? null,
+                    },
+                    status: 'PENDING',
+                    discoveredAt,
+                }).run();
+            });
             results.push({ sourceUrl: source.url, status: 'created' });
         } catch (error) {
             results.push({

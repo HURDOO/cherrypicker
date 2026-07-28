@@ -73,6 +73,11 @@ const statusLabel = {
     REJECTED: '반려',
 };
 
+const hasBrokenEncoding = (value: unknown) => {
+    const text = typeof value === 'string' ? value : JSON.stringify(value) ?? '';
+    return text.includes('\uFFFD') || text.includes('ï¿½');
+};
+
 const manualOfferTemplate = {
     providerId: 'kakaopay',
     layer: 'PAY',
@@ -287,7 +292,18 @@ function CandidateEditor({
     onComplete: () => Promise<void>;
 }) {
     const addToast = useToastStore(state => state.addToast);
-    const [json, setJson] = useState(() => JSON.stringify(candidate.parsedOffer, null, 2));
+    const encodingBroken = hasBrokenEncoding(candidate.rawContent) ||
+        hasBrokenEncoding(candidate.parsedOffer) ||
+        hasBrokenEncoding(candidate.sourceTitle);
+    const displayTitle = hasBrokenEncoding(candidate.sourceTitle)
+        ? `${providerName} 공식 페이지 수집본`
+        : candidate.sourceTitle;
+    const [json, setJson] = useState(() => JSON.stringify({
+        ...candidate.parsedOffer,
+        ...(hasBrokenEncoding(candidate.parsedOffer.title) && {
+            title: `${providerName} 공식 혜택`,
+        }),
+    }, null, 2));
     const [isSaving, setIsSaving] = useState(false);
 
     const update = async (status: 'APPROVED' | 'REJECTED') => {
@@ -329,7 +345,7 @@ function CandidateEditor({
                             {statusLabel[candidate.status]}
                         </span>
                     </div>
-                    <h2 className="mt-2 text-sm font-black text-gray-900">{candidate.sourceTitle}</h2>
+                    <h2 className="mt-2 text-sm font-black text-gray-900">{displayTitle}</h2>
                     <p className="mt-1 text-[10px] text-gray-400">
                         {new Date(candidate.discoveredAt).toLocaleString('ko-KR')}
                     </p>
@@ -352,10 +368,19 @@ function CandidateEditor({
                 </div>
             )}
 
+            {encodingBroken && (
+                <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-[10px] font-bold leading-relaxed text-amber-800">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    이전 수집본의 문자 인코딩이 깨졌습니다. 공식 페이지를 다시 수집하면 교정된 새 후보로 교체됩니다.
+                </div>
+            )}
+
             <details className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-3">
                 <summary className="cursor-pointer text-[10px] font-black text-gray-600">원문 미리보기</summary>
                 <p className="mt-3 max-h-36 overflow-y-auto whitespace-pre-wrap text-[10px] leading-relaxed text-gray-500">
-                    {candidate.rawContent.slice(0, 5000)}
+                    {encodingBroken
+                        ? '이 기존 원문은 문자 인코딩이 손상되어 숨겼습니다. 다시 수집한 후보를 사용해주세요.'
+                        : candidate.rawContent.slice(0, 5000)}
                 </p>
             </details>
 

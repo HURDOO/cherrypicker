@@ -11,7 +11,12 @@ export default function BottomNav() {
     const pathname = usePathname();
     const { setSelectedBrandId } = useAppStore();
 
-    if (pathname === '/login' || pathname === '/signup' || pathname.startsWith('/design-lab')) {
+    if (
+        pathname === '/login' ||
+        pathname === '/signup' ||
+        pathname.startsWith('/design-lab') ||
+        pathname.startsWith('/admin')
+    ) {
         return null;
     }
 
