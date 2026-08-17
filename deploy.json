@@ -8,6 +8,12 @@
   "healthPath": "/api/health",
   "access": "private",
   "dataEnabled": true,
+  "requiredSecrets": [
+    "BETTER_AUTH_SECRET"
+  ],
+  "optionalSecrets": [
+    "GEMINI_API_KEY"
+  ],
   "resources": {
     "memoryMiB": 768,
     "cpus": 1,

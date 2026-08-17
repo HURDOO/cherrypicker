@@ -136,13 +136,25 @@ migration과 멱등 seed를 먼저 적용한 뒤 Next.js 서버를 실행합니�
 그 뒤의 immutable 이미지 발행과 dashboard handoff는 `deploy-project` 절차를
 사용합니다.
 
-Better Auth가 동작하려면 첫 컨테이너 시작 전에 Pi의 플랫폼 관리 비밀 환경
-파일 `/etc/homelab/secrets/cherrypicker-promotion.env`에 최소
-`BETTER_AUTH_SECRET`이 있어야 합니다. 실제 값은 저장소, 이미지, 배포 JSON에
-넣지 않습니다. 첫 계정 생성이 필요할 때만 이 비밀 환경 파일에서
-`ALLOW_SIGN_UP=true`로 잠시 열고, 계정을 만든 직후 `false`로 바꿔 컨테이너를
-재시작합니다. `ADMIN_EMAILS`, `GEMINI_API_KEY`, `GEMINI_MODEL`,
-`PROMOTION_AI_MAX_CALLS`도 필요한 경우 같은 별도 승인 절차로 전달합니다.
+관리형 배포 계약은 필수 secret 이름으로 `BETTER_AUTH_SECRET`, 선택 secret
+이름으로 `GEMINI_API_KEY`만 선언합니다. 실제 값이나 Pi의 파일 경로는 저장소,
+이미지, 배포 JSON에 넣지 않습니다. 등록된 앱의 **설정** 화면에서 names-only
+계약을 먼저 적용한 뒤, private dashboard의 **Secrets** 화면에서 필요한 값을
+사용자가 직접 설정합니다. 필수 값이 준비되어 `secretsReady=true`로 확인된
+뒤에만 **배포** 화면에서 이미지를 실행하거나 재시도합니다. 선택 값인
+`GEMINI_API_KEY`가 없으면 보수적인 규칙 분류기로 계속 동작합니다.
+
+현재 deployd는 secret이 아닌 임의의 일반 환경 변수 설정을 지원하지 않습니다.
+따라서 `ALLOW_SIGN_UP`, `ADMIN_EMAILS`, `GEMINI_MODEL`,
+`PROMOTION_AI_MAX_CALLS`를 **Secrets**에 넣지 않습니다. 새 데이터베이스의 최초
+온보딩에는 `ALLOW_SIGN_UP=true`인 임시 bootstrap 이미지를 private 접근으로만
+배포합니다. 의도한 첫 계정을 만든 직후 `ALLOW_SIGN_UP=false`로 되돌린 후속
+이미지를 발행하고, 그 이미지가 healthy 상태가 된 것을 확인해야 가입 종료와
+관리형 배포 온보딩이 완료됩니다. bootstrap 이미지가 실행 중인 동안에는 필요한
+계정만 만든 뒤 지체 없이 가입을 닫습니다. `ADMIN_EMAILS`, `GEMINI_MODEL`,
+`PROMOTION_AI_MAX_CALLS`는 일반 환경 변수 지원이나 별도의 애플리케이션 설정
+경로가 생기기 전까지 이미지의 기본 동작을 사용하며, 이를 secret으로 숨기지
+않습니다.
 
 이미지 롤백은 `/data`의 SQLite 상태를 되돌리지 않습니다. 운영 DB migration은
 별도 승인과 사전 백업이 필요합니다. 아래 `deploy/systemd/` 타이머는 기존 수동
