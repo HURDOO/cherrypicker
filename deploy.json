@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "appId": "cherrypicker-promotion",
+  "imageRepository": "ghcr.io/hurdoo/cherrypicker",
+  "displayName": "Cherrypicker Promotion",
+  "description": "Private credit-card benefit and promotion management application",
+  "containerPort": 3000,
+  "healthPath": "/api/health",
+  "access": "private",
+  "dataEnabled": true,
+  "resources": {
+    "memoryMiB": 768,
+    "cpus": 1,
+    "pids": 128
+  },
+  "ingressProfile": "standard",
+  "platform": "linux/arm64",
+  "dockerfile": "Dockerfile",
+  "context": ".",
+  "checks": [
+    ["npm", "run", "lint"],
+    ["npm", "test"],
+    ["npm", "run", "build"]
+  ]
+}

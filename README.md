@@ -121,6 +121,36 @@ npm run db:backup -- /mnt/external-backup/cherrypicker.db
 
 ## 라즈베리파이 배포
 
+### deployd 관리형 배포
+
+이 worktree의 관리형 앱 ID는 `cherrypicker-promotion`이며 기본 주소는
+`https://cherrypicker-promotion.app.hurdoo.kr`입니다. 최초 배포는
+LAN/WireGuard에서만 접근 가능한 `private` 모드로 시작하고, SQLite와 WAL 파일은
+영속 볼륨의 `/data/cherrypicker.db`에 저장합니다. 컨테이너 시작 시 커밋된
+migration과 멱등 seed를 먼저 적용한 뒤 Next.js 서버를 실행합니다.
+
+배포 계약은 `deploy.json`, 이미지 구성은 `Dockerfile`과 `.dockerignore`에 있습니다.
+이미지는 읽기 전용 루트 파일시스템과 `/tmp` tmpfs에서 실행되며, health check는
+`/api/health`를 사용합니다. 최초 GHCR 패키지는 저장소 Actions의
+`Bootstrap GHCR package` 워크플로를 사용자가 수동 실행해 저장소와 연결합니다.
+그 뒤의 immutable 이미지 발행과 dashboard handoff는 `deploy-project` 절차를
+사용합니다.
+
+Better Auth가 동작하려면 첫 컨테이너 시작 전에 Pi의 플랫폼 관리 비밀 환경
+파일 `/etc/homelab/secrets/cherrypicker-promotion.env`에 최소
+`BETTER_AUTH_SECRET`이 있어야 합니다. 실제 값은 저장소, 이미지, 배포 JSON에
+넣지 않습니다. 첫 계정 생성이 필요할 때만 이 비밀 환경 파일에서
+`ALLOW_SIGN_UP=true`로 잠시 열고, 계정을 만든 직후 `false`로 바꿔 컨테이너를
+재시작합니다. `ADMIN_EMAILS`, `GEMINI_API_KEY`, `GEMINI_MODEL`,
+`PROMOTION_AI_MAX_CALLS`도 필요한 경우 같은 별도 승인 절차로 전달합니다.
+
+이미지 롤백은 `/data`의 SQLite 상태를 되돌리지 않습니다. 운영 DB migration은
+별도 승인과 사전 백업이 필요합니다. 아래 `deploy/systemd/` 타이머는 기존 수동
+설치용 예시이며 deployd가 자동 설치하지 않으므로, 관리형 배포만으로 정기
+프로모션 수집이 활성화되지는 않습니다.
+
+### 수동 설치 참고
+
 64비트 Raspberry Pi OS와 USB SSD를 권장합니다. 데이터베이스는 네트워크 파일시스템이나 microSD가 아니라 Pi에 직접 연결된 영속 디스크에 두세요. 64비트 OS와 지원 중인 Node.js LTS 조합에는 보통 사전 빌드된 `better-sqlite3` 바이너리가 설치됩니다. `npm ci`가 `node-gyp` 단계에서 실패한다면 Pi에 Python, `make`, C/C++ 컴파일러가 설치되어 있는지 확인하세요. 예:
 
 ```env

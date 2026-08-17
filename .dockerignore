@@ -1,0 +1,33 @@
+.git
+.github
+.next
+node_modules
+
+.env
+.env.*
+!.env.example
+
+data
+backups
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+
+coverage
+*.log
+*.tsbuildinfo
+next-env.d.ts
+
+**/*.test.ts
+**/*.test.tsx
+vitest.config.ts
+
+deploy
+docs
+README.md
+AGENTS.md
+schema.sql
+migration_*.sql
+code from gemini.jsx
+database instruction from gemini.txt
