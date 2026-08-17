@@ -19,9 +19,18 @@ import {
     getPreviousMonthInKst,
 } from '@/lib/monthly-performance';
 import { BenefitProfileSettings } from '@/components/settings/BenefitProfileSettings';
+import { BrandDiscoverySettings } from '@/components/settings/BrandDiscoverySettings';
 
 export default function SettingsPage() {
-    const { cards, rules, performances, history, resetData, updatePerformance } = useAppStore();
+    const {
+        userId,
+        cards,
+        rules,
+        performances,
+        history,
+        resetData,
+        updatePerformance,
+    } = useAppStore();
     const { addToast } = useToastStore();
     const { user, signOut } = useAuth();
     const router = useRouter();
@@ -154,6 +163,8 @@ export default function SettingsPage() {
             <div className="px-5 pt-6 space-y-8 max-w-lg mx-auto">
 
                 <BenefitProfileSettings />
+
+                <BrandDiscoverySettings userId={userId} />
 
                 {/* 1. Performance Tuning */}
                 <section id="performance" className="scroll-mt-24">

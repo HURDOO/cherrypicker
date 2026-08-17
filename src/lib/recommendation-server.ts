@@ -102,6 +102,7 @@ export function calculateRecommendationForUser(
     const nowParts = kstParts(now);
     const promotionUsage: Record<string, {
         dailyCount: number;
+        dailyAmount: number;
         monthlyCount: number;
         yearlyCount: number;
         monthlyAmount: number;
@@ -113,6 +114,7 @@ export function calculateRecommendationForUser(
         const date = kstParts(transactionDate);
         const usage = promotionUsage[row.promotionId] ?? {
             dailyCount: 0,
+            dailyAmount: 0,
             monthlyCount: 0,
             yearlyCount: 0,
             monthlyAmount: 0,
@@ -122,7 +124,10 @@ export function calculateRecommendationForUser(
             if (date.month === nowParts.month) {
                 usage.monthlyCount += 1;
                 usage.monthlyAmount += row.benefitAmount;
-                if (date.day === nowParts.day) usage.dailyCount += 1;
+                if (date.day === nowParts.day) {
+                    usage.dailyCount += 1;
+                    usage.dailyAmount += row.benefitAmount;
+                }
             }
         }
         promotionUsage[row.promotionId] = usage;

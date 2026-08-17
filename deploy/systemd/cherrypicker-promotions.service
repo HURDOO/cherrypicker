@@ -1,0 +1,14 @@
+[Unit]
+Description=Collect Cherrypicker promotions from official sources
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=cherrypicker
+Group=cherrypicker
+WorkingDirectory=/opt/cherrypicker
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/cherrypicker/.env
+UMask=0077
+ExecStart=/usr/bin/npm run promotions:collect

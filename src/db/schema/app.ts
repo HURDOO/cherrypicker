@@ -21,6 +21,7 @@ import type {
     PromotionStatus,
     RuleAction,
     RuleCondition,
+    BenefitSubscription,
     TelecomMembership,
 } from '@/types';
 import { user } from './auth';
@@ -104,6 +105,33 @@ export const promotionProviders = sqliteTable('promotion_providers', {
     index('promotion_providers_sort_order_idx').on(table.sortOrder),
 ]);
 
+export const subscriptionProducts = sqliteTable('subscription_products', {
+    id: text('id').primaryKey(),
+    providerId: text('provider_id')
+        .notNull()
+        .references(() => promotionProviders.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    aliases: text('aliases', { mode: 'json' }).$type<string[]>().notNull(),
+    benefitSummary: text('benefit_summary').notNull(),
+    sourceUrl: text('source_url').notNull(),
+    sourceKey: text('source_key').notNull(),
+    sourceHash: text('source_hash').notNull(),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    collectedAt: integer('collected_at', { mode: 'timestamp_ms' }),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+        .notNull()
+        .default(nowInMilliseconds),
+}, (table) => [
+    uniqueIndex('subscription_products_provider_source_key_unique').on(
+        table.providerId,
+        table.sourceKey,
+    ),
+    index('subscription_products_provider_active_idx').on(
+        table.providerId,
+        table.isActive,
+    ),
+]);
+
 export const promotionOffers = sqliteTable('promotion_offers', {
     id: text('id').primaryKey(),
     providerId: text('provider_id')
@@ -184,6 +212,10 @@ export const userBenefitProfiles = sqliteTable('user_benefit_profiles', {
     telecomMemberships: text('telecom_memberships', { mode: 'json' })
         .$type<TelecomMembership[]>()
         .notNull(),
+    subscriptions: text('subscriptions', { mode: 'json' })
+        .$type<BenefitSubscription[]>()
+        .notNull()
+        .default(sql`'[]'`),
     enabledPayProviderIds: text('enabled_pay_provider_ids', { mode: 'json' })
         .$type<string[]>()
         .notNull(),

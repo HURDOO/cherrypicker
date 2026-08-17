@@ -10,12 +10,14 @@ import type {
     RecommendationRequest,
     RecommendationResponse,
     PromotionProvider,
+    SubscriptionProduct,
     TransactionHistory,
     UserBenefitProfile,
     UserCardPerformance,
 } from '@/types';
 
 export interface AppData {
+    userId: string;
     categories: Category[];
     brands: Brand[];
     cards: Card[];
@@ -145,7 +147,11 @@ export const apiClient = {
         }),
 
     getBenefitProfile: () =>
-        request<{ profile: UserBenefitProfile; providers: PromotionProvider[] }>(
+        request<{
+            profile: UserBenefitProfile;
+            providers: PromotionProvider[];
+            subscriptionProducts: SubscriptionProduct[];
+        }>(
             '/api/benefit-profile',
             { cache: 'no-store' }
         ),

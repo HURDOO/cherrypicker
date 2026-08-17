@@ -40,11 +40,15 @@ BETTER_AUTH_SECRET=<generated-secret>
 BETTER_AUTH_URL=http://localhost:3000
 ALLOW_SIGN_UP=true
 ADMIN_EMAILS=admin@example.com
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.6-flash
+PROMOTION_AI_MAX_CALLS=25
 ```
 
 `DATABASE_PATH`의 상대 경로는 명령을 실행한 현재 디렉터리를 기준으로 합니다. 운영 환경에서는 절대 경로를 권장합니다. `BETTER_AUTH_URL`은 사용자가 실제로 접속하는 origin과 정확히 같아야 하며 운영 환경에서는 공개 HTTPS 주소를 사용합니다.
 `ALLOW_SIGN_UP`은 정확히 `true`일 때만 가입을 엽니다. 공개 서버에서는 필요한 계정을 만든 뒤 `false`로 바꾸고 서버를 재시작해 신규 가입 API와 가입 화면을 닫으세요.
 `ADMIN_EMAILS`는 `/admin/promotions`에 접근할 관리자 이메일을 쉼표로 구분합니다. 프로모션 수집, 원문 검수, 승인과 카드 승인 경로 검증은 이 계정만 수행할 수 있습니다.
+`GEMINI_API_KEY`는 선택 사항입니다. 값이 없거나 호출이 실패하면 공식 문구를 보수적으로 판정하는 규칙 분류기로 계속 수집합니다. `GEMINI_MODEL`을 바꾸면 Gemini 모델을 교체할 수 있고, `PROMOTION_AI_MAX_CALLS`는 한 번의 수집에서 AI로 재확인할 모호한 혜택 수를 제한합니다. AI에는 공개된 혜택 문구만 보내며 사용자 카드·결제·계정 데이터는 보내지 않습니다.
 
 ### 데이터베이스 준비와 실행
 
@@ -79,19 +83,23 @@ npm run db:migrate
 
 관리자는 `/admin/promotions`에서 다음 작업을 수행합니다.
 
-- 통신 3사, Npay, 카카오페이, 굿딜과 주요 프랜차이즈의 공개 공식 페이지 수집
-- 수집 원문과 이전 해시 변경점 확인
-- 파싱된 조건 수정 후 승인·게시 또는 반려
+- SKT·U+·Npay·T우주 공식 페이지/API와 주요 프랜차이즈의 공개 혜택 수집
+- T우주 구독 상품명·별칭·제휴처와 건별·일·월 한도를 구조화해 상품 카탈로그와 추천에 동기화
+- 공식 출처의 구체적인 제휴사는 브랜드로 자동 등록하고 범용 이벤트명은 제외
+- 브랜드·등급·할인율·기간·한도를 구조화하고 개별 혜택 단위로 변경 감지
+- 매장 전체·카테고리·상품·고객 한정·미확정 범위를 분류하고 근거 문장과 신뢰도 표시
+- 명확한 정형 조건은 자동 게시하고, 최대·선착순·복합 조건만 검수 후 게시 또는 반려
+- 검수 큐의 검색·제공자·위험·적용 범위 필터와 최대 100건 일괄 승인/반려
 - 카카오페이·굿딜 앱 전용 행사 수동 후보 등록
 - 브랜드·페이·카드사별 승인 가맹점/MCC 근거 등록
 
-자동 수집은 후보를 만들 뿐 기존 승인본을 덮어쓰거나 자동 게시하지 않습니다. 로그인이나 앱 내부 화면은 수집하지 않습니다. 외부 스케줄러에서는 아래 명령을 정기 실행할 수 있습니다.
+카카오페이 앱처럼 로그인이나 앱 내부에서만 제공되는 목록은 자동 수집하지 않습니다. 공식 출처에서 계산 조건이 명확한 혜택만 자동 게시하며, 상품·카테고리 한정 혜택은 대표 최대 혜택에서 분리하고 대상 상품 금액을 입력했을 때만 계산합니다. 범위 미확정 혜택은 관리자가 범위를 선택하기 전에는 게시할 수 없습니다. 사용자가 일시 정지한 자동 혜택은 다음 수집에서도 일시 정지 상태를 유지합니다. 수동 실행 명령은 다음과 같습니다.
 
 ```bash
 npm run promotions:collect
 ```
 
-수집 대상 페이지의 정책과 제휴 조건을 운영 전에 확인하고, 선착순·개인별 대상 여부는 조건부 정보로 유지하세요.
+출처별 신규·자동 게시·검수·실패 건수는 명령 출력과 관리자 수집 결과에서 확인할 수 있습니다. 수집 대상 페이지의 정책과 제휴 조건을 운영 전에 확인하고, 선착순·개인별 대상 여부는 조건부 정보로 유지하세요.
 
 저장소 루트의 `schema.sql`과 `migration_*.sql`은 전환 전 Supabase/PostgreSQL 구조를 보존한 레거시 참고 파일입니다. SQLite 운영에는 실행하지 않으며, 현재 기준 스키마와 migration은 각각 `src/db/schema/`와 `drizzle/`입니다.
 
@@ -167,6 +175,20 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 ```
+
+프로모션 자동 수집용 service/timer 예시는 `deploy/systemd/`에 있습니다. 위 예시처럼 앱이 `/opt/cherrypicker`에 설치되고 `npm`이 `/usr/bin/npm`에 있을 때 다음과 같이 설치합니다. 다른 경로라면 두 파일의 `WorkingDirectory`, `EnvironmentFile`, `ExecStart`를 먼저 수정하세요.
+
+```bash
+sudo install -m 0644 deploy/systemd/cherrypicker-promotions.service /etc/systemd/system/
+sudo install -m 0644 deploy/systemd/cherrypicker-promotions.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now cherrypicker-promotions.timer
+sudo systemctl start cherrypicker-promotions.service
+systemctl list-timers cherrypicker-promotions.timer
+journalctl -u cherrypicker-promotions.service -n 100 --no-pager
+```
+
+타이머는 서울 시간 기준 매일 05:15와 17:15에 실행하며, 서버가 꺼져 실행을 놓친 경우 부팅 후 한 번 실행합니다.
 
 같은 배포 디렉터리를 갱신할 때는 먼저 온라인 백업을 만든 뒤 서비스를 멈추고, 정지 상태에서 의존성 설치·빌드·migration·seed를 수행하세요. 실행 중인 `.next`나 `node_modules`를 교체하면 일시적인 500 또는 누락된 chunk가 발생할 수 있습니다. 무중단 배포가 필요해지면 별도 release 디렉터리에서 빌드한 뒤 symlink를 전환하는 방식을 사용하세요.
 

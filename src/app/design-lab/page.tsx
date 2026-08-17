@@ -5,53 +5,49 @@ import Link from 'next/link';
 import {
     ArrowLeft,
     Check,
-    Grid2X2,
-    LayoutDashboard,
-    ListFilter,
+    Languages,
+    PanelLeft,
     Sparkles,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore } from '@/store/useAppStore';
 import type { Brand } from '@/types';
-import { WordmarkGridDesign } from '@/components/design-lab/WordmarkGridDesign';
-import { SearchListDesign } from '@/components/design-lab/SearchListDesign';
-import { CategoryBoardDesign } from '@/components/design-lab/CategoryBoardDesign';
+import {
+    TossGridInitialDesign,
+    TossGridRailDesign,
+} from '@/components/design-lab/TossGridSpeedDesigns';
 
-type VariantId = 'wordmark' | 'search' | 'category';
+type VariantId = 'initial' | 'rail';
 
 const VARIANTS = [
     {
-        id: 'wordmark' as const,
-        name: 'A. 워드마크',
-        shortName: 'A',
-        description: '브랜드 이름을 가장 크게 보여주는 2열 카드형',
-        detail: '로고가 없어도 큰 이름과 모노그램으로 빠르게 구분하는 안',
-        icon: Grid2X2,
+        id: 'initial' as const,
+        name: 'E4 · 이름 색인',
+        shortName: 'E4',
+        description: '영문명과 한국어 별칭 양쪽에서 찾는 이름 중심형',
+        detail: 'CU를 C와 ㅅ에서 모두 찾듯, 공식 이름·영문 ID·자주 부르는 이름을 함께 색인합니다.',
+        icon: Languages,
+        metaClass: 'border-amber-100 bg-amber-50/80',
+        badgeClass: 'bg-amber-500',
     },
     {
-        id: 'search' as const,
-        name: 'B. 빠른 검색',
-        shortName: 'B',
-        description: '최근 이용과 큰 목록을 결합한 검색 중심형',
-        detail: '브랜드 수가 많아져도 검색과 큰 행으로 읽기 편한 안',
-        icon: ListFilter,
-    },
-    {
-        id: 'category' as const,
-        name: 'C. 카테고리',
-        shortName: 'C',
-        description: '업종부터 고른 뒤 브랜드를 탐색하는 대시보드형',
-        detail: '전체 구조를 한눈에 보고 단계적으로 좁혀가는 안',
-        icon: LayoutDashboard,
+        id: 'rail' as const,
+        name: 'E5 · 생활 카테고리',
+        shortName: 'E5',
+        description: '결제 상황을 먼저 골라 바로 옆 브랜드로 이동하는 업종형',
+        detail: '원본 분류를 편의·마트, 외식·배달, 구독·디지털처럼 고민 없이 고를 수 있는 10개 묶음으로 정리합니다.',
+        icon: PanelLeft,
+        metaClass: 'border-emerald-100 bg-emerald-50/80',
+        badgeClass: 'bg-emerald-600',
     },
 ];
 
 export default function DesignLabPage() {
     const { categories, brands, rules, history, isLoading } = useAppStore();
-    const [activeVariant, setActiveVariant] = useState<VariantId>('wordmark');
+    const [activeVariant, setActiveVariant] = useState<VariantId>('initial');
     const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
 
-    const activeMeta = VARIANTS.find(variant => variant.id === activeVariant) || VARIANTS[0];
+    const activeMeta = VARIANTS.find(variant => variant.id === activeVariant) ?? VARIANTS[0];
     const sharedProps = {
         categories,
         brands,
@@ -73,7 +69,7 @@ export default function DesignLabPage() {
     }
 
     return (
-        <main className="min-h-screen bg-slate-50 pb-12 text-slate-900">
+        <main className="min-h-screen bg-slate-100 pb-12 text-slate-900">
             <header className="border-b border-slate-200 bg-white px-5 pb-5 pt-4">
                 <div className="mb-5 flex items-center justify-between">
                     <Link
@@ -90,16 +86,16 @@ export default function DesignLabPage() {
                 </div>
 
                 <h1 className="text-[26px] font-black leading-tight tracking-[-0.03em] text-slate-950">
-                    홈 브랜드 선택<br />디자인 비교
+                    브랜드 선택 방식<br />최종 후보 비교
                 </h1>
                 <p className="mt-2 text-sm font-medium leading-relaxed text-slate-500">
-                    실제 브랜드 데이터로 세 가지 배치를 비교해보세요. 기존 홈에는 아직 반영되지 않습니다.
+                    이름을 떠올리는 E4와 업종을 떠올리는 E5, 두 가지 빠른 경로만 남겼습니다.
                 </p>
             </header>
 
             <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xl">
-                <div className="grid grid-cols-3 gap-2 rounded-2xl bg-slate-100 p-1.5">
-                    {VARIANTS.map((variant) => {
+                <div className="mx-auto grid max-w-md grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5">
+                    {VARIANTS.map(variant => {
                         const Icon = variant.icon;
                         const isActive = variant.id === activeVariant;
 
@@ -110,7 +106,7 @@ export default function DesignLabPage() {
                                 onClick={() => setActiveVariant(variant.id)}
                                 aria-pressed={isActive}
                                 className={clsx(
-                                    'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 text-center transition-all',
+                                    'flex min-h-14 items-center justify-center gap-2 rounded-xl px-2 text-center transition-all',
                                     isActive
                                         ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200'
                                         : 'text-slate-500 hover:text-slate-800'
@@ -124,10 +120,13 @@ export default function DesignLabPage() {
                 </div>
             </div>
 
-            <section className="px-4 py-5">
-                <div className="mb-4 rounded-3xl border border-blue-100 bg-blue-50/70 p-4">
+            <section className="mx-auto max-w-md px-4 py-5">
+                <div className={clsx('mb-4 rounded-3xl border p-4', activeMeta.metaClass)}>
                     <div className="flex items-start gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-sm font-black text-white">
+                        <div className={clsx(
+                            'flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-sm font-black text-white',
+                            activeMeta.badgeClass
+                        )}>
                             {activeMeta.shortName}
                         </div>
                         <div>
@@ -139,10 +138,13 @@ export default function DesignLabPage() {
                     </div>
                 </div>
 
-                <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
-                    {activeVariant === 'wordmark' && <WordmarkGridDesign {...sharedProps} />}
-                    {activeVariant === 'search' && <SearchListDesign {...sharedProps} />}
-                    {activeVariant === 'category' && <CategoryBoardDesign {...sharedProps} />}
+                <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-slate-300/50">
+                    {activeVariant === 'initial' && (
+                        <TossGridInitialDesign key="initial" {...sharedProps} />
+                    )}
+                    {activeVariant === 'rail' && (
+                        <TossGridRailDesign key="rail" {...sharedProps} />
+                    )}
                 </div>
 
                 <div className={clsx(
@@ -170,4 +172,3 @@ export default function DesignLabPage() {
         </main>
     );
 }
-

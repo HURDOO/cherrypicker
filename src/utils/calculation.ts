@@ -11,10 +11,12 @@ import {
 
 type RuleUsage = {
     dailyCount: number;
+    dailyAmount: number;
     monthlyCount: number;
     yearlyCount: number;
     monthlyAmount: number;
     isDailyLimitReached?: boolean;
+    isDailyAmountLimitReached?: boolean;
     isMonthlyLimitReached?: boolean;
     isYearlyLimitReached?: boolean;
     isMonthlyAmountLimitReached?: boolean;
@@ -174,6 +176,7 @@ const buildCalculationContext = (
         if (!usage) {
             usage = {
                 dailyCount: 0,
+                dailyAmount: 0,
                 monthlyCount: 0,
                 yearlyCount: 0,
                 monthlyAmount: 0,
@@ -181,7 +184,10 @@ const buildCalculationContext = (
             cardUsage.set(trackingId, usage);
         }
 
-        if (isDaily) usage.dailyCount += 1;
+        if (isDaily) {
+            usage.dailyCount += 1;
+            usage.dailyAmount += transaction.discountAmount || 0;
+        }
         if (isMonthly) {
             usage.monthlyCount += 1;
             usage.monthlyAmount += transaction.discountAmount || 0;
@@ -207,10 +213,12 @@ const getUsageStat = (
 
     return {
         dailyCount: usage?.dailyCount ?? 0,
+        dailyAmount: usage?.dailyAmount ?? 0,
         monthlyCount: usage?.monthlyCount ?? 0,
         yearlyCount: usage?.yearlyCount ?? 0,
         monthlyAmount: usage?.monthlyAmount ?? 0,
         isDailyLimitReached: false,
+        isDailyAmountLimitReached: false,
         isMonthlyLimitReached: false,
         isYearlyLimitReached: false,
         isMonthlyAmountLimitReached: false,
@@ -304,6 +312,7 @@ const evaluateRule = ({
 
     const limitConfig = getLimitConfig(rule);
     const dailyCountLimit = getLimitValue(limitConfig, 'dailyCount', 'daily_count');
+    const dailyAmountLimit = getLimitValue(limitConfig, 'dailyAmount', 'daily_amount');
     const monthlyCountLimit = getLimitValue(limitConfig, 'monthlyCount', 'monthly_count');
     const yearlyCountLimit = getLimitValue(limitConfig, 'yearlyCount', 'yearly_count');
     const monthlyAmountLimit = getLimitValue(limitConfig, 'monthlyAmount', 'monthly_amount');
@@ -311,6 +320,12 @@ const evaluateRule = ({
     if (dailyCountLimit && usage.dailyCount >= dailyCountLimit) {
         result.reason = '일 횟수 제한 초과';
         usage.isDailyLimitReached = true;
+        return result;
+    }
+
+    if (dailyAmountLimit && usage.dailyAmount >= dailyAmountLimit) {
+        result.reason = '일 혜택 한도 소진';
+        usage.isDailyAmountLimitReached = true;
         return result;
     }
 
@@ -333,6 +348,14 @@ const evaluateRule = ({
     }
 
     let discount = calculateRuleDiscount(amount, getAction(rule));
+
+    if (dailyAmountLimit) {
+        const dailyRemaining = Math.max(0, dailyAmountLimit - usage.dailyAmount);
+        if (discount > dailyRemaining) {
+            discount = dailyRemaining;
+            result.reason = `일 혜택 한도 잔여(${dailyRemaining}원) 적용`;
+        }
+    }
 
     if (monthlyAmountLimit) {
         const ruleRemaining = Math.max(0, monthlyAmountLimit - usage.monthlyAmount);

@@ -10,6 +10,7 @@ import { calculateBestCombinations, type CombinationEngineInput } from './combin
 
 const providers: PromotionProvider[] = [
     { id: 'skt', name: 'T멤버십', kind: 'TELECOM', isActive: true, sortOrder: 0 },
+    { id: 't-universe', name: 'T우주', kind: 'SUBSCRIPTION', isActive: true, sortOrder: 1 },
     { id: 'naverpay', name: 'Npay', kind: 'PAY', isActive: true, sortOrder: 1 },
     {
         id: 'kakaopay-gooddeal',
@@ -42,6 +43,7 @@ const cardRule: BenefitRule = {
 
 const profile: UserBenefitProfile = {
     telecomMemberships: [{ providerId: 'skt', tier: 'VIP' }],
+    subscriptions: [{ providerId: 't-universe', productName: '우주패스 쇼핑' }],
     enabledPayProviderIds: ['naverpay', 'kakaopay-gooddeal'],
     moneyEnabled: true,
     pointsEnabled: true,
@@ -182,9 +184,115 @@ describe('calculateBestCombinations', () => {
             id: 'cu-items',
             title: 'cu-items',
             providerName: 'T멤버십',
+            scope: 'PRODUCT_SET',
+            calculationEligible: true,
+            valueSemantics: 'EXACT',
+            actionType: 'PERCENT',
+            actionValue: 10,
             requiredNote: '행사 상품 합계 입력',
         }]);
         expect(result.combinations[0].steps.some(step => step.promotionId === 'cu-items')).toBe(false);
+    });
+
+    it('shows an up-to item offer as information but never applies it to the maximum', () => {
+        const result = calculateBestCombinations(input([
+            offer('seveneleven-wine', {
+                title: '세븐일레븐 최대 40% 할인',
+                action: { type: 'PERCENT', value: 40, valueSemantics: 'UP_TO' },
+                condition: {
+                    amountBasis: 'ELIGIBLE_ITEM_AMOUNT',
+                    applicabilityScope: 'CATEGORY',
+                    itemSpecific: true,
+                    eligibleItemSummary: '와인/샴페인 행사 대상 상품',
+                },
+            }),
+        ], { eligibleItemAmount: 20_000 }));
+
+        expect(result.itemSpecificOffers).toEqual([]);
+        expect(result.informationalOffers[0]).toMatchObject({
+            id: 'seveneleven-wine',
+            valueSemantics: 'UP_TO',
+            calculationMode: 'INFORMATION_ONLY',
+            actionValue: 40,
+            scope: 'CATEGORY',
+        });
+        expect(result.combinations.flatMap(item => item.steps).some(step =>
+            step.promotionId === 'seveneleven-wine'
+        )).toBe(false);
+    });
+
+    it('keeps lottery information out and applies user-confirmable eligibility only after confirmation', () => {
+        const lottery = offer('lottery', {
+            providerId: 'naverpay',
+            layer: 'POST_REWARD',
+            action: { type: 'FLAT', value: 12_000 },
+            condition: {
+                amountBasis: 'REMAINING_AMOUNT',
+                applicabilityScope: 'CUSTOMER_TARGETED',
+                calculationMode: 'INFORMATION_ONLY',
+                requiredNote: '추첨형 혜택',
+            },
+        });
+        const teenager = offer('teenager', {
+            providerId: 'naverpay',
+            layer: 'POST_REWARD',
+            action: { type: 'FLAT', value: 2_000 },
+            condition: {
+                amountBasis: 'REMAINING_AMOUNT',
+                applicabilityScope: 'CUSTOMER_TARGETED',
+                calculationMode: 'CONDITIONAL',
+                confirmationRequired: true,
+                requiredNote: '10대 대상 여부 확인',
+            },
+            compatibility: { requiredPayProviderIds: ['naverpay'] },
+        });
+        const before = calculateBestCombinations(input([lottery, teenager]));
+        const after = calculateBestCombinations(input([lottery, teenager], {
+            confirmedConditionIds: ['teenager'],
+        }));
+
+        expect(before.informationalOffers[0].id).toBe('lottery');
+        expect(before.combinations.flatMap(item => item.steps).some(step =>
+            step.promotionId === 'lottery'
+        )).toBe(false);
+        expect(before.combinations.some(item => item.conditionalValue === 2_000)).toBe(true);
+        expect(after.combinations.some(item => item.confirmedValue >= 2_000 &&
+            item.steps.some(step => step.promotionId === 'teenager')
+        )).toBe(true);
+    });
+
+    it('never includes unknown or customer-targeted offers in the fast headline maximum', () => {
+        const result = calculateBestCombinations(input([
+            offer('store-wide', {
+                action: { type: 'FLAT', value: 1_000 },
+                condition: {
+                    amountBasis: 'ORIGINAL_AMOUNT',
+                    applicabilityScope: 'STORE_WIDE',
+                    headlineEligible: true,
+                },
+            }),
+            offer('unknown', {
+                action: { type: 'FLAT', value: 10_000 },
+                condition: {
+                    amountBasis: 'ORIGINAL_AMOUNT',
+                    applicabilityScope: 'UNKNOWN',
+                    headlineEligible: false,
+                },
+            }),
+            offer('targeted', {
+                action: { type: 'FLAT', value: 20_000 },
+                condition: {
+                    amountBasis: 'ORIGINAL_AMOUNT',
+                    applicabilityScope: 'CUSTOMER_TARGETED',
+                    headlineEligible: false,
+                },
+            }),
+        ]));
+
+        expect(result.combinations[0].steps.some(step => step.promotionId === 'store-wide')).toBe(true);
+        expect(result.combinations.flatMap(item => item.steps).some(step =>
+            step.promotionId === 'unknown' || step.promotionId === 'targeted'
+        )).toBe(false);
     });
 
     it('applies a card benefit only to a Gooddeal gift certificate residual', () => {
@@ -263,6 +371,75 @@ describe('calculateBestCombinations', () => {
         expect(stacked).toBeUndefined();
     });
 
+    it('treats a flat post reward as later value instead of an immediate discount', () => {
+        const result = calculateBestCombinations(input([
+            offer('npay-flat-reward', {
+                providerId: 'naverpay',
+                layer: 'POST_REWARD',
+                action: { type: 'FLAT', value: 3_000 },
+                compatibility: {
+                    requiredPayProviderIds: ['naverpay'],
+                    allowedFundingTypes: ['MONEY'],
+                },
+            }),
+        ]));
+        const combination = result.combinations.find(item =>
+            item.payProviderId === 'naverpay' &&
+            item.fundingType === 'MONEY' &&
+            item.steps.some(step => step.promotionId === 'npay-flat-reward')
+        );
+
+        expect(combination?.laterReward).toBe(3_000);
+        expect(combination?.immediateDiscount).toBe(0);
+        expect(combination?.payableAmount).toBe(20_000);
+    });
+
+    it('matches telecom tiers without requiring exact letter casing', () => {
+        const result = calculateBestCombinations(input([
+            offer('vip-only', {
+                condition: { telecomTiers: ['VIP'] },
+            }),
+        ], {
+            profile: {
+                ...profile,
+                telecomMemberships: [{ providerId: 'skt', tier: 'vip' }],
+            },
+        }));
+
+        expect(result.combinations.some(combination =>
+            combination.steps.some(step => step.promotionId === 'vip-only')
+        )).toBe(true);
+    });
+
+    it('uses a T Universe offer only when the required product is subscribed', () => {
+        const tUniverseOffer = offer('t-universe-offer', {
+            providerId: 't-universe',
+            condition: {
+                requiredSubscriptionProducts: ['우주패스쇼핑'],
+            },
+        });
+        const eligible = calculateBestCombinations(input([tUniverseOffer]));
+        const ineligible = calculateBestCombinations(input([tUniverseOffer], {
+            profile: {
+                ...profile,
+                subscriptions: [{
+                    providerId: 't-universe',
+                    productName: '다른 구독 상품',
+                }],
+            },
+        }));
+
+        expect(eligible.combinations.some(combination =>
+            combination.steps.some(step => (
+                step.promotionId === 't-universe-offer' &&
+                step.providerName === 'T우주 · 우주패스 쇼핑'
+            ))
+        )).toBe(true);
+        expect(ineligible.combinations.some(combination =>
+            combination.steps.some(step => step.promotionId === 't-universe-offer')
+        )).toBe(false);
+    });
+
     it('caps a promotion at its remaining monthly amount limit', () => {
         const capped = offer('monthly-cap', {
             action: { type: 'FLAT', value: 2_000 },
@@ -283,6 +460,31 @@ describe('calculateBestCombinations', () => {
         );
 
         expect(applied?.steps.find(step => step.promotionId === 'monthly-cap')?.benefitAmount)
+            .toBe(500);
+    });
+
+    it('caps a promotion at its remaining daily amount limit', () => {
+        const capped = offer('daily-cap', {
+            action: { type: 'PERCENT', value: 20 },
+            limitConfig: { dailyAmount: 5_000, monthlyAmount: 30_000 },
+        });
+        const result = calculateBestCombinations(input([capped], {
+            amount: 20_000,
+            promotionUsage: {
+                'daily-cap': {
+                    dailyCount: 1,
+                    dailyAmount: 4_500,
+                    monthlyCount: 1,
+                    yearlyCount: 1,
+                    monthlyAmount: 4_500,
+                },
+            },
+        }));
+        const applied = result.combinations.find(combination =>
+            combination.steps.some(step => step.promotionId === 'daily-cap')
+        );
+
+        expect(applied?.steps.find(step => step.promotionId === 'daily-cap')?.benefitAmount)
             .toBe(500);
     });
 });

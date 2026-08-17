@@ -3,20 +3,32 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-    AlertCircle,
     ArrowLeft,
     CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
     DatabaseZap,
     ExternalLink,
-    FileDiff,
+    Layers3,
     LoaderCircle,
     PauseCircle,
-    PlusCircle,
     PlayCircle,
+    PlusCircle,
     RefreshCw,
+    Search,
+    ShieldAlert,
+    Sparkles,
+    Store,
     XCircle,
 } from 'lucide-react';
-import type { PromotionOffer, PromotionProvider } from '@/types';
+import type {
+    PromotionApplicabilityScope,
+    PromotionCalculationMode,
+    PromotionOffer,
+    PromotionProvider,
+    PromotionSemanticAnalysis,
+    PromotionValueSemantics,
+} from '@/types';
 import { getErrorMessage } from '@/lib/api-client';
 import { useToastStore } from '@/store/useToastStore';
 
@@ -33,6 +45,41 @@ type Candidate = {
     linkedPromotionId?: string;
     discoveredAt: string;
     reviewedAt?: string;
+};
+
+type CandidateOffer = {
+    providerId?: string;
+    layer?: string;
+    title?: string;
+    description?: string;
+    brandIds?: string[];
+    categoryIds?: string[];
+    channels?: string[];
+    startsAt?: string;
+    endsAt?: string;
+    action?: {
+        type?: string;
+        value?: number;
+        valueSemantics?: PromotionValueSemantics;
+        maxBenefit?: number;
+    };
+    condition?: {
+        amountBasis?: string;
+        applicabilityScope?: PromotionApplicabilityScope;
+        calculationMode?: PromotionCalculationMode;
+        headlineEligible?: boolean;
+        eligibleItemSummary?: string;
+        requiredInputs?: string[];
+        itemSpecific?: boolean;
+        minSpend?: number;
+        telecomTiers?: string[];
+        requiredSubscriptionProducts?: string[];
+        manualCheckRequired?: boolean;
+        confirmationRequired?: boolean;
+        requiredNote?: string;
+        [key: string]: unknown;
+    };
+    [key: string]: unknown;
 };
 
 type AdminData = {
@@ -54,6 +101,24 @@ type AdminData = {
     }>;
 };
 
+type CollectionResult = {
+    sourceId: string;
+    sourceUrl: string;
+    label: string;
+    status: 'created' | 'unchanged' | 'failed' | 'skipped';
+    discovered: number;
+    published: number;
+    reviewRequired: number;
+    unchanged: number;
+    expired: number;
+    message?: string;
+};
+
+type RiskFilter = 'ALL' | 'CHANGED' | 'COMPLEX' | 'ENCODING';
+type ScopeFilter = 'ALL' | PromotionApplicabilityScope;
+
+const PAGE_SIZE = 20;
+
 const request = async <T,>(init?: RequestInit): Promise<T> => {
     const response = await fetch('/api/admin/promotions', {
         ...init,
@@ -73,53 +138,230 @@ const statusLabel = {
     REJECTED: '반려',
 };
 
+const actionLabels: Record<string, string> = {
+    PERCENT: '할인율',
+    FLAT: '정액 할인',
+    FIXED_PRICE: '특가',
+    POINTS: '포인트 적립',
+    CASHBACK: '캐시백',
+    GIFT_CERTIFICATE: '상품권',
+};
+
+const valueSemanticsLabels: Record<PromotionValueSemantics, string> = {
+    EXACT: '정확한 값',
+    UP_TO: '최대치·정보용',
+};
+
+const calculationModeLabels: Record<PromotionCalculationMode, string> = {
+    CALCULABLE: '바로 계산',
+    CONDITIONAL: '사용자 확인 후 계산',
+    INFORMATION_ONLY: '정보만 표시',
+};
+
+const scopeLabels: Record<PromotionApplicabilityScope, string> = {
+    STORE_WIDE: '매장 전체',
+    CATEGORY: '카테고리 한정',
+    PRODUCT_SET: '상품 한정',
+    CUSTOMER_TARGETED: '고객 한정',
+    UNKNOWN: '범위 미확정',
+};
+
+const scopeDescriptions: Record<PromotionApplicabilityScope, string> = {
+    STORE_WIDE: '대표 최대 혜택 계산에 포함',
+    CATEGORY: '대상 카테고리 금액을 따로 입력',
+    PRODUCT_SET: '대상 상품 금액을 따로 입력',
+    CUSTOMER_TARGETED: '개인별 대상 여부 확인 필요',
+    UNKNOWN: '게시 전에 범위를 반드시 선택',
+};
+
 const hasBrokenEncoding = (value: unknown) => {
     const text = typeof value === 'string' ? value : JSON.stringify(value) ?? '';
     return text.includes('\uFFFD') || text.includes('ï¿½');
 };
 
-const manualOfferTemplate = {
-    providerId: 'kakaopay',
-    layer: 'PAY',
-    title: '직접 확인한 행사',
-    description: '',
-    brandIds: [],
-    categoryIds: [],
-    channels: ['ALL'],
-    startsAt: '',
-    endsAt: '',
-    action: { type: 'FLAT', value: 0 },
-    condition: {
-        amountBasis: 'REMAINING_AMOUNT',
-        manualCheckRequired: true,
-        requiredNote: '결제 화면에서 최종 확인',
-    },
-    compatibility: {
-        requiredPayProviderIds: ['kakaopay'],
-        allowedFundingTypes: ['CARD', 'MONEY', 'POINTS'],
-    },
-    limitConfig: {},
-    certainty: 'CONDITIONAL',
-    sourceUrl: 'https://',
+const asOffer = (candidate: Candidate) => candidate.parsedOffer as CandidateOffer;
+const candidateScope = (candidate: Candidate): PromotionApplicabilityScope =>
+    asOffer(candidate).condition?.applicabilityScope ?? 'UNKNOWN';
+const candidateSemanticAnalysis = (candidate: Candidate) => {
+    const analysis = candidate.diff.semanticAnalysis;
+    if (!analysis || typeof analysis !== 'object' || Array.isArray(analysis)) return undefined;
+    return analysis as PromotionSemanticAnalysis;
 };
 
-function ManualCandidateForm({ onCreated }: { onCreated: () => Promise<void> }) {
+const formatMoney = (value?: number) => value === undefined
+    ? '-'
+    : `${Math.round(value).toLocaleString('ko-KR')}원`;
+
+const formatAction = (offer: CandidateOffer) => {
+    const type = offer.action?.type ?? '';
+    const value = offer.action?.value;
+    if (value === undefined) return '혜택 값 확인 필요';
+    const prefix = offer.action?.valueSemantics === 'UP_TO' ? '최대 ' : '';
+    if (type === 'PERCENT') return `${prefix}${value}% 할인`;
+    if (type === 'POINTS') return `${prefix}${value}% 적립`;
+    if (type === 'CASHBACK') return `${prefix}${value}% 캐시백`;
+    if (type === 'FIXED_PRICE') return `${formatMoney(value)} 특가`;
+    if (type === 'FLAT' && /캐시백/.test(offer.title ?? '')) return `${formatMoney(value)} 캐시백`;
+    if (type === 'FLAT' && offer.layer === 'POST_REWARD') return `${formatMoney(value)} 적립`;
+    return `${formatMoney(value)} ${type === 'FLAT' ? '할인' : '혜택'}`;
+};
+
+const candidateWarnings = (candidate: Candidate) => Array.isArray(candidate.diff.warnings)
+    ? candidate.diff.warnings.filter((warning): warning is string => typeof warning === 'string')
+    : [];
+
+const candidateRisk = (candidate: Candidate): Exclude<RiskFilter, 'ALL'> | 'NORMAL' => {
+    if (hasBrokenEncoding(candidate.rawContent) || hasBrokenEncoding(candidate.parsedOffer)) {
+        return 'ENCODING';
+    }
+    if (candidate.diff.changed === true) return 'CHANGED';
+    if (candidateScope(candidate) === 'UNKNOWN' ||
+        candidateWarnings(candidate).length > 0 ||
+        asOffer(candidate).condition?.manualCheckRequired) {
+        return 'COMPLEX';
+    }
+    return 'NORMAL';
+};
+
+function SummaryCard({
+    label,
+    value,
+    description,
+    tone,
+}: {
+    label: string;
+    value: string | number;
+    description: string;
+    tone: 'amber' | 'blue' | 'emerald' | 'violet';
+}) {
+    const tones = {
+        amber: 'border-amber-200 bg-amber-50 text-amber-900',
+        blue: 'border-blue-200 bg-blue-50 text-blue-900',
+        emerald: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+        violet: 'border-violet-200 bg-violet-50 text-violet-900',
+    };
+    return (
+        <div className={`rounded-2xl border p-4 ${tones[tone]}`}>
+            <p className="text-[10px] font-black uppercase tracking-wide opacity-60">{label}</p>
+            <p className="mt-1 text-2xl font-black">{value}</p>
+            <p className="mt-1 text-[10px] font-bold opacity-60">{description}</p>
+        </div>
+    );
+}
+
+function ManualCandidateForm({
+    brands,
+    providers,
+    onCreated,
+}: {
+    brands: AdminData['brands'];
+    providers: PromotionProvider[];
+    onCreated: () => Promise<void>;
+}) {
     const addToast = useToastStore(state => state.addToast);
-    const [json, setJson] = useState(() => JSON.stringify(manualOfferTemplate, null, 2));
+    const [form, setForm] = useState({
+        providerId: 'kakaopay',
+        brandId: '',
+        layer: 'PAY',
+        title: '',
+        description: '',
+        actionType: 'FLAT',
+        valueSemantics: 'EXACT' as PromotionValueSemantics,
+        actionValue: '',
+        minSpend: '',
+        requiredSubscriptionProducts: '',
+        channel: 'ALL',
+        scope: 'UNKNOWN' as PromotionApplicabilityScope,
+        sourceUrl: 'https://',
+    });
     const [isSaving, setIsSaving] = useState(false);
+    const selectedProvider = providers.find(provider => provider.id === form.providerId);
 
     const create = async () => {
+        const actionValue = Number(form.actionValue);
+        const minSpend = form.minSpend ? Number(form.minSpend) : undefined;
+        const requiredSubscriptionProducts = form.requiredSubscriptionProducts
+            .split(',')
+            .map(product => product.trim())
+            .filter(Boolean);
+        if (!form.title.trim() || !form.brandId || !Number.isFinite(actionValue) || actionValue <= 0) {
+            addToast('브랜드·제목·혜택 값을 확인해주세요.', 'error');
+            return;
+        }
+        if (selectedProvider?.kind === 'SUBSCRIPTION' && requiredSubscriptionProducts.length === 0) {
+            addToast('혜택에 필요한 구독 상품명을 입력해주세요.', 'error');
+            return;
+        }
         setIsSaving(true);
         try {
             await request({
                 method: 'POST',
                 body: JSON.stringify({
                     action: 'manual',
-                    offer: JSON.parse(json),
-                    rawContent: '카카오페이 또는 굿딜 앱에서 관리자가 직접 확인',
+                    rawContent: '관리자가 직접 확인한 앱 또는 공식 안내',
+                    offer: {
+                        providerId: form.providerId,
+                        layer: form.layer,
+                        title: form.title.trim(),
+                        description: form.description.trim() || form.title.trim(),
+                        brandIds: [form.brandId],
+                        categoryIds: [],
+                        channels: [form.channel],
+                        action: {
+                            type: form.actionType,
+                            value: actionValue,
+                            valueSemantics: form.valueSemantics,
+                        },
+                        condition: {
+                            amountBasis: form.scope === 'CATEGORY' || form.scope === 'PRODUCT_SET'
+                                ? 'ELIGIBLE_ITEM_AMOUNT'
+                                : form.layer === 'DISCOUNT' ? 'ORIGINAL_AMOUNT' : 'REMAINING_AMOUNT',
+                            applicabilityScope: form.scope,
+                            calculationMode: form.valueSemantics === 'UP_TO'
+                                ? 'INFORMATION_ONLY'
+                                : 'CALCULABLE',
+                            headlineEligible: form.scope === 'STORE_WIDE' &&
+                                form.valueSemantics === 'EXACT',
+                            itemSpecific: form.scope === 'CATEGORY' || form.scope === 'PRODUCT_SET',
+                            requiredInputs: [
+                                ...(form.scope === 'CATEGORY' || form.scope === 'PRODUCT_SET'
+                                    ? ['ELIGIBLE_ITEM_AMOUNT']
+                                    : []),
+                                ...(selectedProvider?.kind === 'SUBSCRIPTION'
+                                    ? ['SUBSCRIPTION_PRODUCT']
+                                    : []),
+                            ],
+                            ...(selectedProvider?.kind === 'SUBSCRIPTION' && {
+                                requiredSubscriptionProducts,
+                            }),
+                            ...((form.scope === 'CATEGORY' || form.scope === 'PRODUCT_SET') && {
+                                eligibleItemSummary: form.description.trim() || form.title.trim(),
+                            }),
+                            ...(minSpend && { minSpend }),
+                            manualCheckRequired: true,
+                            requiredNote: '게시 전 공식 안내의 대상·기간·횟수 확인',
+                        },
+                        compatibility: {
+                            ...((selectedProvider?.kind === 'PAY' || selectedProvider?.kind === 'GOODDEAL') && {
+                                requiredPayProviderIds: [form.providerId],
+                            }),
+                        },
+                        limitConfig: {},
+                        certainty: 'CONDITIONAL',
+                        sourceUrl: form.sourceUrl,
+                    },
                 }),
             });
-            addToast('수동 검수 후보를 추가했습니다.', 'success');
+            addToast('검수 후보를 추가했습니다.', 'success');
+            setForm(current => ({
+                ...current,
+                brandId: '',
+                title: '',
+                description: '',
+                actionValue: '',
+                minSpend: '',
+                requiredSubscriptionProducts: '',
+            }));
             await onCreated();
         } catch (error) {
             addToast(getErrorMessage(error, '수동 후보를 추가하지 못했습니다.'), 'error');
@@ -129,29 +371,136 @@ function ManualCandidateForm({ onCreated }: { onCreated: () => Promise<void> }) 
     };
 
     return (
-        <details className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+        <details className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-black text-gray-900">
                 <PlusCircle className="h-4 w-4 text-blue-600" />
-                앱 전용 행사 직접 등록
+                수동 혜택 등록
             </summary>
-            <p className="mt-3 text-[10px] leading-relaxed text-gray-500">
-                카카오페이·굿딜 앱에서 확인한 내용을 후보로 넣습니다. 저장 후에도 승인 단계가 필요합니다.
+            <p className="mt-2 text-[10px] leading-relaxed text-gray-500">
+                JSON 대신 확인한 값만 입력하면 검수 큐에 추가됩니다.
             </p>
-            <textarea
-                value={json}
-                onChange={event => setJson(event.target.value)}
-                spellCheck={false}
-                className="mt-3 h-72 w-full rounded-2xl border border-gray-200 bg-gray-950 p-3 font-mono text-[10px] leading-relaxed text-emerald-200 outline-none"
-            />
-            <button
-                type="button"
-                onClick={create}
-                disabled={isSaving}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-xs font-black text-white disabled:opacity-50"
-            >
-                {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
-                검수 후보로 저장
-            </button>
+            <div className="mt-4 space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                    <select
+                        value={form.providerId}
+                        onChange={event => setForm(current => ({ ...current, providerId: event.target.value }))}
+                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold"
+                    >
+                        {providers.map(provider => (
+                            <option key={provider.id} value={provider.id}>{provider.name}</option>
+                        ))}
+                    </select>
+                    <select
+                        value={form.brandId}
+                        onChange={event => setForm(current => ({ ...current, brandId: event.target.value }))}
+                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold"
+                    >
+                        <option value="">브랜드 선택</option>
+                        {brands.map(brand => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
+                    </select>
+                </div>
+                <input
+                    value={form.title}
+                    onChange={event => setForm(current => ({ ...current, title: event.target.value }))}
+                    placeholder="혜택 제목"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold"
+                />
+                <textarea
+                    value={form.description}
+                    onChange={event => setForm(current => ({ ...current, description: event.target.value }))}
+                    placeholder="대상, 기간, 횟수, 제외 조건"
+                    className="h-20 w-full rounded-xl border border-gray-200 px-3 py-2 text-xs"
+                />
+                {selectedProvider?.kind === 'SUBSCRIPTION' && (
+                    <input
+                        value={form.requiredSubscriptionProducts}
+                        onChange={event => setForm(current => ({
+                            ...current,
+                            requiredSubscriptionProducts: event.target.value,
+                        }))}
+                        placeholder="필수 구독 상품명 (여러 개는 쉼표로 구분)"
+                        className="w-full rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-900"
+                    />
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                    <select
+                        value={form.actionType}
+                        onChange={event => setForm(current => ({ ...current, actionType: event.target.value }))}
+                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold"
+                    >
+                        {Object.entries(actionLabels).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                        ))}
+                    </select>
+                    <select
+                        value={form.valueSemantics}
+                        onChange={event => setForm(current => ({
+                            ...current,
+                            valueSemantics: event.target.value as PromotionValueSemantics,
+                        }))}
+                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold"
+                    >
+                        {Object.entries(valueSemanticsLabels).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                        ))}
+                    </select>
+                    <input
+                        type="number"
+                        min="0"
+                        value={form.actionValue}
+                        onChange={event => setForm(current => ({ ...current, actionValue: event.target.value }))}
+                        placeholder="할인율 또는 금액"
+                        className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold"
+                    />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                    <input
+                        type="number"
+                        min="0"
+                        value={form.minSpend}
+                        onChange={event => setForm(current => ({ ...current, minSpend: event.target.value }))}
+                        placeholder="최소 결제금액"
+                        className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold"
+                    />
+                    <select
+                        value={form.channel}
+                        onChange={event => setForm(current => ({ ...current, channel: event.target.value }))}
+                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold"
+                    >
+                        <option value="ALL">온·오프라인</option>
+                        <option value="ONLINE">온라인</option>
+                        <option value="OFFLINE">오프라인</option>
+                        <option value="OFFICIAL_SITE">공식몰</option>
+                    </select>
+                </div>
+                <select
+                    value={form.scope}
+                    onChange={event => setForm(current => ({
+                        ...current,
+                        scope: event.target.value as PromotionApplicabilityScope,
+                    }))}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold"
+                >
+                    {Object.entries(scopeLabels).map(([value, label]) => (
+                        <option key={value} value={value}>{label} · {scopeDescriptions[value as PromotionApplicabilityScope]}</option>
+                    ))}
+                </select>
+                <input
+                    value={form.sourceUrl}
+                    onChange={event => setForm(current => ({ ...current, sourceUrl: event.target.value }))}
+                    placeholder="공식 근거 URL"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs"
+                />
+                <button
+                    type="button"
+                    onClick={create}
+                    disabled={isSaving}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-xs font-black text-white disabled:opacity-50"
+                >
+                    {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+                    검수 큐에 추가
+                </button>
+            </div>
         </details>
     );
 }
@@ -197,14 +546,11 @@ function RouteVerificationForm({
     };
 
     return (
-        <details className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+        <details className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-black text-gray-900">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 카드 승인 경로 검증
             </summary>
-            <p className="mt-3 text-[10px] leading-relaxed text-gray-500">
-                실결제 명세나 카드사 근거를 확인한 경로만 확정 혜택으로 올립니다.
-            </p>
             <div className="mt-4 space-y-2">
                 <select
                     value={form.brandId}
@@ -282,34 +628,101 @@ function RouteVerificationForm({
     );
 }
 
-function CandidateEditor({
+function CandidateCard({
     candidate,
     providerName,
+    brandNames,
+    brands,
+    selected,
+    onSelect,
     onComplete,
 }: {
     candidate: Candidate;
     providerName: string;
+    brandNames: Map<string, string>;
+    brands: AdminData['brands'];
+    selected: boolean;
+    onSelect: (checked: boolean) => void;
     onComplete: () => Promise<void>;
 }) {
     const addToast = useToastStore(state => state.addToast);
-    const encodingBroken = hasBrokenEncoding(candidate.rawContent) ||
-        hasBrokenEncoding(candidate.parsedOffer) ||
-        hasBrokenEncoding(candidate.sourceTitle);
-    const displayTitle = hasBrokenEncoding(candidate.sourceTitle)
-        ? `${providerName} 공식 페이지 수집본`
-        : candidate.sourceTitle;
-    const [json, setJson] = useState(() => JSON.stringify({
-        ...candidate.parsedOffer,
-        ...(hasBrokenEncoding(candidate.parsedOffer.title) && {
-            title: `${providerName} 공식 혜택`,
-        }),
-    }, null, 2));
+    const offer = asOffer(candidate);
+    const risk = candidateRisk(candidate);
+    const warnings = candidateWarnings(candidate);
+    const semanticAnalysis = candidateSemanticAnalysis(candidate);
+    const [form, setForm] = useState({
+        title: offer.title ?? candidate.sourceTitle,
+        description: offer.description ?? '',
+        brandId: offer.brandIds?.[0] ?? '',
+        actionType: offer.action?.type ?? 'FLAT',
+        actionValue: String(offer.action?.value ?? ''),
+        valueSemantics: offer.action?.valueSemantics ?? 'EXACT' as PromotionValueSemantics,
+        calculationMode: offer.condition?.calculationMode ?? (
+            offer.action?.valueSemantics === 'UP_TO'
+                ? 'INFORMATION_ONLY'
+                : 'CALCULABLE'
+        ) as PromotionCalculationMode,
+        maxBenefit: String(offer.action?.maxBenefit ?? ''),
+        minSpend: String(offer.condition?.minSpend ?? ''),
+        requiredNote: offer.condition?.requiredNote ?? '',
+        applicabilityScope: offer.condition?.applicabilityScope ?? 'UNKNOWN' as PromotionApplicabilityScope,
+        eligibleItemSummary: offer.condition?.eligibleItemSummary ?? '',
+        manualCheckRequired: Boolean(offer.condition?.manualCheckRequired),
+    });
     const [isSaving, setIsSaving] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
 
     const update = async (status: 'APPROVED' | 'REJECTED') => {
         setIsSaving(true);
         try {
-            const parsedOffer = status === 'APPROVED' ? JSON.parse(json) : undefined;
+            const actionValue = Number(form.actionValue);
+            const maxBenefit = form.maxBenefit ? Number(form.maxBenefit) : undefined;
+            const minSpend = form.minSpend ? Number(form.minSpend) : undefined;
+            const itemScoped = form.applicabilityScope === 'CATEGORY' ||
+                form.applicabilityScope === 'PRODUCT_SET';
+            const requiredInputs = [
+                ...(offer.condition?.requiredInputs ?? []).filter(input =>
+                    input !== 'ELIGIBLE_ITEM_AMOUNT'
+                ),
+                ...(itemScoped ? ['ELIGIBLE_ITEM_AMOUNT'] : []),
+            ];
+            const parsedOffer = status === 'APPROVED' ? {
+                ...candidate.parsedOffer,
+                title: form.title.trim(),
+                description: form.description.trim(),
+                brandIds: form.brandId ? [form.brandId] : offer.brandIds ?? [],
+                    action: {
+                        ...offer.action,
+                        type: form.actionType,
+                        value: actionValue,
+                        valueSemantics: form.valueSemantics,
+                    ...(maxBenefit ? { maxBenefit } : { maxBenefit: undefined }),
+                },
+                condition: {
+                    ...offer.condition,
+                    amountBasis: itemScoped
+                        ? 'ELIGIBLE_ITEM_AMOUNT'
+                        : offer.condition?.amountBasis === 'ELIGIBLE_ITEM_AMOUNT'
+                            ? offer.layer === 'DISCOUNT' ? 'ORIGINAL_AMOUNT' : 'REMAINING_AMOUNT'
+                            : offer.condition?.amountBasis,
+                    applicabilityScope: form.applicabilityScope,
+                    calculationMode: form.calculationMode,
+                    headlineEligible: form.applicabilityScope === 'STORE_WIDE' &&
+                        form.calculationMode !== 'INFORMATION_ONLY',
+                    itemSpecific: itemScoped,
+                    requiredInputs,
+                    ...(form.eligibleItemSummary.trim()
+                        ? { eligibleItemSummary: form.eligibleItemSummary.trim() }
+                        : { eligibleItemSummary: undefined }),
+                    ...(minSpend ? { minSpend } : { minSpend: undefined }),
+                    confirmationRequired: form.calculationMode === 'CONDITIONAL',
+                    manualCheckRequired: form.manualCheckRequired ||
+                        form.applicabilityScope === 'UNKNOWN',
+                    ...(form.requiredNote.trim()
+                        ? { requiredNote: form.requiredNote.trim() }
+                        : { requiredNote: undefined }),
+                },
+            } : undefined;
             await request({
                 method: 'PATCH',
                 body: JSON.stringify({
@@ -318,7 +731,7 @@ function CandidateEditor({
                     ...(parsedOffer && { parsedOffer }),
                 }),
             });
-            addToast(status === 'APPROVED' ? '프로모션을 게시했습니다.' : '후보를 반려했습니다.', 'success');
+            addToast(status === 'APPROVED' ? '혜택을 게시했습니다.' : '후보를 반려했습니다.', 'success');
             await onComplete();
         } catch (error) {
             addToast(getErrorMessage(error, '검수 결과를 저장하지 못했습니다.'), 'error');
@@ -327,15 +740,30 @@ function CandidateEditor({
         }
     };
 
+    const brandLabel = (offer.brandIds ?? [])
+        .map(id => brandNames.get(id) ?? id)
+        .join(', ') || '브랜드 확인 필요';
+
     return (
-        <article className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-black text-gray-600">
+        <article className={`rounded-2xl border bg-white p-4 shadow-sm transition ${
+            selected ? 'border-blue-400 ring-2 ring-blue-100' : 'border-gray-200'
+        }`}>
+            <div className="flex items-start gap-3">
+                {candidate.status === 'PENDING' && (
+                    <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={event => onSelect(event.target.checked)}
+                        aria-label={`${offer.title ?? candidate.sourceTitle} 선택`}
+                        className="mt-1 h-4 w-4 shrink-0 accent-blue-600"
+                    />
+                )}
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="rounded-full bg-gray-100 px-2 py-1 text-[9px] font-black text-gray-600">
                             {providerName}
                         </span>
-                        <span className={`rounded-full px-2 py-1 text-[10px] font-black ${
+                        <span className={`rounded-full px-2 py-1 text-[9px] font-black ${
                             candidate.status === 'PENDING'
                                 ? 'bg-amber-100 text-amber-800'
                                 : candidate.status === 'APPROVED'
@@ -344,11 +772,29 @@ function CandidateEditor({
                         }`}>
                             {statusLabel[candidate.status]}
                         </span>
+                        {risk === 'CHANGED' && (
+                            <span className="rounded-full bg-blue-100 px-2 py-1 text-[9px] font-black text-blue-700">변경 감지</span>
+                        )}
+                        {risk === 'COMPLEX' && (
+                            <span className="rounded-full bg-violet-100 px-2 py-1 text-[9px] font-black text-violet-700">조건 확인</span>
+                        )}
+                        {risk === 'ENCODING' && (
+                            <span className="rounded-full bg-rose-100 px-2 py-1 text-[9px] font-black text-rose-700">문자 오류</span>
+                        )}
+                        <span className={`rounded-full px-2 py-1 text-[9px] font-black ${
+                            form.applicabilityScope === 'STORE_WIDE'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : form.applicabilityScope === 'CATEGORY' || form.applicabilityScope === 'PRODUCT_SET'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-gray-200 text-gray-700'
+                        }`}>
+                            {scopeLabels[form.applicabilityScope]}
+                        </span>
                     </div>
-                    <h2 className="mt-2 text-sm font-black text-gray-900">{displayTitle}</h2>
-                    <p className="mt-1 text-[10px] text-gray-400">
-                        {new Date(candidate.discoveredAt).toLocaleString('ko-KR')}
-                    </p>
+                    <h3 className="mt-2 truncate text-sm font-black text-gray-950">
+                        {offer.title ?? candidate.sourceTitle}
+                    </h3>
+                    <p className="mt-1 truncate text-[11px] font-bold text-gray-500">{brandLabel}</p>
                 </div>
                 <a
                     href={candidate.sourceUrl}
@@ -361,47 +807,261 @@ function CandidateEditor({
                 </a>
             </div>
 
-            {Boolean(candidate.diff.changed) && (
-                <div className="mt-4 flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-[10px] font-bold text-blue-700">
-                    <FileDiff className="h-4 w-4" />
-                    이전 수집본과 내용이 달라졌습니다. 승인본은 자동으로 바뀌지 않습니다.
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-xl bg-gray-50 px-3 py-2">
+                    <p className="text-[9px] font-black text-gray-400">혜택</p>
+                    <p className="mt-0.5 text-[11px] font-black text-gray-800">{formatAction(offer)}</p>
+                </div>
+                <div className="rounded-xl bg-gray-50 px-3 py-2">
+                    <p className="text-[9px] font-black text-gray-400">최소 결제</p>
+                    <p className="mt-0.5 text-[11px] font-black text-gray-800">
+                        {formatMoney(offer.condition?.minSpend)}
+                    </p>
+                </div>
+                <div className="rounded-xl bg-gray-50 px-3 py-2">
+                    <p className="text-[9px] font-black text-gray-400">대표 계산</p>
+                    <p className="mt-0.5 truncate text-[11px] font-black text-gray-800">
+                        {form.applicabilityScope === 'STORE_WIDE' ? '포함' : '분리'}
+                    </p>
+                </div>
+                <div className="rounded-xl bg-gray-50 px-3 py-2">
+                    <p className="text-[9px] font-black text-gray-400">수집일</p>
+                    <p className="mt-0.5 text-[11px] font-black text-gray-800">
+                        {new Date(candidate.discoveredAt).toLocaleDateString('ko-KR')}
+                    </p>
+                </div>
+            </div>
+
+            {(warnings.length > 0 || offer.condition?.requiredNote) && (
+                <div className="mt-3 flex items-start gap-2 rounded-xl bg-violet-50 px-3 py-2 text-[10px] font-bold leading-relaxed text-violet-800">
+                    <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    {warnings[0] ?? offer.condition?.requiredNote}
                 </div>
             )}
 
-            {encodingBroken && (
-                <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-[10px] font-bold leading-relaxed text-amber-800">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                    이전 수집본의 문자 인코딩이 깨졌습니다. 공식 페이지를 다시 수집하면 교정된 새 후보로 교체됩니다.
+            {semanticAnalysis && (
+                <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-2 text-[9px] font-black text-blue-800">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        {semanticAnalysis.provider === 'gemini' ? 'Gemini 분류' : '규칙 분류'}
+                        <span className="text-blue-600/70">
+                            신뢰도 {Math.round(semanticAnalysis.confidence * 100)}%
+                        </span>
+                    </div>
+                    <p className="mt-1 text-[10px] font-bold leading-relaxed text-blue-900/75">
+                        {semanticAnalysis.reasoningSummary}
+                    </p>
+                    {semanticAnalysis.evidenceQuotes?.[0] && (
+                        <p className="mt-1 line-clamp-2 text-[9px] text-blue-800/60">
+                            근거: “{semanticAnalysis.evidenceQuotes[0]}”
+                        </p>
+                    )}
                 </div>
             )}
 
-            <details className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-3">
-                <summary className="cursor-pointer text-[10px] font-black text-gray-600">원문 미리보기</summary>
-                <p className="mt-3 max-h-36 overflow-y-auto whitespace-pre-wrap text-[10px] leading-relaxed text-gray-500">
-                    {encodingBroken
-                        ? '이 기존 원문은 문자 인코딩이 손상되어 숨겼습니다. 다시 수집한 후보를 사용해주세요.'
-                        : candidate.rawContent.slice(0, 5000)}
-                </p>
-            </details>
-
-            <label className="mt-4 block text-[10px] font-black text-gray-500">
-                파싱 결과 · 승인 전 수정 가능
-            </label>
-            <textarea
-                value={json}
-                onChange={event => setJson(event.target.value)}
-                spellCheck={false}
-                disabled={candidate.status !== 'PENDING'}
-                className="mt-2 h-80 w-full rounded-2xl border border-gray-200 bg-gray-950 p-4 font-mono text-[11px] leading-relaxed text-emerald-200 outline-none focus:border-blue-500 disabled:opacity-60"
-            />
+            <div className="mt-3 border-t border-gray-100 pt-3">
+                <button
+                    type="button"
+                    onClick={() => setIsEditing(current => !current)}
+                    className="text-[10px] font-black text-blue-700"
+                >
+                    {isEditing ? '상세 닫기' : '상세 확인 및 수정'}
+                </button>
+                {isEditing && (
+                <div className="mt-3 space-y-3">
+                    <div className="grid gap-2 sm:grid-cols-[1fr_180px]">
+                        <label className="text-[10px] font-black text-gray-500">
+                            혜택 제목
+                            <input
+                                value={form.title}
+                                onChange={event => setForm(current => ({ ...current, title: event.target.value }))}
+                                disabled={candidate.status !== 'PENDING'}
+                                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-gray-900 disabled:bg-gray-50"
+                            />
+                        </label>
+                        <label className="text-[10px] font-black text-gray-500">
+                            브랜드
+                            <select
+                                value={form.brandId}
+                                onChange={event => setForm(current => ({ ...current, brandId: event.target.value }))}
+                                disabled={candidate.status !== 'PENDING'}
+                                className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold disabled:bg-gray-50"
+                            >
+                                {brands.map(brand => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
+                            </select>
+                        </label>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <label className="text-[10px] font-black text-gray-500">
+                            적용 범위 (필수)
+                            <select
+                                value={form.applicabilityScope}
+                                onChange={event => setForm(current => ({
+                                    ...current,
+                                    applicabilityScope: event.target.value as PromotionApplicabilityScope,
+                                }))}
+                                disabled={candidate.status !== 'PENDING'}
+                                className={`mt-1 w-full rounded-xl border bg-white px-3 py-2 text-xs font-bold disabled:bg-gray-50 ${
+                                    form.applicabilityScope === 'UNKNOWN'
+                                        ? 'border-rose-300 text-rose-700'
+                                        : 'border-gray-200 text-gray-900'
+                                }`}
+                            >
+                                {Object.entries(scopeLabels).map(([value, label]) => (
+                                    <option key={value} value={value}>{label}</option>
+                                ))}
+                            </select>
+                            <span className="mt-1 block font-medium text-gray-400">
+                                {scopeDescriptions[form.applicabilityScope]}
+                            </span>
+                        </label>
+                        <label className="text-[10px] font-black text-gray-500">
+                            대상 상품·카테고리 요약
+                            <input
+                                value={form.eligibleItemSummary}
+                                onChange={event => setForm(current => ({
+                                    ...current,
+                                    eligibleItemSummary: event.target.value,
+                                }))}
+                                disabled={candidate.status !== 'PENDING' || !(
+                                    form.applicabilityScope === 'CATEGORY' ||
+                                    form.applicabilityScope === 'PRODUCT_SET'
+                                )}
+                                placeholder="예: 인기 맥주 번들 5종"
+                                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold disabled:bg-gray-50"
+                            />
+                        </label>
+                    </div>
+                    <label className="block text-[10px] font-black text-gray-500">
+                        조건 설명
+                        <textarea
+                            value={form.description}
+                            onChange={event => setForm(current => ({ ...current, description: event.target.value }))}
+                            disabled={candidate.status !== 'PENDING'}
+                            className="mt-1 h-24 w-full rounded-xl border border-gray-200 px-3 py-2 text-xs leading-relaxed disabled:bg-gray-50"
+                        />
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                        <label className="text-[10px] font-black text-gray-500">
+                            계산 방식
+                            <select
+                                value={form.actionType}
+                                onChange={event => setForm(current => ({ ...current, actionType: event.target.value }))}
+                                disabled={candidate.status !== 'PENDING'}
+                                className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-2 py-2 text-xs disabled:bg-gray-50"
+                            >
+                                {Object.entries(actionLabels).map(([value, label]) => (
+                                    <option key={value} value={value}>{label}</option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="text-[10px] font-black text-gray-500">
+                            값 의미
+                            <select
+                                value={form.valueSemantics}
+                                onChange={event => setForm(current => ({
+                                    ...current,
+                                    valueSemantics: event.target.value as PromotionValueSemantics,
+                                }))}
+                                disabled={candidate.status !== 'PENDING'}
+                                className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-2 py-2 text-xs disabled:bg-gray-50"
+                            >
+                                {Object.entries(valueSemanticsLabels).map(([value, label]) => (
+                                    <option key={value} value={value}>{label}</option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="text-[10px] font-black text-gray-500">
+                            혜택 값
+                            <input
+                                type="number"
+                                min="0"
+                                value={form.actionValue}
+                                onChange={event => setForm(current => ({ ...current, actionValue: event.target.value }))}
+                                disabled={candidate.status !== 'PENDING'}
+                                className="mt-1 w-full rounded-xl border border-gray-200 px-2 py-2 text-xs disabled:bg-gray-50"
+                            />
+                        </label>
+                        <label className="text-[10px] font-black text-gray-500">
+                            최대 혜택(원)
+                            <input
+                                type="number"
+                                min="0"
+                                value={form.maxBenefit}
+                                onChange={event => setForm(current => ({ ...current, maxBenefit: event.target.value }))}
+                                disabled={candidate.status !== 'PENDING'}
+                                className="mt-1 w-full rounded-xl border border-gray-200 px-2 py-2 text-xs disabled:bg-gray-50"
+                            />
+                        </label>
+                        <label className="text-[10px] font-black text-gray-500">
+                            최소 결제(원)
+                            <input
+                                type="number"
+                                min="0"
+                                value={form.minSpend}
+                                onChange={event => setForm(current => ({ ...current, minSpend: event.target.value }))}
+                                disabled={candidate.status !== 'PENDING'}
+                                className="mt-1 w-full rounded-xl border border-gray-200 px-2 py-2 text-xs disabled:bg-gray-50"
+                            />
+                        </label>
+                    </div>
+                    <label className="block text-[10px] font-black text-gray-500">
+                        추천 계산 처리
+                        <select
+                            value={form.calculationMode}
+                            onChange={event => setForm(current => ({
+                                ...current,
+                                calculationMode: event.target.value as PromotionCalculationMode,
+                            }))}
+                            disabled={candidate.status !== 'PENDING'}
+                            className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold disabled:bg-gray-50"
+                        >
+                            {Object.entries(calculationModeLabels).map(([value, label]) => (
+                                <option key={value} value={value}>{label}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <label className="block text-[10px] font-black text-gray-500">
+                        검수 메모
+                        <input
+                            value={form.requiredNote}
+                            onChange={event => setForm(current => ({ ...current, requiredNote: event.target.value }))}
+                            disabled={candidate.status !== 'PENDING'}
+                            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-xs disabled:bg-gray-50"
+                        />
+                    </label>
+                    <label className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2 text-[10px] font-black text-gray-600">
+                        추가 관리자 확인 필요
+                        <input
+                            type="checkbox"
+                            checked={form.manualCheckRequired}
+                            onChange={event => setForm(current => ({
+                                ...current,
+                                manualCheckRequired: event.target.checked,
+                            }))}
+                            disabled={candidate.status !== 'PENDING'}
+                            className="h-4 w-4 accent-violet-600"
+                        />
+                    </label>
+                    <details className="rounded-xl bg-gray-50 p-3">
+                        <summary className="cursor-pointer text-[10px] font-black text-gray-600">공식 원문 미리보기</summary>
+                        <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap text-[10px] leading-relaxed text-gray-500">
+                            {hasBrokenEncoding(candidate.rawContent)
+                                ? '문자 인코딩이 손상된 기존 수집본입니다.'
+                                : candidate.rawContent}
+                        </p>
+                    </details>
+                </div>
+                )}
+            </div>
 
             {candidate.status === 'PENDING' && (
-                <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="mt-3 flex justify-end gap-2 border-t border-gray-100 pt-3">
                     <button
                         type="button"
                         onClick={() => update('REJECTED')}
                         disabled={isSaving}
-                        className="flex items-center justify-center gap-2 rounded-xl bg-rose-50 py-3 text-xs font-black text-rose-700 disabled:opacity-50"
+                        className="flex items-center gap-1.5 rounded-xl bg-rose-50 px-4 py-2 text-[11px] font-black text-rose-700 disabled:opacity-50"
                     >
                         <XCircle className="h-4 w-4" />
                         반려
@@ -409,11 +1069,14 @@ function CandidateEditor({
                     <button
                         type="button"
                         onClick={() => update('APPROVED')}
-                        disabled={isSaving}
-                        className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-xs font-black text-white disabled:opacity-50"
+                        disabled={isSaving || form.applicabilityScope === 'UNKNOWN'}
+                        title={form.applicabilityScope === 'UNKNOWN'
+                            ? '적용 범위를 먼저 선택해주세요.'
+                            : undefined}
+                        className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-[11px] font-black text-white disabled:opacity-50"
                     >
                         {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                        검수 후 게시
+                        확인 후 게시
                     </button>
                 </div>
             )}
@@ -426,17 +1089,87 @@ export function PromotionAdminClient() {
     const [data, setData] = useState<AdminData>();
     const [isLoading, setIsLoading] = useState(true);
     const [isCollecting, setIsCollecting] = useState(false);
+    const [collectionResults, setCollectionResults] = useState<CollectionResult[]>([]);
     const [statusFilter, setStatusFilter] = useState<'ALL' | Candidate['status']>('PENDING');
+    const [providerFilter, setProviderFilter] = useState('ALL');
+    const [riskFilter, setRiskFilter] = useState<RiskFilter>('ALL');
+    const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('ALL');
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isBulkSaving, setIsBulkSaving] = useState(false);
+    const [promotionSearch, setPromotionSearch] = useState('');
+
     const providerNames = useMemo(
         () => new Map(data?.providers.map(provider => [provider.id, provider.name]) ?? []),
         [data]
     );
-    const filteredCandidates = useMemo(
-        () => data?.candidates.filter(candidate =>
-            statusFilter === 'ALL' || candidate.status === statusFilter
-        ) ?? [],
-        [data, statusFilter]
+    const brandNames = useMemo(
+        () => new Map(data?.brands.map(brand => [brand.id, brand.name]) ?? []),
+        [data]
     );
+    const statusCounts = useMemo(() => ({
+        ALL: data?.candidates.length ?? 0,
+        PENDING: data?.candidates.filter(candidate => candidate.status === 'PENDING').length ?? 0,
+        APPROVED: data?.candidates.filter(candidate => candidate.status === 'APPROVED').length ?? 0,
+        REJECTED: data?.candidates.filter(candidate => candidate.status === 'REJECTED').length ?? 0,
+    }), [data]);
+
+    const filteredCandidates = useMemo(() => {
+        const term = search.trim().toLocaleLowerCase('ko-KR');
+        return (data?.candidates ?? [])
+            .filter(candidate => statusFilter === 'ALL' || candidate.status === statusFilter)
+            .filter(candidate => providerFilter === 'ALL' || candidate.providerId === providerFilter)
+            .filter(candidate => riskFilter === 'ALL' || candidateRisk(candidate) === riskFilter)
+            .filter(candidate => scopeFilter === 'ALL' || candidateScope(candidate) === scopeFilter)
+            .filter(candidate => {
+                if (!term) return true;
+                const offer = asOffer(candidate);
+                const brands = (offer.brandIds ?? []).map(id => brandNames.get(id) ?? id).join(' ');
+                return [
+                    offer.title,
+                    offer.description,
+                    candidate.sourceTitle,
+                    providerNames.get(candidate.providerId),
+                    brands,
+                    scopeLabels[candidateScope(candidate)],
+                ].filter(Boolean).join(' ').toLocaleLowerCase('ko-KR').includes(term);
+            })
+            .sort((a, b) => {
+                const score = (candidate: Candidate) => {
+                    const risk = candidateRisk(candidate);
+                    if (risk === 'ENCODING') return 3;
+                    if (risk === 'CHANGED') return 2;
+                    if (risk === 'COMPLEX') return 1;
+                    return 0;
+                };
+                return score(b) - score(a) ||
+                    new Date(b.discoveredAt).getTime() - new Date(a.discoveredAt).getTime();
+            });
+    }, [brandNames, data, providerFilter, providerNames, riskFilter, scopeFilter, search, statusFilter]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredCandidates.length / PAGE_SIZE));
+    const pagedCandidates = filteredCandidates.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    const pendingChanged = data?.candidates.filter(candidate =>
+        candidate.status === 'PENDING' && candidate.diff.changed === true
+    ).length ?? 0;
+    const pendingUnscoped = data?.candidates.filter(candidate =>
+        candidate.status === 'PENDING' && candidateScope(candidate) === 'UNKNOWN'
+    ).length ?? 0;
+    const publishedCount = data?.promotions.filter(promotion => promotion.status === 'PUBLISHED').length ?? 0;
+
+    const filteredPromotions = useMemo(() => {
+        const term = promotionSearch.trim().toLocaleLowerCase('ko-KR');
+        return (data?.promotions ?? []).filter(promotion => {
+            if (!term) return true;
+            return [
+                promotion.title,
+                promotion.description,
+                providerNames.get(promotion.providerId),
+                promotion.brandIds.map(id => brandNames.get(id) ?? id).join(' '),
+            ].join(' ').toLocaleLowerCase('ko-KR').includes(term);
+        });
+    }, [brandNames, data, promotionSearch, providerNames]);
 
     const load = async () => {
         setIsLoading(true);
@@ -455,23 +1188,65 @@ export function PromotionAdminClient() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    useEffect(() => {
+        setPage(1);
+        setSelectedIds(new Set());
+    }, [providerFilter, riskFilter, scopeFilter, search, statusFilter]);
+
     const collect = async () => {
         setIsCollecting(true);
         try {
-            const result = await request<{
-                results: Array<{ status: string; sourceUrl: string }>;
-            }>({
+            const result = await request<{ results: CollectionResult[] }>({
                 method: 'POST',
                 body: JSON.stringify({ action: 'collect' }),
             });
-            const created = result.results.filter(item => item.status === 'created').length;
+            setCollectionResults(result.results);
+            const discovered = result.results.reduce((sum, item) => sum + item.discovered, 0);
+            const published = result.results.reduce((sum, item) => sum + item.published, 0);
+            const reviewRequired = result.results.reduce((sum, item) => sum + item.reviewRequired, 0);
             const failed = result.results.filter(item => item.status === 'failed').length;
-            addToast(`새 후보 ${created}건 수집${failed ? ` · 실패 ${failed}건` : ''}`, failed ? 'error' : 'success');
+            addToast(
+                `신규 ${discovered}건 · 자동 게시 ${published}건` +
+                `${reviewRequired ? ` · 검수 ${reviewRequired}건` : ''}` +
+                `${failed ? ` · 실패 ${failed}곳` : ''}`,
+                failed ? 'error' : 'success'
+            );
             await load();
         } catch (error) {
             addToast(getErrorMessage(error, '공식 페이지를 수집하지 못했습니다.'), 'error');
         } finally {
             setIsCollecting(false);
+        }
+    };
+
+    const bulkUpdate = async (status: 'APPROVED' | 'REJECTED') => {
+        if (selectedIds.size === 0) return;
+        if (status === 'APPROVED' && (data?.candidates ?? []).some(candidate =>
+            selectedIds.has(candidate.id) && candidateScope(candidate) === 'UNKNOWN'
+        )) {
+            addToast('범위 미확정 후보는 적용 범위를 선택한 뒤 게시해주세요.', 'error');
+            return;
+        }
+        setIsBulkSaving(true);
+        try {
+            const result = await request<{
+                reviewed: string[];
+                failed: Array<{ id: string; message: string }>;
+            }>({
+                method: 'PATCH',
+                body: JSON.stringify({ candidateIds: [...selectedIds], status }),
+            });
+            addToast(
+                `${result.reviewed.length}건을 ${status === 'APPROVED' ? '게시' : '반려'}했습니다.` +
+                `${result.failed.length ? ` 실패 ${result.failed.length}건` : ''}`,
+                result.failed.length ? 'error' : 'success'
+            );
+            setSelectedIds(new Set());
+            await load();
+        } catch (error) {
+            addToast(getErrorMessage(error, '일괄 검수에 실패했습니다.'), 'error');
+        } finally {
+            setIsBulkSaving(false);
         }
     };
 
@@ -486,140 +1261,400 @@ export function PromotionAdminClient() {
             });
             await load();
         } catch (error) {
-            addToast(getErrorMessage(error, '프로모션 상태를 바꾸지 못했습니다.'), 'error');
+            addToast(getErrorMessage(error, '혜택 상태를 바꾸지 못했습니다.'), 'error');
         }
     };
 
+    const selectablePageIds = pagedCandidates
+        .filter(candidate => candidate.status === 'PENDING')
+        .map(candidate => candidate.id);
+    const allPageSelected = selectablePageIds.length > 0 &&
+        selectablePageIds.every(id => selectedIds.has(id));
+    const selectedHasUnknown = (data?.candidates ?? []).some(candidate =>
+        selectedIds.has(candidate.id) && candidateScope(candidate) === 'UNKNOWN'
+    );
+
     return (
-        <main className="min-h-screen bg-gray-50 pb-20">
-            <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/90 px-6 py-4 backdrop-blur">
-                <div className="mx-auto flex max-w-5xl items-center justify-between">
-                    <div className="flex items-center gap-3">
+        <main className="min-h-screen bg-gray-50 pb-24">
+            <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-5 py-3 backdrop-blur">
+                <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                         <Link href="/" className="rounded-xl bg-gray-100 p-2 text-gray-600">
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
-                        <div>
-                            <h1 className="text-lg font-black text-gray-900">프로모션 검수센터</h1>
-                            <p className="text-[10px] font-bold text-gray-400">공식 출처 → 후보 → 관리자 승인 → 추천 반영</p>
+                        <div className="min-w-0">
+                            <h1 className="truncate text-lg font-black text-gray-950">혜택 운영센터</h1>
+                            <p className="hidden text-[10px] font-bold text-gray-400 sm:block">
+                                확인이 필요한 혜택만 빠르게 검수하세요
+                            </p>
                         </div>
                     </div>
                     <button
                         type="button"
                         onClick={collect}
                         disabled={isCollecting}
-                        className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-xs font-black text-white disabled:opacity-50"
+                        className="flex shrink-0 items-center gap-2 rounded-xl bg-gray-950 px-4 py-2.5 text-xs font-black text-white disabled:opacity-50"
                     >
                         {isCollecting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <DatabaseZap className="h-4 w-4" />}
-                        {isCollecting ? '수집 중' : '공식 페이지 수집'}
+                        {isCollecting ? '수집 중' : '지금 수집'}
                     </button>
                 </div>
             </header>
 
-            <div className="mx-auto grid max-w-5xl gap-8 px-5 pt-6 lg:grid-cols-[1fr_300px]">
-                <section>
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                            <h2 className="text-sm font-black text-gray-900">수집 후보</h2>
-                            <p className="text-[10px] text-gray-500">원문과 계산 조건을 확인한 뒤에만 게시하세요.</p>
-                        </div>
-                        <div className="flex rounded-xl bg-gray-100 p-1">
-                            {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map(status => (
-                                <button
-                                    type="button"
-                                    key={status}
-                                    onClick={() => setStatusFilter(status)}
-                                    className={`rounded-lg px-2.5 py-1.5 text-[10px] font-black ${
-                                        statusFilter === status ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400'
-                                    }`}
-                                >
-                                    {status === 'ALL' ? '전체' : statusLabel[status]}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {isLoading ? (
-                        <div className="flex justify-center py-20">
-                            <LoaderCircle className="h-6 w-6 animate-spin text-blue-600" />
-                        </div>
-                    ) : filteredCandidates.length > 0 ? (
-                        <div className="space-y-5">
-                            {filteredCandidates.map(candidate => (
-                                <CandidateEditor
-                                    key={candidate.id}
-                                    candidate={candidate}
-                                    providerName={providerNames.get(candidate.providerId) ?? candidate.providerId}
-                                    onComplete={load}
-                                />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="rounded-3xl border border-dashed border-gray-300 bg-white py-16 text-center">
-                            <RefreshCw className="mx-auto h-6 w-6 text-gray-300" />
-                            <p className="mt-3 text-xs font-black text-gray-500">해당 상태의 후보가 없습니다</p>
-                        </div>
-                    )}
+            <div className="mx-auto max-w-7xl px-5 pt-6">
+                <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <SummaryCard
+                        label="오늘의 일"
+                        value={statusCounts.PENDING}
+                        description="검수 대기 혜택"
+                        tone="amber"
+                    />
+                    <SummaryCard
+                        label="범위 확인"
+                        value={pendingUnscoped}
+                        description={`${pendingChanged}건은 기존 혜택 변경`}
+                        tone="blue"
+                    />
+                    <SummaryCard
+                        label="서비스 중"
+                        value={publishedCount}
+                        description="현재 게시 혜택"
+                        tone="emerald"
+                    />
+                    <SummaryCard
+                        label="데이터 범위"
+                        value={data?.brands.length ?? 0}
+                        description="검색 가능 브랜드"
+                        tone="violet"
+                    />
                 </section>
 
-                <aside className="space-y-5">
-                    <ManualCandidateForm onCreated={load} />
-                    <RouteVerificationForm
-                        brands={data?.brands ?? []}
-                        providers={data?.providers ?? []}
-                        onCreated={load}
-                    />
+                {collectionResults.length > 0 && (
+                    <details className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <summary className="cursor-pointer text-xs font-black text-gray-800">
+                            마지막 수집 결과 · {collectionResults.filter(item => item.status === 'failed').length}곳 실패
+                        </summary>
+                        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                            {collectionResults.map(result => (
+                                <div key={result.sourceId} className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <a
+                                            href={result.sourceUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="truncate text-[11px] font-black text-gray-800 hover:text-blue-600"
+                                        >
+                                            {result.label}
+                                        </a>
+                                        <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black ${
+                                            result.status === 'failed'
+                                                ? 'bg-rose-100 text-rose-700'
+                                                : result.status === 'skipped'
+                                                    ? 'bg-gray-200 text-gray-600'
+                                                    : 'bg-emerald-100 text-emerald-700'
+                                        }`}>
+                                            {result.status === 'failed' ? '실패' : result.status === 'skipped' ? '제외' : '정상'}
+                                        </span>
+                                    </div>
+                                    <p className="mt-1 text-[10px] text-gray-500">
+                                        신규 {result.discovered} · 게시 {result.published} · 검수 {result.reviewRequired} · 만료 {result.expired}
+                                    </p>
+                                    {result.message && <p className="mt-1 text-[10px] text-amber-700">{result.message}</p>}
+                                </div>
+                            ))}
+                        </div>
+                    </details>
+                )}
 
-                    <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
-                        <h2 className="text-sm font-black text-gray-900">게시 중 혜택</h2>
-                        <div className="mt-4 space-y-3">
-                            {data?.promotions.length ? data.promotions.map(promotion => (
-                                <div key={promotion.id} className="rounded-2xl border border-gray-100 p-3">
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div>
-                                            <p className="text-[10px] font-black text-gray-400">
-                                                {providerNames.get(promotion.providerId)}
-                                            </p>
-                                            <p className="mt-1 text-xs font-black text-gray-900">{promotion.title}</p>
-                                        </div>
+                <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+                    <section className="min-w-0">
+                        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                    <h2 className="flex items-center gap-2 text-sm font-black text-gray-950">
+                                        <Layers3 className="h-4 w-4 text-blue-600" />
+                                        검수 큐
+                                    </h2>
+                                    <p className="mt-1 text-[10px] font-bold text-gray-400">
+                                        변경·복합 조건이 위에 먼저 표시됩니다.
+                                    </p>
+                                </div>
+                                <div className="flex rounded-xl bg-gray-100 p-1">
+                                    {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map(status => (
                                         <button
                                             type="button"
-                                            onClick={() => updatePromotionStatus(
-                                                promotion.id,
-                                                promotion.status === 'PUBLISHED' ? 'PAUSED' : 'PUBLISHED'
-                                            )}
-                                            className={`rounded-lg p-1.5 ${
-                                                promotion.status === 'PUBLISHED'
-                                                    ? 'bg-emerald-50 text-emerald-600'
-                                                    : 'bg-gray-100 text-gray-500'
+                                            key={status}
+                                            onClick={() => setStatusFilter(status)}
+                                            className={`rounded-lg px-2.5 py-1.5 text-[10px] font-black ${
+                                                statusFilter === status ? 'bg-white text-gray-950 shadow-sm' : 'text-gray-400'
                                             }`}
-                                            aria-label={promotion.status === 'PUBLISHED' ? '게시 중지' : '다시 게시'}
                                         >
-                                            {promotion.status === 'PUBLISHED'
-                                                ? <PauseCircle className="h-4 w-4" />
-                                                : <PlayCircle className="h-4 w-4" />}
+                                            {status === 'ALL' ? '전체' : statusLabel[status]} {statusCounts[status]}
                                         </button>
-                                    </div>
+                                    ))}
                                 </div>
-                            )) : (
-                                <p className="py-6 text-center text-[11px] font-bold text-gray-400">게시된 혜택이 없습니다</p>
+                            </div>
+
+                            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_150px_150px_150px]">
+                                <label className="relative">
+                                    <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                                    <input
+                                        value={search}
+                                        onChange={event => setSearch(event.target.value)}
+                                        placeholder="브랜드, 제목, 조건 검색"
+                                        className="w-full rounded-xl border border-gray-200 py-2 pl-9 pr-3 text-xs outline-none focus:border-blue-400"
+                                    />
+                                </label>
+                                <select
+                                    value={providerFilter}
+                                    onChange={event => setProviderFilter(event.target.value)}
+                                    className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold"
+                                >
+                                    <option value="ALL">전체 제공자</option>
+                                    {data?.providers.map(provider => (
+                                        <option key={provider.id} value={provider.id}>{provider.name}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={riskFilter}
+                                    onChange={event => setRiskFilter(event.target.value as RiskFilter)}
+                                    className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold"
+                                >
+                                    <option value="ALL">전체 유형</option>
+                                    <option value="CHANGED">변경 감지</option>
+                                    <option value="COMPLEX">조건 확인</option>
+                                    <option value="ENCODING">문자 오류</option>
+                                </select>
+                                <select
+                                    value={scopeFilter}
+                                    onChange={event => setScopeFilter(event.target.value as ScopeFilter)}
+                                    className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold"
+                                >
+                                    <option value="ALL">전체 적용 범위</option>
+                                    {Object.entries(scopeLabels).map(([value, label]) => (
+                                        <option key={value} value={value}>{label}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {selectablePageIds.length > 0 && (
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-blue-50 px-3 py-2">
+                                    <label className="flex items-center gap-2 text-[10px] font-black text-blue-900">
+                                        <input
+                                            type="checkbox"
+                                            checked={allPageSelected}
+                                            onChange={event => {
+                                                setSelectedIds(current => {
+                                                    const next = new Set(current);
+                                                    selectablePageIds.forEach(id => {
+                                                        if (event.target.checked) next.add(id);
+                                                        else next.delete(id);
+                                                    });
+                                                    return next;
+                                                });
+                                            }}
+                                            className="h-4 w-4 accent-blue-600"
+                                        />
+                                        현재 페이지 선택
+                                    </label>
+                                    <span className="text-[10px] font-bold text-blue-700">
+                                        {filteredCandidates.length}건 결과 · {selectedIds.size}건 선택
+                                    </span>
+                                </div>
                             )}
                         </div>
+
+                        {isLoading ? (
+                            <div className="flex justify-center py-24">
+                                <LoaderCircle className="h-7 w-7 animate-spin text-blue-600" />
+                            </div>
+                        ) : pagedCandidates.length > 0 ? (
+                            <div className="mt-3 space-y-3">
+                                {pagedCandidates.map(candidate => (
+                                    <CandidateCard
+                                        key={candidate.id}
+                                        candidate={candidate}
+                                        providerName={providerNames.get(candidate.providerId) ?? candidate.providerId}
+                                        brandNames={brandNames}
+                                        brands={data?.brands ?? []}
+                                        selected={selectedIds.has(candidate.id)}
+                                        onSelect={checked => setSelectedIds(current => {
+                                            const next = new Set(current);
+                                            if (checked) next.add(candidate.id);
+                                            else next.delete(candidate.id);
+                                            return next;
+                                        })}
+                                        onComplete={load}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="mt-3 rounded-2xl border border-dashed border-gray-300 bg-white py-20 text-center">
+                                <RefreshCw className="mx-auto h-6 w-6 text-gray-300" />
+                                <p className="mt-3 text-xs font-black text-gray-500">검색 결과가 없습니다</p>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSearch('');
+                                        setProviderFilter('ALL');
+                                        setRiskFilter('ALL');
+                                        setScopeFilter('ALL');
+                                    }}
+                                    className="mt-2 text-[10px] font-black text-blue-600"
+                                >
+                                    필터 초기화
+                                </button>
+                            </div>
+                        )}
+
+                        {totalPages > 1 && (
+                            <div className="mt-4 flex items-center justify-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setPage(current => Math.max(1, current - 1))}
+                                    disabled={page === 1}
+                                    className="rounded-xl border border-gray-200 bg-white p-2 text-gray-600 disabled:opacity-30"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </button>
+                                <span className="text-[11px] font-black text-gray-600">{page} / {totalPages}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setPage(current => Math.min(totalPages, current + 1))}
+                                    disabled={page === totalPages}
+                                    className="rounded-xl border border-gray-200 bg-white p-2 text-gray-600 disabled:opacity-30"
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </button>
+                            </div>
+                        )}
                     </section>
 
-                    <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
-                        <h2 className="flex items-center gap-2 text-xs font-black text-amber-900">
-                            <AlertCircle className="h-4 w-4" />
-                            운영 원칙
-                        </h2>
-                        <ul className="mt-3 space-y-2 text-[10px] leading-relaxed text-amber-900/70">
-                            <li>• 로그인이나 앱 전용 화면은 자동 수집하지 않습니다.</li>
-                            <li>• 새 수집본은 기존 승인본을 덮어쓰지 않습니다.</li>
-                            <li>• 선착순·개인별 혜택은 조건부로 게시합니다.</li>
-                            <li>• 카드 중복 여부가 불명확하면 예상으로 표시합니다.</li>
-                        </ul>
-                    </section>
-                </aside>
+                    <aside className="space-y-4">
+                        <section className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                            <h2 className="flex items-center gap-2 text-xs font-black text-blue-950">
+                                <Sparkles className="h-4 w-4" />
+                                빠른 검수 순서
+                            </h2>
+                            <ol className="mt-3 space-y-2 text-[10px] font-bold leading-relaxed text-blue-900/70">
+                                <li>1. 범위 미확정 항목을 매장 전체·상품·고객 한정으로 나눕니다.</li>
+                                <li>2. AI/규칙 분류의 근거 문장이 원문과 맞는지 확인합니다.</li>
+                                <li>3. 범위가 확정된 같은 유형만 선택해 일괄 처리합니다.</li>
+                            </ol>
+                        </section>
+
+                        <details className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" open>
+                            <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-black text-gray-950">
+                                <span className="flex items-center gap-2">
+                                    <Store className="h-4 w-4 text-emerald-600" />
+                                    게시 혜택
+                                </span>
+                                <span className="text-[10px] text-gray-400">{filteredPromotions.length}건</span>
+                            </summary>
+                            <label className="relative mt-3 block">
+                                <Search className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
+                                <input
+                                    value={promotionSearch}
+                                    onChange={event => setPromotionSearch(event.target.value)}
+                                    placeholder="게시 혜택 검색"
+                                    className="w-full rounded-xl border border-gray-200 py-2 pl-8 pr-3 text-[11px]"
+                                />
+                            </label>
+                            <div className="mt-3 max-h-[420px] space-y-2 overflow-y-auto pr-1">
+                                {filteredPromotions.slice(0, 50).map(promotion => (
+                                    <div key={promotion.id} className="rounded-xl border border-gray-100 p-3">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <p className="text-[9px] font-black text-gray-400">
+                                                    {providerNames.get(promotion.providerId)} · {
+                                                        scopeLabels[promotion.condition.applicabilityScope ?? 'UNKNOWN']
+                                                    }
+                                                </p>
+                                                <p className="mt-1 line-clamp-2 text-[11px] font-black text-gray-900">
+                                                    {promotion.title}
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => updatePromotionStatus(
+                                                    promotion.id,
+                                                    promotion.status === 'PUBLISHED' ? 'PAUSED' : 'PUBLISHED'
+                                                )}
+                                                disabled={promotion.status !== 'PUBLISHED' &&
+                                                    (!promotion.condition.applicabilityScope ||
+                                                        promotion.condition.applicabilityScope === 'UNKNOWN')}
+                                                className={`shrink-0 rounded-lg p-1.5 ${
+                                                    promotion.status === 'PUBLISHED'
+                                                        ? 'bg-emerald-50 text-emerald-600'
+                                                        : 'bg-gray-100 text-gray-500'
+                                                } disabled:cursor-not-allowed disabled:opacity-30`}
+                                                aria-label={promotion.status === 'PUBLISHED'
+                                                    ? '게시 중지'
+                                                    : !promotion.condition.applicabilityScope ||
+                                                        promotion.condition.applicabilityScope === 'UNKNOWN'
+                                                        ? '범위 재검수 필요'
+                                                        : '다시 게시'}
+                                            >
+                                                {promotion.status === 'PUBLISHED'
+                                                    ? <PauseCircle className="h-3.5 w-3.5" />
+                                                    : <PlayCircle className="h-3.5 w-3.5" />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            {filteredPromotions.length > 50 && (
+                                <p className="mt-2 text-center text-[9px] font-bold text-gray-400">
+                                    검색을 사용하면 나머지 {filteredPromotions.length - 50}건도 찾을 수 있습니다.
+                                </p>
+                            )}
+                        </details>
+
+                        <ManualCandidateForm
+                            brands={data?.brands ?? []}
+                            providers={data?.providers ?? []}
+                            onCreated={load}
+                        />
+                        <RouteVerificationForm
+                            brands={data?.brands ?? []}
+                            providers={data?.providers ?? []}
+                            onCreated={load}
+                        />
+                    </aside>
+                </div>
             </div>
+
+            {selectedIds.size > 0 && (
+                <div className="fixed inset-x-0 bottom-5 z-30 mx-auto flex w-[calc(100%-2rem)] max-w-xl items-center justify-between gap-3 rounded-2xl border border-gray-700 bg-gray-950 px-4 py-3 text-white shadow-2xl">
+                    <div>
+                        <p className="text-xs font-black">{selectedIds.size}건 선택됨</p>
+                        <p className="text-[9px] font-bold text-gray-400">
+                            {selectedHasUnknown
+                                ? '범위 미확정 항목은 일괄 게시할 수 없습니다.'
+                                : '적용 범위와 같은 근거인지 확인 후 처리하세요.'}
+                        </p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => bulkUpdate('REJECTED')}
+                            disabled={isBulkSaving}
+                            className="rounded-xl bg-white/10 px-3 py-2 text-[10px] font-black text-rose-200 disabled:opacity-50"
+                        >
+                            일괄 반려
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => bulkUpdate('APPROVED')}
+                            disabled={isBulkSaving || selectedHasUnknown}
+                            className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black text-white disabled:opacity-50"
+                        >
+                            {isBulkSaving && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
+                            일괄 게시
+                        </button>
+                    </div>
+                </div>
+            )}
         </main>
     );
 }

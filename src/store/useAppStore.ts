@@ -5,6 +5,8 @@ import {
 } from '@/types';
 
 interface AppState {
+    userId: string;
+
     // Master Data
     categories: Category[];
     brands: Brand[];
@@ -20,6 +22,7 @@ interface AppState {
 
     // Actions
     setInitialData: (data: {
+        userId: string;
         categories: Category[];
         brands: Brand[];
         cards: Card[];
@@ -56,6 +59,7 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
+    userId: '',
     categories: [],
     brands: [],
     cards: [],
@@ -65,6 +69,7 @@ export const useAppStore = create<AppState>((set) => ({
     isLoading: true, // Default to loading until sync completes
 
     setInitialData: (data) => set({
+        userId: data.userId,
         categories: data.categories,
         brands: data.brands,
         cards: data.cards,
@@ -94,6 +99,7 @@ export const useAppStore = create<AppState>((set) => ({
 
     setLoading: (loading) => set({ isLoading: loading }),
     resetData: () => set({
+        userId: '',
         categories: [],
         brands: [],
         cards: [],

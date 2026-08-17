@@ -75,6 +75,7 @@ function camelize(value: unknown): unknown {
 const seedBrands = camelize(INITIAL_BRANDS) as SeedBrand[];
 const seedCards = camelize(INITIAL_CARDS) as SeedCard[];
 const seedRules = camelize(INITIAL_RULES) as SeedRule[];
+const tUniverseGuideUrl = 'https://shop.tworld.co.kr/magazine/plan/twoojoo-benefits-guide.html';
 const providerSeeds = [
     {
         id: 'skt',
@@ -93,6 +94,12 @@ const providerSeeds = [
         name: 'U+멤버십',
         kind: 'TELECOM' as const,
         sourceUrl: 'https://www.lguplus.com/benefit-membership',
+    },
+    {
+        id: 't-universe',
+        name: 'T우주',
+        kind: 'SUBSCRIPTION' as const,
+        sourceUrl: tUniverseGuideUrl,
     },
     {
         id: 'naverpay',

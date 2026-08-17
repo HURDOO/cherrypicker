@@ -24,9 +24,106 @@ export const dynamic = 'force-dynamic';
 
 const toCandidate = (row: typeof promotionCandidates.$inferSelect) => ({
     ...row,
+    rawContent: row.rawContent.slice(0, 8_000),
     discoveredAt: row.discoveredAt.toISOString(),
     reviewedAt: row.reviewedAt?.toISOString(),
 });
+
+type CandidateReviewStatus = 'APPROVED' | 'REJECTED';
+
+function reviewCandidate(
+    candidateId: string,
+    status: CandidateReviewStatus,
+    reviewerId: string,
+    parsedOfferOverride?: unknown,
+) {
+    const candidate = db.select().from(promotionCandidates)
+        .where(eq(promotionCandidates.id, candidateId))
+        .get();
+    if (!candidate) throw new HttpError(404, '수집 후보를 찾을 수 없습니다.');
+    if (candidate.status !== 'PENDING') {
+        throw new HttpError(409, '이미 검수가 완료된 후보입니다.');
+    }
+
+    const now = new Date();
+    if (status === 'REJECTED') {
+        const row = db.update(promotionCandidates)
+            .set({
+                status: 'REJECTED',
+                reviewerId,
+                reviewedAt: now,
+            })
+            .where(eq(promotionCandidates.id, candidate.id))
+            .returning()
+            .get();
+        return { candidate: toCandidate(row) };
+    }
+
+    const parsedOffer = parsedOfferOverride ?? candidate.parsedOffer;
+    const offer = normalizePromotionDraft(parsedOffer);
+    if (offer.providerId !== candidate.providerId) {
+        throw new HttpError(400, '수집 후보의 제공자는 변경할 수 없습니다.');
+    }
+    if (offer.condition.applicabilityScope === 'UNKNOWN') {
+        throw new HttpError(400, '게시 전에 매장 전체·카테고리·상품·고객 한정 중 적용 범위를 선택해주세요.');
+    }
+    if (
+        (offer.condition.applicabilityScope === 'CATEGORY' ||
+            offer.condition.applicabilityScope === 'PRODUCT_SET') &&
+        !offer.condition.eligibleItemSummary &&
+        !offer.condition.requiredNote
+    ) {
+        throw new HttpError(400, '상품 한정 혜택은 대상 상품 설명을 입력해주세요.');
+    }
+    const reviewedParsedOffer = {
+        ...(parsedOffer as Record<string, unknown>),
+        condition: offer.condition,
+    };
+    const promotionId = candidate.linkedPromotionId || `promotion-${randomUUID()}`;
+    const values = {
+        ...offer,
+        sourceHash: candidate.sourceHash,
+        collectedAt: candidate.discoveredAt,
+        reviewedAt: now,
+        publishedAt: now,
+        updatedAt: now,
+        status: 'PUBLISHED' as const,
+    };
+
+    db.transaction(tx => {
+        tx.insert(promotionOffers)
+            .values({ id: promotionId, ...values })
+            .onConflictDoUpdate({
+                target: promotionOffers.id,
+                set: values,
+            })
+            .run();
+        tx.update(promotionCandidates)
+            .set({
+                parsedOffer: reviewedParsedOffer,
+                status: 'APPROVED',
+                linkedPromotionId: promotionId,
+                reviewerId,
+                reviewedAt: now,
+            })
+            .where(eq(promotionCandidates.id, candidate.id))
+            .run();
+    });
+
+    const promotion = db.select().from(promotionOffers)
+        .where(eq(promotionOffers.id, promotionId))
+        .get();
+    const reviewedCandidate = db.select().from(promotionCandidates)
+        .where(eq(promotionCandidates.id, candidate.id))
+        .get();
+    if (!promotion || !reviewedCandidate) {
+        throw new HttpError(500, '프로모션을 게시하지 못했습니다.');
+    }
+    return {
+        candidate: toCandidate(reviewedCandidate),
+        promotion: toPromotionOffer(promotion),
+    };
+}
 
 export async function GET(request: Request) {
     try {
@@ -142,69 +239,40 @@ export async function PATCH(request: Request) {
         const user = await requireAdmin(request);
         const input = await readJsonObject(request);
 
-        if (typeof input.candidateId === 'string') {
-            const candidate = db.select().from(promotionCandidates)
-                .where(eq(promotionCandidates.id, input.candidateId))
-                .get();
-            if (!candidate) throw new HttpError(404, '수집 후보를 찾을 수 없습니다.');
-
-            if (input.status === 'REJECTED') {
-                const row = db.update(promotionCandidates)
-                    .set({
-                        status: 'REJECTED',
-                        reviewerId: user.id,
-                        reviewedAt: new Date(),
-                    })
-                    .where(eq(promotionCandidates.id, candidate.id))
-                    .returning()
-                    .get();
-                return Response.json(toCandidate(row));
+        if (Array.isArray(input.candidateIds)) {
+            const candidateIds = [...new Set(input.candidateIds)]
+                .filter((id): id is string => typeof id === 'string' && Boolean(id));
+            if (candidateIds.length === 0 || candidateIds.length > 100) {
+                throw new HttpError(400, '일괄 검수는 1건 이상 100건 이하로 선택해주세요.');
+            }
+            if (input.status !== 'APPROVED' && input.status !== 'REJECTED') {
+                throw new HttpError(400, '검수 상태가 올바르지 않습니다.');
             }
 
-            if (input.status === 'APPROVED') {
-                const parsedOffer = input.parsedOffer ?? candidate.parsedOffer;
-                const offer = normalizePromotionDraft(parsedOffer);
-                if (offer.providerId !== candidate.providerId) {
-                    throw new HttpError(400, '수집 후보의 제공자는 변경할 수 없습니다.');
+            const reviewed: string[] = [];
+            const failed: Array<{ id: string; message: string }> = [];
+            candidateIds.forEach(candidateId => {
+                try {
+                    reviewCandidate(candidateId, input.status as CandidateReviewStatus, user.id);
+                    reviewed.push(candidateId);
+                } catch (error) {
+                    failed.push({
+                        id: candidateId,
+                        message: error instanceof Error ? error.message : '검수 실패',
+                    });
                 }
-                const promotionId = candidate.linkedPromotionId || `promotion-${randomUUID()}`;
-                const now = new Date();
-                const values = {
-                    ...offer,
-                    sourceHash: candidate.sourceHash,
-                    collectedAt: candidate.discoveredAt,
-                    reviewedAt: now,
-                    publishedAt: now,
-                    updatedAt: now,
-                    status: 'PUBLISHED' as const,
-                };
-                db.transaction(tx => {
-                    tx.insert(promotionOffers)
-                        .values({
-                            id: promotionId,
-                            ...values,
-                        })
-                        .onConflictDoUpdate({
-                            target: promotionOffers.id,
-                            set: values,
-                        })
-                        .run();
-                    tx.update(promotionCandidates)
-                        .set({
-                            parsedOffer: parsedOffer as Record<string, unknown>,
-                            status: 'APPROVED',
-                            linkedPromotionId: promotionId,
-                            reviewerId: user.id,
-                            reviewedAt: now,
-                        })
-                        .where(eq(promotionCandidates.id, candidate.id))
-                        .run();
-                });
-                const row = db.select().from(promotionOffers)
-                    .where(eq(promotionOffers.id, promotionId))
-                    .get();
-                if (!row) throw new HttpError(500, '프로모션을 게시하지 못했습니다.');
-                return Response.json(toPromotionOffer(row));
+            });
+            return Response.json({ reviewed, failed });
+        }
+
+        if (typeof input.candidateId === 'string') {
+            if (input.status === 'REJECTED' || input.status === 'APPROVED') {
+                return Response.json(reviewCandidate(
+                    input.candidateId,
+                    input.status,
+                    user.id,
+                    input.parsedOffer,
+                ));
             }
         }
 
@@ -212,6 +280,17 @@ export async function PATCH(request: Request) {
             const status = input.status;
             if (!['PUBLISHED', 'PAUSED', 'EXPIRED'].includes(String(status))) {
                 throw new HttpError(400, '프로모션 상태가 올바르지 않습니다.');
+            }
+            const existing = db.select().from(promotionOffers)
+                .where(eq(promotionOffers.id, input.promotionId))
+                .get();
+            if (!existing) throw new HttpError(404, '프로모션을 찾을 수 없습니다.');
+            if (
+                status === 'PUBLISHED' &&
+                (!existing.condition.applicabilityScope ||
+                    existing.condition.applicabilityScope === 'UNKNOWN')
+            ) {
+                throw new HttpError(400, '적용 범위가 확정되지 않은 기존 혜택은 새 수집 후보에서 검수해주세요.');
             }
             const row = db.update(promotionOffers)
                 .set({

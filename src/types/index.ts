@@ -53,6 +53,7 @@ export interface RuleAction {
 
 export interface LimitConfig {
     dailyCount?: number;
+    dailyAmount?: number; // Max discount amount per day for this rule/group
     monthlyCount?: number;
     yearlyCount?: number;
     monthlyAmount?: number; // Max discount amount for this rule/group
@@ -116,10 +117,12 @@ export interface CalculatedCard extends Card {
     matchedRule?: BenefitRule & {
         usage?: {
             dailyCount: number;
+            dailyAmount: number;
             monthlyCount: number;
             yearlyCount: number;
             monthlyAmount: number;
             isDailyLimitReached?: boolean;
+            isDailyAmountLimitReached?: boolean;
             isMonthlyLimitReached?: boolean;
             isYearlyLimitReached?: boolean;
             isMonthlyAmountLimitReached?: boolean;
@@ -128,7 +131,12 @@ export interface CalculatedCard extends Card {
 }
 
 // Promotion combination engine
-export type PromotionProviderKind = 'TELECOM' | 'PAY' | 'MERCHANT' | 'GOODDEAL';
+export type PromotionProviderKind =
+    | 'TELECOM'
+    | 'SUBSCRIPTION'
+    | 'PAY'
+    | 'MERCHANT'
+    | 'GOODDEAL';
 export type BenefitLayer = 'DISCOUNT' | 'PAY' | 'PAYMENT_METHOD' | 'POST_REWARD';
 export type BenefitCertainty = 'CONFIRMED' | 'CONDITIONAL' | 'ESTIMATED';
 export type PromotionStatus = 'DRAFT' | 'PUBLISHED' | 'PAUSED' | 'EXPIRED';
@@ -141,11 +149,43 @@ export type PromotionActionType =
     | 'POINTS'
     | 'CASHBACK'
     | 'GIFT_CERTIFICATE';
+export type PromotionValueSemantics = 'EXACT' | 'UP_TO';
+export type PromotionCalculationMode =
+    | 'CALCULABLE'
+    | 'CONDITIONAL'
+    | 'INFORMATION_ONLY';
 export type PromotionAmountBasis =
     | 'ORIGINAL_AMOUNT'
     | 'REMAINING_AMOUNT'
     | 'ELIGIBLE_ITEM_AMOUNT'
     | 'FINAL_APPROVED_AMOUNT';
+export type PromotionApplicabilityScope =
+    | 'STORE_WIDE'
+    | 'CATEGORY'
+    | 'PRODUCT_SET'
+    | 'CUSTOMER_TARGETED'
+    | 'UNKNOWN';
+export type PromotionRequiredInput =
+    | 'ELIGIBLE_ITEM_AMOUNT'
+    | 'COUPON'
+    | 'ENROLLMENT'
+    | 'SUBSCRIPTION_PRODUCT'
+    | 'TARGET_ELIGIBILITY'
+    | 'STORE_ELIGIBILITY'
+    | 'PAYMENT_INSTRUMENT';
+
+export interface PromotionSemanticAnalysis {
+    scope: PromotionApplicabilityScope;
+    confidence: number;
+    evidenceQuotes: string[];
+    requiredInputs: PromotionRequiredInput[];
+    eligibleItemSummary?: string;
+    reasoningSummary: string;
+    provider: string;
+    model?: string;
+    inputHash?: string;
+    diagnostic?: string;
+}
 
 export interface PromotionProvider {
     id: PromotionProviderId;
@@ -156,20 +196,39 @@ export interface PromotionProvider {
     sortOrder: number;
 }
 
+export interface SubscriptionProduct {
+    id: string;
+    providerId: PromotionProviderId;
+    name: string;
+    aliases: string[];
+    benefitSummary: string;
+    sourceUrl: string;
+    isActive: boolean;
+    collectedAt?: string;
+}
+
 export interface PromotionAction {
     type: PromotionActionType;
     value: number;
+    valueSemantics?: PromotionValueSemantics;
     maxBenefit?: number;
     faceValue?: number;
 }
 
 export interface PromotionCondition {
     amountBasis?: PromotionAmountBasis;
+    applicabilityScope?: PromotionApplicabilityScope;
+    calculationMode?: PromotionCalculationMode;
+    headlineEligible?: boolean;
+    eligibleItemSummary?: string;
+    requiredInputs?: PromotionRequiredInput[];
     minSpend?: number;
     telecomTiers?: string[];
+    requiredSubscriptionProducts?: string[];
     requiresCoupon?: boolean;
     requiresEnrollment?: boolean;
     firstPaymentOnly?: boolean;
+    confirmationRequired?: boolean;
     manualCheckRequired?: boolean;
     requiredNote?: string;
     itemSpecific?: boolean;
@@ -214,8 +273,14 @@ export interface TelecomMembership {
     tier?: string;
 }
 
+export interface BenefitSubscription {
+    providerId: PromotionProviderId;
+    productName: string;
+}
+
 export interface UserBenefitProfile {
     telecomMemberships: TelecomMembership[];
+    subscriptions: BenefitSubscription[];
     enabledPayProviderIds: PromotionProviderId[];
     moneyEnabled: boolean;
     pointsEnabled: boolean;
@@ -274,6 +339,24 @@ export interface RecommendationResponse {
         id: PromotionId;
         title: string;
         providerName: string;
+        scope: 'CATEGORY' | 'PRODUCT_SET';
+        calculationEligible: boolean;
+        valueSemantics: PromotionValueSemantics;
+        actionType: PromotionActionType;
+        actionValue: number;
+        eligibleItemSummary?: string;
+        requiredNote?: string;
+    }>;
+    informationalOffers: Array<{
+        id: PromotionId;
+        title: string;
+        providerName: string;
+        scope: PromotionApplicabilityScope;
+        valueSemantics: PromotionValueSemantics;
+        calculationMode: 'INFORMATION_ONLY';
+        actionType: PromotionActionType;
+        actionValue: number;
+        eligibleItemSummary?: string;
         requiredNote?: string;
     }>;
 }

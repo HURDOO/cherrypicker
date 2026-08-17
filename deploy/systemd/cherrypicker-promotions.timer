@@ -1,0 +1,11 @@
+[Unit]
+Description=Collect Cherrypicker promotions twice daily
+
+[Timer]
+OnCalendar=*-*-* 05,17:15:00 Asia/Seoul
+Persistent=true
+RandomizedDelaySec=10m
+Unit=cherrypicker-promotions.service
+
+[Install]
+WantedBy=timers.target

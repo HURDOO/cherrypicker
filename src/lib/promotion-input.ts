@@ -6,10 +6,14 @@ import type {
     FundingType,
     LimitConfig,
     PromotionAction,
+    PromotionCalculationMode,
     PromotionChannel,
     PromotionCompatibility,
     PromotionCondition,
     PromotionOffer,
+    PromotionApplicabilityScope,
+    PromotionRequiredInput,
+    PromotionValueSemantics,
 } from '@/types';
 
 type Input = Record<string, unknown>;
@@ -26,12 +30,34 @@ const actionTypes = [
     'CASHBACK',
     'GIFT_CERTIFICATE',
 ] as const;
+const valueSemantics: PromotionValueSemantics[] = ['EXACT', 'UP_TO'];
+const calculationModes: PromotionCalculationMode[] = [
+    'CALCULABLE',
+    'CONDITIONAL',
+    'INFORMATION_ONLY',
+];
 const amountBases = [
     'ORIGINAL_AMOUNT',
     'REMAINING_AMOUNT',
     'ELIGIBLE_ITEM_AMOUNT',
     'FINAL_APPROVED_AMOUNT',
 ] as const;
+const applicabilityScopes: PromotionApplicabilityScope[] = [
+    'STORE_WIDE',
+    'CATEGORY',
+    'PRODUCT_SET',
+    'CUSTOMER_TARGETED',
+    'UNKNOWN',
+];
+const requiredInputTypes: PromotionRequiredInput[] = [
+    'ELIGIBLE_ITEM_AMOUNT',
+    'COUPON',
+    'ENROLLMENT',
+    'SUBSCRIPTION_PRODUCT',
+    'TARGET_ELIGIBILITY',
+    'STORE_ELIGIBILITY',
+    'PAYMENT_INSTRUMENT',
+];
 
 const record = (value: unknown, label: string): Input => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -55,12 +81,20 @@ const stringList = (value: unknown, label: string, max = 500) => {
     return [...new Set(value.map(item => String(item).trim()).filter(Boolean))];
 };
 
-const optionalNumber = (value: unknown, label: string, max = 1_000_000_000_000) => {
+const optionalNumber = (
+    value: unknown,
+    label: string,
+    max = 1_000_000_000_000,
+    integer = true,
+) => {
     if (value === undefined || value === null || value === '') return undefined;
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > max) {
         throw new HttpError(400, `${label} 값이 올바르지 않습니다.`);
     }
-    return Math.floor(value);
+    if (integer && !Number.isSafeInteger(value)) {
+        throw new HttpError(400, `${label} 값은 정수여야 합니다.`);
+    }
+    return integer ? value : Math.round(value * 10_000) / 10_000;
 };
 
 const boolean = (value: unknown, fallback = false) =>
@@ -97,9 +131,23 @@ export function normalizePromotionDraft(value: unknown): NormalizedPromotionDraf
     if (!actionTypes.includes(actionType)) {
         throw new HttpError(400, '혜택 계산 방식이 올바르지 않습니다.');
     }
+    const percentageAction = ['PERCENT', 'POINTS', 'CASHBACK'].includes(actionType);
+    const actionValueSemantics = String(
+        actionInput.valueSemantics ?? 'EXACT'
+    ) as PromotionValueSemantics;
+    if (!valueSemantics.includes(actionValueSemantics)) {
+        throw new HttpError(400, '혜택 값 의미가 올바르지 않습니다.');
+    }
+    const actionValue = optionalNumber(
+        actionInput.value,
+        '혜택 값',
+        percentageAction ? 100 : 1_000_000_000_000,
+        !percentageAction,
+    ) ?? 0;
     const action: PromotionAction = {
         type: actionType,
-        value: optionalNumber(actionInput.value, '혜택 값') ?? 0,
+        value: actionValue,
+        valueSemantics: actionValueSemantics,
         ...(optionalNumber(actionInput.maxBenefit, '최대 혜택') !== undefined && {
             maxBenefit: optionalNumber(actionInput.maxBenefit, '최대 혜택'),
         }),
@@ -109,24 +157,76 @@ export function normalizePromotionDraft(value: unknown): NormalizedPromotionDraf
     };
 
     const conditionInput = record(input.condition ?? {}, '혜택 조건');
-    const amountBasis = String(conditionInput.amountBasis ?? 'REMAINING_AMOUNT');
-    if (!amountBases.includes(amountBasis as typeof amountBases[number])) {
+    const rawAmountBasis = String(conditionInput.amountBasis ?? 'REMAINING_AMOUNT');
+    if (!amountBases.includes(rawAmountBasis as typeof amountBases[number])) {
         throw new HttpError(400, '금액 기준이 올바르지 않습니다.');
+    }
+    const applicabilityScope = String(
+        conditionInput.applicabilityScope ?? 'UNKNOWN'
+    ) as PromotionApplicabilityScope;
+    if (!applicabilityScopes.includes(applicabilityScope)) {
+        throw new HttpError(400, '혜택 적용 범위가 올바르지 않습니다.');
+    }
+    const itemScoped = applicabilityScope === 'CATEGORY' ||
+        applicabilityScope === 'PRODUCT_SET';
+    const storeWide = applicabilityScope === 'STORE_WIDE';
+    const calculationMode = String(
+        conditionInput.calculationMode ?? (
+            action.valueSemantics === 'UP_TO' ? 'INFORMATION_ONLY' : 'CALCULABLE'
+        )
+    ) as PromotionCalculationMode;
+    if (!calculationModes.includes(calculationMode)) {
+        throw new HttpError(400, '계산 포함 방식이 올바르지 않습니다.');
+    }
+    const amountBasis = itemScoped
+        ? 'ELIGIBLE_ITEM_AMOUNT'
+        : storeWide && rawAmountBasis === 'ELIGIBLE_ITEM_AMOUNT'
+            ? layer === 'DISCOUNT' ? 'ORIGINAL_AMOUNT' : 'REMAINING_AMOUNT'
+            : rawAmountBasis;
+    const requiredInputs = stringList(
+        conditionInput.requiredInputs ?? [],
+        '추가 입력값',
+        10,
+    ) as PromotionRequiredInput[];
+    if (requiredInputs.some(item => !requiredInputTypes.includes(item))) {
+        throw new HttpError(400, '추가 입력값 조건이 올바르지 않습니다.');
+    }
+    if (itemScoped && !requiredInputs.includes('ELIGIBLE_ITEM_AMOUNT')) {
+        requiredInputs.push('ELIGIBLE_ITEM_AMOUNT');
     }
     const condition: PromotionCondition = {
         amountBasis: amountBasis as PromotionCondition['amountBasis'],
+        applicabilityScope,
+        calculationMode,
+        headlineEligible: storeWide && calculationMode !== 'INFORMATION_ONLY',
+        ...(conditionInput.eligibleItemSummary ? {
+            eligibleItemSummary: string(
+                conditionInput.eligibleItemSummary,
+                '대상 상품 요약',
+                300,
+            ),
+        } : {}),
+        requiredInputs,
         ...(optionalNumber(conditionInput.minSpend, '최소 결제금액') !== undefined && {
             minSpend: optionalNumber(conditionInput.minSpend, '최소 결제금액'),
         }),
         telecomTiers: stringList(conditionInput.telecomTiers ?? [], '통신사 등급', 100),
+        requiredSubscriptionProducts: stringList(
+            conditionInput.requiredSubscriptionProducts ?? [],
+            '필수 구독 상품',
+            100,
+        ),
         requiresCoupon: boolean(conditionInput.requiresCoupon),
         requiresEnrollment: boolean(conditionInput.requiresEnrollment),
         firstPaymentOnly: boolean(conditionInput.firstPaymentOnly),
-        manualCheckRequired: boolean(conditionInput.manualCheckRequired),
+        confirmationRequired: boolean(conditionInput.confirmationRequired) ||
+            calculationMode === 'CONDITIONAL',
+        manualCheckRequired: boolean(conditionInput.manualCheckRequired) ||
+            applicabilityScope === 'UNKNOWN',
         ...(conditionInput.requiredNote ? {
             requiredNote: string(conditionInput.requiredNote, '확인 메모', 1000),
         } : {}),
-        itemSpecific: boolean(conditionInput.itemSpecific),
+        itemSpecific: itemScoped,
     };
 
     const compatibilityInput = record(input.compatibility ?? {}, '중복 조건');
@@ -162,6 +262,9 @@ export function normalizePromotionDraft(value: unknown): NormalizedPromotionDraf
     const limitConfig: LimitConfig = {
         ...(optionalNumber(limitInput.dailyCount, '일 횟수', 1_000_000) !== undefined && {
             dailyCount: optionalNumber(limitInput.dailyCount, '일 횟수', 1_000_000),
+        }),
+        ...(optionalNumber(limitInput.dailyAmount, '일 혜택 한도') !== undefined && {
+            dailyAmount: optionalNumber(limitInput.dailyAmount, '일 혜택 한도'),
         }),
         ...(optionalNumber(limitInput.monthlyCount, '월 횟수', 1_000_000) !== undefined && {
             monthlyCount: optionalNumber(limitInput.monthlyCount, '월 횟수', 1_000_000),

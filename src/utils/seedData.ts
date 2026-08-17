@@ -25,6 +25,10 @@ export const INITIAL_BRANDS = [
     { id: 'mammoth', name: '매머드커피', category_id: 'cafe', icon_name: 'Coffee' },
     { id: 'baskin_robbins', name: '배스킨라빈스', category_id: 'cafe', icon_name: 'IceCreamBowl' },
     { id: 'krispy_kreme', name: '크리스피크림', category_id: 'cafe', icon_name: 'Dessert' },
+    { id: 'paris_baguette', name: '파리바게뜨', category_id: 'cafe', icon_name: 'Dessert' },
+    { id: 'tous_les_jours', name: '뚜레쥬르', category_id: 'cafe', icon_name: 'Dessert' },
+    { id: 'dunkin', name: '던킨', category_id: 'cafe', icon_name: 'Dessert' },
+    { id: 'gongcha', name: '공차', category_id: 'cafe', icon_name: 'Coffee' },
 
     // Food
     { id: 'kfc', name: 'KFC', category_id: 'food', icon_name: 'Utensils' },
@@ -35,6 +39,9 @@ export const INITIAL_BRANDS = [
     { id: 'subway', name: '써브웨이', category_id: 'food', icon_name: 'Utensils' },
     { id: 'outback', name: '아웃백', category_id: 'food', icon_name: 'Utensils' },
     { id: 'vips', name: 'VIPS', category_id: 'food', icon_name: 'Utensils' },
+    { id: 'domino', name: '도미노피자', category_id: 'food', icon_name: 'Utensils' },
+    { id: 'pizzahut', name: '피자헛', category_id: 'food', icon_name: 'Utensils' },
+    { id: 'papa_johns', name: '파파존스피자', category_id: 'food', icon_name: 'Utensils' },
 
     // Delivery
     { id: 'baemin', name: '배달의민족', category_id: 'delivery', icon_name: 'ShoppingBag' },

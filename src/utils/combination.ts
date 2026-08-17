@@ -18,6 +18,7 @@ import type {
     UserCardPerformance,
 } from '@/types';
 import { calculateBestCards } from './calculation';
+import { normalizeSubscriptionProductName } from './subscriptionProducts';
 
 type WorkingCombination = {
     remainingAmount: number;
@@ -47,6 +48,7 @@ export type CombinationEngineInput = RecommendationRequest & {
     routeVerifications?: MerchantRouteVerification[];
     promotionUsage?: Record<string, {
         dailyCount: number;
+        dailyAmount?: number;
         monthlyCount: number;
         yearlyCount: number;
         monthlyAmount: number;
@@ -74,6 +76,8 @@ const uniqueStrings = (items: string[]) => [...new Set(items.filter(Boolean))];
 
 const getBenefitAmount = (offer: PromotionOffer, basisAmount: number) => {
     const { action } = offer;
+    if (action.valueSemantics === 'UP_TO' ||
+        offer.condition.calculationMode === 'INFORMATION_ONLY') return 0;
     let benefit = 0;
 
     if (action.type === 'PERCENT' || action.type === 'POINTS' || action.type === 'CASHBACK') {
@@ -131,9 +135,53 @@ const isTelecomEligible = (
     const membership = profile.telecomMemberships.find(item => item.providerId === provider.id);
     if (!membership) return false;
     const allowedTiers = offer.condition.telecomTiers ?? [];
+    const membershipTier = membership.tier?.trim().toLocaleUpperCase('ko-KR');
     return allowedTiers.length === 0 || Boolean(
-        membership.tier && allowedTiers.includes(membership.tier)
+        membershipTier && allowedTiers.some(tier =>
+            tier.trim().toLocaleUpperCase('ko-KR') === membershipTier
+        )
     );
+};
+
+const getMatchingSubscription = (
+    offer: PromotionOffer,
+    provider: PromotionProvider | undefined,
+    profile: UserBenefitProfile,
+) => {
+    if (provider?.kind !== 'SUBSCRIPTION') return undefined;
+    const subscriptions = profile.subscriptions.filter(subscription => (
+        subscription.providerId === provider.id
+    ));
+    const requiredProducts = offer.condition.requiredSubscriptionProducts ?? [];
+    if (requiredProducts.length === 0) return subscriptions[0];
+    const normalizedRequiredProducts = new Set(
+        requiredProducts.map(normalizeSubscriptionProductName)
+    );
+    return subscriptions.find(subscription => (
+        normalizedRequiredProducts.has(
+            normalizeSubscriptionProductName(subscription.productName)
+        )
+    ));
+};
+
+const isSubscriptionEligible = (
+    offer: PromotionOffer,
+    provider: PromotionProvider | undefined,
+    profile: UserBenefitProfile,
+) => provider?.kind !== 'SUBSCRIPTION' || Boolean(
+    getMatchingSubscription(offer, provider, profile)
+);
+
+const getOfferProviderName = (
+    offer: PromotionOffer,
+    provider: PromotionProvider | undefined,
+    profile: UserBenefitProfile,
+) => {
+    const providerName = provider?.name ?? offer.providerId;
+    const subscription = getMatchingSubscription(offer, provider, profile);
+    return subscription
+        ? `${providerName} · ${subscription.productName}`
+        : providerName;
 };
 
 const getEffectiveCertainty = (
@@ -143,6 +191,7 @@ const getEffectiveCertainty = (
     const needsConfirmation = offer.condition.requiresCoupon ||
         offer.condition.requiresEnrollment ||
         offer.condition.firstPaymentOnly ||
+        offer.condition.confirmationRequired ||
         offer.condition.manualCheckRequired;
     if (needsConfirmation && !confirmedConditionIds.has(offer.id)) return 'CONDITIONAL';
     return offer.certainty;
@@ -164,6 +213,7 @@ const getConfirmationLabel = (offer: PromotionOffer) => {
     if (offer.condition.requiresCoupon) labels.push('쿠폰 다운로드');
     if (offer.condition.requiresEnrollment) labels.push('행사 응모');
     if (offer.condition.firstPaymentOnly) labels.push('첫 결제 대상');
+    if (offer.condition.confirmationRequired) labels.push('행사 대상 여부');
     if (offer.condition.manualCheckRequired) labels.push('추가 조건');
     return labels.length > 0 ? `${labels.join('·')} 확인` : '';
 };
@@ -212,6 +262,7 @@ const applyOffer = (
     const usage = input.promotionUsage?.[offer.id];
     if (
         (offer.limitConfig.dailyCount && (usage?.dailyCount ?? 0) >= offer.limitConfig.dailyCount) ||
+        (offer.limitConfig.dailyAmount && (usage?.dailyAmount ?? 0) >= offer.limitConfig.dailyAmount) ||
         (offer.limitConfig.monthlyCount && (usage?.monthlyCount ?? 0) >= offer.limitConfig.monthlyCount) ||
         (offer.limitConfig.yearlyCount && (usage?.yearlyCount ?? 0) >= offer.limitConfig.yearlyCount) ||
         (offer.limitConfig.monthlyAmount && (usage?.monthlyAmount ?? 0) >= offer.limitConfig.monthlyAmount)
@@ -226,6 +277,12 @@ const applyOffer = (
     if (offer.action.type === 'POINTS') {
         benefitAmount = Math.floor(benefitAmount * input.profile.pointValue);
     }
+    if (offer.limitConfig.dailyAmount) {
+        benefitAmount = Math.min(
+            benefitAmount,
+            Math.max(0, offer.limitConfig.dailyAmount - (usage?.dailyAmount ?? 0))
+        );
+    }
     if (offer.limitConfig.monthlyAmount) {
         benefitAmount = Math.min(
             benefitAmount,
@@ -235,7 +292,8 @@ const applyOffer = (
     if (benefitAmount <= 0) return null;
 
     const certainty = getEffectiveCertainty(offer, confirmedConditionIds);
-    const isImmediate = immediateActionTypes.has(offer.action.type);
+    const isImmediate = offer.layer !== 'POST_REWARD' &&
+        immediateActionTypes.has(offer.action.type);
     const amountBefore = next.remainingAmount;
     if (isImmediate) {
         next.remainingAmount = Math.max(0, next.remainingAmount - benefitAmount);
@@ -270,7 +328,11 @@ const applyOffer = (
         promotionId: offer.id,
         layer: offer.layer,
         providerId: offer.providerId,
-        providerName: providerById.get(offer.providerId)?.name ?? offer.providerId,
+        providerName: getOfferProviderName(
+            offer,
+            providerById.get(offer.providerId),
+            input.profile,
+        ),
         title: offer.title,
         certainty,
         amountBefore,
@@ -433,24 +495,80 @@ export function calculateBestCombinations(input: CombinationEngineInput): Recomm
         isPublishedAndCurrent(offer, now) &&
         matchesBrand(offer, input.brand) &&
         matchesChannel(offer, input.isOnline) &&
-        isTelecomEligible(offer, providerById.get(offer.providerId), input.profile)
+        isTelecomEligible(offer, providerById.get(offer.providerId), input.profile) &&
+        isSubscriptionEligible(offer, providerById.get(offer.providerId), input.profile)
     );
+    const isItemScoped = (offer: PromotionOffer) =>
+        offer.condition.applicabilityScope === 'CATEGORY' ||
+        offer.condition.applicabilityScope === 'PRODUCT_SET' ||
+        offer.condition.itemSpecific === true ||
+        offer.condition.amountBasis === 'ELIGIBLE_ITEM_AMOUNT';
+    const isInformationOnly = (offer: PromotionOffer) =>
+        offer.action.valueSemantics === 'UP_TO' ||
+        offer.condition.calculationMode === 'INFORMATION_ONLY';
+    const isHeadlineEligible = (offer: PromotionOffer) => {
+        if (isInformationOnly(offer)) return false;
+        if (offer.condition.applicabilityScope) {
+            return offer.condition.applicabilityScope === 'STORE_WIDE' &&
+                offer.condition.headlineEligible !== false;
+        }
+        return !isItemScoped(offer);
+    };
+    const isWholePurchaseConditional = (offer: PromotionOffer) =>
+        offer.condition.calculationMode === 'CONDITIONAL' &&
+        offer.condition.applicabilityScope === 'CUSTOMER_TARGETED';
     const itemSpecificOffers = currentOffers
-        .filter(offer =>
-            offer.condition.amountBasis === 'ELIGIBLE_ITEM_AMOUNT' &&
-            !input.eligibleItemAmount
-        )
+        .filter(offer => isItemScoped(offer) && !isInformationOnly(offer))
         .map(offer => ({
             id: offer.id,
             title: offer.title,
-            providerName: providerById.get(offer.providerId)?.name ?? offer.providerId,
+            providerName: getOfferProviderName(
+                offer,
+                providerById.get(offer.providerId),
+                input.profile,
+            ),
+            scope: offer.condition.applicabilityScope === 'CATEGORY'
+                ? 'CATEGORY' as const
+                : 'PRODUCT_SET' as const,
+            calculationEligible: !isInformationOnly(offer),
+            valueSemantics: offer.action.valueSemantics ?? 'EXACT',
+            actionType: offer.action.type,
+            actionValue: offer.action.value,
+            ...(offer.condition.eligibleItemSummary && {
+                eligibleItemSummary: offer.condition.eligibleItemSummary,
+            }),
+            ...(offer.condition.requiredNote && {
+                requiredNote: offer.condition.requiredNote,
+            }),
+        }));
+    const informationalOffers = currentOffers
+        .filter(isInformationOnly)
+        .map(offer => ({
+            id: offer.id,
+            title: offer.title,
+            providerName: getOfferProviderName(
+                offer,
+                providerById.get(offer.providerId),
+                input.profile,
+            ),
+            scope: offer.condition.applicabilityScope ?? 'UNKNOWN',
+            valueSemantics: offer.action.valueSemantics ?? 'EXACT',
+            calculationMode: 'INFORMATION_ONLY' as const,
+            actionType: offer.action.type,
+            actionValue: offer.action.value,
+            ...(offer.condition.eligibleItemSummary && {
+                eligibleItemSummary: offer.condition.eligibleItemSummary,
+            }),
             ...(offer.condition.requiredNote && {
                 requiredNote: offer.condition.requiredNote,
             }),
         }));
     const calculableOffers = currentOffers.filter(offer =>
-        offer.condition.amountBasis !== 'ELIGIBLE_ITEM_AMOUNT' ||
-        Boolean(input.eligibleItemAmount)
+        !isInformationOnly(offer) && (
+            isHeadlineEligible(offer) ||
+            isWholePurchaseConditional(offer) ||
+            (isItemScoped(offer) && Boolean(input.eligibleItemAmount))
+        )
     );
 
     const payProviderIds = uniqueStrings(input.profile.enabledPayProviderIds);
@@ -592,5 +710,6 @@ export function calculateBestCombinations(input: CombinationEngineInput): Recomm
         ...(input.eligibleItemAmount && { eligibleItemAmount: input.eligibleItemAmount }),
         combinations: deduplicated,
         itemSpecificOffers,
+        informationalOffers,
     };
 }

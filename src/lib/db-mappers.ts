@@ -6,6 +6,7 @@ import type {
     MerchantRouteVerification,
     PromotionOffer,
     PromotionProvider,
+    SubscriptionProduct,
     TransactionHistory,
     UserBenefitProfile,
     UserCardPerformance,
@@ -18,6 +19,7 @@ import type {
     merchantRouteVerifications,
     promotionOffers,
     promotionProviders,
+    subscriptionProducts,
     transactionHistory,
     userBenefitProfiles,
     userCardPerformances,
@@ -120,6 +122,21 @@ export function toPromotionProvider(
     };
 }
 
+export function toSubscriptionProduct(
+    row: typeof subscriptionProducts.$inferSelect
+): SubscriptionProduct {
+    return {
+        id: row.id,
+        providerId: row.providerId,
+        name: row.name,
+        aliases: row.aliases,
+        benefitSummary: row.benefitSummary,
+        sourceUrl: row.sourceUrl,
+        isActive: row.isActive,
+        ...(row.collectedAt && { collectedAt: row.collectedAt.toISOString() }),
+    };
+}
+
 export function toPromotionOffer(
     row: typeof promotionOffers.$inferSelect
 ): PromotionOffer {
@@ -153,6 +170,7 @@ export function toBenefitProfile(
 ): UserBenefitProfile {
     return {
         telecomMemberships: row?.telecomMemberships ?? [],
+        subscriptions: row?.subscriptions ?? [],
         enabledPayProviderIds: row?.enabledPayProviderIds ?? [],
         moneyEnabled: row?.moneyEnabled ?? true,
         pointsEnabled: row?.pointsEnabled ?? true,

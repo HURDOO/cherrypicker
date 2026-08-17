@@ -51,6 +51,7 @@ export async function GET(request: Request) {
             .all();
 
         return Response.json({
+            userId: user.id,
             categories: categoryRows.map(toCategory),
             brands: brandRows.map(toBrand),
             cards: cardRows.map(toCard),

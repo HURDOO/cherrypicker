@@ -228,6 +228,11 @@ export function limitConfigValue(input: Input): LimitConfig {
         '일 사용 횟수',
         MAX_COUNT_LIMIT
     );
+    const dailyAmount = optionalNonNegativeInteger(
+        value.dailyAmount,
+        '일 할인 한도',
+        MAX_MONEY_AMOUNT
+    );
     const monthlyCount = optionalNonNegativeInteger(
         value.monthlyCount,
         '월 사용 횟수',
@@ -246,6 +251,7 @@ export function limitConfigValue(input: Input): LimitConfig {
 
     return {
         ...(dailyCount !== undefined && { dailyCount }),
+        ...(dailyAmount !== undefined && { dailyAmount }),
         ...(monthlyCount !== undefined && { monthlyCount }),
         ...(yearlyCount !== undefined && { yearlyCount }),
         ...(monthlyAmount !== undefined && { monthlyAmount }),

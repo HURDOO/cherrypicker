@@ -1,25 +1,50 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { LoaderCircle, Save, ShieldCheck, Smartphone } from 'lucide-react';
+import {
+    LoaderCircle,
+    PackagePlus,
+    Plus,
+    Save,
+    ShieldCheck,
+    Smartphone,
+    X,
+} from 'lucide-react';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
 import { useToastStore } from '@/store/useToastStore';
-import type { PromotionProvider, UserBenefitProfile } from '@/types';
+import type {
+    PromotionProvider,
+    SubscriptionProduct,
+    UserBenefitProfile,
+} from '@/types';
+import {
+    canonicalizeSubscriptionProductName,
+    findSubscriptionProduct,
+    getSubscriptionProducts,
+    normalizeSubscriptionProductName,
+} from '@/utils/subscriptionProducts';
 
 const emptyProfile: UserBenefitProfile = {
     telecomMemberships: [],
+    subscriptions: [],
     enabledPayProviderIds: [],
     moneyEnabled: true,
     pointsEnabled: true,
     pointValue: 1,
 };
 
+const optionSummary = (value: string) =>
+    value.length > 70 ? `${value.slice(0, 70).trim()}…` : value;
+
 export function BenefitProfileSettings() {
     const addToast = useToastStore(state => state.addToast);
     const [profile, setProfile] = useState<UserBenefitProfile>(emptyProfile);
     const [providers, setProviders] = useState<PromotionProvider[]>([]);
+    const [subscriptionProducts, setSubscriptionProducts] = useState<SubscriptionProduct[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [savingSubscriptionProviderId, setSavingSubscriptionProviderId] = useState<string>();
+    const [subscriptionDrafts, setSubscriptionDrafts] = useState<Record<string, string>>({});
     const telecomProviders = useMemo(
         () => providers.filter(provider => provider.kind === 'TELECOM'),
         [providers]
@@ -28,6 +53,10 @@ export function BenefitProfileSettings() {
         () => providers.filter(provider =>
             provider.kind === 'PAY' || provider.kind === 'GOODDEAL'
         ),
+        [providers]
+    );
+    const subscriptionProviders = useMemo(
+        () => providers.filter(provider => provider.kind === 'SUBSCRIPTION'),
         [providers]
     );
     const selectedTelecom = profile.telecomMemberships[0];
@@ -39,6 +68,7 @@ export function BenefitProfileSettings() {
                 if (!active) return;
                 setProfile(result.profile);
                 setProviders(result.providers);
+                setSubscriptionProducts(result.subscriptionProducts);
             })
             .catch(error => {
                 if (active) addToast(getErrorMessage(error, '혜택 프로필을 불러오지 못했습니다.'), 'error');
@@ -64,6 +94,92 @@ export function BenefitProfileSettings() {
         }
     };
 
+    const addSubscription = async (providerId: string, requestedProductName?: string) => {
+        const enteredProductName = (
+            requestedProductName ?? subscriptionDrafts[providerId] ?? ''
+        ).trim();
+        if (!enteredProductName || savingSubscriptionProviderId) return;
+        const productName = canonicalizeSubscriptionProductName(
+            subscriptionProducts,
+            providerId,
+            enteredProductName,
+        );
+        if (!productName) return;
+        if (profile.subscriptions.length >= 50) {
+            addToast('구독 상품은 최대 50개까지 추가할 수 있습니다.', 'error');
+            return;
+        }
+        const duplicate = profile.subscriptions.some(subscription => (
+            subscription.providerId === providerId &&
+            normalizeSubscriptionProductName(subscription.productName) ===
+                normalizeSubscriptionProductName(productName)
+        ));
+        if (duplicate) {
+            addToast('이미 추가한 구독 상품입니다.', 'error');
+            return;
+        }
+
+        const previousSubscriptions = profile.subscriptions;
+        const subscriptions = [
+            ...previousSubscriptions,
+            { providerId, productName },
+        ];
+        const nextProfile = { ...profile, subscriptions };
+        setProfile(current => ({ ...current, subscriptions }));
+        setSavingSubscriptionProviderId(providerId);
+
+        try {
+            const saved = await apiClient.updateBenefitProfile(nextProfile);
+            setProfile(current => ({ ...current, subscriptions: saved.subscriptions }));
+            setSubscriptionDrafts(current => ({ ...current, [providerId]: '' }));
+            const supported = findSubscriptionProduct(
+                subscriptionProducts,
+                providerId,
+                productName,
+            );
+            addToast(
+                supported
+                    ? `${supported.name}을 추가하고 혜택 추천에 반영했습니다.`
+                    : '상품을 저장했습니다. 연결된 혜택 데이터가 생기면 추천에 반영됩니다.',
+                'success'
+            );
+        } catch (error) {
+            setProfile(current => ({
+                ...current,
+                subscriptions: previousSubscriptions,
+            }));
+            addToast(getErrorMessage(error, '구독 상품을 저장하지 못했습니다.'), 'error');
+        } finally {
+            setSavingSubscriptionProviderId(undefined);
+        }
+    };
+
+    const removeSubscription = async (providerId: string, productName: string) => {
+        if (savingSubscriptionProviderId) return;
+        const previousSubscriptions = profile.subscriptions;
+        const subscriptions = previousSubscriptions.filter(subscription => !(
+            subscription.providerId === providerId &&
+            subscription.productName === productName
+        ));
+        const nextProfile = { ...profile, subscriptions };
+        setProfile(current => ({ ...current, subscriptions }));
+        setSavingSubscriptionProviderId(providerId);
+
+        try {
+            const saved = await apiClient.updateBenefitProfile(nextProfile);
+            setProfile(current => ({ ...current, subscriptions: saved.subscriptions }));
+            addToast(`${productName}을 삭제했습니다.`, 'success');
+        } catch (error) {
+            setProfile(current => ({
+                ...current,
+                subscriptions: previousSubscriptions,
+            }));
+            addToast(getErrorMessage(error, '구독 상품을 삭제하지 못했습니다.'), 'error');
+        } finally {
+            setSavingSubscriptionProviderId(undefined);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex justify-center rounded-3xl border border-gray-100 bg-white p-8">
@@ -81,7 +197,7 @@ export function BenefitProfileSettings() {
                 <div>
                     <h2 className="text-sm font-bold text-gray-900">보유 혜택 프로필</h2>
                     <p className="text-[10px] text-gray-500">
-                        내가 실제로 사용할 수 있는 통신사와 페이만 추천합니다.
+                        내가 실제로 사용할 수 있는 통신사·구독 상품·페이만 추천합니다.
                     </p>
                 </div>
             </div>
@@ -137,6 +253,156 @@ export function BenefitProfileSettings() {
                         />
                     )}
                 </div>
+
+                {subscriptionProviders.length > 0 && (
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <PackagePlus className="h-4 w-4 text-violet-500" />
+                            <label className="text-xs font-black text-gray-700">T우주 구독 상품</label>
+                        </div>
+                        <p className="mt-1 text-[10px] leading-relaxed text-gray-400">
+                            구독 중인 상품을 추가·삭제하면 바로 저장되고 전용 혜택에 반영돼요.
+                            건별·일·월 한도는 앱에 기록한 사용 내역을 기준으로 계산해요.
+                        </p>
+                        <div className="mt-3 space-y-3">
+                            {subscriptionProviders.map(provider => {
+                                const subscriptions = profile.subscriptions.filter(
+                                    subscription => subscription.providerId === provider.id
+                                );
+                                const supportedProducts = getSubscriptionProducts(
+                                    subscriptionProducts,
+                                    provider.id,
+                                );
+                                const availableProducts = supportedProducts.filter(product => (
+                                    !subscriptions.some(subscription => (
+                                        normalizeSubscriptionProductName(subscription.productName) ===
+                                            normalizeSubscriptionProductName(product.name)
+                                    ))
+                                ));
+                                const draft = subscriptionDrafts[provider.id] ?? '';
+                                const isSavingSubscription = savingSubscriptionProviderId === provider.id;
+                                return (
+                                    <div
+                                        key={provider.id}
+                                        className="rounded-2xl border border-violet-100 bg-violet-50/50 p-3"
+                                    >
+                                        <p className="text-[10px] font-black text-violet-800">
+                                            {provider.name}
+                                        </p>
+                                        {availableProducts.length > 0 && (
+                                            <select
+                                                value=""
+                                                aria-label={`${provider.name} 혜택 연결 상품 선택`}
+                                                disabled={Boolean(savingSubscriptionProviderId)}
+                                                onChange={event => {
+                                                    void addSubscription(provider.id, event.target.value);
+                                                }}
+                                                className="mt-2 w-full rounded-xl border border-violet-100 bg-white px-3 py-2 text-xs font-bold text-gray-700 outline-none focus:border-violet-400 disabled:opacity-60"
+                                            >
+                                                <option value="" disabled>
+                                                    혜택 연결 상품에서 선택
+                                                </option>
+                                                {availableProducts.map(product => (
+                                                    <option key={product.name} value={product.name}>
+                                                        {product.name} — {optionSummary(product.benefitSummary)}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
+                                        {subscriptions.length > 0 ? (
+                                            <div className="mt-2 space-y-1.5">
+                                                {subscriptions.map(subscription => {
+                                                    const supported = findSubscriptionProduct(
+                                                        subscriptionProducts,
+                                                        provider.id,
+                                                        subscription.productName,
+                                                    );
+                                                    return (
+                                                        <div
+                                                            key={subscription.productName}
+                                                            className="flex min-w-0 items-center gap-2 rounded-xl bg-white px-2.5 py-2 shadow-sm"
+                                                        >
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="truncate text-[10px] font-black text-violet-700">
+                                                                    {subscription.productName}
+                                                                </p>
+                                                                <p className={`mt-0.5 truncate text-[9px] font-bold ${
+                                                                    supported ? 'text-emerald-600' : 'text-amber-600'
+                                                                }`}>
+                                                                    {supported
+                                                                        ? `혜택 연결됨 · ${supported.benefitSummary}`
+                                                                        : '저장됨 · 아직 연결된 혜택 데이터 없음'}
+                                                                </p>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                aria-label={`${subscription.productName} 삭제`}
+                                                                disabled={Boolean(savingSubscriptionProviderId)}
+                                                                onClick={() => {
+                                                                    void removeSubscription(
+                                                                        provider.id,
+                                                                        subscription.productName,
+                                                                    );
+                                                                }}
+                                                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-violet-400 hover:bg-violet-100 hover:text-violet-700 disabled:opacity-40"
+                                                            >
+                                                                <X className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <p className="mt-2 text-[10px] text-gray-400">
+                                                추가한 구독 상품이 없습니다.
+                                            </p>
+                                        )}
+                                        <p className="mt-3 text-[9px] font-bold text-gray-400">
+                                            목록에 없는 상품은 직접 입력할 수 있어요.
+                                        </p>
+                                        <div className="mt-3 flex gap-2">
+                                            <input
+                                                value={draft}
+                                                maxLength={100}
+                                                aria-label={`${provider.name} 구독 상품명`}
+                                                placeholder="목록에 없는 상품명"
+                                                disabled={Boolean(savingSubscriptionProviderId)}
+                                                onChange={event => setSubscriptionDrafts(current => ({
+                                                    ...current,
+                                                    [provider.id]: event.target.value,
+                                                }))}
+                                                onKeyDown={event => {
+                                                    if (event.key !== 'Enter') return;
+                                                    event.preventDefault();
+                                                    void addSubscription(provider.id);
+                                                }}
+                                                className="min-w-0 flex-1 rounded-xl border border-violet-100 bg-white px-3 py-2 text-xs font-bold outline-none focus:border-violet-400 disabled:opacity-60"
+                                            />
+                                            <button
+                                                type="button"
+                                                aria-label={`${provider.name} 구독 상품 추가`}
+                                                disabled={
+                                                    !draft.trim() ||
+                                                    profile.subscriptions.length >= 50 ||
+                                                    Boolean(savingSubscriptionProviderId)
+                                                }
+                                                onClick={() => {
+                                                    void addSubscription(provider.id);
+                                                }}
+                                                className="flex shrink-0 items-center gap-1 rounded-xl bg-violet-600 px-3 py-2 text-[10px] font-black text-white disabled:cursor-not-allowed disabled:bg-gray-200"
+                                            >
+                                                {isSavingSubscription
+                                                    ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                                                    : <Plus className="h-3.5 w-3.5" />}
+                                                {isSavingSubscription ? '저장 중' : '추가·저장'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 <div>
                     <div className="flex items-center gap-2">
@@ -195,7 +461,7 @@ export function BenefitProfileSettings() {
                 <button
                     type="button"
                     onClick={save}
-                    disabled={isSaving}
+                    disabled={isSaving || Boolean(savingSubscriptionProviderId)}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 py-3 text-xs font-black text-white disabled:opacity-60"
                 >
                     {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}

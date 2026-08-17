@@ -11,7 +11,6 @@ import {
     CreditCard,
     Gift,
     LoaderCircle,
-    Search,
     ShieldCheck,
     Smartphone,
     Sparkles,
@@ -19,7 +18,6 @@ import {
     Wallet,
     Wifi,
     WifiOff,
-    X,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore } from '@/store/useAppStore';
@@ -27,7 +25,9 @@ import { useToastStore } from '@/store/useToastStore';
 import { IconByName } from '@/components/ui/IconByName';
 import { NumericKeypad } from '@/components/ui/NumericKeypad';
 import { MonthlyPerformanceReminder } from '@/components/performance/MonthlyPerformanceReminder';
+import { BrandDiscovery } from '@/components/brand/BrandDiscovery';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
+import { useBrandDiscoveryPreferences } from '@/hooks/useBrandDiscoveryPreferences';
 import type {
     BenefitCombination,
     BenefitLayer,
@@ -38,6 +38,10 @@ import {
     getCurrentMonthInKst,
     getPreviousMonthInKst,
 } from '@/lib/monthly-performance';
+import {
+    FUNDING_TYPE_LABELS,
+    getCombinationMethodSummary,
+} from '@/utils/combinationPresentation';
 
 const formatWon = (value: number) => `${value.toLocaleString()}원`;
 
@@ -71,13 +75,6 @@ const layerMeta: Record<BenefitLayer, {
         icon: Gift,
         color: 'bg-violet-50 text-violet-600 border-violet-100',
     },
-};
-
-const fundingLabel = {
-    CARD: '등록 카드',
-    MONEY: '페이머니',
-    POINTS: '포인트',
-    GIFT_CERTIFICATE: '상품권',
 };
 
 function StepRow({
@@ -202,18 +199,16 @@ function CombinationSummary({
             )}
         >
             <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-black text-gray-400">#{rank} 추천 조합</p>
-                    <p className="mt-1 text-sm font-black text-gray-900">
-                        {combination.payProviderName || '직접 결제'} · {
-                            combination.cardName || fundingLabel[combination.fundingType]
-                        }
+                    <p className="mt-1 line-clamp-2 text-sm font-black leading-snug text-gray-900">
+                        {getCombinationMethodSummary(combination)}
                     </p>
                     <p className="mt-1 text-[10px] font-bold text-gray-500">
                         실결제 {formatWon(combination.payableAmount)}
                     </p>
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 text-right">
                     <p className="text-lg font-black text-blue-600">
                         +{formatWon(combination.confirmedValue)}
                     </p>
@@ -232,6 +227,7 @@ function CombinationSummary({
 
 export default function HomePage() {
     const {
+        userId,
         categories,
         brands,
         cards,
@@ -247,7 +243,6 @@ export default function HomePage() {
     const [amount, setAmount] = useState(0);
     const [eligibleItemAmount, setEligibleItemAmount] = useState<number | undefined>();
     const [isOnline, setIsOnline] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
     const [recommendation, setRecommendation] = useState<Awaited<
         ReturnType<typeof apiClient.getRecommendation>
     > | null>(null);
@@ -259,6 +254,18 @@ export default function HomePage() {
     const [isRecording, setIsRecording] = useState(false);
     const recommendationVersion = useRef(0);
     const recordInFlight = useRef(false);
+    const amountInputRef = useRef<HTMLInputElement>(null);
+    const amountSectionRef = useRef<HTMLElement>(null);
+    const {
+        favoriteBrandIds,
+        defaultViewMode,
+        nearbyBrandIds,
+        hasCurrentLocation,
+        isLocating,
+        toggleFavorite,
+        requestCurrentLocation,
+        recordBrandVisit,
+    } = useBrandDiscoveryPreferences(userId);
     const [performancePeriod] = useState(() => {
         const referenceDate = new Date();
         return {
@@ -271,20 +278,6 @@ export default function HomePage() {
         () => brands.find(brand => brand.id === selectedBrandId),
         [brands, selectedBrandId]
     );
-    const filteredBrands = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase();
-        return query
-            ? brands.filter(brand => brand.name.toLowerCase().includes(query))
-            : brands;
-    }, [brands, searchQuery]);
-    const brandsByCategory = useMemo(() => {
-        const grouped: Record<string, typeof brands> = {};
-        categories.forEach(category => {
-            const matches = filteredBrands.filter(brand => brand.categoryId === category.id);
-            if (matches.length > 0) grouped[category.id] = matches;
-        });
-        return grouped;
-    }, [categories, filteredBrands]);
     const currentPerformances = useMemo(
         () => performances.filter(
             performance => performance.performanceMonth === performancePeriod.performanceMonth
@@ -326,11 +319,7 @@ export default function HomePage() {
                 });
                 if (recommendationVersion.current !== version) return;
                 setRecommendation(result);
-                setSelectedCombinationId(current =>
-                    result.combinations.some(item => item.id === current)
-                        ? current
-                        : result.combinations[0]?.id
-                );
+                setSelectedCombinationId(result.combinations[0]?.id);
             } catch (error) {
                 if (recommendationVersion.current !== version) return;
                 setRecommendation(null);
@@ -370,6 +359,30 @@ export default function HomePage() {
         });
     };
 
+    const handleSelectBrand = (brandId: string) => {
+        setSelectedBrandId(brandId);
+        setRecommendation(null);
+        setSelectedCombinationId(undefined);
+        setAmount(0);
+        setEligibleItemAmount(undefined);
+        setConfirmedConditionIds(new Set());
+    };
+
+    const handleRequestLocation = async () => {
+        const result = await requestCurrentLocation();
+        if (!result.ok) addToast(result.message, 'error');
+        return result.ok;
+    };
+
+    useEffect(() => {
+        if (!currentBrand) return;
+        const timer = window.setTimeout(() => {
+            amountSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            amountInputRef.current?.focus({ preventScroll: true });
+        }, 120);
+        return () => window.clearTimeout(timer);
+    }, [currentBrand]);
+
     const handleRecord = async () => {
         if (!currentBrand || !selectedCombination || amount <= 0 || recordInFlight.current) return;
         if (recordConfirmationId !== selectedCombination.id) {
@@ -390,6 +403,7 @@ export default function HomePage() {
                 combinationId: selectedCombination.id,
             });
             addTransaction(transaction);
+            recordBrandVisit(currentBrand.id);
             addToast('선택한 혜택 조합으로 기록했습니다.', 'success');
         } catch (error) {
             addToast(getErrorMessage(error, '결제 기록을 저장하지 못했습니다.'), 'error');
@@ -450,59 +464,22 @@ export default function HomePage() {
                     benefitMonthLabel={formatPerformanceMonthLabel(performancePeriod.benefitMonth)}
                 />
 
-                <section className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm">
-                    {!currentBrand ? (
-                        <div>
-                            <h2 className="text-lg font-black text-gray-900">어디에서 결제하나요?</h2>
-                            <div className="relative mt-4">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                <input
-                                    value={searchQuery}
-                                    onChange={event => setSearchQuery(event.target.value)}
-                                    placeholder="브랜드 검색"
-                                    className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-9 pr-9 text-sm outline-none focus:border-blue-500"
-                                />
-                                {searchQuery && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setSearchQuery('')}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                )}
-                            </div>
-                            <div className="mt-4 max-h-[55vh] space-y-5 overflow-y-auto pr-1">
-                                {categories.map(category => brandsByCategory[category.id] && (
-                                    <div key={category.id}>
-                                        <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-gray-400">
-                                            {category.name}
-                                        </p>
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {brandsByCategory[category.id].map(brand => (
-                                                <button
-                                                    type="button"
-                                                    key={brand.id}
-                                                    onClick={() => {
-                                                        setSelectedBrandId(brand.id);
-                                                        setAmount(0);
-                                                        setEligibleItemAmount(undefined);
-                                                        setConfirmedConditionIds(new Set());
-                                                    }}
-                                                    className="flex min-h-20 flex-col items-center justify-center rounded-2xl border border-gray-100 p-2 text-gray-600 transition hover:bg-gray-50"
-                                                >
-                                                    <IconByName name={brand.iconName || 'Store'} className="mb-2 h-4 w-4" />
-                                                    <span className="text-center text-[10px] font-black leading-snug">
-                                                        {brand.name}
-                                                    </span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ) : (
+                {!currentBrand ? (
+                    <BrandDiscovery
+                        categories={categories}
+                        brands={brands}
+                        history={history}
+                        favoriteBrandIds={favoriteBrandIds}
+                        defaultViewMode={defaultViewMode}
+                        nearbyBrandIds={nearbyBrandIds}
+                        hasCurrentLocation={hasCurrentLocation}
+                        isLocating={isLocating}
+                        onSelectBrand={brand => handleSelectBrand(brand.id)}
+                        onToggleFavorite={toggleFavorite}
+                        onRequestLocation={handleRequestLocation}
+                    />
+                ) : (
+                    <section className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
@@ -515,21 +492,29 @@ export default function HomePage() {
                             </div>
                             <button
                                 type="button"
-                                onClick={() => setSelectedBrandId('')}
+                                onClick={() => {
+                                    setSelectedBrandId('');
+                                    setRecommendation(null);
+                                    setSelectedCombinationId(undefined);
+                                }}
                                 className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-black text-gray-600"
                             >
                                 변경
                             </button>
                         </div>
-                    )}
-                </section>
+                    </section>
+                )}
 
                 {currentBrand && (
                     <>
-                        <section className="rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm">
+                        <section
+                            ref={amountSectionRef}
+                            className="scroll-mt-24 rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm"
+                        >
                             <label className="ml-1 text-xs font-black text-gray-400">총 결제금액</label>
                             <div className="relative mt-2">
                                 <input
+                                    ref={amountInputRef}
                                     value={amount ? amount.toLocaleString() : ''}
                                     onChange={event => {
                                         const value = event.target.value.replace(/\D/g, '').slice(0, 9);
@@ -560,10 +545,10 @@ export default function HomePage() {
                                 >
                                     <div>
                                         <p className="text-xs font-black text-amber-900">
-                                            특정 상품 행사 {recommendation.itemSpecificOffers.length}개
+                                            추가 상품 행사 {recommendation.itemSpecificOffers.length}개
                                         </p>
                                         <p className="mt-1 text-[10px] text-amber-800/70">
-                                            해당 상품을 살 때만 대상 금액을 알려주세요.
+                                            매장 전체 기준 최대 혜택에는 포함하지 않았어요.
                                         </p>
                                     </div>
                                     <ChevronDown className={clsx(
@@ -575,12 +560,26 @@ export default function HomePage() {
                                     <div className="mt-4 border-t border-amber-200 pt-4">
                                         <div className="space-y-1">
                                             {recommendation.itemSpecificOffers.map(offer => (
-                                                <p key={offer.id} className="text-[10px] font-bold text-amber-900">
-                                                    {offer.providerName} · {offer.title}
-                                                </p>
+                                                <div key={offer.id} className="rounded-xl bg-white/60 px-3 py-2">
+                                                    <p className="text-[10px] font-black text-amber-900">
+                                                        {offer.providerName} · {offer.title}
+                                                    </p>
+                                                    {offer.valueSemantics === 'UP_TO' && (
+                                                        <p className="mt-1 text-[9px] font-black text-violet-700">
+                                                            최대치 정보 · 정확한 할인 계산에서는 제외
+                                                        </p>
+                                                    )}
+                                                    {(offer.eligibleItemSummary || offer.requiredNote) && (
+                                                        <p className="mt-1 text-[9px] font-bold text-amber-800/65">
+                                                            {offer.eligibleItemSummary || offer.requiredNote}
+                                                        </p>
+                                                    )}
+                                                </div>
                                             ))}
                                         </div>
-                                        <div className="mt-3 flex items-center gap-2">
+                                        {recommendation.itemSpecificOffers.some(offer =>
+                                            offer.calculationEligible
+                                        ) && <div className="mt-3 flex items-center gap-2">
                                             <input
                                                 value={eligibleItemAmount?.toLocaleString() ?? ''}
                                                 onChange={event => {
@@ -592,9 +591,39 @@ export default function HomePage() {
                                                 className="min-w-0 flex-1 rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-black outline-none"
                                             />
                                             <span className="text-xs font-black text-amber-700">원</span>
-                                        </div>
+                                        </div>}
                                     </div>
                                 )}
+                            </section>
+                        ) : null}
+
+                        {recommendation?.informationalOffers.length ? (
+                            <section className="rounded-3xl border border-violet-200 bg-violet-50 p-4">
+                                <p className="text-xs font-black text-violet-900">
+                                    계산 제외 참고 혜택 {recommendation.informationalOffers.length}개
+                                </p>
+                                <p className="mt-1 text-[10px] text-violet-800/70">
+                                    최대치·추첨처럼 확정할 수 없는 혜택은 최대 혜택 계산에 포함하지 않았어요.
+                                </p>
+                                <div className="mt-3 space-y-1 border-t border-violet-200 pt-3">
+                                    {recommendation.informationalOffers.map(offer => (
+                                        <div key={offer.id} className="rounded-xl bg-white/70 px-3 py-2">
+                                            <p className="text-[10px] font-black text-violet-900">
+                                                {offer.providerName} · {offer.title}
+                                            </p>
+                                            <p className="mt-1 text-[9px] font-black text-violet-700">
+                                                {offer.valueSemantics === 'UP_TO'
+                                                    ? '최대치 정보'
+                                                    : '추첨·확률형 정보'} · 정확한 계산에서 제외
+                                            </p>
+                                            {(offer.eligibleItemSummary || offer.requiredNote) && (
+                                                <p className="mt-1 text-[9px] font-bold text-violet-800/65">
+                                                    {offer.eligibleItemSummary || offer.requiredNote}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </section>
                         ) : null}
 
@@ -609,19 +638,26 @@ export default function HomePage() {
                             <>
                                 <section className="overflow-hidden rounded-[2rem] bg-gray-950 p-6 text-white shadow-2xl shadow-gray-200">
                                     <div className="flex items-start justify-between gap-4">
-                                        <div>
+                                        <div className="min-w-0">
                                             <div className="flex items-center gap-2 text-emerald-300">
                                                 <ShieldCheck className="h-4 w-4" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest">확정 최대 혜택</span>
+                                                <span className="text-[10px] font-black uppercase tracking-widest">
+                                                    {eligibleItemAmount
+                                                        ? '대상 상품 포함 확정 혜택'
+                                                        : '매장 전체 기준 확정 혜택'}
+                                                </span>
                                             </div>
                                             <p className="mt-2 text-4xl font-black tracking-tight">
                                                 {formatWon(selectedCombination.confirmedValue)}
                                             </p>
-                                            <p className="mt-2 text-xs font-bold text-gray-400">
-                                                {selectedCombination.payProviderName || '직접 결제'} · {
-                                                    selectedCombination.cardName ||
-                                                    fundingLabel[selectedCombination.fundingType]
-                                                }
+                                            <p className="mt-3 text-[9px] font-black uppercase tracking-[0.16em] text-gray-500">
+                                                사용 수단
+                                            </p>
+                                            <p
+                                                data-testid="recommendation-method-summary"
+                                                className="mt-1 text-sm font-black leading-relaxed text-gray-100"
+                                            >
+                                                {getCombinationMethodSummary(selectedCombination)}
                                             </p>
                                         </div>
                                         <Sparkles className="h-7 w-7 text-blue-300" />
@@ -671,7 +707,7 @@ export default function HomePage() {
                                                             ? '별도 선할인 없이 진행'
                                                             : layer === 'PAY'
                                                                 ? selectedCombination.payProviderName || '페이 미사용'
-                                                                : selectedCombination.cardName || fundingLabel[selectedCombination.fundingType]
+                                                                : selectedCombination.cardName || FUNDING_TYPE_LABELS[selectedCombination.fundingType]
                                                     }
                                                     confirmedConditionIds={confirmedConditionIds}
                                                     onConfirm={handleConfirmCondition}

@@ -1,0 +1,1 @@
+ALTER TABLE `user_benefit_profiles` ADD `subscriptions` text DEFAULT '[]' NOT NULL;
