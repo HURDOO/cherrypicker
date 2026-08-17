@@ -22,13 +22,13 @@ FROM node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba32756
 
 WORKDIR /app
 
-# Bootstrap release only: restore this to false immediately after creating the first account.
+# Keep public sign-up closed after the initial account bootstrap.
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \
     PORT=3000 \
     DATABASE_PATH=/data/cherrypicker.db \
-    ALLOW_SIGN_UP=true \
+    ALLOW_SIGN_UP=false \
     HOME=/tmp \
     NPM_CONFIG_CACHE=/tmp/npm-cache
 
