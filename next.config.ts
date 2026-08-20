@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ['macmini.local', '192.168.10.13', '192.168.10.11'],
+  allowedDevOrigins: ['127.0.0.1', 'macmini.local', '192.168.10.13', '192.168.10.11'],
   images: {
     remotePatterns: [
       {

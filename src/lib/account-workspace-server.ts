@@ -22,6 +22,10 @@ import {
     type AccountWorkspaceExport,
     type AccountWorkspaceState,
 } from '@/lib/account-workspace-export';
+import {
+    createAccountWorkspaceMergePlan,
+    resolveAccountWorkspaceMerge,
+} from '@/lib/account-workspace-merge';
 import { HttpError } from '@/lib/api-server';
 import {
     toBrand,
@@ -62,32 +66,39 @@ const stateFromSnapshot = (
     };
 };
 
-function loadLegacyAccountWorkspace(userId: string): AccountWorkspaceExport {
-    const categoryRows = db.select().from(categories)
+type AccountWorkspaceDatabase =
+    | typeof db
+    | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+function loadLegacyAccountWorkspace(
+    userId: string,
+    executor: AccountWorkspaceDatabase = db,
+): AccountWorkspaceExport {
+    const categoryRows = executor.select().from(categories)
         .where(eq(categories.userId, userId))
         .orderBy(asc(categories.sortOrder), asc(categories.name))
         .all();
-    const brandRows = db.select().from(brands)
+    const brandRows = executor.select().from(brands)
         .where(eq(brands.userId, userId))
         .orderBy(asc(brands.sortOrder), asc(brands.name))
         .all();
-    const cardRows = db.select().from(cards)
+    const cardRows = executor.select().from(cards)
         .where(eq(cards.userId, userId))
         .orderBy(asc(cards.name))
         .all();
-    const ruleRows = db.select().from(benefitRules)
+    const ruleRows = executor.select().from(benefitRules)
         .where(eq(benefitRules.userId, userId))
         .orderBy(asc(benefitRules.cardId), asc(benefitRules.description))
         .all();
-    const performanceRows = db.select().from(userCardPerformances)
+    const performanceRows = executor.select().from(userCardPerformances)
         .where(eq(userCardPerformances.userId, userId))
         .orderBy(desc(userCardPerformances.performanceMonth))
         .all();
-    const historyRows = db.select().from(transactionHistory)
+    const historyRows = executor.select().from(transactionHistory)
         .where(eq(transactionHistory.userId, userId))
         .orderBy(desc(transactionHistory.createdAt))
         .all();
-    const benefitProfileRow = db.select().from(userBenefitProfiles)
+    const benefitProfileRow = executor.select().from(userBenefitProfiles)
         .where(eq(userBenefitProfiles.userId, userId))
         .get();
 
@@ -226,6 +237,81 @@ export function updateAccountWorkspaceSnapshot(
             .where(eq(accountWorkspaceSnapshots.userId, userId))
             .returning()
             .get();
+    });
+
+    return stateFromSnapshot(row);
+}
+
+export function mergeAccountWorkspaceSnapshot(
+    userId: string,
+    value: AccountWorkspaceExport,
+    expectedRevision: number,
+): AccountWorkspaceState {
+    const incoming = parseAccountWorkspaceExport(value);
+
+    const row = db.transaction(tx => {
+        const currentRow = tx.select().from(accountWorkspaceSnapshots)
+            .where(eq(accountWorkspaceSnapshots.userId, userId))
+            .get();
+        const currentState = currentRow
+            ? stateFromSnapshot(currentRow)
+            : {
+                workspace: loadLegacyAccountWorkspace(userId, tx),
+                revision: 0,
+                source: 'legacy' as const,
+            };
+
+        if (currentState.revision !== expectedRevision) {
+            throw new HttpError(
+                409,
+                '다른 기기에서 계정 백업이 변경되었습니다. 병합 내용을 다시 확인해주세요.'
+            );
+        }
+
+        const mergePlan = createAccountWorkspaceMergePlan(
+            incoming,
+            currentState.workspace,
+        );
+        const choices = Object.fromEntries(
+            mergePlan.conflicts.map(conflict => [conflict.key, 'local' as const])
+        );
+        const merged = resolveAccountWorkspaceMerge(
+            incoming,
+            currentState.workspace,
+            choices,
+            {
+                sourceWorkspaceId: incoming.sourceWorkspaceId,
+                exportedAt: incoming.exportedAt,
+            },
+        ).workspace;
+        const contentHash = hashWorkspace(merged);
+        const now = new Date();
+
+        if (currentRow) {
+            return tx.update(accountWorkspaceSnapshots)
+                .set({
+                    schemaVersion: merged.schemaVersion,
+                    sourceWorkspaceId: merged.sourceWorkspaceId,
+                    revision: currentRow.revision + 1,
+                    contentHash,
+                    snapshot: merged,
+                    updatedAt: now,
+                })
+                .where(eq(accountWorkspaceSnapshots.userId, userId))
+                .returning()
+                .get();
+        }
+
+        return tx.insert(accountWorkspaceSnapshots).values({
+            userId,
+            schemaVersion: merged.schemaVersion,
+            sourceWorkspaceId: merged.sourceWorkspaceId,
+            revision: 1,
+            contentHash,
+            snapshot: merged,
+            createdAt: now,
+            updatedAt: now,
+        }).returning().get();
     });
 
     return stateFromSnapshot(row);

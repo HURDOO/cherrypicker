@@ -14,6 +14,7 @@ import { parseAccountWorkspaceExport } from '@/lib/account-workspace-export';
 import {
     createAccountWorkspaceSnapshot,
     getAccountWorkspaceState,
+    mergeAccountWorkspaceSnapshot,
     updateAccountWorkspaceSnapshot,
 } from '@/lib/account-workspace-server';
 import {
@@ -79,6 +80,24 @@ export async function PUT(request: Request) {
             user.id,
             workspace,
             Number(input.expectedRevision)
+        ));
+    } catch (error) {
+        return handleRouteError(error);
+    }
+}
+
+export async function PATCH(request: Request) {
+    try {
+        const user = await requireUser(request);
+        const input = await readJsonObject(request, MAX_ACCOUNT_WORKSPACE_BYTES);
+        const workspace = workspaceFromInput(input);
+        if (!Number.isSafeInteger(input.expectedRevision) || Number(input.expectedRevision) < 0) {
+            throw new HttpError(400, '계정 workspace revision이 올바르지 않습니다.');
+        }
+        return noStoreJson(mergeAccountWorkspaceSnapshot(
+            user.id,
+            workspace,
+            Number(input.expectedRevision),
         ));
     } catch (error) {
         return handleRouteError(error);

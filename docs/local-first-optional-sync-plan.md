@@ -1,6 +1,6 @@
 # Local-first 추천 및 선택적 계정 동기화 전환 계획
 
-- 상태: 구현 진행 중 — Phase 1·2·4 완료, Phase 3와 Phase 5의 안전한 초기 snapshot 백업·복원 완료
+- 상태: 구현 진행 중 — Phase 1·2·4 완료, Phase 3와 Phase 5의 초기 snapshot 백업·복원 및 명시적 레코드 병합 완료
 - 작성일: 2026-08-18
 - 범위: 일반 사용자 앱의 저장·추천·인증 구조
 - 현재 구현 기준: 공개 카탈로그 서버 + IndexedDB 개인 workspace + 선택적 계정 snapshot 백업·복원 + 브라우저 추천 계산
@@ -26,7 +26,9 @@
 - 2026-08-19: 로그인 후에도 로컬 workspace를 계속 사용하도록 전환하고 계정별 snapshot·content hash·revision 저장소 추가
 - 2026-08-19: 빈 계정 최초 백업, 같은 원본 기기의 optimistic revision 갱신, 빈 기기 복원, 양쪽 데이터 충돌 차단 추가
 - 2026-08-19: 임시 DB에서 저장→재다운로드 hash 검증, revision 1→2 갱신, stale revision·비어 있지 않은 계정 덮어쓰기 차단 확인
-- 아직 미구현: 서로 다른 workspace 병합과 자동 양방향·다기기 sync, 실제 모바일 기기 측정
+- 2026-08-20: 서로 다른 workspace의 항목별 병합 선택, 한쪽 전용 레코드 보존, tombstone·참조 cascade, revision 재검증 추가
+- 2026-08-20: 분리된 브라우저 origin에서 프로필 충돌 선택, 계정 결제 기록 2건 보존, revision 1→2와 재다운로드 일치 확인
+- 아직 미구현: 자동 양방향·다기기 sync, 실제 모바일 기기 측정
 
 ## 1. 결정 요약
 
@@ -342,6 +344,7 @@ interface SyncMetadata {
 - [x] 로그인 후에도 로컬 workspace를 권위 데이터로 유지한다.
 - [x] 빈 계정 upload, 같은 원본 기기 revision 갱신, 빈 로컬 download 흐름을 구현한다.
 - [x] 양쪽에 서로 다른 데이터가 있으면 어느 쪽도 덮어쓰지 않고 충돌 상태로 차단한다.
+- [x] 서로 다른 workspace의 항목별 병합 선택, tombstone 우선순위와 참조 cascade를 구현한다.
 - [ ] 멱등 push, incremental pull, outbox 재시도를 구현한다.
 - [x] 초기 snapshot의 stale revision, 다른 원본 workspace, tombstone 보존과 빈 기기 복원 시나리오를 테스트한다.
 - [ ] 레코드 단위 충돌, 참조 순서와 자동 다기기 동기화 시나리오를 테스트한다.
@@ -411,10 +414,10 @@ interface SyncMetadata {
 
 ## 14. 다음 세션의 권장 첫 작업
 
-비로그인 경로는 동작하므로 다음 안전 작업은 guest와 기존 계정 사이의 데이터 이동 계약을 먼저 확정하는 것이다.
+비로그인 경로와 명시적 snapshot 병합은 동작하므로 다음 안전 작업은 수동 병합 계약을 재사용하는 증분 동기화다.
 
-1. 서로 다른 로컬 workspace와 계정 snapshot의 레코드 단위 병합 선택 화면을 제공한다.
-2. incremental push/pull, outbox와 tombstone 동기화를 구현한다.
+1. operation ID를 가진 incremental push/pull과 IndexedDB outbox 재시도를 구현한다.
+2. stale revision과 여러 기기 tombstone 왕복을 포함한 자동 동기화 시나리오를 테스트한다.
 3. 실제 휴대폰에서 카탈로그 다운로드·추천 계산·IndexedDB 복원 시간을 측정한다.
 
 일회성 account import는 첫 안전 경로로 snapshot 방식을 사용한다. 서버는 공용 카탈로그를 제외한 계정 개인 데이터만 owner 없는 transport로 내리고, 브라우저가 기존 로컬 workspace ID와 기기 ID를 유지한 채 소유권을 다시 연결한다. 로컬 workspace에 변경이나 tombstone이 하나라도 있으면 import를 중단하므로 반복 실행으로 레코드가 중복되거나 기존 기기 데이터가 사라지지 않는다.

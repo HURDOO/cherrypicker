@@ -493,6 +493,14 @@ export function createLocalWorkspaceFromAccountExport(
         );
     }
 
+    return materializeLocalWorkspaceFromAccountExport(current, accountWorkspace);
+}
+
+function materializeLocalWorkspaceFromAccountExport(
+    current: LocalWorkspaceSnapshot,
+    accountWorkspace: AccountWorkspaceExport,
+): LocalWorkspaceSnapshot {
+
     const ownerId = current.workspaceId;
     const imported: LocalWorkspaceSnapshot = {
         schemaVersion: LOCAL_WORKSPACE_SCHEMA_VERSION,
@@ -511,6 +519,17 @@ export function createLocalWorkspaceFromAccountExport(
     };
 
     return parseLocalWorkspaceSnapshot(imported);
+}
+
+export function createLocalWorkspaceFromMergedAccountExport(
+    current: LocalWorkspaceSnapshot,
+    value: AccountWorkspaceExport,
+): LocalWorkspaceSnapshot {
+    const accountWorkspace = parseAccountWorkspaceExport(value);
+    if (accountWorkspace.sourceWorkspaceId !== current.workspaceId) {
+        throw new Error('병합 결과의 원본 workspace가 현재 기기와 일치하지 않습니다.');
+    }
+    return materializeLocalWorkspaceFromAccountExport(current, accountWorkspace);
 }
 
 export const createLocalWorkspaceClient = (
@@ -536,6 +555,15 @@ export const createLocalWorkspaceClient = (
         return enqueueMutation(async () => {
             const current = await readOrCreateLocalWorkspace(storage);
             const imported = createLocalWorkspaceFromAccountExport(current, value);
+            await storage.write(structuredClone(imported));
+            return structuredClone(imported);
+        });
+    },
+
+    async importMergedAccountWorkspace(value: AccountWorkspaceExport) {
+        return enqueueMutation(async () => {
+            const current = await readOrCreateLocalWorkspace(storage);
+            const imported = createLocalWorkspaceFromMergedAccountExport(current, value);
             await storage.write(structuredClone(imported));
             return structuredClone(imported);
         });

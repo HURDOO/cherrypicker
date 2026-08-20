@@ -5,6 +5,7 @@ import {
     accountWorkspaceMatchesLocal,
     createAccountWorkspaceExportFromLocal,
     createEmptyLocalWorkspace,
+    createLocalWorkspaceFromMergedAccountExport,
     createLocalWorkspaceClient,
     getAccountWorkspaceSyncMode,
     parseLocalWorkspaceSnapshot,
@@ -205,6 +206,52 @@ describe('local workspace', () => {
         const changed = structuredClone(exported);
         changed.benefitProfile.enabledPayProviderIds = [];
         expect(accountWorkspaceMatchesLocal(local, changed)).toBe(false);
+    });
+
+    it('imports an explicit merge into a non-empty workspace without changing device identity', async () => {
+        const memory = createMemoryStorage();
+        const client = createLocalWorkspaceClient(memory.storage);
+        await client.createCategory({ name: '기존 로컬 카테고리' });
+        const current = await client.read();
+        const merged = createAccountWorkspaceExport({
+            sourceWorkspaceId: current.workspaceId,
+            exportedAt: '2026-08-20T10:00:00.000Z',
+            categories: [{
+                id: 'merged-category',
+                name: '병합 카테고리',
+                userId: 'transport-owner',
+            }],
+            brands: [],
+            cards: [],
+            rules: [],
+            performances: [],
+            history: [],
+            benefitProfile: {
+                telecomMemberships: [],
+                subscriptions: [],
+                enabledPayProviderIds: [],
+                moneyEnabled: true,
+                pointsEnabled: true,
+                pointValue: 1,
+            },
+        });
+
+        const preview = createLocalWorkspaceFromMergedAccountExport(current, merged);
+        const imported = await client.importMergedAccountWorkspace(merged);
+
+        expect(preview).toEqual(imported);
+        expect(imported.workspaceId).toBe(current.workspaceId);
+        expect(imported.deviceId).toBe(current.deviceId);
+        expect(imported.categories).toEqual([{
+            id: 'merged-category',
+            name: '병합 카테고리',
+            userId: current.workspaceId,
+        }]);
+
+        expect(() => createLocalWorkspaceFromMergedAccountExport(current, {
+            ...merged,
+            sourceWorkspaceId: 'another-workspace',
+        })).toThrow('현재 기기와 일치하지 않습니다');
     });
 
     it('chooses only safe initial backup, restore, update, and conflict paths', async () => {

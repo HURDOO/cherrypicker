@@ -150,6 +150,14 @@ export const apiClient = {
         body: jsonBody({ workspace, expectedRevision }),
     }),
 
+    mergeAccountWorkspaceBackup: (
+        workspace: AccountWorkspaceExport,
+        expectedRevision: number
+    ) => request<AccountWorkspaceState>('/api/account/data', {
+        method: 'PATCH',
+        body: jsonBody({ workspace, expectedRevision }),
+    }),
+
     createTransaction: (transaction: TransactionInput) =>
         request<TransactionHistory>('/api/transactions', {
             method: 'POST',
