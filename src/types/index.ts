@@ -41,6 +41,8 @@ export type ActionType = 'PERCENT' | 'FLAT' | 'FIXED_PRICE';
 export interface RuleCondition {
     minSpend?: number;
     minPerformance?: number;
+    startsAt?: string; // Inclusive YYYY-MM-DD validity boundary
+    endsAt?: string; // Inclusive YYYY-MM-DD validity boundary
     manualCheckRequired?: boolean;
     requiredNote?: string;
 }

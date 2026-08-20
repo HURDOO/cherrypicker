@@ -55,9 +55,11 @@ export const INITIAL_BRANDS = [
     { id: 'cu_event', name: 'CU 행사상품', category_id: 'convenience', icon_name: 'Store' },
     { id: 'emart24', name: '이마트24', category_id: 'convenience', icon_name: 'Store' },
     { id: 'seveneleven', name: '세븐일레븐', category_id: 'convenience', icon_name: 'Store' },
+    { id: 'japan_convenience', name: '일본 3대 편의점', category_id: 'convenience', icon_name: 'Store' },
     { id: 'emart', name: '이마트', category_id: 'convenience', icon_name: 'ShoppingCart' },
     { id: 'homeplus', name: '홈플러스', category_id: 'convenience', icon_name: 'ShoppingCart' },
     { id: 'lotte_mart', name: '롯데마트', category_id: 'convenience', icon_name: 'ShoppingCart' },
+    { id: 'vietnam_lottemart', name: '베트남 롯데마트', category_id: 'convenience', icon_name: 'ShoppingCart' },
     { id: 'hanaro_mart', name: '농협 하나로마트', category_id: 'convenience', icon_name: 'ShoppingCart' },
     { id: 'emart_traders', name: '이마트 트레이더스', category_id: 'convenience', icon_name: 'ShoppingCart' },
     { id: 'vic_market', name: '롯데 VIC마켓', category_id: 'convenience', icon_name: 'ShoppingCart' },
@@ -102,6 +104,7 @@ export const INITIAL_BRANDS = [
     { id: 'gas_station', name: '주유소', category_id: 'transport', icon_name: 'Fuel' },
     { id: 'telecom', name: '통신요금', category_id: 'transport', icon_name: 'Smartphone' },
     { id: 'overseas_transport', name: '해외 대중교통', category_id: 'transport', icon_name: 'Plane' },
+    { id: 'vietnam_grab', name: '베트남 Grab', category_id: 'transport', icon_name: 'CarTaxiFront' },
 
     // Movie / entertainment
     { id: 'cgv', name: 'CGV', category_id: 'movie', icon_name: 'Film' },
@@ -126,6 +129,9 @@ export const INITIAL_BRANDS = [
     { id: 'military_resort', name: '군 콘도/휴양시설', category_id: 'etc', icon_name: 'Hotel' },
     { id: 'airport_lounge', name: '공항 라운지', category_id: 'etc', icon_name: 'Plane' },
     { id: 'overseas_payment', name: '해외 가맹점', category_id: 'etc', icon_name: 'Globe2' },
+    { id: 'overseas_atm', name: '해외 ATM', category_id: 'etc', icon_name: 'Landmark' },
+    { id: 'master_travel_rewards', name: 'Mastercard Travel Rewards', category_id: 'etc', icon_name: 'Gift' },
+    { id: 'usa_starbucks', name: '미국 스타벅스', category_id: 'cafe', icon_name: 'Coffee' },
     { id: 'etc_brand', name: '기타', category_id: 'etc', icon_name: 'MoreHorizontal' },
 ];
 

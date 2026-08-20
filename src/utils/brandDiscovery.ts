@@ -149,6 +149,7 @@ const BRAND_SEARCH_ALIASES: Record<string, string[]> = {
     gas_station: ['주유', '기름', '주유소'],
     telecom: ['통신비', '통신요금', '휴대폰요금'],
     overseas_transport: ['해외교통', '해외대중교통'],
+    vietnam_grab: ['베트남그랩', '베트남grab'],
     cgv: ['씨지브이'],
     caribbean: ['캐베', '캐리비안베이'],
     lotte_cinema: ['롯시', '롯데시네마'],
@@ -167,6 +168,11 @@ const BRAND_SEARCH_ALIASES: Record<string, string[]> = {
     military_resort: ['군콘도', '군휴양시설'],
     airport_lounge: ['공항라운지', '라운지'],
     overseas_payment: ['해외결제', '해외가맹점'],
+    overseas_atm: ['해외atm', '해외현금인출'],
+    master_travel_rewards: ['마스터트래블리워드', 'mastercardtravelrewards'],
+    japan_convenience: ['일본편의점', '일본3대편의점'],
+    vietnam_lottemart: ['베트남롯데마트'],
+    usa_starbucks: ['미국스타벅스'],
 };
 
 export type BrandBrowseGroupId =

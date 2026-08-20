@@ -101,6 +101,12 @@ const getConditionMinSpend = (rule: BenefitRule) =>
 const getConditionMinPerformance = (rule: BenefitRule) =>
     getSnakeOrCamel<number | undefined>(rule.condition, 'minPerformance', 'min_performance', undefined) || 0;
 
+const getConditionStartsAt = (rule: BenefitRule) =>
+    getSnakeOrCamel<string | undefined>(rule.condition, 'startsAt', 'starts_at', undefined);
+
+const getConditionEndsAt = (rule: BenefitRule) =>
+    getSnakeOrCamel<string | undefined>(rule.condition, 'endsAt', 'ends_at', undefined);
+
 const getConditionManualCheckRequired = (rule: BenefitRule) =>
     getSnakeOrCamel<boolean>(rule.condition, 'manualCheckRequired', 'manual_check_required', false);
 
@@ -257,6 +263,11 @@ const calculateRuleDiscount = (amount: number, action: RuleAction) => {
     return 0;
 };
 
+const getCurrentKstDateString = () => {
+    const now = getKstDateParts(new Date());
+    return `${now.year}-${String(now.month + 1).padStart(2, '0')}-${String(now.day).padStart(2, '0')}`;
+};
+
 const evaluateRule = ({
     rule,
     amount,
@@ -290,6 +301,18 @@ const evaluateRule = ({
     }
     if (platformType === 'OFFLINE' && isOnline) {
         result.reason = '현장 결제 전용';
+        return result;
+    }
+
+    const currentDate = getCurrentKstDateString();
+    const startsAt = getConditionStartsAt(rule);
+    if (startsAt && currentDate < startsAt) {
+        result.reason = `혜택 시작 전(${startsAt})`;
+        return result;
+    }
+    const endsAt = getConditionEndsAt(rule);
+    if (endsAt && currentDate > endsAt) {
+        result.reason = `종료된 혜택(${endsAt})`;
         return result;
     }
 

@@ -76,6 +76,10 @@ const statusLabel: Record<CardBenefitCandidateStatus, string> = {
     REJECTED: '반려',
 };
 
+const extractorLabel = (extractor: string) => extractor.startsWith('gemini:')
+    ? 'Gemini 구조화'
+    : '공식 규칙 추출기';
+
 const formatAction = (rule: BenefitRule) => {
     if (rule.action.type === 'PERCENT') return `${rule.action.value}%`;
     if (rule.action.type === 'FLAT') return `${rule.action.value.toLocaleString()}원`;
@@ -266,7 +270,8 @@ export function CardBenefitAdminClient() {
                                         {statusLabel[candidate.status]}
                                     </span>
                                     <span className="text-[10px] font-bold text-gray-400">
-                                        문서 v{candidate.documentVersion} · {candidate.extractor}
+                                        문서 v{candidate.documentVersion} · {extractorLabel(candidate.extractor)}
+                                        {' '}({candidate.extractor})
                                         {candidate.model ? `/${candidate.model}` : ''}
                                     </span>
                                 </div>
@@ -274,7 +279,7 @@ export function CardBenefitAdminClient() {
                                     {candidate.extraction.card.name}
                                 </h2>
                                 <p className="mt-1 text-[10px] font-bold text-gray-400">
-                                    신뢰도 {Math.round(candidate.confidence * 100)}% · 규칙 {candidate.extraction.rules.length}개 · hash {candidate.contentHash.slice(0, 10)}
+                                    추출 신뢰도 {Math.round(candidate.confidence * 100)}% · 규칙 {candidate.extraction.rules.length}개 · hash {candidate.contentHash.slice(0, 10)}
                                 </p>
                             </div>
                             <a
@@ -294,6 +299,17 @@ export function CardBenefitAdminClient() {
                                 </p>
                                 <ul className="mt-2 space-y-1 pl-4 text-[10px] font-bold text-red-700">
                                     {candidate.validationErrors.map(error => <li key={error} className="list-disc">{error}</li>)}
+                                </ul>
+                            </div>
+                        )}
+
+                        {candidate.extraction.notes.length > 0 && (
+                            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                                <p className="text-[10px] font-black text-amber-800">추출·검수 메모</p>
+                                <ul className="mt-2 space-y-1 pl-4 text-[10px] font-bold text-amber-700">
+                                    {candidate.extraction.notes.map(note => (
+                                        <li key={note} className="list-disc">{note}</li>
+                                    ))}
                                 </ul>
                             </div>
                         )}
