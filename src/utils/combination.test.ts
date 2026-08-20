@@ -207,6 +207,8 @@ describe('calculateBestCombinations', () => {
                 performanceMonth: '2026-07',
                 amount: 290_000,
                 targetAmount: 300_000,
+                source: 'USER' as const,
+                projectedBenefitAmount: 1_000,
             }],
             performanceBenefitMonth: '2026-08',
         };
@@ -270,6 +272,8 @@ describe('calculateBestCombinations', () => {
                 performanceMonth: '2026-07',
                 amount: 290_000,
                 targetAmount: 300_000,
+                source: 'AUTOMATIC' as const,
+                projectedBenefitAmount: 1_000,
             }],
             performanceBenefitMonth: '2026-08',
         };
@@ -291,6 +295,53 @@ describe('calculateBestCombinations', () => {
         expect(lowerThreshold.combinations[0]).toMatchObject({
             cardId: smallBenefitCard.id,
             confirmedValue: 60,
+        });
+    });
+
+    it('prefers the reached goal with the larger projected next-month benefit', () => {
+        const lowerValueCard: Card = {
+            ...card,
+            id: 'lower-value-card',
+            name: '낮은 예상 혜택 카드',
+        };
+        const higherValueCard: Card = {
+            ...card,
+            id: 'higher-value-card',
+            name: '높은 예상 혜택 카드',
+        };
+        const result = calculateBestCombinations(input([], {
+            cards: [lowerValueCard, higherValueCard],
+            rules: [],
+            profile: { ...profile, enabledPayProviderIds: [] },
+            priority: 'BENEFIT',
+            performanceGoals: [
+                {
+                    cardId: lowerValueCard.id,
+                    performanceMonth: '2026-07',
+                    amount: 290_000,
+                    targetAmount: 300_000,
+                    source: 'AUTOMATIC',
+                    projectedBenefitAmount: 500,
+                },
+                {
+                    cardId: higherValueCard.id,
+                    performanceMonth: '2026-07',
+                    amount: 290_000,
+                    targetAmount: 300_000,
+                    source: 'AUTOMATIC',
+                    projectedBenefitAmount: 2_000,
+                },
+            ],
+            performanceBenefitMonth: '2026-08',
+        }));
+
+        expect(result.combinations[0]).toMatchObject({
+            cardId: higherValueCard.id,
+            confirmedValue: 0,
+            performanceProgress: {
+                targetReached: true,
+                projectedBenefitAmount: 2_000,
+            },
         });
     });
 

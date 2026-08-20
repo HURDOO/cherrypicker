@@ -518,8 +518,8 @@ export function BenefitProfileSettings() {
                         </label>
                     </div>
                     <p className="mt-1 text-[10px] leading-relaxed text-amber-900/65">
-                        확정 혜택이 기준보다 작으면 소액으로 표시하고, 진행 중인 실적 목표가
-                        있다면 실적 추천을 먼저 보여줘요. 0원으로 설정하면 소액 분류를 끕니다.
+                        확정 혜택이 기준보다 작으면 소액으로 표시하고, 자동으로 계산된 실적
+                        후보가 있다면 실적 추천을 먼저 보여줘요. 0원으로 설정하면 소액 분류를 끕니다.
                     </p>
                     <div className="mt-3 flex items-center gap-2">
                         <input

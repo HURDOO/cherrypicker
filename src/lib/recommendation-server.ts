@@ -28,9 +28,12 @@ import {
     toTransaction,
 } from './db-mappers';
 import {
+    getCurrentMonthInKst,
     getPreviousMonthInKst,
+    getNextMonthInKst,
     getStartOfCurrentYearInKst,
 } from './monthly-performance';
+import { derivePerformanceGoals } from '@/utils/performanceGoals';
 
 export function calculateRecommendationForUser(
     userId: string,
@@ -63,6 +66,12 @@ export function calculateRecommendationForUser(
         .where(and(
             eq(userCardPerformances.userId, userId),
             eq(userCardPerformances.performanceMonth, getPreviousMonthInKst())
+        ))
+        .all();
+    const currentPerformanceRows = db.select().from(userCardPerformances)
+        .where(and(
+            eq(userCardPerformances.userId, userId),
+            eq(userCardPerformances.performanceMonth, getCurrentMonthInKst())
         ))
         .all();
     const providerRows = db.select().from(promotionProviders)
@@ -140,6 +149,16 @@ export function calculateRecommendationForUser(
         rules: ruleRows.map(toRule),
         history: historyRows.map(toTransaction),
         performances: performanceRows.map(toPerformance),
+        performanceGoals: derivePerformanceGoals({
+            cards: cardRows.map(toCard),
+            rules: ruleRows.map(toRule),
+            performances: currentPerformanceRows.map(toPerformance),
+            performanceMonth: getCurrentMonthInKst(),
+            brand: toBrand(brand),
+            amount: input.amount,
+            isOnline: input.isOnline,
+        }),
+        performanceBenefitMonth: getNextMonthInKst(),
         promotions: promotionRows.map(toPromotionOffer),
         providers: providerRows.map(toPromotionProvider),
         profile: toBenefitProfile(profileRow),

@@ -10,6 +10,7 @@ import type {
     MerchantRouteVerification,
     PromotionOffer,
     PromotionProvider,
+    PerformanceRecommendationGoal,
     RecommendationRequest,
     RecommendationResponse,
     TransactionHistory,
@@ -49,7 +50,7 @@ export type CombinationEngineInput = RecommendationRequest & {
     promotions: PromotionOffer[];
     providers: PromotionProvider[];
     profile: UserBenefitProfile;
-    performanceGoals?: UserCardPerformance[];
+    performanceGoals?: PerformanceRecommendationGoal[];
     performanceBenefitMonth?: string;
     routeVerifications?: MerchantRouteVerification[];
     promotionUsage?: Record<string, {
@@ -583,6 +584,8 @@ const getPerformanceProgress = (
         remainingBefore,
         remainingAfter,
         targetReached: remainingAfter === 0,
+        goalSource: performance.source,
+        projectedBenefitAmount: performance.projectedBenefitAmount,
     };
 };
 
@@ -637,6 +640,9 @@ const comparePerformanceProgress = (a: BenefitCombination, b: BenefitCombination
     if (aProgress && bProgress) {
         if (aProgress.targetReached !== bProgress.targetReached) {
             return bProgress.targetReached ? 1 : -1;
+        }
+        if (aProgress.projectedBenefitAmount !== bProgress.projectedBenefitAmount) {
+            return bProgress.projectedBenefitAmount - aProgress.projectedBenefitAmount;
         }
         const aApplied = Math.min(aProgress.contributionAmount, aProgress.remainingBefore);
         const bApplied = Math.min(bProgress.contributionAmount, bProgress.remainingBefore);

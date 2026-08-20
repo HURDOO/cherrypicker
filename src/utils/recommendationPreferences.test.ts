@@ -44,6 +44,8 @@ describe('recommendation preferences', () => {
                 remainingBefore: 10_000,
                 remainingAfter: 0,
                 targetReached: true,
+                goalSource: 'AUTOMATIC',
+                projectedBenefitAmount: 1_000,
             },
         }), 100, 'BENEFIT')).toBe('PERFORMANCE');
     });

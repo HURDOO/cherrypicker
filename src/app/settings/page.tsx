@@ -224,12 +224,12 @@ export default function SettingsPage() {
             updatePerformance(performance);
             addToast(
                 targetAmount === null
-                    ? `${benefitMonthLabel} 실적 목표를 해제했습니다.`
-                    : `${benefitMonthLabel} 실적 목표를 저장했습니다.`,
+                    ? `${benefitMonthLabel} 직접 목표를 해제했습니다.`
+                    : `${benefitMonthLabel} 직접 목표를 저장했습니다.`,
                 'success',
             );
         } catch (error) {
-            addToast(getErrorMessage(error, '실적 목표를 저장하지 못했습니다.'), 'error');
+            addToast(getErrorMessage(error, '직접 목표를 저장하지 못했습니다.'), 'error');
             throw error;
         }
     };

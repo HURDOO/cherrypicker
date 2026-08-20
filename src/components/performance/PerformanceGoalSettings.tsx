@@ -44,16 +44,16 @@ export function PerformanceGoalSettings({
                     <Target className="h-4 w-4" />
                 </div>
                 <div>
-                    <h2 className="text-sm font-bold text-gray-900">{performanceMonthLabel} 실적 목표</h2>
+                    <h2 className="text-sm font-bold text-gray-900">{performanceMonthLabel} 실적 기준</h2>
                     <p className="text-[10px] text-gray-500">
-                        {performanceMonthLabel} 누적액을 채워 {benefitMonthLabel} 카드 혜택을 준비합니다.
+                        결제 매장·금액별 예상 혜택을 비교해 {benefitMonthLabel}에 유용한 카드를 자동 판단합니다.
                     </p>
                 </div>
             </div>
 
             <div className="space-y-5 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
                 <div className="rounded-2xl bg-violet-50 px-4 py-3 text-[10px] font-bold leading-relaxed text-violet-800">
-                    이 앱에서 카드 결제를 기록하면 승인 예상액을 자동으로 더합니다. 실적 제외 항목이 있으면 누적액을 직접 고쳐 주세요.
+                    카드별 실적 기준은 자동으로 적용됩니다. 필요하면 목표액을 직접 지정해 해당 카드의 자동 목표를 바꿀 수 있고, 결제를 기록하면 누적액이 반영됩니다.
                 </div>
 
                 {cards.map(card => {
@@ -72,8 +72,8 @@ export function PerformanceGoalSettings({
                     const saveLabel = isSaving
                         ? '저장 중'
                         : targetAmount === null
-                            ? stored?.targetAmount ? '목표 해제 저장' : '누적액 저장'
-                            : '실적 목표 저장';
+                            ? stored?.targetAmount ? '직접 목표 해제 저장' : '누적액 저장'
+                            : '직접 목표 저장';
                     const progress = targetAmount
                         ? Math.min(100, ((amount ?? 0) / targetAmount) * 100)
                         : 0;
@@ -122,7 +122,7 @@ export function PerformanceGoalSettings({
                                     </div>
                                 </label>
                                 <label className="text-[10px] font-black text-gray-500">
-                                    다음 달 목표액
+                                    직접 지정 목표액 (선택)
                                     <div className="mt-1 flex items-center rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-violet-400 focus-within:bg-white">
                                         <input
                                             type="text"
@@ -207,7 +207,7 @@ export function PerformanceGoalSettings({
 
                 {cards.length === 0 && (
                     <p className="py-6 text-center text-xs font-bold text-gray-400">
-                        실적 목표를 설정할 카드가 없습니다.
+                        실적 기준을 계산할 카드가 없습니다.
                     </p>
                 )}
             </div>

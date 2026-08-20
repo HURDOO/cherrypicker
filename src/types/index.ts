@@ -87,6 +87,12 @@ export interface UserCardPerformance {
     targetAmount?: number; // Optional goal used to prepare the following month's benefits
 }
 
+export interface PerformanceRecommendationGoal extends UserCardPerformance {
+    targetAmount: number;
+    source: 'AUTOMATIC' | 'USER';
+    projectedBenefitAmount: number;
+}
+
 export interface TransactionHistory {
     id: number | string;
     date: string; // ISO string
@@ -311,6 +317,8 @@ export interface PerformancePriorityProgress {
     remainingBefore: number;
     remainingAfter: number;
     targetReached: boolean;
+    goalSource: PerformanceRecommendationGoal['source'];
+    projectedBenefitAmount: number;
 }
 
 export interface CombinationStep {

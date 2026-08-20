@@ -56,6 +56,7 @@ import {
     getCombinationIntent,
     type CombinationIntent,
 } from '@/utils/recommendationPreferences';
+import { derivePerformanceGoals } from '@/utils/performanceGoals';
 
 const formatWon = (value: number) => `${value.toLocaleString()}원`;
 
@@ -247,7 +248,7 @@ function CombinationSummary({
                     </p>
                     {combination.performanceProgress && (
                         <p className="mt-1 text-[10px] font-black text-violet-700">
-                            실적 +{formatWon(combination.performanceProgress.contributionAmount)} ·{' '}
+                            실적 우선 판단 ·{' '}
                             {combination.performanceProgress.targetReached
                                 ? '목표 달성 예상'
                                 : `${formatWon(combination.performanceProgress.remainingAfter)} 남음`}
@@ -255,23 +256,12 @@ function CombinationSummary({
                     )}
                 </div>
                 <div className="shrink-0 text-right">
-                    {intent === 'PERFORMANCE' && combination.performanceProgress ? (
-                        <>
-                            <p className="text-lg font-black text-violet-600">
-                                +{formatWon(combination.performanceProgress.contributionAmount)}
-                            </p>
-                            <p className="text-[9px] font-bold text-gray-400">
-                                실적 · 혜택 +{formatWon(combination.confirmedValue)}
-                            </p>
-                        </>
-                    ) : (
-                        <p className={clsx(
-                            'text-lg font-black',
-                            intent === 'SMALL_BENEFIT' ? 'text-amber-600' : 'text-blue-600',
-                        )}>
-                            +{formatWon(combination.confirmedValue)}
-                        </p>
-                    )}
+                    <p className={clsx(
+                        'text-lg font-black',
+                        intent === 'SMALL_BENEFIT' ? 'text-amber-600' : 'text-blue-600',
+                    )}>
+                        +{formatWon(combination.confirmedValue)}
+                    </p>
                     {(combination.conditionalValue + combination.estimatedValue) > 0 && (
                         <p className="text-[10px] font-bold text-amber-600">
                             추가 가능 +{formatWon(
@@ -384,14 +374,26 @@ export default function HomePage() {
         ),
         [performances, performancePeriod.performanceMonth]
     );
-    const performanceGoals = useMemo(
-        () => performances.filter(performance => (
-            performance.performanceMonth === performancePeriod.benefitMonth &&
-            performance.targetAmount !== undefined &&
-            performance.targetAmount > performance.amount
-        )),
-        [performances, performancePeriod.benefitMonth]
-    );
+    const performanceGoals = useMemo(() => {
+        if (!currentBrand || amount <= 0) return [];
+        return derivePerformanceGoals({
+            cards,
+            rules,
+            performances,
+            performanceMonth: performancePeriod.benefitMonth,
+            brand: currentBrand,
+            amount,
+            isOnline: isOnlinePurchase,
+        });
+    }, [
+        amount,
+        cards,
+        currentBrand,
+        isOnlinePurchase,
+        performances,
+        performancePeriod.benefitMonth,
+        rules,
+    ]);
     const effectiveRecommendationPriority: RecommendationPriority = performanceGoals.length > 0
         ? recommendationPriority
         : 'BENEFIT';
@@ -795,7 +797,7 @@ export default function HomePage() {
                                     <div>
                                         <p className="text-xs font-black text-violet-950">추천 기준</p>
                                         <p className="mt-0.5 text-[10px] font-bold text-violet-700/70">
-                                            진행 중인 실적 목표 {performanceGoals.length}개
+                                            카드 혜택 기준을 보고 실적 우선 카드를 자동 판단해요
                                         </p>
                                     </div>
                                 </div>
@@ -957,16 +959,11 @@ export default function HomePage() {
                                                 data-testid="recommendation-primary-value"
                                                 className="mt-2 text-4xl font-black tracking-tight"
                                             >
-                                                {selectedCombinationIntent === 'PERFORMANCE' &&
-                                                selectedCombination.performanceProgress
-                                                    ? `실적 +${formatWon(
-                                                        selectedCombination.performanceProgress.contributionAmount
-                                                    )}`
-                                                    : formatWon(selectedCombination.confirmedValue)}
+                                                {formatWon(selectedCombination.confirmedValue)}
                                             </p>
                                             {selectedCombinationIntent === 'PERFORMANCE' && (
-                                                <p className="mt-1 text-[10px] font-bold text-gray-400">
-                                                    이번 결제 확정 혜택 +{formatWon(selectedCombination.confirmedValue)}
+                                                <p className="mt-1 text-[10px] font-bold text-violet-300">
+                                                    실적 우선 판단 · 다음 달 카드 혜택 기준을 준비해요
                                                 </p>
                                             )}
                                             <p className="mt-3 text-[9px] font-black uppercase tracking-[0.16em] text-gray-500">
@@ -1018,11 +1015,7 @@ export default function HomePage() {
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-xs font-black text-violet-950">
-                                                    {formatPerformanceMonthLabel(
-                                                        selectedCombination.performanceProgress.performanceMonth
-                                                    )} 실적 +{formatWon(
-                                                        selectedCombination.performanceProgress.contributionAmount
-                                                    )}
+                                                    실적 우선 판단
                                                 </p>
                                                 <p className="mt-1 text-[10px] font-bold leading-relaxed text-violet-800/75">
                                                     현재 {formatWon(
@@ -1031,6 +1024,14 @@ export default function HomePage() {
                                                         selectedCombination.performanceProgress.projectedAmount
                                                     )}
                                                 </p>
+                                                {selectedCombination.performanceProgress.projectedBenefitAmount > 0 && (
+                                                    <p className="mt-1 text-[10px] font-bold leading-relaxed text-violet-800/75">
+                                                        이 매장·금액 기준 다음 달 예상 카드 혜택{' '}
+                                                        {formatWon(
+                                                            selectedCombination.performanceProgress.projectedBenefitAmount
+                                                        )}
+                                                    </p>
+                                                )}
                                                 <p className="mt-2 text-[11px] font-black text-violet-700">
                                                     {selectedCombination.performanceProgress.targetReached
                                                         ? `${formatPerformanceMonthLabel(
