@@ -1,9 +1,9 @@
 # Local-first 추천 및 선택적 계정 동기화 전환 계획
 
-- 상태: 구현 진행 중 — Phase 1·2·4 완료, Phase 3와 Phase 5의 초기 snapshot 백업·복원 및 명시적 레코드 병합 완료
+- 상태: 구현 진행 중 — Phase 1·4·5 완료, Phase 2·3 고도화 진행 중
 - 작성일: 2026-08-18
 - 범위: 일반 사용자 앱의 저장·추천·인증 구조
-- 현재 구현 기준: 공개 카탈로그 서버 + IndexedDB 개인 workspace + 선택적 계정 snapshot 백업·복원 + 브라우저 추천 계산
+- 현재 구현 기준: 공개 카탈로그 서버 + IndexedDB 개인 workspace + 선택적 계정 증분 동기화 + 브라우저 추천 계산
 
 ### 구현 진행 기록
 
@@ -28,7 +28,9 @@
 - 2026-08-19: 임시 DB에서 저장→재다운로드 hash 검증, revision 1→2 갱신, stale revision·비어 있지 않은 계정 덮어쓰기 차단 확인
 - 2026-08-20: 서로 다른 workspace의 항목별 병합 선택, 한쪽 전용 레코드 보존, tombstone·참조 cascade, revision 재검증 추가
 - 2026-08-20: 분리된 브라우저 origin에서 프로필 충돌 선택, 계정 결제 기록 2건 보존, revision 1→2와 재다운로드 일치 확인
-- 아직 미구현: 자동 양방향·다기기 sync, 실제 모바일 기기 측정
+- 2026-08-20: 멱등 operation push, revision cursor pull, IndexedDB outbox·backoff 기반 자동 증분 동기화 추가
+- 2026-08-20: 로그아웃·계정 삭제 시 로컬 유지 또는 완전 삭제 선택, sync 연결 해제와 새 workspace 생성 추가
+- 아직 미구현: 실제 모바일 기기 측정, 실적 우선 추천과 소액 혜택 임계값 정책
 
 ## 1. 결정 요약
 
@@ -278,6 +280,8 @@ interface SyncMetadata {
 - 계정 삭제는 서버 복사본 삭제와 로컬 복사본 삭제를 별도 선택으로 다룬다.
 - 공용 또는 분실 기기에서는 로컬 삭제 기능을 쉽게 찾을 수 있어야 한다.
 
+구현된 로그아웃과 계정 삭제 대화상자는 로컬 유지를 기본값으로 사용한다. 로컬 완전 삭제는 프로필·카드·실적·결제 기록뿐 아니라 tombstone과 sync state/outbox를 지우고 새 workspace·device ID를 만든다. 계정 삭제는 현재 비밀번호와 `계정 삭제` 확인 문구를 모두 요구하며, Better Auth 사용자 삭제의 cascade로 인증 정보와 계정 snapshot·operation도 제거한다.
+
 ## 10. 단계별 구현 계획
 
 각 단계는 이전 운영 경로를 즉시 삭제하지 않고 검증 후 다음 단계로 넘어간다.
@@ -348,7 +352,7 @@ interface SyncMetadata {
 - [x] 멱등 push, revision cursor 기반 incremental pull, IndexedDB outbox 재시도를 구현한다.
 - [x] 초기 snapshot의 stale revision, 다른 원본 workspace, tombstone 보존과 빈 기기 복원 시나리오를 테스트한다.
 - [x] 레코드 단위 충돌, 참조 순서와 자동 다기기 동기화 시나리오를 테스트한다.
-- [ ] 로그아웃·계정 삭제 시 로컬 데이터 선택을 구현한다.
+- [x] 로그아웃·계정 삭제 시 로컬 데이터 선택을 구현한다.
 
 완료 조건: 로그인하지 않은 사용 경험은 변하지 않고, 로그인한 사용자는 두 기기에서 같은 개인 데이터를 안전하게 동기화할 수 있다.
 
@@ -414,11 +418,11 @@ interface SyncMetadata {
 
 ## 14. 다음 세션의 권장 첫 작업
 
-비로그인 경로, 명시적 snapshot 병합과 선택 계정의 자동 증분 동기화까지 동작한다. 다음 안전 작업은 실제 기기 성능과 계정 수명주기 선택을 닫는 것이다.
+비로그인 경로, 명시적 snapshot 병합, 선택 계정의 자동 증분 동기화와 계정 수명주기 데이터 선택까지 동작한다. 다음 안전 작업은 실제 기기 성능을 확인하고 추천 정책 고도화를 시작하는 것이다.
 
 1. 실제 휴대폰에서 카탈로그 다운로드·추천 계산·IndexedDB 복원 시간을 측정한다.
-2. 로그아웃·계정 삭제 시 로컬 데이터를 유지할지 함께 지울지 선택하는 흐름을 구현한다.
-3. 카드별 월 실적 목표와 다음 달 전환 시점을 반영한 실적 우선 추천을 구현한다.
+2. 카드별 월 실적 목표와 다음 달 전환 시점을 반영한 실적 우선 추천을 구현한다.
+3. 소액 혜택 임계값과 `이번 결제 혜택`·`다음 달 실적 대비` 추천 사유를 구현한다.
 
 자동 동기화는 IndexedDB schema v2의 `sync-state`와 `sync-outbox`를 사용한다. 로컬 변경은 device ID, base revision과 UUID operation ID를 가진 outbox snapshot으로 원자 저장된다. 서버는 `account_workspace_operations`에서 계정별 operation ID와 요청 hash를 기록해 재전송을 한 번만 반영하며, stale base revision은 기존 레코드 metadata의 `updatedAt`과 tombstone 우선순위로 병합한다. pull은 revision cursor 이후 변경이 있을 때만 최신 검증 snapshot을 반환한다. 실패한 outbox는 5초부터 최대 1시간까지 backoff하고, 온라인 복귀·화면 재진입·30초 주기·수동 실행에서 다시 시도한다.
 
@@ -432,6 +436,8 @@ interface SyncMetadata {
 - `src/hooks/useAppData.ts`: guest workspace 또는 기존 계정 데이터 초기 로딩
 - `src/lib/local-workspace.ts`: IndexedDB 개인 workspace와 로컬 CRUD·export/import
 - `src/lib/local-workspace-sync.ts`: IndexedDB outbox, backoff와 자동 push/pull 조정
+- `src/components/settings/AccountLifecycleDialog.tsx`: 로그아웃·계정 삭제의 로컬 데이터 선택과 확인 UI
+- `src/hooks/useAuth.ts`: Better Auth 로그인·로그아웃·계정 삭제 클라이언트 경계
 - `src/lib/account-workspace-sync-server.ts`: operation 멱등성, stale revision 병합과 cursor pull
 - `src/app/api/account/sync/route.ts`: 인증된 계정 증분 동기화 endpoint
 - `src/lib/api-client.ts`: 로그인한 기존 계정용 서버 CRUD와 추천 API 클라이언트

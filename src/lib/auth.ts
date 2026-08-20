@@ -15,6 +15,11 @@ export const auth = betterAuth({
         minPasswordLength: 8,
         autoSignIn: false,
     },
+    user: {
+        deleteUser: {
+            enabled: true,
+        },
+    },
     advanced: {
         database: {
             generateId: 'uuid',

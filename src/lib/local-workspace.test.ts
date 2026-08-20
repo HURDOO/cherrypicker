@@ -520,6 +520,52 @@ describe('local workspace', () => {
         expect(memory.getCurrent()).toEqual(initial);
     });
 
+    it('purges personal data into a new workspace without retaining tombstones', async () => {
+        const memory = createMemoryStorage();
+        const client = createLocalWorkspaceClient(memory.storage);
+        const category = await client.createCategory({ name: '삭제할 카테고리' });
+        await client.deleteCategory(category.id);
+        await client.updateBenefitProfile({
+            telecomMemberships: [],
+            subscriptions: [],
+            enabledPayProviderIds: ['pay-1'],
+            moneyEnabled: true,
+            pointsEnabled: true,
+            pointValue: 1,
+        });
+        const previous = await client.read();
+        const ids = ['fresh-workspace', 'fresh-profile', 'fresh-device'];
+
+        const purged = await client.purgePersonalData({
+            now: '2026-08-21T09:00:00.000Z',
+            idFactory: () => ids.shift() ?? 'unexpected-id',
+        });
+
+        expect(purged).toMatchObject({
+            workspaceId: 'fresh-workspace',
+            deviceId: 'fresh-device',
+            categories: [],
+            brands: [],
+            cards: [],
+            rules: [],
+            performances: [],
+            history: [],
+            benefitProfile: {
+                enabledPayProviderIds: [],
+            },
+            recordMetadata: {
+                profile: {
+                    id: 'fresh-profile',
+                    createdAt: '2026-08-21T09:00:00.000Z',
+                    updatedAt: '2026-08-21T09:00:00.000Z',
+                },
+            },
+        });
+        expect(purged.workspaceId).not.toBe(previous.workspaceId);
+        expect(purged.recordMetadata[`categories:${category.id}`]).toBeUndefined();
+        expect(memory.getCurrent()).toEqual(purged);
+    });
+
     it('rejects records that claim another workspace owner', () => {
         const snapshot = createEmptyLocalWorkspace();
         snapshot.cards.push({

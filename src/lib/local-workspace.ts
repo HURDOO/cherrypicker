@@ -959,6 +959,14 @@ export const createLocalWorkspaceClient = (
         ));
         return structuredClone(parsed);
     },
+
+    async purgePersonalData(options: WorkspaceCreationOptions = {}) {
+        return enqueueMutation(async () => {
+            const fresh = createEmptyLocalWorkspace(options);
+            await storage.write(structuredClone(fresh));
+            return structuredClone(fresh);
+        });
+    },
 });
 
 export const localWorkspaceClient = createLocalWorkspaceClient();

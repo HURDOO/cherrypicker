@@ -495,3 +495,41 @@ export function synchronizeLocalWorkspace(
     syncRuns.set(accountUserId, run);
     return run;
 }
+
+export async function disconnectLocalWorkspaceSync(accountUserId: string) {
+    const activeRun = syncRuns.get(accountUserId);
+    if (activeRun) await activeRun.catch(() => undefined);
+
+    const database = await openLocalWorkspaceDatabase();
+    try {
+        const transaction = database.transaction([
+            LOCAL_WORKSPACE_SYNC_STATE_STORE_NAME,
+            LOCAL_WORKSPACE_OUTBOX_STORE_NAME,
+        ], 'readwrite');
+        const done = transactionDone(transaction);
+        const stateStore = transaction.objectStore(LOCAL_WORKSPACE_SYNC_STATE_STORE_NAME);
+        const stateRequest = stateStore.get(
+            LOCAL_WORKSPACE_SYNC_STATE_KEY
+        ) as IDBRequest<LocalWorkspaceSyncState | undefined>;
+        let validationError: Error | null = null;
+        stateRequest.onsuccess = () => {
+            const state = stateRequest.result;
+            if (state && state.accountUserId !== accountUserId) {
+                validationError = new Error(
+                    '현재 로그인한 계정과 이 기기의 동기화 계정이 다릅니다.',
+                );
+                transaction.abort();
+                return;
+            }
+            stateStore.delete(LOCAL_WORKSPACE_SYNC_STATE_KEY);
+            transaction.objectStore(LOCAL_WORKSPACE_OUTBOX_STORE_NAME).clear();
+        };
+        try {
+            await done;
+        } catch (error) {
+            throw validationError ?? error;
+        }
+    } finally {
+        database.close();
+    }
+}

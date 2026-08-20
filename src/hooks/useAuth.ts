@@ -18,6 +18,17 @@ export function useAuth() {
         }
     };
 
+    const deleteAccount = async (password: string) => {
+        const result = await authClient.deleteUser({ password });
+
+        if (result.error) {
+            throw new Error(result.error.message || '계정을 삭제하지 못했습니다.');
+        }
+        if (!result.data?.success) {
+            throw new Error('계정 삭제가 완료되지 않았습니다.');
+        }
+    };
+
     return {
         user: session?.user ?? null,
         session,
@@ -25,5 +36,6 @@ export function useAuth() {
         error,
         refetch,
         signOut,
+        deleteAccount,
     };
 }

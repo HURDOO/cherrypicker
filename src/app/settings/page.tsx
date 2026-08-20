@@ -23,6 +23,12 @@ import {
 import { BenefitProfileSettings } from '@/components/settings/BenefitProfileSettings';
 import { BrandDiscoverySettings } from '@/components/settings/BrandDiscoverySettings';
 import { AccountWorkspaceSync } from '@/components/settings/AccountWorkspaceSync';
+import {
+    AccountLifecycleDialog,
+    type AccountLifecycleMode,
+    type AccountLifecycleSelection,
+} from '@/components/settings/AccountLifecycleDialog';
+import { disconnectLocalWorkspaceSync } from '@/lib/local-workspace-sync';
 
 export default function SettingsPage() {
     const {
@@ -36,11 +42,13 @@ export default function SettingsPage() {
         updatePerformance,
     } = useAppStore();
     const { addToast } = useToastStore();
-    const { user, signOut } = useAuth();
+    const { user, signOut, deleteAccount } = useAuth();
     const router = useRouter();
     const [isSeeding, setIsSeeding] = useState(false);
     const [confirmStep, setConfirmStep] = useState(false);
-    const [isSigningOut, setIsSigningOut] = useState(false);
+    const [accountLifecycleMode, setAccountLifecycleMode] =
+        useState<AccountLifecycleMode | null>(null);
+    const [isAccountLifecycleWorking, setIsAccountLifecycleWorking] = useState(false);
     const [performanceDrafts, setPerformanceDrafts] = useState<Record<string, string>>({});
     const [savingPerformanceCards, setSavingPerformanceCards] = useState<Record<string, boolean>>({});
     const [performancePeriod] = useState(() => {
@@ -81,15 +89,55 @@ export default function SettingsPage() {
         return managedPerformanceCards.filter(card => completedCardIds.has(card.id)).length;
     }, [currentPerformances, managedPerformanceCards]);
 
-    const handleSignOut = async () => {
-        setIsSigningOut(true);
+    const handleAccountLifecycle = async (selection: AccountLifecycleSelection) => {
+        if (!user || !accountLifecycleMode) return;
+        const completedMode = accountLifecycleMode;
+        let accountActionCompleted = false;
+        setIsAccountLifecycleWorking(true);
         try {
-            await signOut();
-            router.replace('/');
-            router.refresh();
+            if (completedMode === 'delete-account') {
+                await deleteAccount(selection.password);
+            } else {
+                await signOut();
+            }
+            accountActionCompleted = true;
+
+            await disconnectLocalWorkspaceSync(user.id);
+            if (selection.localDataChoice === 'delete') {
+                await localWorkspaceClient.purgePersonalData();
+            }
+
+            setAccountLifecycleMode(null);
+            addToast(
+                completedMode === 'delete-account'
+                    ? '계정을 삭제하고 선택한 기기 데이터 정책을 적용했습니다.'
+                    : '로그아웃하고 선택한 기기 데이터 정책을 적용했습니다.',
+                'success',
+            );
+            window.setTimeout(() => {
+                router.replace('/');
+                router.refresh();
+            }, 500);
         } catch (error: unknown) {
-            addToast(getErrorMessage(error, '로그아웃하지 못했습니다.'), 'error');
-            setIsSigningOut(false);
+            addToast(
+                accountActionCompleted
+                    ? `${completedMode === 'delete-account' ? '계정 삭제' : '로그아웃'}은 완료됐지만 이 기기 데이터 정책을 적용하지 못했습니다: ${getErrorMessage(error)}`
+                    : getErrorMessage(
+                        error,
+                        completedMode === 'delete-account'
+                            ? '계정을 삭제하지 못했습니다.'
+                            : '로그아웃하지 못했습니다.',
+                    ),
+                'error',
+            );
+            if (accountActionCompleted) {
+                setAccountLifecycleMode(null);
+                window.setTimeout(() => {
+                    router.replace('/');
+                    router.refresh();
+                }, 1500);
+            }
+            setIsAccountLifecycleWorking(false);
         }
     };
 
@@ -530,14 +578,21 @@ export default function SettingsPage() {
                             </div>
                             <button
                                 type="button"
-                                onClick={handleSignOut}
-                                disabled={isSigningOut}
+                                onClick={() => setAccountLifecycleMode('sign-out')}
                                 className="flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2.5 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50"
                             >
                                 <LogOut className="h-4 w-4" />
-                                {isSigningOut ? '로그아웃 중' : '로그아웃'}
+                                로그아웃
                             </button>
                         </div>
+                        <button
+                            type="button"
+                            onClick={() => setAccountLifecycleMode('delete-account')}
+                            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-4 py-2.5 text-[11px] font-bold text-rose-600 transition-colors hover:bg-rose-100"
+                        >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            계정 영구 삭제
+                        </button>
                     </section>
                 )}
 
@@ -557,6 +612,18 @@ export default function SettingsPage() {
                 isOpen={isMasterDataOpen}
                 onClose={() => setIsMasterDataOpen(false)}
             />
+            {user && accountLifecycleMode && (
+                <AccountLifecycleDialog
+                    key={accountLifecycleMode}
+                    mode={accountLifecycleMode}
+                    accountEmail={user.email}
+                    isWorking={isAccountLifecycleWorking}
+                    onClose={() => {
+                        if (!isAccountLifecycleWorking) setAccountLifecycleMode(null);
+                    }}
+                    onConfirm={selection => void handleAccountLifecycle(selection)}
+                />
+            )}
 
         </main>
     );
