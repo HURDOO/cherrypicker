@@ -366,6 +366,24 @@ interface SyncMetadata {
 
 완료 조건: 코드와 운영 문서가 local-first 구조를 기준으로 일치하고, 롤백에 필요 없는 구 경로가 제거된다.
 
+### Phase 7 — Production 혜택 카탈로그 수집·AI 구조화
+
+- [ ] 우선 지원할 카드사·카드 상품의 범위와 커버리지 목표를 정한다.
+- [ ] 카드 상품 페이지·상품설명서 PDF·공식 공지를 출처별로 수집하는 source adapter를 추가한다.
+- [ ] 원문 HTML/PDF, 수집 시각, URL, content hash와 문서 버전을 보존하는 raw document 저장소를 추가한다.
+- [ ] AI API를 연결해 혜택 조건·한도·적용 채널·제외 항목을 고정 JSON schema로 구조화한다.
+- [ ] AI가 생성한 각 필드에 원문 인용 위치·페이지·출처 URL을 연결한다.
+- [ ] AI 출력에 JSON Schema, 날짜·금액·퍼센트·한도 및 참조 무결성 검증을 적용한다.
+- [ ] 추출 결과를 곧바로 게시하지 않고 benefit rule candidate와 검수 큐를 거치게 한다.
+- [ ] 신뢰도·조건 복잡도·변경 규모에 따른 자동 게시/수동 검수 정책을 구현한다.
+- [ ] 기존 카드 규칙 계산기에 구조화 결과를 연결하고 대표 거래 fixture로 계산 결과를 검증한다.
+- [ ] 원문 변경 감지, 규칙 revision, 이전 게시본 보존과 rollback을 구현한다.
+- [ ] 카드별 마지막 확인일·출처·지원 범위·불확실한 조건을 사용자에게 표시한다.
+- [ ] 지원하지 않는 카드는 사용자 커스텀 카드와 규칙으로 사용할 수 있게 한다.
+- [ ] 로그인·앱 내부·비공식 출처의 수집 제한과 출처별 이용 정책을 운영 문서에 기록한다.
+
+완료 조건: 공개 카탈로그의 모든 카드 혜택이 공식 근거와 구조화 결과를 가지며, AI 추출 실패나 출처 변경이 기존 정상 게시본을 손상시키지 않는다.
+
 ## 11. 롤아웃과 데이터 안전
 
 - 브라우저 계산과 로컬 저장은 처음에 feature flag 또는 개발 전용 이중 실행으로 도입한다.
@@ -415,6 +433,10 @@ interface SyncMetadata {
 - 관리자 인증을 현재 이메일/비밀번호 방식으로 유지할지 별도 접근 제어와 결합할지
 - 카탈로그를 private ingress 안에서만 제공할지 향후 공개 캐시/CDN으로 제공할지
 - 계산 후보 수 상한과 성능 목표를 어떤 실제 휴대폰을 기준으로 정할지
+- AI 구조화에 사용할 모델·JSON schema·호출 예산과 문서별 재시도 정책
+- AI가 낮은 신뢰도로 추출한 카드 규칙을 자동 게시할 수 있는 조건과 필수 수동 검수 기준
+- 원문 문서와 AI extraction 결과를 SQLite에 저장할지 별도 object storage에 저장할지
+- 카드 상품의 지원 범위를 발급량·사용자 수요·문서 품질 중 어떤 우선순위로 확장할지
 
 ## 14. 다음 세션의 권장 첫 작업
 
@@ -423,6 +445,8 @@ interface SyncMetadata {
 1. 실제 휴대폰에서 카탈로그 다운로드·추천 계산·IndexedDB 복원 시간을 측정한다.
 2. 카드별 월 실적 목표와 다음 달 전환 시점을 반영한 실적 우선 추천을 구현한다.
 3. 소액 혜택 임계값과 `이번 결제 혜택`·`다음 달 실적 대비` 추천 사유를 구현한다.
+4. 대표 카드 1~2개를 대상으로 원문 수집 → AI 구조화 → 스키마 검증 → 검수 → 규칙 fixture 검증의 수직 흐름을 만든다.
+5. AI extraction 결과와 게시된 benefit rule의 revision·근거·rollback 데이터 모델을 확정한다.
 
 자동 동기화는 IndexedDB schema v2의 `sync-state`와 `sync-outbox`를 사용한다. 로컬 변경은 device ID, base revision과 UUID operation ID를 가진 outbox snapshot으로 원자 저장된다. 서버는 `account_workspace_operations`에서 계정별 operation ID와 요청 hash를 기록해 재전송을 한 번만 반영하며, stale base revision은 기존 레코드 metadata의 `updatedAt`과 tombstone 우선순위로 병합한다. pull은 revision cursor 이후 변경이 있을 때만 최신 검증 snapshot을 반환한다. 실패한 outbox는 5초부터 최대 1시간까지 backoff하고, 온라인 복귀·화면 재진입·30초 주기·수동 실행에서 다시 시도한다.
 
