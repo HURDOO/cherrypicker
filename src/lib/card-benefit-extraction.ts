@@ -11,6 +11,7 @@ import type {
 } from '@/types';
 
 export const CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION = 2 as const;
+export const SHINHAN_SOL_RULESET_VERSION = 'shinhan-sol-v4' as const;
 export const SHINHAN_SOL_REQUIRED_RULE_IDS = [
     'sol_foreign_currency_payment',
     'sol_overseas_fee',
@@ -422,6 +423,8 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
             detail: 'Mastercard 선택 시 국제브랜드 1%와 해외서비스 0.2% 수수료 면제, 전월 실적·한도 없음',
             condition: {
                 requiredCardNetwork: 'MASTERCARD',
+                confirmationRequired: true,
+                requiredNote: '해외가맹점에서 수수료가 실제 부과되는 거래인지 확인',
                 stackableWithRuleIds: [
                     'sol_overseas_transport',
                     'sol_japan_convenience',
@@ -474,7 +477,7 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
                 minPerformance: 300_000,
                 performanceWaiver: 'NEW_CARD_REGISTRATION_WINDOW',
                 confirmationRequired: true,
-                requiredNote: '오프라인 독립 매장이며 입점 매장·온라인 거래가 아닌지 확인',
+                requiredNote: '오프라인 독립 매장이며 상품권·선불충전·포인트 사용·취소 거래가 아니고, CU 행사상품 중복 외 다른 신한 할인이 적용되지 않았는지 확인',
                 stackableWithRuleIds: ['sol_cu_event'],
                 applicationOrder: 2,
             },
@@ -492,7 +495,7 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
                 minPerformance: 300_000,
                 performanceWaiver: 'NEW_CARD_REGISTRATION_WINDOW',
                 confirmationRequired: true,
-                requiredNote: '후불교통 RF 거래이며 고속버스 이용이 아닌지 확인',
+                requiredNote: '후불교통 RF 거래·고속버스 제외이며 포인트 사용·취소·다른 신한 할인 적용 거래가 아닌지 확인',
             },
             action: { type: 'PERCENT', value: 1 },
             limitConfig: { monthlyAmount: 3_000 },
@@ -718,6 +721,13 @@ export function extractShinhanSolTravelWithRules(
             location: '해외 결제 수수료율',
         },
         {
+            id: 'overseas-fee-exclusion',
+            ruleIds: ['sol_overseas_fee'],
+            fields: ['condition'],
+            pattern: /해외 수수료 미부과 해외 거래 건의 경우 서비스 제외됩니다/i,
+            location: '해외 수수료 면제 제외 조건',
+        },
+        {
             id: 'overseas-atm',
             ruleIds: ['sol_overseas_atm'],
             fields: ['description', 'condition', 'action'],
@@ -919,6 +929,13 @@ export function extractShinhanSolTravelWithRules(
             location: '신규 회원 국내 할인 실적 면제',
         },
         {
+            id: 'discount-service-exclusions',
+            ruleIds: ['sol_domestic_convenience', 'sol_domestic_transport'],
+            fields: ['condition'],
+            pattern: /할인 서비스 제외 대상은 아래와 같습니다.{0,450}?거래 취소금액.{0,100}?각종 수수료\/이자/i,
+            location: '국내 할인 서비스 공통 제외 조건',
+        },
+        {
             id: 'mastercard-only',
             ruleIds: [
                 'sol_foreign_currency_payment',
@@ -948,7 +965,7 @@ export function extractShinhanSolTravelWithRules(
     });
     const missing = specs.filter(spec => !evidence.some(item => item.id === spec.id));
     return {
-        extractor: 'rules:shinhan-sol-v3',
+        extractor: `rules:${SHINHAN_SOL_RULESET_VERSION}`,
         confidence: missing.length === 0 ? 0.98 : Math.max(0.3, 0.98 - missing.length * 0.1),
         extraction: {
             schemaVersion: CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION,
@@ -1094,7 +1111,9 @@ export class GeminiCardBenefitExtractionProvider implements CardBenefitExtractio
             throw new Error('Gemini 카드 혜택 결과를 검수 화면에 안전하게 표시할 수 없습니다.');
         }
         return {
-            extractor: `${this.id}:${this.model}`,
+            extractor: input.card.id === 'shinhan_sol'
+                ? `${this.id}:${this.model}:${SHINHAN_SOL_RULESET_VERSION}`
+                : `${this.id}:${this.model}`,
             model: this.model,
             confidence: Math.max(0, Math.min(1, parsed.confidence)),
             extraction,

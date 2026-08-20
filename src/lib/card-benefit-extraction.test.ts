@@ -21,6 +21,7 @@ const sourceText = [
     '해외 이용 시 원화 환산 절차없이 외화결제계좌에서 해당 현지 통화로 인출되는 서비스',
     '해외 결제 수수료 면제',
     '국제 브랜드 수수료(1%)/해외 서비스 수수료(0.2%) 면제',
+    '해외 수수료 미부과 해외 거래 건의 경우 서비스 제외됩니다.',
     '해외 ATM 이용 인출 수수료(건당 $3) 및 국제 브랜드 수수료(1%) 면제',
     '컨택리스 해외 대중교통 1% 결제일 할인 월 3천원까지 할인',
     '해외 대중교통 중 컨택리스 결제를 지원하는 대중교통에 한하여 결제일 할인 서비스가 제공되며, 택시 이용은 할인 대상에 포함되지 않습니다.',
@@ -33,6 +34,7 @@ const sourceText = [
     '더라운지 공항 라운지 연 2회 무료 반기별 1회, 연 2회 본인 입장',
     '전월 국내 이용금액 30만원 이상 시 서비스가 제공됩니다.',
     '신규 발급 회원의 경우 카드 사용 등록월의 익월 말(등록월+1개월)까지는 전월 이용금액 조건 없이 서비스가 제공됩니다.',
+    '할인 서비스 제외 대상은 아래와 같습니다. 기프트카드/선불카드 구매·충전금액, 상품권/선불전자지급수단 구매·충전금액, 포인트 사용거래 중 포인트금액, 신한카드 SOL트래블 체크로 신한카드 할인서비스(이벤트 포함)를 적용 받은 모든 거래(해당 거래금액 전체), 거래 취소금액, 각종 수수료/이자(할부수수료, 연체이자 등)',
     '해외 이용 서비스 및 해외 대중교통 컨택리스 방식으로 이용 시 1% 결제일 할인 서비스는 MASTERCARD 브랜드 선택 시에만 제공 가능합니다.',
     '마스터카드 트래블 리워드는 해외 가맹점에서 캐시백(최대 10%) 혜택을 받을 수 있는 프로그램입니다.',
     '마스터 트래블 리워드는 2026년 12월 31일까지 제공됩니다.',
@@ -87,10 +89,26 @@ describe('card benefit extraction', () => {
         expect(result.extraction.rules).toHaveLength(13);
         expect(result.extraction.rules.find(rule => rule.id === 'sol_domestic_convenience'))
             .toMatchObject({
-                condition: { minPerformance: 300_000 },
+                condition: {
+                    minPerformance: 300_000,
+                    requiredNote: expect.stringContaining('CU 행사상품 중복 외'),
+                },
                 action: { type: 'PERCENT', value: 5 },
                 limitConfig: { dailyCount: 1, monthlyCount: 3, monthlyAmount: 3_000 },
             });
+        expect(result.extraction.rules.find(rule => rule.id === 'sol_overseas_fee'))
+            .toMatchObject({
+                condition: {
+                    confirmationRequired: true,
+                    requiredNote: expect.stringContaining('수수료가 실제 부과되는 거래'),
+                },
+            });
+        expect(result.extraction.evidence.map(item => item.id)).toEqual(
+            expect.arrayContaining([
+                'overseas-fee-exclusion',
+                'discount-service-exclusions',
+            ]),
+        );
         const normalizedFixture = sourceText.replace(/\s+/g, ' ');
         expect(result.extraction.evidence.every(item => normalizedFixture.includes(item.quote)))
             .toBe(true);
@@ -389,6 +407,41 @@ describe('card benefit extraction', () => {
 
         expect(result.calculatedDiscount).toBe(0);
         expect(result.reason).toBe('MASTERCARD 카드 전용 혜택');
+    });
+
+    it('keeps the overseas fee waiver conditional until fee eligibility is confirmed', () => {
+        const extraction = extractShinhanSolTravelWithRules(input).extraction;
+        const overseas = { id: 'overseas_payment', name: '해외 가맹점', categoryId: 'etc' };
+        const conditional = calculateBestCards(
+            100_000,
+            overseas,
+            [card],
+            extraction.rules,
+            [],
+            [],
+            false,
+        )[0];
+        const confirmed = calculateBestCards(
+            100_000,
+            overseas,
+            [card],
+            extraction.rules,
+            [],
+            [],
+            false,
+            { confirmedConditionIds: ['card-rule:sol_overseas_fee'] },
+        )[0];
+
+        expect(conditional).toMatchObject({
+            confirmedDiscount: 0,
+            conditionalDiscount: 1_200,
+        });
+        expect(conditional.matchedBenefits[0].requiredChecks)
+            .toContain('해외가맹점에서 수수료가 실제 부과되는 거래인지 확인');
+        expect(confirmed).toMatchObject({
+            confirmedDiscount: 1_200,
+            conditionalDiscount: 0,
+        });
     });
 
     it('drops an expired promotion while preserving the permanent overseas fee waiver', () => {
