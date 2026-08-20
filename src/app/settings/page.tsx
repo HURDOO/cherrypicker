@@ -493,7 +493,7 @@ export default function SettingsPage() {
                     </div>
                 </section>
 
-                {user && <AccountWorkspaceSync />}
+                {user && <AccountWorkspaceSync accountUserId={user.id} />}
 
                 {!user ? (
                     <section className="rounded-3xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm">

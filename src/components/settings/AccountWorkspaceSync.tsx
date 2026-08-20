@@ -14,6 +14,7 @@ import {
     accountWorkspaceContentEquals,
     type AccountWorkspaceState,
 } from '@/lib/account-workspace-export';
+import type { LocalWorkspaceSyncStatus } from '@/lib/account-workspace-sync-contract';
 import {
     createAccountWorkspaceMergePlan,
     createDefaultAccountWorkspaceMergeChoices,
@@ -29,12 +30,19 @@ import {
     localWorkspaceClient,
     type LocalWorkspaceSnapshot,
 } from '@/lib/local-workspace';
+import {
+    enableLocalWorkspaceSync,
+    getLocalWorkspaceSyncStatus,
+    synchronizeLocalWorkspace,
+    WORKSPACE_SYNC_COMPLETED_EVENT,
+} from '@/lib/local-workspace-sync';
 import { useToastStore } from '@/store/useToastStore';
 
-export function AccountWorkspaceSync() {
+export function AccountWorkspaceSync({ accountUserId }: { accountUserId: string }) {
     const addToast = useToastStore(state => state.addToast);
     const [localWorkspace, setLocalWorkspace] = useState<LocalWorkspaceSnapshot | null>(null);
     const [accountState, setAccountState] = useState<AccountWorkspaceState | null>(null);
+    const [syncStatus, setSyncStatus] = useState<LocalWorkspaceSyncStatus | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isWorking, setIsWorking] = useState(false);
     const [isMergeOpen, setIsMergeOpen] = useState(false);
@@ -47,12 +55,14 @@ export function AccountWorkspaceSync() {
     const loadState = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [local, account] = await Promise.all([
+            const [local, account, localSyncStatus] = await Promise.all([
                 localWorkspaceClient.read(),
                 apiClient.getAccountWorkspaceState(),
+                getLocalWorkspaceSyncStatus(accountUserId),
             ]);
             setLocalWorkspace(local);
             setAccountState(account);
+            setSyncStatus(localSyncStatus);
             setIsMergeOpen(false);
             setHasConfirmedMerge(false);
         } catch (error) {
@@ -60,10 +70,19 @@ export function AccountWorkspaceSync() {
         } finally {
             setIsLoading(false);
         }
-    }, [addToast]);
+    }, [accountUserId, addToast]);
 
     useEffect(() => {
         void loadState();
+    }, [loadState]);
+
+    useEffect(() => {
+        const onSyncCompleted = () => void loadState();
+        window.addEventListener(WORKSPACE_SYNC_COMPLETED_EVENT, onSyncCompleted);
+        return () => window.removeEventListener(
+            WORKSPACE_SYNC_COMPLETED_EVENT,
+            onSyncCompleted,
+        );
     }, [loadState]);
 
     const mode = useMemo(() => {
@@ -118,6 +137,10 @@ export function AccountWorkspaceSync() {
                 throw new Error('업로드 후 다시 받은 계정 데이터가 원본과 일치하지 않습니다.');
             }
             setAccountState(downloaded);
+            setSyncStatus(await enableLocalWorkspaceSync(
+                accountUserId,
+                downloaded.revision,
+            ));
             addToast(
                 mode === 'upload'
                     ? '이 기기 데이터를 계정에 안전하게 백업했습니다.'
@@ -141,6 +164,9 @@ export function AccountWorkspaceSync() {
             );
             if (!accountWorkspaceMatchesLocal(imported, accountState.workspace)) {
                 throw new Error('복원한 기기 데이터가 계정 원본과 일치하지 않습니다.');
+            }
+            if (accountState.revision > 0) {
+                await enableLocalWorkspaceSync(accountUserId, accountState.revision);
             }
             addToast('계정 데이터를 빈 로컬 workspace에 안전하게 복원했습니다.', 'success');
             window.setTimeout(() => window.location.reload(), 500);
@@ -225,6 +251,8 @@ export function AccountWorkspaceSync() {
                 throw new Error('병합 후 다시 받은 계정 데이터가 기기 원본과 일치하지 않습니다.');
             }
 
+            await enableLocalWorkspaceSync(accountUserId, downloaded.revision);
+
             addToast('선택한 항목을 병합하고 계정 백업까지 검증했습니다.', 'success');
             window.setTimeout(() => window.location.reload(), 500);
         } catch (error) {
@@ -249,6 +277,39 @@ export function AccountWorkspaceSync() {
         }
     };
 
+    const enableAutomaticSync = async () => {
+        if (!accountState || mode !== 'synced') return;
+        setIsWorking(true);
+        try {
+            setSyncStatus(await enableLocalWorkspaceSync(
+                accountUserId,
+                accountState.revision,
+            ));
+            addToast('이 계정의 자동 동기화를 시작했습니다.', 'success');
+        } catch (error) {
+            addToast(getErrorMessage(error, '자동 동기화를 시작하지 못했습니다.'), 'error');
+        } finally {
+            setIsWorking(false);
+        }
+    };
+
+    const syncNow = async () => {
+        setIsWorking(true);
+        try {
+            const result = await synchronizeLocalWorkspace(accountUserId, { force: true });
+            if (result.status === 'retrying') {
+                throw new Error(result.error || '자동 동기화를 다시 시도할 예정입니다.');
+            }
+            await loadState();
+            addToast('계정과 이 기기의 변경사항을 동기화했습니다.', 'success');
+        } catch (error) {
+            addToast(getErrorMessage(error, '계정 동기화를 완료하지 못했습니다.'), 'error');
+            setSyncStatus(await getLocalWorkspaceSyncStatus(accountUserId).catch(() => null));
+        } finally {
+            setIsWorking(false);
+        }
+    };
+
     const personalItemCount = accountState
         ? accountState.summary.categories + accountState.summary.brands +
             accountState.summary.cards + accountState.summary.rules
@@ -264,7 +325,7 @@ export function AccountWorkspaceSync() {
                     <h2 className="text-sm font-black text-blue-950">계정 백업 및 기기 연동</h2>
                     <p className="mt-1 text-[11px] leading-relaxed text-blue-700">
                         로그인해도 이 기기의 로컬 데이터를 계속 사용합니다. 계정은 검증된
-                        snapshot 백업과 새 기기 복원에만 사용합니다.
+                        snapshot 백업과 새 기기 복원, 선택한 계정의 증분 동기화에 사용합니다.
                     </p>
                 </div>
             </div>
@@ -340,7 +401,21 @@ export function AccountWorkspaceSync() {
                             </StatusBox>
                         )}
 
-                        {(mode === 'upload' || mode === 'update') && (
+                        {syncStatus && (
+                            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-3 text-[11px] leading-relaxed text-emerald-800">
+                                <strong className="font-black">자동 동기화 사용 중</strong>
+                                <span className="ml-2">
+                                    대기 {syncStatus.pendingOperationCount}개 · revision {syncStatus.remoteRevision}
+                                </span>
+                                {syncStatus.lastError && (
+                                    <p className="mt-1 text-amber-700">
+                                        최근 오류: {syncStatus.lastError}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {(mode === 'upload' || (mode === 'update' && !syncStatus)) && (
                             <button
                                 type="button"
                                 onClick={() => void backUpWorkspace()}
@@ -353,6 +428,30 @@ export function AccountWorkspaceSync() {
                                 {isWorking
                                     ? '검증하며 백업 중...'
                                     : mode === 'upload' ? '계정에 처음 백업' : '변경사항 백업'}
+                            </button>
+                        )}
+                        {mode === 'synced' && !syncStatus && (
+                            <button
+                                type="button"
+                                onClick={() => void enableAutomaticSync()}
+                                disabled={isWorking}
+                                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-3 text-xs font-black text-white hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
+                            >
+                                {isWorking
+                                    ? <RefreshCw className="h-4 w-4 animate-spin" />
+                                    : <RefreshCw className="h-4 w-4" />}
+                                자동 동기화 시작
+                            </button>
+                        )}
+                        {syncStatus && (
+                            <button
+                                type="button"
+                                onClick={() => void syncNow()}
+                                disabled={isWorking}
+                                className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 text-xs font-black text-blue-700 hover:bg-blue-50 disabled:cursor-wait disabled:opacity-60"
+                            >
+                                <RefreshCw className={`h-4 w-4 ${isWorking ? 'animate-spin' : ''}`} />
+                                지금 동기화
                             </button>
                         )}
                         {mode === 'restore' && (

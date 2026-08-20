@@ -9,6 +9,7 @@ import {
     type CachedBenefitCatalog,
 } from '@/lib/benefit-catalog-client';
 import { readOrCreateLocalWorkspace } from '@/lib/local-workspace';
+import { WORKSPACE_SYNC_COMPLETED_EVENT } from '@/lib/local-workspace-sync';
 import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
 
@@ -82,4 +83,23 @@ export function useAppData() {
                 );
             });
     }, [addToast, pathname, resetData, setInitialData, setLoading]);
+
+    useEffect(() => {
+        if (isAuthPath(pathname)) return;
+
+        const refreshSyncedData = () => {
+            void loadLocalAppData()
+                .then(data => setInitialData(data))
+                .catch(error => addToast(
+                    getErrorMessage(error, '동기화된 기기 데이터를 다시 불러오지 못했습니다.'),
+                    'error',
+                ));
+        };
+
+        window.addEventListener(WORKSPACE_SYNC_COMPLETED_EVENT, refreshSyncedData);
+        return () => window.removeEventListener(
+            WORKSPACE_SYNC_COMPLETED_EVENT,
+            refreshSyncedData,
+        );
+    }, [addToast, pathname, setInitialData]);
 }

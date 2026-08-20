@@ -19,6 +19,11 @@ import type {
     AccountWorkspaceExport,
     AccountWorkspaceState,
 } from '@/lib/account-workspace-export';
+import type {
+    AccountWorkspaceSyncOperation,
+    AccountWorkspaceSyncPullResult,
+    AccountWorkspaceSyncPushResult,
+} from '@/lib/account-workspace-sync-contract';
 
 export interface AppData {
     userId: string;
@@ -157,6 +162,18 @@ export const apiClient = {
         method: 'PATCH',
         body: jsonBody({ workspace, expectedRevision }),
     }),
+
+    pushAccountWorkspaceOperation: (operation: AccountWorkspaceSyncOperation) =>
+        request<AccountWorkspaceSyncPushResult>('/api/account/sync', {
+            method: 'POST',
+            body: jsonBody(operation),
+        }),
+
+    pullAccountWorkspaceOperations: (afterRevision: number) =>
+        request<AccountWorkspaceSyncPullResult>(
+            `/api/account/sync?afterRevision=${encodeURIComponent(afterRevision)}`,
+            { cache: 'no-store' },
+        ),
 
     createTransaction: (transaction: TransactionInput) =>
         request<TransactionHistory>('/api/transactions', {

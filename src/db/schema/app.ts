@@ -265,6 +265,33 @@ export const accountWorkspaceSnapshots = sqliteTable('account_workspace_snapshot
         .default(nowInMilliseconds),
 });
 
+export const accountWorkspaceOperations = sqliteTable('account_workspace_operations', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: text('user_id')
+        .notNull()
+        .references(() => user.id, { onDelete: 'cascade' }),
+    operationId: text('operation_id').notNull(),
+    deviceId: text('device_id').notNull(),
+    baseRevision: integer('base_revision').notNull(),
+    appliedRevision: integer('applied_revision').notNull(),
+    staleBaseRevision: integer('stale_base_revision', { mode: 'boolean' })
+        .notNull()
+        .default(false),
+    requestHash: text('request_hash').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+        .notNull()
+        .default(nowInMilliseconds),
+}, (table) => [
+    uniqueIndex('account_workspace_operations_user_operation_unique').on(
+        table.userId,
+        table.operationId,
+    ),
+    index('account_workspace_operations_user_revision_idx').on(
+        table.userId,
+        table.appliedRevision,
+    ),
+]);
+
 export const merchantRouteVerifications = sqliteTable('merchant_route_verifications', {
     id: integer('id').primaryKey({ autoIncrement: true }),
     brandId: text('brand_id').notNull().references(() => brands.id),

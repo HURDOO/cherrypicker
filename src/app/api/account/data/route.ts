@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import {
+    accountWorkspaceOperations,
     accountWorkspaceSnapshots,
     benefitRules,
     brands,
@@ -109,6 +110,9 @@ export async function DELETE(request: Request) {
         const user = await requireUser(request);
 
         db.transaction((tx) => {
+            tx.delete(accountWorkspaceOperations)
+                .where(eq(accountWorkspaceOperations.userId, user.id))
+                .run();
             tx.delete(accountWorkspaceSnapshots)
                 .where(eq(accountWorkspaceSnapshots.userId, user.id))
                 .run();

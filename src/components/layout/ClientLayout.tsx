@@ -1,6 +1,7 @@
 'use client';
 
 import { useAppData } from '@/hooks/useAppData';
+import { useAccountWorkspaceAutoSync } from '@/hooks/useAccountWorkspaceAutoSync';
 import { usePathname } from 'next/navigation';
 import React from 'react';
 import BottomNav from './BottomNav';
@@ -8,6 +9,7 @@ import { ToastContainer } from '@/components/ui/Toast';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     useAppData();
+    useAccountWorkspaceAutoSync();
     const pathname = usePathname();
     const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
 

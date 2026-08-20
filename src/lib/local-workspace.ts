@@ -21,10 +21,25 @@ import {
     type AccountWorkspaceExport,
     type AccountWorkspaceState,
 } from '@/lib/account-workspace-export';
+import {
+    createAccountWorkspaceMergePlan,
+    createDefaultAccountWorkspaceMergeChoices,
+    resolveAccountWorkspaceMerge,
+} from '@/lib/account-workspace-merge';
+import {
+    LOCAL_WORKSPACE_SYNC_STATE_KEY,
+    type LocalWorkspaceOutboxOperation,
+    type LocalWorkspaceSyncState,
+} from '@/lib/account-workspace-sync-contract';
+import {
+    LOCAL_WORKSPACE_OUTBOX_STORE_NAME,
+    LOCAL_WORKSPACE_STORE_NAME,
+    LOCAL_WORKSPACE_SYNC_STATE_STORE_NAME,
+    openLocalWorkspaceDatabase,
+    requestResult,
+    transactionDone,
+} from '@/lib/local-workspace-database';
 
-const DATABASE_NAME = 'cherrypicker-workspace';
-const DATABASE_VERSION = 1;
-const STORE_NAME = 'workspace';
 const CURRENT_WORKSPACE_KEY = 'current';
 
 export const LOCAL_WORKSPACE_SCHEMA_VERSION = 1 as const;
@@ -54,7 +69,10 @@ export interface LocalWorkspaceSnapshot {
 
 export interface LocalWorkspaceStorage {
     read: () => Promise<unknown | null>;
-    write: (snapshot: LocalWorkspaceSnapshot) => Promise<void>;
+    write: (
+        snapshot: LocalWorkspaceSnapshot,
+        options?: { queueSync?: boolean },
+    ) => Promise<void>;
 }
 
 export type LocalCardInput = Pick<Card, 'name' | 'company' | 'color' | 'limitTable'>;
@@ -246,51 +264,17 @@ type StoredWorkspace = {
     snapshot: LocalWorkspaceSnapshot;
 };
 
-const requestResult = <T>(request: IDBRequest<T>) => new Promise<T>((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('IndexedDB 요청에 실패했습니다.'));
-});
-
-const transactionDone = (transaction: IDBTransaction) => new Promise<void>((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onabort = () => reject(
-        transaction.error ?? new Error('IndexedDB transaction이 취소되었습니다.')
-    );
-    transaction.onerror = () => reject(
-        transaction.error ?? new Error('IndexedDB transaction에 실패했습니다.')
-    );
-});
-
-const openWorkspaceDatabase = () => new Promise<IDBDatabase>((resolve, reject) => {
-    if (typeof indexedDB === 'undefined') {
-        reject(new Error('이 브라우저에서는 IndexedDB를 사용할 수 없습니다.'));
-        return;
-    }
-
-    const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
-    request.onupgradeneeded = () => {
-        const database = request.result;
-        if (!database.objectStoreNames.contains(STORE_NAME)) {
-            database.createObjectStore(STORE_NAME, { keyPath: 'key' });
-        }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(
-        request.error ?? new Error('로컬 workspace 저장소를 열지 못했습니다.')
-    );
-    request.onblocked = () => reject(
-        new Error('다른 탭이 로컬 workspace 저장소 갱신을 막고 있습니다.')
-    );
-});
-
 export const browserLocalWorkspaceStorage: LocalWorkspaceStorage = {
     async read() {
-        const database = await openWorkspaceDatabase();
+        const database = await openLocalWorkspaceDatabase();
         try {
-            const transaction = database.transaction(STORE_NAME, 'readonly');
+            const transaction = database.transaction(
+                LOCAL_WORKSPACE_STORE_NAME,
+                'readonly',
+            );
             const done = transactionDone(transaction);
             const stored = await requestResult<StoredWorkspace | undefined>(
-                transaction.objectStore(STORE_NAME).get(CURRENT_WORKSPACE_KEY)
+                transaction.objectStore(LOCAL_WORKSPACE_STORE_NAME).get(CURRENT_WORKSPACE_KEY)
             );
             await done;
             return stored?.snapshot ?? null;
@@ -299,19 +283,71 @@ export const browserLocalWorkspaceStorage: LocalWorkspaceStorage = {
         }
     },
 
-    async write(snapshot) {
+    async write(snapshot, options = {}) {
         parseLocalWorkspaceSnapshot(snapshot);
-        const database = await openWorkspaceDatabase();
+        const database = await openLocalWorkspaceDatabase();
+        let queuedOperation = false;
+        let queueError: Error | null = null;
         try {
-            const transaction = database.transaction(STORE_NAME, 'readwrite');
+            const storeNames = options.queueSync
+                ? [
+                    LOCAL_WORKSPACE_STORE_NAME,
+                    LOCAL_WORKSPACE_SYNC_STATE_STORE_NAME,
+                    LOCAL_WORKSPACE_OUTBOX_STORE_NAME,
+                ]
+                : [LOCAL_WORKSPACE_STORE_NAME];
+            const transaction = database.transaction(storeNames, 'readwrite');
             const done = transactionDone(transaction);
-            transaction.objectStore(STORE_NAME).put({
+            transaction.objectStore(LOCAL_WORKSPACE_STORE_NAME).put({
                 key: CURRENT_WORKSPACE_KEY,
                 snapshot,
             } satisfies StoredWorkspace);
-            await done;
+
+            if (options.queueSync) {
+                const syncRequest = transaction
+                    .objectStore(LOCAL_WORKSPACE_SYNC_STATE_STORE_NAME)
+                    .get(LOCAL_WORKSPACE_SYNC_STATE_KEY) as IDBRequest<
+                        LocalWorkspaceSyncState | undefined
+                    >;
+                syncRequest.onsuccess = () => {
+                    const syncState = syncRequest.result;
+                    if (!syncState) return;
+                    try {
+                        const operationId = createId();
+                        const operation: LocalWorkspaceOutboxOperation = {
+                            operationId,
+                            accountUserId: syncState.accountUserId,
+                            deviceId: snapshot.deviceId,
+                            baseRevision: syncState.remoteRevision,
+                            workspace: createAccountWorkspaceExportFromLocal(
+                                snapshot,
+                                snapshot.updatedAt,
+                            ),
+                            createdAt: snapshot.updatedAt,
+                            attemptCount: 0,
+                            nextAttemptAt: snapshot.updatedAt,
+                        };
+                        transaction.objectStore(LOCAL_WORKSPACE_OUTBOX_STORE_NAME).put(operation);
+                        queuedOperation = true;
+                    } catch (error) {
+                        queueError = error instanceof Error
+                            ? error
+                            : new Error('동기화 outbox를 만들지 못했습니다.');
+                        transaction.abort();
+                    }
+                };
+            }
+            try {
+                await done;
+            } catch (error) {
+                throw queueError ?? error;
+            }
         } finally {
             database.close();
+        }
+
+        if (queuedOperation && typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('cherrypicker:workspace-sync-needed'));
         }
     },
 };
@@ -378,7 +414,7 @@ async function mutateWorkspace<T>(
         const result = mutator(next, timestamp);
         next.updatedAt = timestamp;
         parseLocalWorkspaceSnapshot(next);
-        await storage.write(next);
+        await storage.write(next, { queueSync: true });
         return result;
     });
 }
@@ -564,6 +600,33 @@ export const createLocalWorkspaceClient = (
         return enqueueMutation(async () => {
             const current = await readOrCreateLocalWorkspace(storage);
             const imported = createLocalWorkspaceFromMergedAccountExport(current, value);
+            await storage.write(structuredClone(imported));
+            return structuredClone(imported);
+        });
+    },
+
+    async mergeSyncedAccountWorkspace(value: AccountWorkspaceExport) {
+        return enqueueMutation(async () => {
+            const current = await readOrCreateLocalWorkspace(storage);
+            const remote = parseAccountWorkspaceExport(value);
+            const local = createAccountWorkspaceExportFromLocal(
+                current,
+                current.updatedAt,
+            );
+            const plan = createAccountWorkspaceMergePlan(local, remote);
+            const resolution = resolveAccountWorkspaceMerge(
+                local,
+                remote,
+                createDefaultAccountWorkspaceMergeChoices(plan),
+                {
+                    sourceWorkspaceId: current.workspaceId,
+                    exportedAt: new Date(),
+                },
+            );
+            const imported = createLocalWorkspaceFromMergedAccountExport(
+                current,
+                resolution.workspace,
+            );
             await storage.write(structuredClone(imported));
             return structuredClone(imported);
         });
@@ -890,7 +953,10 @@ export const createLocalWorkspaceClient = (
 
     async importJson(value: string) {
         const parsed = parseLocalWorkspaceSnapshot(JSON.parse(value));
-        await enqueueMutation(() => storage.write(structuredClone(parsed)));
+        await enqueueMutation(() => storage.write(
+            structuredClone(parsed),
+            { queueSync: true },
+        ));
         return structuredClone(parsed);
     },
 });

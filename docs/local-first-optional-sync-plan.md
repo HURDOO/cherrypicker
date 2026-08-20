@@ -345,9 +345,9 @@ interface SyncMetadata {
 - [x] 빈 계정 upload, 같은 원본 기기 revision 갱신, 빈 로컬 download 흐름을 구현한다.
 - [x] 양쪽에 서로 다른 데이터가 있으면 어느 쪽도 덮어쓰지 않고 충돌 상태로 차단한다.
 - [x] 서로 다른 workspace의 항목별 병합 선택, tombstone 우선순위와 참조 cascade를 구현한다.
-- [ ] 멱등 push, incremental pull, outbox 재시도를 구현한다.
+- [x] 멱등 push, revision cursor 기반 incremental pull, IndexedDB outbox 재시도를 구현한다.
 - [x] 초기 snapshot의 stale revision, 다른 원본 workspace, tombstone 보존과 빈 기기 복원 시나리오를 테스트한다.
-- [ ] 레코드 단위 충돌, 참조 순서와 자동 다기기 동기화 시나리오를 테스트한다.
+- [x] 레코드 단위 충돌, 참조 순서와 자동 다기기 동기화 시나리오를 테스트한다.
 - [ ] 로그아웃·계정 삭제 시 로컬 데이터 선택을 구현한다.
 
 완료 조건: 로그인하지 않은 사용 경험은 변하지 않고, 로그인한 사용자는 두 기기에서 같은 개인 데이터를 안전하게 동기화할 수 있다.
@@ -414,11 +414,13 @@ interface SyncMetadata {
 
 ## 14. 다음 세션의 권장 첫 작업
 
-비로그인 경로와 명시적 snapshot 병합은 동작하므로 다음 안전 작업은 수동 병합 계약을 재사용하는 증분 동기화다.
+비로그인 경로, 명시적 snapshot 병합과 선택 계정의 자동 증분 동기화까지 동작한다. 다음 안전 작업은 실제 기기 성능과 계정 수명주기 선택을 닫는 것이다.
 
-1. operation ID를 가진 incremental push/pull과 IndexedDB outbox 재시도를 구현한다.
-2. stale revision과 여러 기기 tombstone 왕복을 포함한 자동 동기화 시나리오를 테스트한다.
-3. 실제 휴대폰에서 카탈로그 다운로드·추천 계산·IndexedDB 복원 시간을 측정한다.
+1. 실제 휴대폰에서 카탈로그 다운로드·추천 계산·IndexedDB 복원 시간을 측정한다.
+2. 로그아웃·계정 삭제 시 로컬 데이터를 유지할지 함께 지울지 선택하는 흐름을 구현한다.
+3. 카드별 월 실적 목표와 다음 달 전환 시점을 반영한 실적 우선 추천을 구현한다.
+
+자동 동기화는 IndexedDB schema v2의 `sync-state`와 `sync-outbox`를 사용한다. 로컬 변경은 device ID, base revision과 UUID operation ID를 가진 outbox snapshot으로 원자 저장된다. 서버는 `account_workspace_operations`에서 계정별 operation ID와 요청 hash를 기록해 재전송을 한 번만 반영하며, stale base revision은 기존 레코드 metadata의 `updatedAt`과 tombstone 우선순위로 병합한다. pull은 revision cursor 이후 변경이 있을 때만 최신 검증 snapshot을 반환한다. 실패한 outbox는 5초부터 최대 1시간까지 backoff하고, 온라인 복귀·화면 재진입·30초 주기·수동 실행에서 다시 시도한다.
 
 일회성 account import는 첫 안전 경로로 snapshot 방식을 사용한다. 서버는 공용 카탈로그를 제외한 계정 개인 데이터만 owner 없는 transport로 내리고, 브라우저가 기존 로컬 workspace ID와 기기 ID를 유지한 채 소유권을 다시 연결한다. 로컬 workspace에 변경이나 tombstone이 하나라도 있으면 import를 중단하므로 반복 실행으로 레코드가 중복되거나 기존 기기 데이터가 사라지지 않는다.
 
@@ -429,6 +431,9 @@ interface SyncMetadata {
 - `src/proxy.ts`: 공개 일반 페이지와 보호된 관리자·디자인 경로 분리
 - `src/hooks/useAppData.ts`: guest workspace 또는 기존 계정 데이터 초기 로딩
 - `src/lib/local-workspace.ts`: IndexedDB 개인 workspace와 로컬 CRUD·export/import
+- `src/lib/local-workspace-sync.ts`: IndexedDB outbox, backoff와 자동 push/pull 조정
+- `src/lib/account-workspace-sync-server.ts`: operation 멱등성, stale revision 병합과 cursor pull
+- `src/app/api/account/sync/route.ts`: 인증된 계정 증분 동기화 endpoint
 - `src/lib/api-client.ts`: 로그인한 기존 계정용 서버 CRUD와 추천 API 클라이언트
 - `src/lib/recommendation-server.ts`: 서버 추천 입력 조립
 - `src/utils/calculation.ts`: 카드 추천 계산
