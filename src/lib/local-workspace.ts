@@ -39,6 +39,7 @@ import {
     requestResult,
     transactionDone,
 } from '@/lib/local-workspace-database';
+import { getCurrentMonthInKst } from '@/lib/monthly-performance';
 
 const CURRENT_WORKSPACE_KEY = 'current';
 
@@ -848,12 +849,28 @@ export const createLocalWorkspaceClient = (
         }, storage);
     },
 
-    updatePerformance(cardId: string, amount: number, performanceMonth: string) {
+    updatePerformance(
+        cardId: string,
+        amount: number,
+        performanceMonth: string,
+        targetAmount?: number | null,
+    ) {
         return mutateWorkspace((workspace, timestamp) => {
-            const performance: UserCardPerformance = { cardId, amount, performanceMonth };
             const existingIndex = workspace.performances.findIndex(item => (
                 item.cardId === cardId && item.performanceMonth === performanceMonth
             ));
+            const existing = existingIndex >= 0
+                ? workspace.performances[existingIndex]
+                : undefined;
+            const nextTarget = targetAmount === undefined
+                ? existing?.targetAmount
+                : targetAmount ?? undefined;
+            const performance: UserCardPerformance = {
+                cardId,
+                amount,
+                performanceMonth,
+                ...(nextTarget !== undefined && { targetAmount: nextTarget }),
+            };
             if (existingIndex >= 0) workspace.performances[existingIndex] = performance;
             else workspace.performances.push(performance);
             touchMetadata(
@@ -877,6 +894,10 @@ export const createLocalWorkspaceClient = (
         return mutateWorkspace((workspace, timestamp) => {
             const id = createId();
             const cardStep = input.combination.steps.find(step => step.cardId);
+            const performanceContributionAmount = input.combination.fundingType === 'CARD' &&
+                input.combination.cardId
+                ? Math.max(0, Math.floor(cardStep?.amountBefore ?? input.combination.payableAmount))
+                : 0;
             const transaction: TransactionHistory = {
                 id,
                 date: timestamp,
@@ -900,6 +921,7 @@ export const createLocalWorkspaceClient = (
                 estimatedValue: input.combination.estimatedValue,
                 payableAmount: input.combination.payableAmount,
                 laterReward: input.combination.laterReward,
+                ...(performanceContributionAmount > 0 && { performanceContributionAmount }),
                 combinationSnapshot: {
                     ...structuredClone(input.combination),
                     catalogVersion: input.catalogVersion,
@@ -907,6 +929,31 @@ export const createLocalWorkspaceClient = (
             };
             workspace.history.unshift(transaction);
             touchMetadata(workspace, metadataKey('history', id), timestamp, id);
+            if (transaction.cardId && performanceContributionAmount > 0) {
+                const performanceMonth = getCurrentMonthInKst(new Date(timestamp));
+                const performanceIndex = workspace.performances.findIndex(item => (
+                    item.cardId === transaction.cardId &&
+                    item.performanceMonth === performanceMonth
+                ));
+                const currentPerformance = performanceIndex >= 0
+                    ? workspace.performances[performanceIndex]
+                    : undefined;
+                const performance: UserCardPerformance = {
+                    cardId: transaction.cardId,
+                    performanceMonth,
+                    amount: (currentPerformance?.amount ?? 0) + performanceContributionAmount,
+                    ...(currentPerformance?.targetAmount !== undefined && {
+                        targetAmount: currentPerformance.targetAmount,
+                    }),
+                };
+                if (performanceIndex >= 0) workspace.performances[performanceIndex] = performance;
+                else workspace.performances.push(performance);
+                touchMetadata(
+                    workspace,
+                    metadataKey('performances', `${transaction.cardId}:${performanceMonth}`),
+                    timestamp,
+                );
+            }
             return structuredClone(transaction);
         }, storage);
     },

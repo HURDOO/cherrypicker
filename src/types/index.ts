@@ -83,7 +83,8 @@ export interface BenefitRule {
 export interface UserCardPerformance {
     cardId: CardId;
     performanceMonth: string; // YYYY-MM, based on Korea Standard Time
-    amount: number; // Previous month performance
+    amount: number; // Accumulated performance for the month
+    targetAmount?: number; // Optional goal used to prepare the following month's benefits
 }
 
 export interface TransactionHistory {
@@ -103,6 +104,7 @@ export interface TransactionHistory {
     estimatedValue?: number;
     payableAmount?: number;
     laterReward?: number;
+    performanceContributionAmount?: number;
     combinationSnapshot?: Record<string, unknown>;
 }
 
@@ -293,6 +295,21 @@ export interface RecommendationRequest {
     eligibleItemAmount?: number;
     isOnline: boolean;
     confirmedConditionIds?: string[];
+    priority?: RecommendationPriority;
+}
+
+export type RecommendationPriority = 'BENEFIT' | 'PERFORMANCE';
+
+export interface PerformancePriorityProgress {
+    performanceMonth: string;
+    benefitMonth: string;
+    currentAmount: number;
+    targetAmount: number;
+    contributionAmount: number;
+    projectedAmount: number;
+    remainingBefore: number;
+    remainingAfter: number;
+    targetReached: boolean;
 }
 
 export interface CombinationStep {
@@ -326,6 +343,7 @@ export interface BenefitCombination {
     immediateDiscount: number;
     laterReward: number;
     payableAmount: number;
+    performanceProgress?: PerformancePriorityProgress;
     warnings: string[];
     requiredChecks: string[];
 }

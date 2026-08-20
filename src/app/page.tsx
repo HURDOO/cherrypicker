@@ -16,6 +16,7 @@ import {
     Sparkles,
     Store,
     Tag,
+    Target,
     Wallet,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -34,12 +35,14 @@ import type {
     BenefitCombination,
     BenefitLayer,
     CombinationStep,
+    RecommendationPriority,
     RecommendationRequest,
     RecommendationResponse,
 } from '@/types';
 import {
     formatPerformanceMonthLabel,
     getCurrentMonthInKst,
+    getNextMonthInKst,
     getPreviousMonthInKst,
 } from '@/lib/monthly-performance';
 import {
@@ -213,6 +216,14 @@ function CombinationSummary({
                     <p className="mt-1 text-[10px] font-bold text-gray-500">
                         실결제 {formatWon(combination.payableAmount)}
                     </p>
+                    {combination.performanceProgress && (
+                        <p className="mt-1 text-[10px] font-black text-violet-700">
+                            실적 +{formatWon(combination.performanceProgress.contributionAmount)} ·{' '}
+                            {combination.performanceProgress.targetReached
+                                ? '목표 달성 예상'
+                                : `${formatWon(combination.performanceProgress.remainingAfter)} 남음`}
+                        </p>
+                    )}
                 </div>
                 <div className="shrink-0 text-right">
                     <p className="text-lg font-black text-blue-600">
@@ -246,6 +257,7 @@ export default function HomePage() {
         selectedBrandId,
         setSelectedBrandId,
         addTransaction,
+        updatePerformance,
     } = useAppStore();
     const addToast = useToastStore(state => state.addToast);
     const {
@@ -265,6 +277,8 @@ export default function HomePage() {
     const [recommendation, setRecommendation] = useState<RecommendationResponse | null>(null);
     const [isRecommending, setIsRecommending] = useState(false);
     const [selectedCombinationId, setSelectedCombinationId] = useState<string>();
+    const [recommendationPriority, setRecommendationPriority] =
+        useState<RecommendationPriority>('BENEFIT');
     const [confirmedConditionIds, setConfirmedConditionIds] = useState<Set<string>>(new Set());
     const [isItemBenefitOpen, setIsItemBenefitOpen] = useState(false);
     const [recordConfirmationId, setRecordConfirmationId] = useState<string>();
@@ -288,6 +302,7 @@ export default function HomePage() {
         return {
             performanceMonth: getPreviousMonthInKst(referenceDate),
             benefitMonth: getCurrentMonthInKst(referenceDate),
+            nextBenefitMonth: getNextMonthInKst(referenceDate),
         };
     });
 
@@ -326,6 +341,17 @@ export default function HomePage() {
         ),
         [performances, performancePeriod.performanceMonth]
     );
+    const performanceGoals = useMemo(
+        () => performances.filter(performance => (
+            performance.performanceMonth === performancePeriod.benefitMonth &&
+            performance.targetAmount !== undefined &&
+            performance.targetAmount > performance.amount
+        )),
+        [performances, performancePeriod.benefitMonth]
+    );
+    const effectiveRecommendationPriority: RecommendationPriority = performanceGoals.length > 0
+        ? recommendationPriority
+        : 'BENEFIT';
     const missingPerformanceCards = useMemo(() => {
         const activeCardIds = new Set([
             ...performances.map(performance => performance.cardId),
@@ -374,6 +400,7 @@ export default function HomePage() {
                     ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
                     isOnline: isOnlinePurchase,
                     confirmedConditionIds: [...confirmedConditionIds],
+                    priority: effectiveRecommendationPriority,
                 } satisfies RecommendationRequest;
                 if (!catalog && storageMode === 'guest') {
                     throw new Error('최신 혜택 정보를 받은 뒤 기기에서 계산할 수 있습니다.');
@@ -387,6 +414,8 @@ export default function HomePage() {
                             rules,
                             history,
                             performances: currentPerformances,
+                            performanceGoals,
+                            performanceBenefitMonth: performancePeriod.nextBenefitMonth,
                             promotions: catalog.promotions,
                             providers: catalog.providers,
                             profile: benefitProfile,
@@ -410,7 +439,11 @@ export default function HomePage() {
                 setRecommendation(result);
                 setSelectedCombinationId(result.combinations[0]?.id);
 
-                if (catalog && process.env.NODE_ENV === 'development') {
+                if (
+                    catalog &&
+                    effectiveRecommendationPriority === 'BENEFIT' &&
+                    process.env.NODE_ENV === 'development'
+                ) {
                     void apiClient.getRecommendation(request)
                         .then(serverResult => {
                             if (JSON.stringify(serverResult) !== JSON.stringify(result)) {
@@ -441,10 +474,13 @@ export default function HomePage() {
         currentBrand,
         currentPerformances,
         eligibleItemAmount,
+        effectiveRecommendationPriority,
         history,
         isCatalogLoading,
         isOnlinePurchase,
         promotionUsage,
+        performanceGoals,
+        performancePeriod.nextBenefitMonth,
         rules,
         storageMode,
     ]);
@@ -522,8 +558,32 @@ export default function HomePage() {
                     combinationId: selectedCombination.id,
                 });
             addTransaction(transaction);
+            if (
+                storageMode === 'guest' &&
+                transaction.cardId &&
+                transaction.performanceContributionAmount
+            ) {
+                const currentPerformance = performances.find(item => (
+                    item.cardId === transaction.cardId &&
+                    item.performanceMonth === performancePeriod.benefitMonth
+                ));
+                updatePerformance({
+                    cardId: transaction.cardId,
+                    performanceMonth: performancePeriod.benefitMonth,
+                    amount: (currentPerformance?.amount ?? 0) +
+                        transaction.performanceContributionAmount,
+                    ...(currentPerformance?.targetAmount !== undefined && {
+                        targetAmount: currentPerformance.targetAmount,
+                    }),
+                });
+            }
             recordBrandVisit(currentBrand.id);
-            addToast('선택한 혜택 조합으로 기록했습니다.', 'success');
+            addToast(
+                transaction.performanceContributionAmount
+                    ? `결제를 기록하고 실적에 ${formatWon(transaction.performanceContributionAmount)} 반영했습니다.`
+                    : '선택한 혜택 조합으로 기록했습니다.',
+                'success'
+            );
         } catch (error) {
             addToast(getErrorMessage(error, '결제 기록을 저장하지 못했습니다.'), 'error');
         } finally {
@@ -678,6 +738,48 @@ export default function HomePage() {
                             </div>
                         </section>
 
+                        {performanceGoals.length > 0 && (
+                            <section className="rounded-3xl border border-violet-100 bg-violet-50 p-4">
+                                <div className="flex items-center gap-2">
+                                    <Target className="h-4 w-4 text-violet-600" />
+                                    <div>
+                                        <p className="text-xs font-black text-violet-950">추천 기준</p>
+                                        <p className="mt-0.5 text-[10px] font-bold text-violet-700/70">
+                                            진행 중인 실적 목표 {performanceGoals.length}개
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="mt-3 grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        aria-pressed={effectiveRecommendationPriority === 'BENEFIT'}
+                                        onClick={() => setRecommendationPriority('BENEFIT')}
+                                        className={clsx(
+                                            'rounded-xl px-3 py-2.5 text-[11px] font-black',
+                                            effectiveRecommendationPriority === 'BENEFIT'
+                                                ? 'bg-gray-950 text-white'
+                                                : 'bg-white text-gray-500'
+                                        )}
+                                    >
+                                        이번 결제 혜택 우선
+                                    </button>
+                                    <button
+                                        type="button"
+                                        aria-pressed={effectiveRecommendationPriority === 'PERFORMANCE'}
+                                        onClick={() => setRecommendationPriority('PERFORMANCE')}
+                                        className={clsx(
+                                            'rounded-xl px-3 py-2.5 text-[11px] font-black',
+                                            effectiveRecommendationPriority === 'PERFORMANCE'
+                                                ? 'bg-violet-600 text-white'
+                                                : 'bg-white text-gray-500'
+                                        )}
+                                    >
+                                        다음 달 실적 우선
+                                    </button>
+                                </div>
+                            </section>
+                        )}
+
                         {recommendation?.itemSpecificOffers.length ? (
                             <section className="rounded-3xl border border-amber-200 bg-amber-50 p-4">
                                 <button
@@ -829,6 +931,44 @@ export default function HomePage() {
                                         </p>
                                     )}
                                 </section>
+
+                                {selectedCombination.performanceProgress && (
+                                    <section
+                                        data-testid="performance-priority-progress"
+                                        className="rounded-3xl border border-violet-200 bg-violet-50 p-5"
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <div className="rounded-xl bg-violet-600 p-2 text-white">
+                                                <Target className="h-4 w-4" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs font-black text-violet-950">
+                                                    {formatPerformanceMonthLabel(
+                                                        selectedCombination.performanceProgress.performanceMonth
+                                                    )} 실적 +{formatWon(
+                                                        selectedCombination.performanceProgress.contributionAmount
+                                                    )}
+                                                </p>
+                                                <p className="mt-1 text-[10px] font-bold leading-relaxed text-violet-800/75">
+                                                    현재 {formatWon(
+                                                        selectedCombination.performanceProgress.currentAmount
+                                                    )} → 결제 후 약 {formatWon(
+                                                        selectedCombination.performanceProgress.projectedAmount
+                                                    )}
+                                                </p>
+                                                <p className="mt-2 text-[11px] font-black text-violet-700">
+                                                    {selectedCombination.performanceProgress.targetReached
+                                                        ? `${formatPerformanceMonthLabel(
+                                                            selectedCombination.performanceProgress.benefitMonth
+                                                        )} 혜택 목표를 달성할 수 있어요.`
+                                                        : `목표까지 ${formatWon(
+                                                            selectedCombination.performanceProgress.remainingAfter
+                                                        )} 남아요.`}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </section>
+                                )}
 
                                 <section>
                                     <div className="mb-3 flex items-center gap-2 px-1">

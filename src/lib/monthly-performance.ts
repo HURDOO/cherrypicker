@@ -22,6 +22,11 @@ export function getPreviousMonthInKst(referenceDate: Date = new Date()): string 
     return getMonthInKst(referenceDate, -1);
 }
 
+/** Returns the next calendar month in Korea Standard Time as YYYY-MM. */
+export function getNextMonthInKst(referenceDate: Date = new Date()): string {
+    return getMonthInKst(referenceDate, 1);
+}
+
 /** Returns the first instant of the current KST calendar year. */
 export function getStartOfCurrentYearInKst(referenceDate: Date = new Date()): Date {
     const kstDate = new Date(referenceDate.getTime() + KST_OFFSET_MILLISECONDS);

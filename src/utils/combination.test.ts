@@ -185,6 +185,59 @@ describe('calculateBestCombinations', () => {
         ]);
     });
 
+    it('can prioritize a card that completes the next-month performance goal', () => {
+        const highBenefitCard: Card = {
+            ...card,
+            id: 'card-2',
+            name: '고할인 카드',
+        };
+        const highBenefitRule: BenefitRule = {
+            ...cardRule,
+            id: 'rule-2',
+            cardId: highBenefitCard.id,
+            action: { type: 'PERCENT', value: 20 },
+        };
+        const sharedInput = {
+            cards: [card, highBenefitCard],
+            rules: [cardRule, highBenefitRule],
+            profile: { ...profile, enabledPayProviderIds: [] },
+            performanceGoals: [{
+                cardId: card.id,
+                performanceMonth: '2026-07',
+                amount: 290_000,
+                targetAmount: 300_000,
+            }],
+            performanceBenefitMonth: '2026-08',
+        };
+
+        const benefitFirst = calculateBestCombinations(input([], {
+            ...sharedInput,
+            priority: 'BENEFIT',
+        }));
+        const performanceFirst = calculateBestCombinations(input([], {
+            ...sharedInput,
+            priority: 'PERFORMANCE',
+        }));
+
+        expect(benefitFirst.combinations[0]).toMatchObject({
+            cardId: highBenefitCard.id,
+            confirmedValue: 4_000,
+        });
+        expect(performanceFirst.combinations[0]).toMatchObject({
+            cardId: card.id,
+            performanceProgress: {
+                currentAmount: 290_000,
+                targetAmount: 300_000,
+                contributionAmount: 20_000,
+                projectedAmount: 310_000,
+                remainingBefore: 10_000,
+                remainingAfter: 0,
+                targetReached: true,
+            },
+        });
+        expect(benefitFirst.combinations[0].performanceProgress).toBeUndefined();
+    });
+
     it('keeps an unverified pay-routed card benefit out of the confirmed total', () => {
         const result = calculateBestCombinations(input([
             offer('npay', {

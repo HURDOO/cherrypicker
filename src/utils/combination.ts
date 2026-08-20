@@ -22,6 +22,7 @@ import { normalizeSubscriptionProductName } from './subscriptionProducts';
 type WorkingCombination = {
     remainingAmount: number;
     cardChargeBase?: number;
+    cardChargeAmount?: number;
     steps: CombinationStep[];
     appliedPromotionIds: Set<string>;
     exclusiveGroups: Set<string>;
@@ -44,6 +45,8 @@ export type CombinationEngineInput = RecommendationRequest & {
     promotions: PromotionOffer[];
     providers: PromotionProvider[];
     profile: UserBenefitProfile;
+    performanceGoals?: UserCardPerformance[];
+    performanceBenefitMonth?: string;
     routeVerifications?: MerchantRouteVerification[];
     promotionUsage?: Record<string, {
         dailyCount: number;
@@ -546,30 +549,68 @@ const combinationId = (
         steps: state.steps.map(step => step.id),
     }));
 
+const getPerformanceProgress = (
+    input: CombinationEngineInput,
+    state: WorkingCombination,
+    card?: Card,
+) => {
+    if (input.priority !== 'PERFORMANCE' || !card || !input.performanceBenefitMonth) {
+        return undefined;
+    }
+    const performance = input.performanceGoals?.find(item => (
+        item.cardId === card.id &&
+        item.targetAmount !== undefined &&
+        item.targetAmount > item.amount
+    ));
+    const contributionAmount = Math.max(0, Math.floor(state.cardChargeAmount ?? 0));
+    if (!performance?.targetAmount || contributionAmount <= 0) return undefined;
+
+    const remainingBefore = performance.targetAmount - performance.amount;
+    const projectedAmount = performance.amount + contributionAmount;
+    const remainingAfter = Math.max(0, performance.targetAmount - projectedAmount);
+
+    return {
+        performanceMonth: performance.performanceMonth,
+        benefitMonth: input.performanceBenefitMonth,
+        currentAmount: performance.amount,
+        targetAmount: performance.targetAmount,
+        contributionAmount,
+        projectedAmount,
+        remainingBefore,
+        remainingAfter,
+        targetReached: remainingAfter === 0,
+    };
+};
+
 const toCombination = (
     state: WorkingCombination,
     providerById: Map<string, PromotionProvider>,
     payProviderId: string | undefined,
     fundingType: FundingType,
-    card?: Card,
-): BenefitCombination => ({
-    id: combinationId(state, payProviderId, fundingType, card?.id),
-    ...(payProviderId && { payProviderId }),
-    ...(payProviderId && {
-        payProviderName: providerById.get(payProviderId)?.name ?? payProviderId,
-    }),
-    fundingType,
-    ...(card && { cardId: card.id, cardName: card.name }),
-    steps: state.steps,
-    confirmedValue: state.confirmedValue,
-    conditionalValue: state.conditionalValue,
-    estimatedValue: state.estimatedValue,
-    immediateDiscount: state.immediateDiscount,
-    laterReward: state.laterReward,
-    payableAmount: Math.max(0, state.remainingAmount),
-    warnings: uniqueStrings(state.warnings),
-    requiredChecks: uniqueStrings(state.requiredChecks),
-});
+    card: Card | undefined,
+    input: CombinationEngineInput,
+): BenefitCombination => {
+    const performanceProgress = getPerformanceProgress(input, state, card);
+    return {
+        id: combinationId(state, payProviderId, fundingType, card?.id),
+        ...(payProviderId && { payProviderId }),
+        ...(payProviderId && {
+            payProviderName: providerById.get(payProviderId)?.name ?? payProviderId,
+        }),
+        fundingType,
+        ...(card && { cardId: card.id, cardName: card.name }),
+        steps: state.steps,
+        confirmedValue: state.confirmedValue,
+        conditionalValue: state.conditionalValue,
+        estimatedValue: state.estimatedValue,
+        immediateDiscount: state.immediateDiscount,
+        laterReward: state.laterReward,
+        payableAmount: Math.max(0, state.remainingAmount),
+        ...(performanceProgress && { performanceProgress }),
+        warnings: uniqueStrings(state.warnings),
+        requiredChecks: uniqueStrings(state.requiredChecks),
+    };
+};
 
 const compareCombinations = (a: BenefitCombination, b: BenefitCombination) => {
     if (b.confirmedValue !== a.confirmedValue) return b.confirmedValue - a.confirmedValue;
@@ -583,6 +624,24 @@ const compareCombinations = (a: BenefitCombination, b: BenefitCombination) => {
     const bPotential = b.conditionalValue + b.estimatedValue;
     const aPotential = a.conditionalValue + a.estimatedValue;
     return bPotential - aPotential || compareText(a.id, b.id);
+};
+
+const comparePerformanceCombinations = (a: BenefitCombination, b: BenefitCombination) => {
+    const aProgress = a.performanceProgress;
+    const bProgress = b.performanceProgress;
+    if (Boolean(aProgress) !== Boolean(bProgress)) return bProgress ? 1 : -1;
+    if (aProgress && bProgress) {
+        if (aProgress.targetReached !== bProgress.targetReached) {
+            return bProgress.targetReached ? 1 : -1;
+        }
+        const aApplied = Math.min(aProgress.contributionAmount, aProgress.remainingBefore);
+        const bApplied = Math.min(bProgress.contributionAmount, bProgress.remainingBefore);
+        if (aApplied !== bApplied) return bApplied - aApplied;
+        if (aProgress.remainingAfter !== bProgress.remainingAfter) {
+            return aProgress.remainingAfter - bProgress.remainingAfter;
+        }
+    }
+    return compareCombinations(a, b);
 };
 
 export function calculateBestCombinations(
@@ -617,6 +676,9 @@ export function calculateBestCombinations(
     };
     const now = input.now ?? new Date();
     const providerById = new Map(input.providers.map(provider => [provider.id, provider]));
+    const compareResults = input.priority === 'PERFORMANCE'
+        ? comparePerformanceCombinations
+        : compareCombinations;
     const confirmedConditionIds = new Set(input.confirmedConditionIds ?? []);
     const currentOffers = input.promotions.filter(offer =>
         isPublishedAndCurrent(offer, now) &&
@@ -710,7 +772,7 @@ export function calculateBestCombinations(
     const retainBestResults = () => {
         const before = results.length;
         results = [...new Map(results.map(item => [item.id, item])).values()]
-            .sort(compareCombinations)
+            .sort(compareResults)
             .slice(0, resultBufferLimit);
         metrics.prunedCombinationCount += before - results.length;
     };
@@ -783,8 +845,9 @@ export function calculateBestCombinations(
                 if (fundingType === 'CARD') {
                     input.cards.forEach(card => {
                         let next = cloneWorking(state);
+                        const cardCharge = next.cardChargeBase ?? next.remainingAmount;
+                        next.cardChargeAmount = cardCharge;
                         if (!next.blocksCardBenefit) {
-                            const cardCharge = next.cardChargeBase ?? next.remainingAmount;
                             const evaluatedCard = calculateBestCards(
                                 cardCharge,
                                 input.brand,
@@ -818,6 +881,7 @@ export function calculateBestCombinations(
                                 payProviderId,
                                 fundingType,
                                 card,
+                                input,
                             ));
                         });
                     });
@@ -840,6 +904,8 @@ export function calculateBestCombinations(
                         providerById,
                         payProviderId,
                         fundingType,
+                        undefined,
+                        input,
                     ));
                 });
             });
@@ -847,7 +913,7 @@ export function calculateBestCombinations(
     });
 
     const deduplicated = [...new Map(results.map(item => [item.id, item])).values()]
-        .sort(compareCombinations)
+        .sort(compareResults)
         .slice(0, 30)
         .map(combination => metrics.searchSpaceLimited
             ? {

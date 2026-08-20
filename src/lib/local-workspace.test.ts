@@ -462,6 +462,50 @@ describe('local workspace', () => {
         expect(transaction.combinationSnapshot).toMatchObject({ catalogVersion: 'catalog-v1' });
     });
 
+    it('adds a recorded card charge to the current performance goal atomically', async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-08-20T03:00:00.000Z'));
+        try {
+            const memory = createMemoryStorage();
+            const client = createLocalWorkspaceClient(memory.storage);
+            const card = await client.createCard({
+                name: '실적 카드',
+                company: '테스트 카드사',
+                color: 'bg-violet-500',
+                limitTable: [{ threshold: 300000, limit: 10000 }],
+            });
+            await client.updatePerformance(card.id, 250000, '2026-08', 300000);
+
+            const transaction = await client.createTransaction({
+                brandId: 'brand-1',
+                amount: 10000,
+                combination: {
+                    ...combination,
+                    cardId: card.id,
+                    steps: combination.steps.map(step => ({
+                        ...step,
+                        cardId: card.id,
+                        amountBefore: 10000,
+                    })),
+                },
+                catalogVersion: 'catalog-v1',
+            });
+            const workspace = await client.read();
+
+            expect(transaction.performanceContributionAmount).toBe(10000);
+            expect(workspace.performances).toContainEqual({
+                cardId: card.id,
+                performanceMonth: '2026-08',
+                amount: 260000,
+                targetAmount: 300000,
+            });
+            expect(workspace.recordMetadata[`performances:${card.id}:2026-08`].updatedAt)
+                .toBe('2026-08-20T03:00:00.000Z');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('cascades local category deletion and keeps sync tombstones', async () => {
         const memory = createMemoryStorage();
         const client = createLocalWorkspaceClient(memory.storage);

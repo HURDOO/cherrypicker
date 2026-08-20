@@ -18,8 +18,10 @@ import { useAuth } from '@/hooks/useAuth';
 import {
     formatPerformanceMonthLabel,
     getCurrentMonthInKst,
+    getNextMonthInKst,
     getPreviousMonthInKst,
 } from '@/lib/monthly-performance';
+import { PerformanceGoalSettings } from '@/components/performance/PerformanceGoalSettings';
 import { BenefitProfileSettings } from '@/components/settings/BenefitProfileSettings';
 import { BrandDiscoverySettings } from '@/components/settings/BrandDiscoverySettings';
 import { AccountWorkspaceSync } from '@/components/settings/AccountWorkspaceSync';
@@ -56,18 +58,28 @@ export default function SettingsPage() {
         return {
             performanceMonth: getPreviousMonthInKst(referenceDate),
             benefitMonth: getCurrentMonthInKst(referenceDate),
+            nextBenefitMonth: getNextMonthInKst(referenceDate),
         };
     });
     const performanceRequestVersions = useRef<Record<string, number>>({});
     const importInputRef = useRef<HTMLInputElement>(null);
     const performanceMonthLabel = formatPerformanceMonthLabel(performancePeriod.performanceMonth);
     const benefitMonthLabel = formatPerformanceMonthLabel(performancePeriod.benefitMonth);
+    const nextBenefitMonthLabel = formatPerformanceMonthLabel(
+        performancePeriod.nextBenefitMonth
+    );
 
     const currentPerformances = useMemo(
         () => performances.filter(
             performance => performance.performanceMonth === performancePeriod.performanceMonth
         ),
         [performances, performancePeriod.performanceMonth]
+    );
+    const goalPerformances = useMemo(
+        () => performances.filter(
+            performance => performance.performanceMonth === performancePeriod.benefitMonth
+        ),
+        [performances, performancePeriod.benefitMonth]
     );
 
     const performanceCards = useMemo(
@@ -194,6 +206,31 @@ export default function SettingsPage() {
             if (performanceRequestVersions.current[cardId] === requestVersion) {
                 setSavingPerformanceCards(current => ({ ...current, [cardId]: false }));
             }
+        }
+    };
+
+    const handleUpdatePerformanceGoal = async (
+        cardId: string,
+        amount: number,
+        targetAmount: number | null,
+    ) => {
+        try {
+            const performance = await localWorkspaceClient.updatePerformance(
+                cardId,
+                amount,
+                performancePeriod.benefitMonth,
+                targetAmount,
+            );
+            updatePerformance(performance);
+            addToast(
+                targetAmount === null
+                    ? `${benefitMonthLabel} 실적 목표를 해제했습니다.`
+                    : `${benefitMonthLabel} 실적 목표를 저장했습니다.`,
+                'success',
+            );
+        } catch (error) {
+            addToast(getErrorMessage(error, '실적 목표를 저장하지 못했습니다.'), 'error');
+            throw error;
         }
     };
 
@@ -395,6 +432,15 @@ export default function SettingsPage() {
                         )}
                     </div>
                 </section>
+
+                <PerformanceGoalSettings
+                    cards={performanceCards}
+                    rules={rules}
+                    performances={goalPerformances}
+                    performanceMonthLabel={benefitMonthLabel}
+                    benefitMonthLabel={nextBenefitMonthLabel}
+                    onSave={handleUpdatePerformanceGoal}
+                />
 
                 {/* 2. Data Management (Added Master Data Button) */}
                 <section>

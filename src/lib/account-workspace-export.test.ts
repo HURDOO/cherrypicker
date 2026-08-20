@@ -36,7 +36,12 @@ const createExport = () => createAccountWorkspaceExport({
         action: { type: 'FLAT', value: 1000 },
         limitConfig: {},
     }],
-    performances: [{ cardId: 'card-1', performanceMonth: '2026-07', amount: 300000 }],
+    performances: [{
+        cardId: 'card-1',
+        performanceMonth: '2026-07',
+        amount: 300000,
+        targetAmount: 500000,
+    }],
     history: [{
         id: 42,
         date: '2026-08-17T09:00:00.000Z',
@@ -45,6 +50,7 @@ const createExport = () => createAccountWorkspaceExport({
         ruleId: 'rule-1',
         amount: 10000,
         discountAmount: 1000,
+        performanceContributionAmount: 10000,
     }],
     benefitProfile: {
         telecomMemberships: [{ providerId: 'telecom-1', tier: 'VIP' }],
@@ -75,6 +81,8 @@ describe('account workspace export', () => {
         expect(workspace.recordMetadata['history:42'].createdAt)
             .toBe('2026-08-17T09:00:00.000Z');
         expect(workspace.sourceWorkspaceId).toBe('account-1');
+        expect(workspace.performances[0].targetAmount).toBe(500000);
+        expect(workspace.history[0].performanceContributionAmount).toBe(10000);
     });
 
     it('summarizes preview counts and validates the transport contract', () => {
@@ -148,5 +156,9 @@ describe('account workspace export', () => {
             ...workspace,
             sourceWorkspaceId: '',
         })).toThrow('원본 ID');
+        expect(() => parseAccountWorkspaceExport({
+            ...workspace,
+            performances: [{ ...workspace.performances[0], targetAmount: 0 }],
+        })).toThrow('카드 실적 목표');
     });
 });

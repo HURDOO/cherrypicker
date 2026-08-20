@@ -357,6 +357,9 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
 const parsePerformance = (value: unknown): UserCardPerformance => {
     const row = objectValue(value, '카드 실적');
     const performanceMonth = requiredText(row.performanceMonth, '카드 실적 월', 7);
+    const targetAmount = row.targetAmount === undefined
+        ? undefined
+        : safeInteger(row.targetAmount, '카드 실적 목표', 1, MAX_MONEY_AMOUNT);
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(performanceMonth)) {
         throw new Error('카드 실적 월 형식이 올바르지 않습니다.');
     }
@@ -364,6 +367,7 @@ const parsePerformance = (value: unknown): UserCardPerformance => {
         cardId: requiredText(row.cardId, '카드 실적 카드 ID', 200),
         performanceMonth,
         amount: safeInteger(row.amount, '카드 실적 금액', 0, MAX_MONEY_AMOUNT),
+        ...(targetAmount !== undefined && { targetAmount }),
     };
 };
 
@@ -418,6 +422,14 @@ const parseHistory = (value: unknown): TransactionHistory => {
         }),
         ...(row.laterReward !== undefined && {
             laterReward: safeInteger(row.laterReward, '사후 혜택', 0, MAX_MONEY_AMOUNT),
+        }),
+        ...(row.performanceContributionAmount !== undefined && {
+            performanceContributionAmount: safeInteger(
+                row.performanceContributionAmount,
+                '실적 반영 예상액',
+                0,
+                MAX_MONEY_AMOUNT,
+            ),
         }),
         ...(combinationSnapshot && { combinationSnapshot: structuredClone(combinationSnapshot) }),
     };
