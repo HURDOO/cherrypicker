@@ -86,6 +86,20 @@ const formatAction = (rule: BenefitRule) => {
     return `${rule.action.value.toLocaleString()}원 정가`;
 };
 
+const ruleConditionLabels = (rule: BenefitRule) => [
+    ...(rule.condition.requiredCardNetwork
+        ? [`${rule.condition.requiredCardNetwork} 전용`]
+        : []),
+    ...(rule.condition.performanceWaiver === 'NEW_CARD_REGISTRATION_WINDOW'
+        ? ['신규회원 실적 면제 확인']
+        : []),
+    ...(rule.condition.confirmationRequired ? ['사용자 조건 확인'] : []),
+    ...((rule.condition.stackableWithRuleIds?.length ?? 0) > 0
+        ? [`중복 적용 ${rule.condition.stackableWithRuleIds!.length}개`]
+        : []),
+    ...(rule.action.amountBasis === 'REMAINING_AMOUNT' ? ['잔액 기준 계산'] : []),
+];
+
 const EvidenceList = ({ evidence }: { evidence: CardBenefitEvidence[] }) => (
     <div className="space-y-2">
         {evidence.map(item => (
@@ -279,7 +293,7 @@ export function CardBenefitAdminClient() {
                                     {candidate.extraction.card.name}
                                 </h2>
                                 <p className="mt-1 text-[10px] font-bold text-gray-400">
-                                    추출 신뢰도 {Math.round(candidate.confidence * 100)}% · 규칙 {candidate.extraction.rules.length}개 · hash {candidate.contentHash.slice(0, 10)}
+                                    schema v{candidate.extraction.schemaVersion} · {candidate.extraction.card.network ?? '브랜드 미지정'} · 추출 신뢰도 {Math.round(candidate.confidence * 100)}% · 규칙 {candidate.extraction.rules.length}개 · 근거 {candidate.extraction.evidence.length}개 · hash {candidate.contentHash.slice(0, 10)}
                                 </p>
                             </div>
                             <a
@@ -325,6 +339,18 @@ export function CardBenefitAdminClient() {
                                                 <span className="shrink-0 text-[10px] font-black text-blue-600">{formatAction(rule)}</span>
                                             </div>
                                             <p className="mt-1 text-[9px] font-bold text-gray-400">{rule.detail}</p>
+                                            {ruleConditionLabels(rule).length > 0 && (
+                                                <div className="mt-2 flex flex-wrap gap-1">
+                                                    {ruleConditionLabels(rule).map(label => (
+                                                        <span
+                                                            key={label}
+                                                            className="rounded-full bg-blue-50 px-2 py-0.5 text-[8px] font-black text-blue-700"
+                                                        >
+                                                            {label}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

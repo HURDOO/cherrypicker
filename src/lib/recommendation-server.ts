@@ -117,7 +117,7 @@ export function calculateRecommendationForUser(
         monthlyAmount: number;
     }> = {};
     transactionBenefitRows.forEach(row => {
-        if (!row.promotionId) return;
+        if (!row.promotionId || row.certainty !== 'CONFIRMED') return;
         const transactionDate = transactionDateById.get(row.transactionId);
         if (!transactionDate) return;
         const date = kstParts(transactionDate);

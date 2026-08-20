@@ -1,5 +1,6 @@
 import { HttpError } from './api-server';
 import type {
+    CardNetwork,
     LimitConfig,
     LimitTableItem,
     PlatformType,
@@ -141,6 +142,16 @@ export function platformValue(input: Input): PlatformType {
     return value as PlatformType;
 }
 
+export function cardNetworkValue(input: Input): CardNetwork | undefined {
+    const value = input.network;
+    if (value === undefined || value === null || value === '') return undefined;
+    if (!['DOMESTIC', 'MASTERCARD', 'VISA', 'AMEX', 'UNIONPAY', 'OTHER']
+        .includes(String(value))) {
+        invalid('카드 브랜드 값이 올바르지 않습니다.');
+    }
+    return value as CardNetwork;
+}
+
 export function limitTableValue(input: Input): LimitTableItem[] {
     const value = input.limitTable;
     if (!Array.isArray(value) || value.length > 50) {
@@ -168,19 +179,79 @@ export function ruleConditionValue(input: Input): RuleCondition {
         '최소 실적',
         MAX_MONEY_AMOUNT
     );
+    const dateValue = (raw: unknown, label: string) => {
+        if (raw === undefined || raw === null || raw === '') return undefined;
+        if (typeof raw !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+            invalid(`${label} 값이 올바르지 않습니다.`);
+        }
+        const parsed = new Date(`${raw}T00:00:00Z`);
+        if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== raw) {
+            invalid(`${label} 값이 올바르지 않습니다.`);
+        }
+        return raw;
+    };
+    const startsAt = dateValue(value.startsAt, '혜택 시작일');
+    const endsAt = dateValue(value.endsAt, '혜택 종료일');
+    if (startsAt && endsAt && startsAt > endsAt) {
+        invalid('혜택 시작일은 종료일보다 늦을 수 없습니다.');
+    }
     const manualCheckRequired = value.manualCheckRequired;
+    const confirmationRequired = value.confirmationRequired;
     const requiredNote = value.requiredNote;
+    const requiredCardNetwork = value.requiredCardNetwork;
+    const performanceWaiver = value.performanceWaiver;
+    const stackableWithRuleIds = value.stackableWithRuleIds;
+    const applicationOrder = optionalNonNegativeInteger(
+        value.applicationOrder,
+        '혜택 적용 순서',
+        1_000,
+    );
 
     if (manualCheckRequired !== undefined && typeof manualCheckRequired !== 'boolean') {
         invalid('수동 확인 조건 값이 올바르지 않습니다.');
     }
+    if (confirmationRequired !== undefined && typeof confirmationRequired !== 'boolean') {
+        invalid('사용자 확인 조건 값이 올바르지 않습니다.');
+    }
     if (requiredNote !== undefined && typeof requiredNote !== 'string') {
         invalid('확인 메모 형식이 올바르지 않습니다.');
+    }
+    if (requiredCardNetwork !== undefined && ![
+        'DOMESTIC',
+        'MASTERCARD',
+        'VISA',
+        'AMEX',
+        'UNIONPAY',
+        'OTHER',
+    ].includes(String(requiredCardNetwork))) {
+        invalid('필수 카드 브랜드 값이 올바르지 않습니다.');
+    }
+    if (performanceWaiver !== undefined && performanceWaiver !== 'NEW_CARD_REGISTRATION_WINDOW') {
+        invalid('실적 면제 조건 값이 올바르지 않습니다.');
+    }
+    if (stackableWithRuleIds !== undefined && (
+        !Array.isArray(stackableWithRuleIds) ||
+        stackableWithRuleIds.some(item => typeof item !== 'string' || !item.trim())
+    )) {
+        invalid('중복 적용 혜택 목록이 올바르지 않습니다.');
     }
 
     return {
         ...(minSpend !== undefined && { minSpend }),
         ...(minPerformance !== undefined && { minPerformance }),
+        ...(startsAt && { startsAt }),
+        ...(endsAt && { endsAt }),
+        ...(requiredCardNetwork !== undefined && {
+            requiredCardNetwork: requiredCardNetwork as RuleCondition['requiredCardNetwork'],
+        }),
+        ...(performanceWaiver !== undefined && {
+            performanceWaiver: performanceWaiver as RuleCondition['performanceWaiver'],
+        }),
+        ...(confirmationRequired !== undefined && { confirmationRequired }),
+        ...(stackableWithRuleIds !== undefined && {
+            stackableWithRuleIds: [...new Set(stackableWithRuleIds as string[])],
+        }),
+        ...(applicationOrder !== undefined && { applicationOrder }),
         ...(manualCheckRequired !== undefined && { manualCheckRequired }),
         ...(requiredNote && { requiredNote: requiredNote.slice(0, 500) }),
     };
@@ -214,10 +285,18 @@ export function ruleActionValue(input: Input): RuleAction {
         '건별 최대 할인',
         MAX_MONEY_AMOUNT
     );
+    const amountBasis = value.amountBasis;
+    if (amountBasis !== undefined && !['ORIGINAL_AMOUNT', 'REMAINING_AMOUNT']
+        .includes(String(amountBasis))) {
+        invalid('혜택 계산 기준 값이 올바르지 않습니다.');
+    }
     return {
         type: type as RuleAction['type'],
         value: amount,
         ...(maxDiscount !== undefined && { maxDiscount }),
+        ...(amountBasis !== undefined && {
+            amountBasis: amountBasis as RuleAction['amountBasis'],
+        }),
     };
 }
 

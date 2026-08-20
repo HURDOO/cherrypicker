@@ -23,7 +23,8 @@ export default function CardDetailModal({ isOpen, onClose, initialCard }: CardDe
         name: '',
         company: '',
         color: 'bg-gradient-to-br from-gray-700 to-gray-900',
-        limitTable: []
+        limitTable: [],
+        network: 'DOMESTIC',
     });
 
     // Sync state with initialCard when modal opens
@@ -36,7 +37,8 @@ export default function CardDetailModal({ isOpen, onClose, initialCard }: CardDe
                     name: '',
                     company: '',
                     color: 'bg-gradient-to-br from-gray-700 to-gray-900',
-                    limitTable: []
+                    limitTable: [],
+                    network: 'DOMESTIC',
                 });
             }
         }
@@ -57,7 +59,8 @@ export default function CardDetailModal({ isOpen, onClose, initialCard }: CardDe
                 name: cardData.name,
                 company: cardData.company || '',
                 color: cardData.color || 'bg-gradient-to-br from-gray-700 to-gray-900',
-                limitTable: cardData.limitTable || []
+                limitTable: cardData.limitTable || [],
+                network: cardData.network,
             };
 
             if (initialCard) {
@@ -130,6 +133,27 @@ export default function CardDetailModal({ isOpen, onClose, initialCard }: CardDe
                                         onChange={e => setCardData({ ...cardData, company: e.target.value })}
                                         placeholder="예: 신한카드"
                                     />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 mb-1 block">카드 브랜드</label>
+                                    <select
+                                        className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                                        value={cardData.network || 'DOMESTIC'}
+                                        onChange={e => setCardData({
+                                            ...cardData,
+                                            network: e.target.value as Card['network'],
+                                        })}
+                                    >
+                                        <option value="DOMESTIC">국내전용</option>
+                                        <option value="MASTERCARD">Mastercard</option>
+                                        <option value="VISA">Visa</option>
+                                        <option value="AMEX">American Express</option>
+                                        <option value="UNIONPAY">UnionPay</option>
+                                        <option value="OTHER">기타</option>
+                                    </select>
+                                    <p className="mt-1 text-[10px] leading-relaxed text-gray-400">
+                                        해외 혜택의 국제 브랜드 조건을 판정할 때 사용합니다.
+                                    </p>
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 mb-1 block">색상 테마 (Tailwind Class)</label>

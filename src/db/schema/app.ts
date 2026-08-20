@@ -10,6 +10,7 @@ import {
 import type {
     BenefitCertainty,
     BenefitLayer,
+    CardNetwork,
     FundingType,
     LimitTableItem,
     LimitConfig,
@@ -69,6 +70,7 @@ export const cards = sqliteTable('cards', {
     limitTable: text('limit_table', { mode: 'json' })
         .$type<LimitTableItem[]>()
         .notNull(),
+    network: text('network').$type<CardNetwork>(),
 }, (table) => [
     index('cards_user_id_idx').on(table.userId),
 ]);

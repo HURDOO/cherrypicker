@@ -44,6 +44,11 @@ export async function POST(request: Request) {
         const amount = requiredInteger(input, 'amount', '결제 금액', 1, 1_000_000_000_000);
         const isOnline = booleanValue(input, 'isOnline', false);
         const combinationId = optionalString(input, 'combinationId', '추천 조합 ID', 100);
+        const confirmedConditionIds = Array.isArray(input.confirmedConditionIds)
+            ? input.confirmedConditionIds.filter(
+                (value): value is string => typeof value === 'string'
+            )
+            : [];
 
         if (combinationId) {
             const eligibleItemAmount = optionalInteger(
@@ -53,11 +58,6 @@ export async function POST(request: Request) {
                 0,
                 amount,
             );
-            const confirmedConditionIds = Array.isArray(input.confirmedConditionIds)
-                ? input.confirmedConditionIds.filter(
-                    (value): value is string => typeof value === 'string'
-                )
-                : [];
             const recommendation = calculateRecommendationForUser(user.id, {
                 brandId,
                 amount,
@@ -76,7 +76,8 @@ export async function POST(request: Request) {
             }
 
             assertCanCreateTransaction(user.id);
-            const cardStep = selected.steps.find(step => step.cardId);
+            const cardSteps = selected.steps.filter(step => step.cardId);
+            const cardStep = cardSteps[0];
             const createdAt = new Date();
             const row = db.transaction(tx => {
                 const inserted = tx.insert(transactionHistory)
@@ -86,9 +87,9 @@ export async function POST(request: Request) {
                         cardId: selected.cardId ?? null,
                         ruleId: cardStep?.ruleId ?? null,
                         amount,
-                        discountAmount: cardStep?.certainty === 'CONFIRMED'
-                            ? cardStep.benefitAmount
-                            : 0,
+                        discountAmount: cardSteps
+                            .filter(step => step.certainty === 'CONFIRMED')
+                            .reduce((total, step) => total + step.benefitAmount, 0),
                         eligibleItemAmount: eligibleItemAmount ?? null,
                         payProviderId: selected.payProviderId ?? null,
                         fundingType: selected.fundingType,
@@ -170,31 +171,73 @@ export async function POST(request: Request) {
             ruleRows.map(toRule),
             historyRows.map(toTransaction),
             performanceRows.map(toPerformance),
-            isOnline
+            isOnline,
+            { confirmedConditionIds },
         ).find(card => card.id === cardId);
 
         if (!calculatedCard) {
             throw new HttpError(404, '카드를 찾을 수 없습니다.');
         }
 
-        const discountAmount = calculatedCard.calculatedDiscount;
-        const ruleId = discountAmount > 0 ? calculatedCard.matchedRule?.id : undefined;
-
-        const row = db.insert(transactionHistory)
-            .values({
-                userId: user.id,
-                brandId,
+        const confirmedBenefits = calculatedCard.matchedBenefits
+            .filter(benefit => benefit.certainty === 'CONFIRMED');
+        const discountAmount = confirmedBenefits
+            .reduce((total, benefit) => total + benefit.discount, 0);
+        const conditionalValue = calculatedCard.matchedBenefits
+            .filter(benefit => benefit.certainty === 'CONDITIONAL')
+            .reduce((total, benefit) => total + benefit.discount, 0);
+        let remainingAmount = amount;
+        const benefitSteps = calculatedCard.matchedBenefits.map(benefit => {
+            const amountBefore = remainingAmount;
+            remainingAmount = Math.max(0, remainingAmount - benefit.discount);
+            return {
+                id: `card:${cardId}:${benefit.rule.id}`,
+                layer: 'PAYMENT_METHOD' as const,
+                providerName: card.company,
+                title: benefit.rule.description,
+                certainty: benefit.certainty,
+                amountBefore,
+                benefitAmount: benefit.discount,
+                amountAfter: remainingAmount,
+                isImmediate: true,
                 cardId,
-                ruleId: ruleId ?? null,
-                amount,
-                discountAmount,
-                payableAmount: Math.max(0, amount - discountAmount),
-                confirmedValue: discountAmount,
-                combinationSnapshot: {},
-                createdAt: new Date(),
-            })
-            .returning()
-            .get();
+                ruleId: benefit.rule.id,
+                ...(benefit.confirmationId && { confirmationId: benefit.confirmationId }),
+            };
+        });
+        const createdAt = new Date();
+        const row = db.transaction(tx => {
+            const inserted = tx.insert(transactionHistory)
+                .values({
+                    userId: user.id,
+                    brandId,
+                    cardId,
+                    ruleId: confirmedBenefits[0]?.rule.id ?? null,
+                    amount,
+                    discountAmount,
+                    payableAmount: Math.max(0, amount - discountAmount),
+                    confirmedValue: discountAmount,
+                    conditionalValue,
+                    combinationSnapshot: { steps: benefitSteps },
+                    createdAt,
+                })
+                .returning()
+                .get();
+            if (benefitSteps.length > 0) {
+                tx.insert(transactionBenefits).values(benefitSteps.map(step => ({
+                    transactionId: inserted.id,
+                    promotionId: null,
+                    ruleId: step.ruleId,
+                    layer: step.layer,
+                    title: step.title,
+                    certainty: step.certainty,
+                    benefitAmount: step.benefitAmount,
+                    isImmediate: step.isImmediate,
+                    snapshot: step,
+                }))).run();
+            }
+            return inserted;
+        });
 
         return Response.json(toTransaction(row), { status: 201 });
     } catch (error) {

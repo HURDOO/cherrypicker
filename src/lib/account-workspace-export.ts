@@ -2,6 +2,7 @@ import type {
     BenefitRule,
     Brand,
     Card,
+    CardNetwork,
     Category,
     FundingType,
     PlatformType,
@@ -90,6 +91,14 @@ const FUNDING_TYPES: FundingType[] = [
     'GIFT_CERTIFICATE',
 ];
 const PLATFORM_TYPES: PlatformType[] = ['ALL', 'ONLINE', 'OFFLINE', 'OFFICIAL_SITE'];
+const CARD_NETWORKS: CardNetwork[] = [
+    'DOMESTIC',
+    'MASTERCARD',
+    'VISA',
+    'AMEX',
+    'UNIONPAY',
+    'OTHER',
+];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -255,6 +264,10 @@ const parseCard = (value: unknown): WithoutOwner<Card> => {
     if (!Array.isArray(row.limitTable) || row.limitTable.length > 50) {
         throw new Error('계정 workspace의 카드 실적 구간이 올바르지 않습니다.');
     }
+    const network = optionalText(row.network, '카드 브랜드', 30);
+    if (network && !CARD_NETWORKS.includes(network as CardNetwork)) {
+        throw new Error('계정 workspace의 카드 브랜드가 올바르지 않습니다.');
+    }
     return {
         id: requiredText(row.id, '카드 ID', 200),
         name: requiredText(row.name, '카드 이름', 200),
@@ -267,6 +280,7 @@ const parseCard = (value: unknown): WithoutOwner<Card> => {
                 limit: safeInteger(tier.limit, '카드 혜택 한도', 0, MAX_MONEY_AMOUNT),
             };
         }),
+        ...(network && { network: network as CardNetwork }),
     };
 };
 
@@ -302,7 +316,46 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
     ) {
         throw new Error('혜택 수동 확인 조건이 올바르지 않습니다.');
     }
+    if (
+        condition.confirmationRequired !== undefined &&
+        typeof condition.confirmationRequired !== 'boolean'
+    ) {
+        throw new Error('혜택 사용자 확인 조건이 올바르지 않습니다.');
+    }
     const requiredNote = optionalText(condition.requiredNote, '혜택 확인 메모', 500);
+    const startsAt = optionalText(condition.startsAt, '혜택 시작일', 10);
+    const endsAt = optionalText(condition.endsAt, '혜택 종료일', 10);
+    [startsAt, endsAt].forEach(date => {
+        if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            throw new Error('혜택 적용 기간이 올바르지 않습니다.');
+        }
+    });
+    const requiredCardNetwork = optionalText(
+        condition.requiredCardNetwork,
+        '혜택 필수 카드 브랜드',
+        30,
+    );
+    if (requiredCardNetwork && !CARD_NETWORKS.includes(requiredCardNetwork as CardNetwork)) {
+        throw new Error('혜택 필수 카드 브랜드가 올바르지 않습니다.');
+    }
+    const performanceWaiver = optionalText(
+        condition.performanceWaiver,
+        '혜택 실적 면제 조건',
+        50,
+    );
+    if (performanceWaiver && performanceWaiver !== 'NEW_CARD_REGISTRATION_WINDOW') {
+        throw new Error('혜택 실적 면제 조건이 올바르지 않습니다.');
+    }
+    const stackableWithRuleIds = condition.stackableWithRuleIds === undefined
+        ? undefined
+        : stringList(condition.stackableWithRuleIds, '중복 적용 혜택 ID', 100);
+    const applicationOrder = condition.applicationOrder === undefined
+        ? undefined
+        : safeInteger(condition.applicationOrder, '혜택 적용 순서', 0, 1_000);
+    const amountBasis = optionalText(action.amountBasis, '혜택 계산 기준', 30);
+    if (amountBasis && !['ORIGINAL_AMOUNT', 'REMAINING_AMOUNT'].includes(amountBasis)) {
+        throw new Error('혜택 계산 기준이 올바르지 않습니다.');
+    }
     const minSpend = condition.minSpend === undefined
         ? undefined
         : safeInteger(condition.minSpend, '최소 결제 금액', 0, MAX_MONEY_AMOUNT);
@@ -339,6 +392,19 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
         condition: {
             ...(minSpend !== undefined && { minSpend }),
             ...(minPerformance !== undefined && { minPerformance }),
+            ...(startsAt && { startsAt }),
+            ...(endsAt && { endsAt }),
+            ...(requiredCardNetwork && {
+                requiredCardNetwork: requiredCardNetwork as CardNetwork,
+            }),
+            ...(performanceWaiver && {
+                performanceWaiver: performanceWaiver as 'NEW_CARD_REGISTRATION_WINDOW',
+            }),
+            ...(condition.confirmationRequired !== undefined && {
+                confirmationRequired: condition.confirmationRequired,
+            }),
+            ...(stackableWithRuleIds && { stackableWithRuleIds }),
+            ...(applicationOrder !== undefined && { applicationOrder }),
             ...(condition.manualCheckRequired !== undefined && {
                 manualCheckRequired: condition.manualCheckRequired,
             }),
@@ -348,6 +414,9 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
             type: action.type as BenefitRule['action']['type'],
             value: action.value,
             ...(maxDiscount !== undefined && { maxDiscount }),
+            ...(amountBasis && {
+                amountBasis: amountBasis as 'ORIGINAL_AMOUNT' | 'REMAINING_AMOUNT',
+            }),
         },
         limitConfig: {
             ...(dailyCount !== undefined && { dailyCount }),

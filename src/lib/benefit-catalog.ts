@@ -61,6 +61,7 @@ const toCatalogCard = (card: Card): CatalogCard => ({
     company: card.company,
     color: card.color,
     limitTable: clone(card.limitTable),
+    ...(card.network && { network: card.network }),
 });
 
 const toCatalogRule = (rule: BenefitRule): CatalogBenefitRule => ({

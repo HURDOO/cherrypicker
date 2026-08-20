@@ -180,6 +180,7 @@ export const INITIAL_CARDS = [
         name: '신한 SOL트래블 체크카드',
         company: '신한카드',
         color: 'bg-blue-400',
+        network: 'MASTERCARD',
         limit_table: [],
     },
     {

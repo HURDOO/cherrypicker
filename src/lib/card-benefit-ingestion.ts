@@ -15,6 +15,7 @@ import type {
     CardBenefitRevisionSnapshot,
 } from '@/types';
 import {
+    CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION,
     createCardBenefitExtractionProvider,
     extractShinhanSolTravelWithRules,
     type CardBenefitExtractionInput,
@@ -202,7 +203,7 @@ export async function collectShinhanSolTravelBenefits(options: {
         .where(and(
             eq(cardBenefitCandidates.documentId, document.id),
             eq(cardBenefitCandidates.extractor, extractionResult.extractor),
-            eq(cardBenefitCandidates.schemaVersion, 1),
+            eq(cardBenefitCandidates.schemaVersion, CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION),
         ))
         .get();
     if (existingCandidate) {
@@ -226,7 +227,7 @@ export async function collectShinhanSolTravelBenefits(options: {
             id: randomUUID(),
             documentId: document.id,
             cardId: card.id,
-            schemaVersion: 1,
+            schemaVersion: CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION,
             extractor: extractionResult.extractor,
             model: extractionResult.model ?? null,
             confidence: extractionResult.confidence,
@@ -260,6 +261,7 @@ const applySnapshot = (
             name: snapshot.card.name,
             company: snapshot.card.company,
             limitTable: snapshot.card.limitTable,
+            network: snapshot.card.network ?? null,
         })
         .where(eq(cards.id, snapshot.card.id))
         .run();
@@ -360,6 +362,7 @@ export function reviewCardBenefitCandidate(
             name: validation.extraction.card.name,
             company: validation.extraction.card.company,
             limitTable: validation.extraction.card.limitTable,
+            network: validation.extraction.card.network,
         },
         rules: validation.extraction.rules.map(ruleRow => ({
             ...ruleRow,

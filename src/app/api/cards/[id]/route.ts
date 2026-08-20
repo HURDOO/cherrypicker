@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { cards } from '@/db/schema';
 import { handleRouteError, HttpError, readJsonObject, requireUser } from '@/lib/api-server';
-import { limitTableValue, requiredString } from '@/lib/api-validation';
+import { cardNetworkValue, limitTableValue, requiredString } from '@/lib/api-validation';
 import { assertOwnedCard } from '@/lib/data-access';
 import { toCard } from '@/lib/db-mappers';
 
@@ -26,6 +26,7 @@ export async function PATCH(request: Request, context: RouteContext) {
                 company: requiredString(input, 'company', '카드사'),
                 color: requiredString(input, 'color', '카드 색상', 300),
                 limitTable: limitTableValue(input),
+                network: cardNetworkValue(input) ?? null,
             })
             .where(and(eq(cards.id, id), eq(cards.userId, user.id)))
             .returning()
@@ -37,4 +38,3 @@ export async function PATCH(request: Request, context: RouteContext) {
         return handleRouteError(error);
     }
 }
-

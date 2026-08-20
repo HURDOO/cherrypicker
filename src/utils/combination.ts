@@ -508,7 +508,7 @@ const getRouteCertainty = (
     };
 };
 
-const addCardStep = (
+const addCardSteps = (
     state: WorkingCombination,
     card: CalculatedCard,
     route: ReturnType<typeof getRouteCertainty>,
@@ -519,25 +519,38 @@ const addCardStep = (
         return next;
     }
 
-    const benefitAmount = Math.min(next.remainingAmount, card.calculatedDiscount);
-    addValue(next, route.certainty, benefitAmount);
-    next.immediateDiscount += benefitAmount;
-    const amountBefore = next.remainingAmount;
-    next.remainingAmount = Math.max(0, next.remainingAmount - benefitAmount);
     if (route.warning) next.warnings.push(route.warning);
-    next.steps.push({
-        id: `card:${card.id}:${card.matchedRule?.id ?? 'none'}`,
-        layer: 'PAYMENT_METHOD',
-        providerName: card.company,
-        title: card.matchedRule?.description ?? `${card.name} 카드 혜택`,
-        certainty: route.certainty,
-        amountBefore,
-        benefitAmount,
-        amountAfter: next.remainingAmount,
-        isImmediate: true,
-        cardId: card.id,
-        ...(card.matchedRule?.id && { ruleId: card.matchedRule.id }),
-        ...(route.warning && { warning: route.warning }),
+    card.matchedBenefits.forEach((benefit, index) => {
+        const benefitAmount = Math.min(next.remainingAmount, benefit.discount);
+        if (benefitAmount <= 0) return;
+        const certainty = benefit.certainty === 'CONDITIONAL'
+            ? 'CONDITIONAL'
+            : route.certainty;
+        addValue(next, certainty, benefitAmount);
+        next.immediateDiscount += benefitAmount;
+        const amountBefore = next.remainingAmount;
+        next.remainingAmount = Math.max(0, next.remainingAmount - benefitAmount);
+        const confirmationLabel = benefit.requiredChecks.join(' · ');
+        if (certainty === 'CONDITIONAL') {
+            next.requiredChecks.push(...benefit.requiredChecks);
+        }
+        next.steps.push({
+            id: `card:${card.id}:${benefit.rule.id}`,
+            layer: 'PAYMENT_METHOD',
+            providerName: card.company,
+            title: benefit.rule.description,
+            certainty,
+            amountBefore,
+            benefitAmount,
+            amountAfter: next.remainingAmount,
+            isImmediate: true,
+            cardId: card.id,
+            ruleId: benefit.rule.id,
+            ...(benefit.confirmationId && { confirmationId: benefit.confirmationId }),
+            ...((confirmationLabel || (index === 0 && route.warning)) && {
+                warning: confirmationLabel || route.warning,
+            }),
+        });
     });
     return next;
 };
@@ -894,10 +907,11 @@ export function calculateBestCombinations(
                                 input.history,
                                 input.performances,
                                 input.isOnline,
+                                { confirmedConditionIds },
                             )[0];
                             if (evaluatedCard) {
                                 const route = getRouteCertainty(input, card, payProviderId);
-                                next = addCardStep(next, evaluatedCard, route);
+                                next = addCardSteps(next, evaluatedCard, route);
                             }
                         } else {
                             next.warnings.push('이 혜택은 등록 카드 혜택과 중복되지 않아요.');

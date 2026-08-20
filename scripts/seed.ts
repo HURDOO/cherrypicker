@@ -11,6 +11,7 @@ import {
 import type {
     LimitConfig,
     PlatformType,
+    CardNetwork,
     RuleAction,
     RuleCondition,
 } from '../src/types';
@@ -35,6 +36,7 @@ interface SeedCard {
     name: string;
     company: string;
     color: string;
+    network?: CardNetwork;
     limitTable: Array<{ threshold: number; limit: number }>;
 }
 
@@ -211,6 +213,7 @@ db.transaction((tx) => {
                 company: card.company,
                 color: card.color,
                 limitTable: card.limitTable,
+                network: card.network ?? null,
                 userId: null,
             })
             .onConflictDoUpdate({
@@ -220,6 +223,7 @@ db.transaction((tx) => {
                     company: card.company,
                     color: card.color,
                     limitTable: card.limitTable,
+                    network: card.network ?? null,
                     userId: null,
                 },
             })

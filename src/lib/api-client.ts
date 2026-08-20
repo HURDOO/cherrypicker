@@ -36,7 +36,7 @@ export interface AppData {
     benefitProfile: UserBenefitProfile;
 }
 
-type CardInput = Pick<Card, 'name' | 'company' | 'color' | 'limitTable'>;
+type CardInput = Pick<Card, 'name' | 'company' | 'color' | 'limitTable' | 'network'>;
 
 type RuleInput = {
     cardId: string;

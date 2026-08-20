@@ -80,7 +80,7 @@ export interface LocalWorkspaceStorage {
     ) => Promise<void>;
 }
 
-export type LocalCardInput = Pick<Card, 'name' | 'company' | 'color' | 'limitTable'>;
+export type LocalCardInput = Pick<Card, 'name' | 'company' | 'color' | 'limitTable' | 'network'>;
 export type LocalRuleInput = {
     cardId: string;
     category?: string | null;
@@ -791,6 +791,7 @@ export const createLocalWorkspaceClient = (
                 company: input.company.trim(),
                 color: input.color,
                 limitTable: structuredClone(input.limitTable),
+                ...(input.network && { network: input.network }),
             };
             workspace.cards.push(card);
             touchMetadata(workspace, metadataKey('cards', id), timestamp, id);
@@ -806,6 +807,7 @@ export const createLocalWorkspaceClient = (
                 company: input.company.trim(),
                 color: input.color,
                 limitTable: structuredClone(input.limitTable),
+                network: input.network,
             });
             touchMetadata(workspace, metadataKey('cards', id), timestamp, id);
             return structuredClone(card);
@@ -914,7 +916,8 @@ export const createLocalWorkspaceClient = (
     createTransaction(input: LocalCombinationTransactionInput) {
         return mutateWorkspace((workspace, timestamp) => {
             const id = createId();
-            const cardStep = input.combination.steps.find(step => step.cardId);
+            const cardSteps = input.combination.steps.filter(step => step.cardId);
+            const cardStep = cardSteps[0];
             const performanceContributionAmount = input.combination.fundingType === 'CARD' &&
                 input.combination.cardId
                 ? Math.max(0, Math.floor(cardStep?.amountBefore ?? input.combination.payableAmount))
@@ -926,9 +929,9 @@ export const createLocalWorkspaceClient = (
                 ...(input.combination.cardId && { cardId: input.combination.cardId }),
                 ...(cardStep?.ruleId && { ruleId: cardStep.ruleId }),
                 amount: input.amount,
-                discountAmount: cardStep?.certainty === 'CONFIRMED'
-                    ? cardStep.benefitAmount
-                    : 0,
+                discountAmount: cardSteps
+                    .filter(step => step.certainty === 'CONFIRMED')
+                    .reduce((total, step) => total + step.benefitAmount, 0),
                 ...(input.eligibleItemAmount !== undefined && {
                     eligibleItemAmount: input.eligibleItemAmount,
                 }),

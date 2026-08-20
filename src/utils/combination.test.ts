@@ -186,6 +186,81 @@ describe('calculateBestCombinations', () => {
         ]);
     });
 
+    it('keeps stacked card benefits as separate persisted combination steps', () => {
+        const instantRule: BenefitRule = {
+            ...cardRule,
+            id: 'instant-rule',
+            condition: {
+                stackableWithRuleIds: ['statement-rule'],
+                applicationOrder: 1,
+            },
+            action: { type: 'PERCENT', value: 5, maxDiscount: 2_000 },
+        };
+        const statementRule: BenefitRule = {
+            ...cardRule,
+            id: 'statement-rule',
+            condition: {
+                stackableWithRuleIds: ['instant-rule'],
+                applicationOrder: 2,
+            },
+            action: {
+                type: 'PERCENT',
+                value: 5,
+                amountBasis: 'REMAINING_AMOUNT',
+            },
+        };
+        const result = calculateBestCombinations(input([], {
+            rules: [instantRule, statementRule],
+            profile: { ...profile, enabledPayProviderIds: [] },
+        }));
+        const applied = result.combinations.find(combination => combination.cardId === card.id);
+
+        expect(applied).toMatchObject({
+            confirmedValue: 1_950,
+            payableAmount: 18_050,
+        });
+        expect(applied?.steps.map(step => ({
+            ruleId: step.ruleId,
+            benefitAmount: step.benefitAmount,
+        }))).toEqual([
+            { ruleId: 'instant-rule', benefitAmount: 1_000 },
+            { ruleId: 'statement-rule', benefitAmount: 950 },
+        ]);
+    });
+
+    it('moves a card rule from conditional to confirmed after its check is acknowledged', () => {
+        const conditionalRule: BenefitRule = {
+            ...cardRule,
+            condition: {
+                confirmationRequired: true,
+                requiredNote: '제외 거래가 아닌지 확인',
+            },
+        };
+        const pending = calculateBestCombinations(input([], {
+            rules: [conditionalRule],
+            profile: { ...profile, enabledPayProviderIds: [] },
+        })).combinations.find(combination => combination.cardId === card.id);
+        const confirmed = calculateBestCombinations(input([], {
+            rules: [conditionalRule],
+            profile: { ...profile, enabledPayProviderIds: [] },
+            confirmedConditionIds: ['card-rule:rule-1'],
+        })).combinations.find(combination => combination.cardId === card.id);
+
+        expect(pending).toMatchObject({
+            confirmedValue: 0,
+            conditionalValue: 1_000,
+            requiredChecks: ['제외 거래가 아닌지 확인'],
+        });
+        expect(pending?.steps[0]).toMatchObject({
+            certainty: 'CONDITIONAL',
+            confirmationId: 'card-rule:rule-1',
+        });
+        expect(confirmed).toMatchObject({
+            confirmedValue: 1_000,
+            conditionalValue: 0,
+        });
+    });
+
     it('can prioritize a card that completes the next-month performance goal', () => {
         const highBenefitCard: Card = {
             ...card,

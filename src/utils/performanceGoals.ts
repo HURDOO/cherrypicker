@@ -44,6 +44,7 @@ export function derivePerformanceGoals({
             [],
             [{ cardId: card.id, performanceMonth, amount: performanceAmount }],
             isOnline,
+            { allowPerformanceWaiver: false },
         )[0];
         const manualTarget = stored?.targetAmount;
         if (manualTarget !== undefined) {

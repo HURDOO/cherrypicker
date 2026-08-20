@@ -1,7 +1,7 @@
 import { db } from '@/db';
 import { cards } from '@/db/schema';
 import { handleRouteError, readJsonObject, requireUser } from '@/lib/api-server';
-import { limitTableValue, requiredString } from '@/lib/api-validation';
+import { cardNetworkValue, limitTableValue, requiredString } from '@/lib/api-validation';
 import { toCard } from '@/lib/db-mappers';
 import { assertCanCreateCard } from '@/lib/data-access';
 
@@ -20,6 +20,7 @@ export async function POST(request: Request) {
                 company: requiredString(input, 'company', '카드사'),
                 color: requiredString(input, 'color', '카드 색상', 300),
                 limitTable: limitTableValue(input),
+                network: cardNetworkValue(input) ?? null,
             })
             .returning()
             .get();

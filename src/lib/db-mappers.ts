@@ -52,6 +52,7 @@ export function toCard(row: typeof cards.$inferSelect): Card {
         company: row.company,
         color: row.color,
         limitTable: row.limitTable,
+        ...(row.network && { network: row.network }),
         ...(row.userId && { userId: row.userId }),
     };
 }

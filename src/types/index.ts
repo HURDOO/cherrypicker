@@ -4,6 +4,13 @@ export type CardId = string;
 export type RuleId = string;
 export type PromotionId = string;
 export type PromotionProviderId = string;
+export type CardNetwork =
+    | 'DOMESTIC'
+    | 'MASTERCARD'
+    | 'VISA'
+    | 'AMEX'
+    | 'UNIONPAY'
+    | 'OTHER';
 
 export interface Category {
     id: CategoryId;
@@ -33,6 +40,7 @@ export interface Card {
     company: string;
     color: string; // Tailwind class
     limitTable: LimitTableItem[]; // Ordered by threshold desc usually, or handled in logic
+    network?: CardNetwork;
 }
 
 export type PlatformType = 'ALL' | 'ONLINE' | 'OFFLINE' | 'OFFICIAL_SITE';
@@ -43,6 +51,11 @@ export interface RuleCondition {
     minPerformance?: number;
     startsAt?: string; // Inclusive YYYY-MM-DD validity boundary
     endsAt?: string; // Inclusive YYYY-MM-DD validity boundary
+    requiredCardNetwork?: CardNetwork;
+    performanceWaiver?: 'NEW_CARD_REGISTRATION_WINDOW';
+    confirmationRequired?: boolean;
+    stackableWithRuleIds?: RuleId[];
+    applicationOrder?: number;
     manualCheckRequired?: boolean;
     requiredNote?: string;
 }
@@ -51,6 +64,7 @@ export interface RuleAction {
     type: ActionType;
     value: number;       // % or Amount
     maxDiscount?: number; // Per transaction cap
+    amountBasis?: 'ORIGINAL_AMOUNT' | 'REMAINING_AMOUNT';
 }
 
 export interface LimitConfig {
@@ -94,9 +108,9 @@ export interface CardBenefitEvidence {
 }
 
 export interface CardBenefitExtraction {
-    schemaVersion: 1;
+    schemaVersion: 2;
     completeness: 'FULL';
-    card: Pick<Card, 'id' | 'name' | 'company' | 'limitTable'>;
+    card: Pick<Card, 'id' | 'name' | 'company' | 'limitTable' | 'network'>;
     rules: BenefitRule[];
     evidence: CardBenefitEvidence[];
     notes: string[];
@@ -145,6 +159,8 @@ export interface TransactionHistory {
 // Calculation Result
 export interface CalculatedCard extends Card {
     calculatedDiscount: number;
+    confirmedDiscount: number;
+    conditionalDiscount: number;
     monthlyMaxLimit: number;
     remainingLimit: number;
     usedDiscount: number;
@@ -163,6 +179,27 @@ export interface CalculatedCard extends Card {
             isYearlyLimitReached?: boolean;
             isMonthlyAmountLimitReached?: boolean;
         }
+    };
+    matchedBenefits: AppliedCardBenefit[];
+}
+
+export interface AppliedCardBenefit {
+    rule: BenefitRule;
+    discount: number;
+    certainty: Extract<BenefitCertainty, 'CONFIRMED' | 'CONDITIONAL'>;
+    confirmationId?: string;
+    requiredChecks: string[];
+    usage: {
+        dailyCount: number;
+        dailyAmount: number;
+        monthlyCount: number;
+        yearlyCount: number;
+        monthlyAmount: number;
+        isDailyLimitReached?: boolean;
+        isDailyAmountLimitReached?: boolean;
+        isMonthlyLimitReached?: boolean;
+        isYearlyLimitReached?: boolean;
+        isMonthlyAmountLimitReached?: boolean;
     };
 }
 
@@ -364,6 +401,7 @@ export interface CombinationStep {
     promotionId?: PromotionId;
     cardId?: CardId;
     ruleId?: RuleId;
+    confirmationId?: string;
 }
 
 export interface BenefitCombination {

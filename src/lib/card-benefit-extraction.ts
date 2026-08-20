@@ -1,6 +1,7 @@
 import type {
     BenefitRule,
     Card,
+    CardNetwork,
     CardBenefitEvidence,
     CardBenefitExtraction,
     LimitConfig,
@@ -9,7 +10,7 @@ import type {
     RuleCondition,
 } from '@/types';
 
-export const CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION = 1 as const;
+export const CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION = 2 as const;
 export const SHINHAN_SOL_REQUIRED_RULE_IDS = [
     'sol_foreign_currency_payment',
     'sol_overseas_fee',
@@ -69,6 +70,14 @@ const isIsoCalendarDate = (value: unknown): value is string => {
 
 const ruleActionTypes = ['PERCENT', 'FLAT', 'FIXED_PRICE'] as const;
 const platformTypes: PlatformType[] = ['ALL', 'ONLINE', 'OFFLINE', 'OFFICIAL_SITE'];
+const cardNetworks: CardNetwork[] = [
+    'DOMESTIC',
+    'MASTERCARD',
+    'VISA',
+    'AMEX',
+    'UNIONPAY',
+    'OTHER',
+];
 const conditionNumberFields: Array<keyof RuleCondition> = ['minSpend', 'minPerformance'];
 const conditionDateFields: Array<keyof RuleCondition> = ['startsAt', 'endsAt'];
 const limitNumberFields: Array<keyof LimitConfig> = [
@@ -92,6 +101,12 @@ const validateAction = (value: unknown, label: string, errors: string[]) => {
     }
     if (value.maxDiscount !== undefined && !isNonNegativeInteger(value.maxDiscount)) {
         errors.push(`${label} 건별 최대 혜택이 올바르지 않습니다.`);
+    }
+    if (value.amountBasis !== undefined && ![
+        'ORIGINAL_AMOUNT',
+        'REMAINING_AMOUNT',
+    ].includes(String(value.amountBasis))) {
+        errors.push(`${label} action.amountBasis가 올바르지 않습니다.`);
     }
 };
 
@@ -117,6 +132,26 @@ const validateCondition = (value: unknown, label: string, errors: string[]) => {
     }
     if (value.manualCheckRequired !== undefined && typeof value.manualCheckRequired !== 'boolean') {
         errors.push(`${label} manualCheckRequired 값이 올바르지 않습니다.`);
+    }
+    if (value.confirmationRequired !== undefined && typeof value.confirmationRequired !== 'boolean') {
+        errors.push(`${label} confirmationRequired 값이 올바르지 않습니다.`);
+    }
+    if (value.requiredCardNetwork !== undefined &&
+        !cardNetworks.includes(value.requiredCardNetwork as CardNetwork)) {
+        errors.push(`${label} requiredCardNetwork 값이 올바르지 않습니다.`);
+    }
+    if (value.performanceWaiver !== undefined &&
+        value.performanceWaiver !== 'NEW_CARD_REGISTRATION_WINDOW') {
+        errors.push(`${label} performanceWaiver 값이 올바르지 않습니다.`);
+    }
+    if (value.stackableWithRuleIds !== undefined && (
+        !Array.isArray(value.stackableWithRuleIds) ||
+        value.stackableWithRuleIds.some(item => typeof item !== 'string')
+    )) {
+        errors.push(`${label} stackableWithRuleIds 값이 올바르지 않습니다.`);
+    }
+    if (value.applicationOrder !== undefined && !isNonNegativeInteger(value.applicationOrder)) {
+        errors.push(`${label} applicationOrder 값이 올바르지 않습니다.`);
     }
     if (value.requiredNote !== undefined && typeof value.requiredNote !== 'string') {
         errors.push(`${label} requiredNote 값이 올바르지 않습니다.`);
@@ -178,11 +213,16 @@ export function validateCardBenefitExtraction(
                 thresholds.add(tier.threshold as number);
             });
         }
+        if (value.card.network !== undefined &&
+            !cardNetworks.includes(value.card.network as CardNetwork)) {
+            errors.push('카드 브랜드가 올바르지 않습니다.');
+        }
         if (input.card.id === 'shinhan_sol' && (
             value.card.name !== '신한카드 SOL트래블 체크' ||
             value.card.company !== '신한카드' ||
             !Array.isArray(value.card.limitTable) ||
-            value.card.limitTable.length !== 0
+            value.card.limitTable.length !== 0 ||
+            value.card.network !== 'MASTERCARD'
         )) {
             errors.push('신한 SOL트래블 공식 카드 기본 정보와 다릅니다.');
         }
@@ -249,6 +289,16 @@ export function validateCardBenefitExtraction(
         if (input.card.id === 'shinhan_sol') {
             validateShinhanSolRuleCoverage(value.rules, errors);
         }
+        value.rules.forEach((rule, index) => {
+            if (!isRecord(rule) || !isRecord(rule.condition)) return;
+            const stackableIds = rule.condition.stackableWithRuleIds;
+            if (!Array.isArray(stackableIds)) return;
+            stackableIds.forEach(ruleId => {
+                if (typeof ruleId === 'string' && !ruleIds.has(ruleId)) {
+                    errors.push(`규칙 ${index + 1}이 알 수 없는 중복 혜택 ${ruleId}를 참조합니다.`);
+                }
+            });
+        });
     }
 
     const evidencedFieldsByRule = new Map<string, Set<CardBenefitEvidence['fields'][number]>>();
@@ -350,6 +400,7 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
             description: '해외 현지통화 결제',
             detail: '외화결제계좌에서 현지 통화로 인출되는 결제 서비스',
             condition: {
+                requiredCardNetwork: 'MASTERCARD',
                 manualCheckRequired: true,
                 requiredNote: '지원 통화와 외화계좌 잔액 확인 필요',
             },
@@ -359,11 +410,28 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
         }),
         rule('sol_overseas_fee', cardId, {
             category: 'etc',
-            includedBrands: ['overseas_payment'],
+            includedBrands: [
+                'overseas_payment',
+                'overseas_transport',
+                'japan_convenience',
+                'vietnam_lottemart',
+                'vietnam_grab',
+                'usa_starbucks',
+            ],
             description: '해외 결제 수수료 면제',
             detail: 'Mastercard 선택 시 국제브랜드 1%와 해외서비스 0.2% 수수료 면제, 전월 실적·한도 없음',
-            condition: {},
-            action: { type: 'PERCENT', value: 1.2 },
+            condition: {
+                requiredCardNetwork: 'MASTERCARD',
+                stackableWithRuleIds: [
+                    'sol_overseas_transport',
+                    'sol_japan_convenience',
+                    'sol_vietnam_lottemart',
+                    'sol_vietnam_grab',
+                    'sol_usa_starbucks',
+                ],
+                applicationOrder: 1,
+            },
+            action: { type: 'PERCENT', value: 1.2, amountBasis: 'ORIGINAL_AMOUNT' },
             limitConfig: {},
             usesCardLimit: false,
         }),
@@ -373,6 +441,7 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
             description: '해외 ATM 수수료 면제',
             detail: 'ATM 인출 수수료 건당 3달러와 국제브랜드 수수료 1% 면제, ATM 운영사 수수료는 부과 가능',
             condition: {
+                requiredCardNetwork: 'MASTERCARD',
                 manualCheckRequired: true,
                 requiredNote: 'ATM 운영사 수수료와 해외 인출 한도 확인 필요',
             },
@@ -385,18 +454,31 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
             includedBrands: ['overseas_transport'],
             description: '해외 대중교통 1% 할인',
             detail: 'Mastercard 컨택리스 해외 버스·지하철·트램 대상, 택시 제외, 월 최대 3천원, 전월 실적 없음',
-            condition: {},
+            condition: {
+                requiredCardNetwork: 'MASTERCARD',
+                confirmationRequired: true,
+                requiredNote: '컨택리스 대중교통 결제이며 택시 이용이 아닌지 확인',
+                stackableWithRuleIds: ['sol_overseas_fee'],
+                applicationOrder: 2,
+            },
             action: { type: 'PERCENT', value: 1 },
             limitConfig: { monthlyAmount: 3_000 },
             usesCardLimit: false,
         }),
         rule('sol_domestic_convenience', cardId, {
             category: 'convenience',
-            includedBrands: ['cu', 'gs25', 'seveneleven', 'emart24'],
+            includedBrands: ['cu', 'cu_event', 'gs25', 'seveneleven', 'emart24'],
             description: '국내 편의점 5% 할인',
             detail: '전월 국내 30만원 이상, 오프라인 일 1회·월 3회·월 3천원, 온라인·입점 매장 제외',
-            condition: { minPerformance: 300_000 },
-            action: { type: 'PERCENT', value: 5 },
+            condition: {
+                minPerformance: 300_000,
+                performanceWaiver: 'NEW_CARD_REGISTRATION_WINDOW',
+                confirmationRequired: true,
+                requiredNote: '오프라인 독립 매장이며 입점 매장·온라인 거래가 아닌지 확인',
+                stackableWithRuleIds: ['sol_cu_event'],
+                applicationOrder: 2,
+            },
+            action: { type: 'PERCENT', value: 5, amountBasis: 'REMAINING_AMOUNT' },
             limitConfig: { dailyCount: 1, monthlyCount: 3, monthlyAmount: 3_000 },
             platformType: 'OFFLINE',
             usesCardLimit: false,
@@ -406,7 +488,12 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
             includedBrands: ['transport_public'],
             description: '국내 대중교통 1% 할인',
             detail: '전월 국내 30만원 이상, 후불교통 RF 거래, 고속버스 제외, 월 최대 3천원',
-            condition: { minPerformance: 300_000 },
+            condition: {
+                minPerformance: 300_000,
+                performanceWaiver: 'NEW_CARD_REGISTRATION_WINDOW',
+                confirmationRequired: true,
+                requiredNote: '후불교통 RF 거래이며 고속버스 이용이 아닌지 확인',
+            },
             action: { type: 'PERCENT', value: 1 },
             limitConfig: { monthlyAmount: 3_000 },
             usesCardLimit: false,
@@ -416,7 +503,12 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
             includedBrands: ['cu_event'],
             description: 'CU 행사상품 5% 즉시할인',
             detail: '전월 실적 없음, 행사상품 건당 최대 2천원, 복합결제·일부 간편결제·일부 매장 제외',
-            condition: {},
+            condition: {
+                confirmationRequired: true,
+                requiredNote: '행사상품을 전액 카드로 결제하며 제외 간편결제·매장이 아닌지 확인',
+                stackableWithRuleIds: ['sol_domestic_convenience'],
+                applicationOrder: 1,
+            },
             action: { type: 'PERCENT', value: 5, maxDiscount: 2_000 },
             limitConfig: {},
             usesCardLimit: false,
@@ -443,6 +535,7 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
             detail: '참여 해외 가맹점별 캐시백 조건이 다르며 2026년 12월 31일까지 제공',
             condition: {
                 endsAt: '2026-12-31',
+                requiredCardNetwork: 'MASTERCARD',
                 manualCheckRequired: true,
                 requiredNote: 'Mastercard Travel Rewards 참여 가맹점별 조건 확인 필요',
             },
@@ -455,7 +548,14 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
             includedBrands: ['japan_convenience'],
             description: '일본 3대 편의점 5% 할인',
             detail: '일본 FamilyMart·Lawson·Seven-Eleven 오프라인, ATM·입점 매장·상품권 제외',
-            condition: { endsAt: '2026-12-31' },
+            condition: {
+                endsAt: '2026-12-31',
+                requiredCardNetwork: 'MASTERCARD',
+                confirmationRequired: true,
+                requiredNote: '일본 오프라인 독립 매장이며 ATM·입점 매장·상품권 거래가 아닌지 확인',
+                stackableWithRuleIds: ['sol_overseas_fee'],
+                applicationOrder: 2,
+            },
             action: { type: 'PERCENT', value: 5 },
             limitConfig: { monthlyAmount: 5_000 },
             platformType: 'OFFLINE',
@@ -466,7 +566,14 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
             includedBrands: ['vietnam_lottemart'],
             description: '베트남 롯데마트 5% 할인',
             detail: '베트남 내 롯데마트 오프라인, 일부 임대 매장·상품권 제외',
-            condition: { endsAt: '2026-12-31' },
+            condition: {
+                endsAt: '2026-12-31',
+                requiredCardNetwork: 'MASTERCARD',
+                confirmationRequired: true,
+                requiredNote: '베트남 오프라인 롯데마트이며 임대 매장·상품권 거래가 아닌지 확인',
+                stackableWithRuleIds: ['sol_overseas_fee'],
+                applicationOrder: 2,
+            },
             action: { type: 'PERCENT', value: 5 },
             limitConfig: { monthlyAmount: 3_000 },
             platformType: 'OFFLINE',
@@ -477,7 +584,12 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
             includedBrands: ['vietnam_grab'],
             description: '베트남 Grab 5% 할인',
             detail: '베트남 내 Grab 앱 이용 건만 적용',
-            condition: { endsAt: '2026-12-31' },
+            condition: {
+                endsAt: '2026-12-31',
+                requiredCardNetwork: 'MASTERCARD',
+                stackableWithRuleIds: ['sol_overseas_fee'],
+                applicationOrder: 2,
+            },
             action: { type: 'PERCENT', value: 5 },
             limitConfig: { monthlyAmount: 3_000 },
             platformType: 'ONLINE',
@@ -488,7 +600,14 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
             includedBrands: ['usa_starbucks'],
             description: '미국 스타벅스 5% 할인',
             detail: '미국 내 스타벅스 오프라인, 입점 매장·상품권·온라인 제외',
-            condition: { endsAt: '2026-12-31' },
+            condition: {
+                endsAt: '2026-12-31',
+                requiredCardNetwork: 'MASTERCARD',
+                confirmationRequired: true,
+                requiredNote: '미국 오프라인 독립 매장이며 입점 매장·상품권 거래가 아닌지 확인',
+                stackableWithRuleIds: ['sol_overseas_fee'],
+                applicationOrder: 2,
+            },
             action: { type: 'PERCENT', value: 5 },
             limitConfig: { monthlyAmount: 5_000 },
             platformType: 'OFFLINE',
@@ -516,6 +635,21 @@ const normalizedRuleSignature = (value: Partial<BenefitRule>) => JSON.stringify(
         }),
         ...(value.condition?.endsAt !== undefined && {
             endsAt: value.condition.endsAt,
+        }),
+        ...(value.condition?.requiredCardNetwork !== undefined && {
+            requiredCardNetwork: value.condition.requiredCardNetwork,
+        }),
+        ...(value.condition?.performanceWaiver !== undefined && {
+            performanceWaiver: value.condition.performanceWaiver,
+        }),
+        ...(value.condition?.confirmationRequired !== undefined && {
+            confirmationRequired: value.condition.confirmationRequired,
+        }),
+        ...(value.condition?.stackableWithRuleIds !== undefined && {
+            stackableWithRuleIds: [...value.condition.stackableWithRuleIds].sort(),
+        }),
+        ...(value.condition?.applicationOrder !== undefined && {
+            applicationOrder: value.condition.applicationOrder,
         }),
         ...(value.condition?.manualCheckRequired !== undefined && {
             manualCheckRequired: value.condition.manualCheckRequired,
@@ -598,6 +732,13 @@ export function extractShinhanSolTravelWithRules(
             location: '해외 이용 서비스',
         },
         {
+            id: 'overseas-transit-restrictions',
+            ruleIds: ['sol_overseas_transport'],
+            fields: ['condition'],
+            pattern: /해외 대중교통 중 컨택리스 결제를 지원하는 대중교통에 한하여.{0,100}?택시 이용은 할인 대상에 포함되지 않습니다/i,
+            location: '해외 대중교통 적용 조건',
+        },
+        {
             id: 'domestic-convenience',
             ruleIds: ['sol_domestic_convenience'],
             fields: ['description', 'action'],
@@ -612,11 +753,32 @@ export function extractShinhanSolTravelWithRules(
             location: '국내 이용 서비스',
         },
         {
+            id: 'domestic-transit-restrictions',
+            ruleIds: ['sol_domestic_transport'],
+            fields: ['condition'],
+            pattern: /후불교통 기능을 이용한 터치\(RF\) 거래 시.{0,100}?고속버스 이용은 할인 대상에 포함되지 않습니다/i,
+            location: '국내 대중교통 적용 조건',
+        },
+        {
             id: 'cu-event',
             ruleIds: ['sol_cu_event'],
             fields: ['description', 'action'],
             pattern: /CU.{0,20}?행사상품.{0,80}?5\s*%/i,
             location: '국내 이용 서비스',
+        },
+        {
+            id: 'cu-event-stacking',
+            ruleIds: ['sol_cu_event', 'sol_domestic_convenience'],
+            fields: ['condition', 'action'],
+            pattern: /국내 4대 편의점 5% 결제일 할인과는 중복 적용이 가능합니다.{0,140}?즉시할인 금액이 제외된 금액에서 적용됩니다/i,
+            location: 'CU 행사상품 중복 적용 기준',
+        },
+        {
+            id: 'cu-event-restrictions',
+            ruleIds: ['sol_cu_event'],
+            fields: ['condition'],
+            pattern: /타 결제수단과 복합 결제 시 할인 적용 불가합니다.{0,220}?일부 간편결제 거래건은 할인 적용 제외됩니다/i,
+            location: 'CU 행사상품 제외 조건',
         },
         {
             id: 'lounge',
@@ -749,6 +911,30 @@ export function extractShinhanSolTravelWithRules(
             pattern: /전월.{0,40}?국내.{0,30}?30만\s*원.{0,80}?(?:서비스|제공|대상)/i,
             location: '전월 이용금액 기준',
         },
+        {
+            id: 'new-card-performance-waiver',
+            ruleIds: ['sol_domestic_convenience', 'sol_domestic_transport'],
+            fields: ['condition'],
+            pattern: /신규 발급 회원의 경우 카드 사용 등록월의 익월 말.{0,100}?전월 이용금액 조건 없이 서비스가 제공됩니다/i,
+            location: '신규 회원 국내 할인 실적 면제',
+        },
+        {
+            id: 'mastercard-only',
+            ruleIds: [
+                'sol_foreign_currency_payment',
+                'sol_overseas_fee',
+                'sol_overseas_atm',
+                'sol_overseas_transport',
+                'sol_master_travel_rewards',
+                'sol_japan_convenience',
+                'sol_vietnam_lottemart',
+                'sol_vietnam_grab',
+                'sol_usa_starbucks',
+            ],
+            fields: ['condition'],
+            pattern: /해외 이용 서비스 및 해외 대중교통 컨택리스 방식으로 이용 시 1% 결제일 할인 서비스는 MASTERCARD 브랜드 선택 시에만 제공 가능합니다/i,
+            location: 'Mastercard 브랜드 조건',
+        },
     ];
     const evidence = specs.flatMap<CardBenefitEvidence>(spec => {
         const quote = evidenceLine(input.sourceText, spec.pattern);
@@ -772,6 +958,7 @@ export function extractShinhanSolTravelWithRules(
                 name: '신한카드 SOL트래블 체크',
                 company: '신한카드',
                 limitTable: [],
+                network: 'MASTERCARD',
             },
             rules,
             evidence,
@@ -839,14 +1026,15 @@ export class GeminiCardBenefitExtractionProvider implements CardBenefitExtractio
             '당신은 한국 카드 상품의 공식 원문을 BenefitRule JSON으로 구조화합니다.',
             '원문에 명시된 내용만 사용하고 추측하지 마세요.',
             '응답의 extractionJson에는 CardBenefitExtraction 객체를 JSON 문자열로 직렬화해 넣으세요. Markdown은 사용하지 마세요.',
-            'CardBenefitExtraction 필드: schemaVersion=1, completeness=FULL, card, rules, evidence, notes.',
-            'card 객체의 키는 반드시 id, name, company, limitTable입니다. issuer 같은 다른 이름을 사용하지 마세요.',
+            'CardBenefitExtraction 필드: schemaVersion=2, completeness=FULL, card, rules, evidence, notes.',
+            'card 객체의 키는 반드시 id, name, company, limitTable, network입니다. issuer 같은 다른 이름을 사용하지 마세요.',
             '결제금액으로 자동 계산할 수 없는 혜택은 action.value를 0으로 두고 manualCheckRequired=true로 표시하세요.',
             '각 규칙은 최소 하나의 evidence.ruleIds에 연결하고 evidence.quote는 원문에서 그대로 복사하세요.',
             'evidence 객체의 키는 반드시 id, ruleIds, fields, quote, location이며 fields에는 description, condition, action, limitConfig 중 근거가 되는 필드를 넣으세요.',
             '이번 후보는 카드의 전체 혜택을 교체하므로 공식 페이지의 상시 혜택과 현재 유효한 프로모션을 모두 포함하세요.',
             'Rule 필드는 id, cardId, category, includedBrands, excludedBrands, platformType, usesCardLimit, description, detail, condition, action, limitConfig를 사용하세요.',
-            'condition에는 minSpend, minPerformance, startsAt, endsAt, manualCheckRequired, requiredNote만 사용할 수 있습니다.',
+            'condition에는 minSpend, minPerformance, startsAt, endsAt, requiredCardNetwork, performanceWaiver, confirmationRequired, stackableWithRuleIds, applicationOrder, manualCheckRequired, requiredNote를 사용할 수 있습니다.',
+            'action에는 type, value, maxDiscount, amountBasis를 사용할 수 있습니다.',
             '현재 허용 category ID: cafe, convenience, transport, etc.',
             '현재 허용 brand ID: cu, gs25, seveneleven, emart24, cu_event, transport_public, overseas_payment, overseas_atm, overseas_transport, airport_lounge, master_travel_rewards, japan_convenience, vietnam_lottemart, vietnam_grab, usa_starbucks.',
             '공식 원문에 해당하는 ID가 없거나 계산 모델로 표현할 수 없는 조건은 추측하지 말고 notes에 기록하세요.',
@@ -854,6 +1042,7 @@ export class GeminiCardBenefitExtractionProvider implements CardBenefitExtractio
             '공식 카드명: 신한카드 SOL트래블 체크',
             '카드사: 신한카드',
             '통합 한도표: []',
+            '카드 브랜드: MASTERCARD',
             `필수 규칙 ID: ${SHINHAN_SOL_REQUIRED_RULE_IDS.join(', ')}`,
             `공식 기준 canonical extraction(키와 계산 필드를 변경하지 말고 모든 quote를 원문에서 확인):\n${JSON.stringify(canonicalExtraction)}`,
             `출처: ${input.sourceUrl}`,

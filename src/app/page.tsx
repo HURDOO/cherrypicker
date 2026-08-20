@@ -101,7 +101,8 @@ function StepRow({
     confirmed: boolean;
     onConfirm: (promotionId: string) => void;
 }) {
-    const conditional = step.certainty === 'CONDITIONAL' && step.promotionId;
+    const confirmationId = step.confirmationId ?? step.promotionId;
+    const conditional = step.certainty === 'CONDITIONAL' && confirmationId;
     return (
         <div className="rounded-2xl border border-gray-100 bg-white p-3">
             <div className="flex items-start justify-between gap-3">
@@ -125,7 +126,7 @@ function StepRow({
             {conditional && (
                 <button
                     type="button"
-                    onClick={() => onConfirm(step.promotionId!)}
+                    onClick={() => onConfirm(confirmationId!)}
                     className={clsx(
                         'mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black',
                         confirmed
@@ -176,7 +177,8 @@ function LayerCard({
                             key={step.id}
                             step={step}
                             confirmed={Boolean(
-                                step.promotionId && confirmedConditionIds.has(step.promotionId)
+                                (step.confirmationId ?? step.promotionId) &&
+                                confirmedConditionIds.has(step.confirmationId ?? step.promotionId!)
                             )}
                             onConfirm={onConfirm}
                         />
