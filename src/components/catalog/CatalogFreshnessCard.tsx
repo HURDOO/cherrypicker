@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
     AlertTriangle,
     CheckCircle2,
@@ -97,7 +98,7 @@ function getDescription(health: BenefitCatalogHealth) {
             : '최신 정보 확인에 실패해 마지막 정상 데이터를 사용합니다.';
     }
     if (health.status === 'stale') {
-        return '마지막 전체 수집 성공 후 36시간이 지났습니다.';
+        return '마지막 전체 수집 성공 후 36시간이 지났습니다. 새 수집은 운영 화면에서 실행하세요.';
     }
     if (health.status === 'unknown') {
         return '아직 서버의 수집 성공 이력이 없습니다.';
@@ -120,6 +121,7 @@ export function CatalogFreshnessCard({
     error,
     cacheWarning,
     onRefresh,
+    collectionManagementHref,
 }: {
     health: BenefitCatalogHealth;
     isOnline: boolean;
@@ -129,11 +131,15 @@ export function CatalogFreshnessCard({
     error?: Error | null;
     cacheWarning?: Error | null;
     onRefresh: () => Promise<void>;
+    collectionManagementHref?: string;
 }) {
     const meta = statusMeta[health.status];
     const Icon = meta.icon;
     const successfulAt = formatTimestamp(health.lastSuccessfulAt);
     const checkedAt = formatTimestamp(lastCheckedAt);
+    const needsCollection = health.status === 'stale' ||
+        health.status === 'degraded' ||
+        health.status === 'unknown';
 
     return (
         <section className={clsx('rounded-3xl border p-4', meta.color)} aria-live="polite">
@@ -155,18 +161,28 @@ export function CatalogFreshnessCard({
                             </p>
                         </div>
                         {isOnline && (
-                            <button
-                                type="button"
-                                onClick={() => void onRefresh()}
-                                disabled={isRefreshing}
-                                className="flex shrink-0 items-center gap-1 rounded-full border border-white/90 bg-white/80 px-2.5 py-1.5 text-[10px] font-black text-gray-700 disabled:opacity-50"
-                            >
-                                <RefreshCw className={clsx(
-                                    'h-3 w-3',
-                                    isRefreshing && 'animate-spin'
-                                )} />
-                                다시 확인
-                            </button>
+                            <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() => void onRefresh()}
+                                    disabled={isRefreshing}
+                                    className="flex items-center gap-1 rounded-full border border-white/90 bg-white/80 px-2.5 py-1.5 text-[10px] font-black text-gray-700 disabled:opacity-50"
+                                >
+                                    <RefreshCw className={clsx(
+                                        'h-3 w-3',
+                                        isRefreshing && 'animate-spin'
+                                    )} />
+                                    공개본 확인
+                                </button>
+                                {needsCollection && collectionManagementHref && (
+                                    <Link
+                                        href={collectionManagementHref}
+                                        className="px-1 text-[9px] font-black text-amber-800 underline decoration-amber-400 underline-offset-2"
+                                    >
+                                        새 수집 열기
+                                    </Link>
+                                )}
+                            </div>
                         )}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[9px] font-bold text-gray-500">
@@ -177,7 +193,7 @@ export function CatalogFreshnessCard({
                             {isOnline ? '네트워크 연결됨' : '네트워크 끊김'}
                         </span>
                         {successfulAt && <span>수집 성공 {successfulAt}</span>}
-                        {checkedAt && <span>기기 확인 {checkedAt}</span>}
+                        {checkedAt && <span>공개본 확인 {checkedAt}</span>}
                         {catalogVersion && <span>버전 {catalogVersion.slice(0, 8)}</span>}
                     </div>
                     {error && health.status !== 'offline' && (

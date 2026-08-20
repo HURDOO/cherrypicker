@@ -209,6 +209,7 @@ function CombinationSummary({
     onSelect: () => void;
 }) {
     const intent = getCombinationIntent(combination, smallBenefitThreshold, priority);
+    const hasPotentialBenefit = combination.conditionalValue + combination.estimatedValue > 0;
     const intentLabel: Record<CombinationIntent, string> = {
         BENEFIT: '이번 결제 혜택',
         SMALL_BENEFIT: `소액 혜택 · ${smallBenefitThreshold.toLocaleString()}원 미만`,
@@ -246,7 +247,8 @@ function CombinationSummary({
                         {getCombinationMethodSummary(combination)}
                     </p>
                     <p className="mt-1 text-[10px] font-bold text-gray-500">
-                        실결제 {formatWon(combination.payableAmount)}
+                        {hasPotentialBenefit ? '조건 충족 시 예상 결제' : '실결제'}{' '}
+                        {formatWon(combination.payableAmount)}
                     </p>
                     {combination.performanceProgress && (
                         <p className="mt-1 text-[10px] font-black text-violet-700">
@@ -712,6 +714,7 @@ export default function HomePage() {
                     error={catalogError}
                     cacheWarning={catalogCacheWarning}
                     onRefresh={refreshCatalog}
+                    collectionManagementHref="/admin/promotions"
                 />
 
                 <MonthlyPerformanceReminder
@@ -983,7 +986,11 @@ export default function HomePage() {
 
                                     <div className="mt-6 grid grid-cols-3 gap-2">
                                         <div className="rounded-2xl bg-white/10 p-3">
-                                            <p className="text-[9px] font-black text-gray-400">실결제</p>
+                                            <p className="text-[9px] font-black text-gray-400">
+                                                {(selectedCombination.conditionalValue + selectedCombination.estimatedValue) > 0
+                                                    ? '조건 충족 시 예상 결제'
+                                                    : '실결제'}
+                                            </p>
                                             <p className="mt-1 text-xs font-black">{formatWon(selectedCombination.payableAmount)}</p>
                                         </div>
                                         <div className="rounded-2xl bg-white/10 p-3">
