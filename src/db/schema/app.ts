@@ -243,6 +243,7 @@ export const userBenefitProfiles = sqliteTable('user_benefit_profiles', {
     moneyEnabled: integer('money_enabled', { mode: 'boolean' }).notNull().default(true),
     pointsEnabled: integer('points_enabled', { mode: 'boolean' }).notNull().default(true),
     pointValue: integer('point_value').notNull().default(1),
+    smallBenefitThreshold: integer('small_benefit_threshold').notNull().default(100),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
         .notNull()
         .default(nowInMilliseconds),

@@ -3,6 +3,7 @@ import {
     Card, BenefitRule, Brand, Category,
     TransactionHistory, UserBenefitProfile, UserCardPerformance
 } from '@/types';
+import { DEFAULT_SMALL_BENEFIT_THRESHOLD } from '@/utils/recommendationPreferences';
 
 const createEmptyBenefitProfile = (): UserBenefitProfile => ({
     telecomMemberships: [],
@@ -11,6 +12,7 @@ const createEmptyBenefitProfile = (): UserBenefitProfile => ({
     moneyEnabled: true,
     pointsEnabled: true,
     pointValue: 1,
+    smallBenefitThreshold: DEFAULT_SMALL_BENEFIT_THRESHOLD,
 });
 
 interface AppState {

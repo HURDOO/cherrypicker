@@ -36,6 +36,7 @@ const profile = (payIds: string[]) => ({
     moneyEnabled: true,
     pointsEnabled: true,
     pointValue: 1,
+    smallBenefitThreshold: 100,
 });
 
 describe('account workspace sync server', () => {

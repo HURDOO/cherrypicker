@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+    Coins,
     LoaderCircle,
     PackagePlus,
     Plus,
@@ -26,6 +27,10 @@ import {
     getSubscriptionProducts,
     normalizeSubscriptionProductName,
 } from '@/utils/subscriptionProducts';
+import {
+    DEFAULT_SMALL_BENEFIT_THRESHOLD,
+    MAX_SMALL_BENEFIT_THRESHOLD,
+} from '@/utils/recommendationPreferences';
 
 const emptyProfile: UserBenefitProfile = {
     telecomMemberships: [],
@@ -34,6 +39,7 @@ const emptyProfile: UserBenefitProfile = {
     moneyEnabled: true,
     pointsEnabled: true,
     pointValue: 1,
+    smallBenefitThreshold: DEFAULT_SMALL_BENEFIT_THRESHOLD,
 };
 
 const optionSummary = (value: string) =>
@@ -127,7 +133,7 @@ export function BenefitProfileSettings() {
             const saved = await persistProfile(profile);
             setProfile(saved);
             setStoredProfile(saved);
-            addToast('보유 혜택 설정을 저장했습니다.', 'success');
+            addToast('혜택 설정을 저장했습니다.', 'success');
         } catch (error) {
             addToast(getErrorMessage(error, '보유 혜택 설정을 저장하지 못했습니다.'), 'error');
         } finally {
@@ -238,9 +244,9 @@ export function BenefitProfileSettings() {
                     <ShieldCheck className="h-4 w-4" />
                 </div>
                 <div>
-                    <h2 className="text-sm font-bold text-gray-900">보유 혜택 프로필</h2>
+                    <h2 className="text-sm font-bold text-gray-900">혜택·추천 설정</h2>
                     <p className="text-[10px] text-gray-500">
-                        내가 실제로 사용할 수 있는 통신사·구독 상품·페이만 추천합니다.
+                        보유 혜택과 추천 판단 기준을 관리합니다.
                     </p>
                 </div>
             </div>
@@ -501,6 +507,46 @@ export function BenefitProfileSettings() {
                     ))}
                 </div>
 
+                <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+                    <div className="flex items-center gap-2">
+                        <Coins className="h-4 w-4 text-amber-600" />
+                        <label
+                            htmlFor="small-benefit-threshold"
+                            className="text-xs font-black text-amber-950"
+                        >
+                            소액 혜택 기준
+                        </label>
+                    </div>
+                    <p className="mt-1 text-[10px] leading-relaxed text-amber-900/65">
+                        확정 혜택이 기준보다 작으면 소액으로 표시하고, 진행 중인 실적 목표가
+                        있다면 실적 추천을 먼저 보여줘요. 0원으로 설정하면 소액 분류를 끕니다.
+                    </p>
+                    <div className="mt-3 flex items-center gap-2">
+                        <input
+                            id="small-benefit-threshold"
+                            type="text"
+                            inputMode="numeric"
+                            value={profile.smallBenefitThreshold.toLocaleString()}
+                            onChange={event => {
+                                const digits = event.target.value.replace(/\D/g, '').slice(0, 7);
+                                setProfile(current => ({
+                                    ...current,
+                                    smallBenefitThreshold: Math.min(
+                                        Number(digits || 0),
+                                        MAX_SMALL_BENEFIT_THRESHOLD,
+                                    ),
+                                }));
+                            }}
+                            aria-describedby="small-benefit-threshold-help"
+                            className="min-w-0 flex-1 rounded-xl border border-amber-200 bg-white px-3 py-2 text-right text-sm font-black text-amber-950 outline-none focus:border-amber-500"
+                        />
+                        <span className="text-xs font-black text-amber-700">원 미만</span>
+                    </div>
+                    <p id="small-benefit-threshold-help" className="mt-2 text-[9px] font-bold text-amber-700/70">
+                        기본값 {DEFAULT_SMALL_BENEFIT_THRESHOLD.toLocaleString()}원 · 최대 {MAX_SMALL_BENEFIT_THRESHOLD.toLocaleString()}원
+                    </p>
+                </div>
+
                 <button
                     type="button"
                     onClick={save}
@@ -508,7 +554,7 @@ export function BenefitProfileSettings() {
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 py-3 text-xs font-black text-white disabled:opacity-60"
                 >
                     {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    {isSaving ? '저장 중' : '보유 혜택 저장'}
+                    {isSaving ? '저장 중' : '혜택 설정 저장'}
                 </button>
             </div>
         </section>

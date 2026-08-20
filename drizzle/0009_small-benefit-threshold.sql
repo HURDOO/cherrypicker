@@ -1,0 +1,1 @@
+ALTER TABLE `user_benefit_profiles` ADD `small_benefit_threshold` integer DEFAULT 100 NOT NULL;

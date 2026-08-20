@@ -9,6 +9,10 @@ import type {
     UserBenefitProfile,
     UserCardPerformance,
 } from '@/types';
+import {
+    DEFAULT_SMALL_BENEFIT_THRESHOLD,
+    MAX_SMALL_BENEFIT_THRESHOLD,
+} from '@/utils/recommendationPreferences';
 
 export const ACCOUNT_WORKSPACE_EXPORT_SCHEMA_VERSION = 1 as const;
 
@@ -155,7 +159,8 @@ export const hasMeaningfulBenefitProfile = (profile: UserBenefitProfile) => (
     profile.enabledPayProviderIds.length > 0 ||
     !profile.moneyEnabled ||
     !profile.pointsEnabled ||
-    profile.pointValue !== 1
+    profile.pointValue !== 1 ||
+    profile.smallBenefitThreshold !== DEFAULT_SMALL_BENEFIT_THRESHOLD
 );
 
 export function createAccountWorkspaceExport(
@@ -473,6 +478,12 @@ const parseBenefitProfile = (value: unknown): UserBenefitProfile => {
         moneyEnabled: profile.moneyEnabled,
         pointsEnabled: profile.pointsEnabled,
         pointValue: safeInteger(profile.pointValue, '포인트 가치', 0, 100),
+        smallBenefitThreshold: safeInteger(
+            profile.smallBenefitThreshold ?? DEFAULT_SMALL_BENEFIT_THRESHOLD,
+            '소액 혜택 기준',
+            0,
+            MAX_SMALL_BENEFIT_THRESHOLD,
+        ),
     };
 };
 

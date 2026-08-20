@@ -63,6 +63,7 @@ const workspace = createAccountWorkspaceExport({
         moneyEnabled: true,
         pointsEnabled: true,
         pointValue: 1,
+        smallBenefitThreshold: 100,
     },
 });
 

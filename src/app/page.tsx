@@ -8,6 +8,7 @@ import {
     CheckCircle2,
     ChevronDown,
     ChevronRight,
+    Coins,
     CreditCard,
     Gift,
     LoaderCircle,
@@ -51,6 +52,10 @@ import {
 } from '@/utils/combinationPresentation';
 import { calculateBestCombinations } from '@/utils/combination';
 import { buildPromotionUsage } from '@/utils/promotionUsage';
+import {
+    getCombinationIntent,
+    type CombinationIntent,
+} from '@/utils/recommendationPreferences';
 
 const formatWon = (value: number) => `${value.toLocaleString()}원`;
 
@@ -189,13 +194,26 @@ function CombinationSummary({
     combination,
     rank,
     selected,
+    priority,
+    smallBenefitThreshold,
     onSelect,
 }: {
     combination: BenefitCombination;
     rank: number;
     selected: boolean;
+    priority: RecommendationPriority;
+    smallBenefitThreshold: number;
     onSelect: () => void;
 }) {
+    const intent = getCombinationIntent(combination, smallBenefitThreshold, priority);
+    const intentLabel: Record<CombinationIntent, string> = {
+        BENEFIT: '이번 결제 혜택',
+        SMALL_BENEFIT: `소액 혜택 · ${smallBenefitThreshold.toLocaleString()}원 미만`,
+        PERFORMANCE: combination.performanceProgress?.targetReached
+            ? '다음 달 혜택 목표 달성'
+            : '다음 달 실적 채우기',
+        NO_BENEFIT: '즉시 혜택 없음',
+    };
     return (
         <button
             type="button"
@@ -209,7 +227,18 @@ function CombinationSummary({
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-black text-gray-400">#{rank} 추천 조합</p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="text-[10px] font-black text-gray-400">#{rank} 추천 조합</p>
+                        <span className={clsx(
+                            'rounded-full px-2 py-0.5 text-[9px] font-black',
+                            intent === 'PERFORMANCE' && 'bg-violet-100 text-violet-700',
+                            intent === 'SMALL_BENEFIT' && 'bg-amber-100 text-amber-700',
+                            intent === 'BENEFIT' && 'bg-blue-100 text-blue-700',
+                            intent === 'NO_BENEFIT' && 'bg-gray-100 text-gray-500',
+                        )}>
+                            {intentLabel[intent]}
+                        </span>
+                    </div>
                     <p className="mt-1 line-clamp-2 text-sm font-black leading-snug text-gray-900">
                         {getCombinationMethodSummary(combination)}
                     </p>
@@ -226,9 +255,23 @@ function CombinationSummary({
                     )}
                 </div>
                 <div className="shrink-0 text-right">
-                    <p className="text-lg font-black text-blue-600">
-                        +{formatWon(combination.confirmedValue)}
-                    </p>
+                    {intent === 'PERFORMANCE' && combination.performanceProgress ? (
+                        <>
+                            <p className="text-lg font-black text-violet-600">
+                                +{formatWon(combination.performanceProgress.contributionAmount)}
+                            </p>
+                            <p className="text-[9px] font-bold text-gray-400">
+                                실적 · 혜택 +{formatWon(combination.confirmedValue)}
+                            </p>
+                        </>
+                    ) : (
+                        <p className={clsx(
+                            'text-lg font-black',
+                            intent === 'SMALL_BENEFIT' ? 'text-amber-600' : 'text-blue-600',
+                        )}>
+                            +{formatWon(combination.confirmedValue)}
+                        </p>
+                    )}
                     {(combination.conditionalValue + combination.estimatedValue) > 0 && (
                         <p className="text-[10px] font-bold text-amber-600">
                             추가 가능 +{formatWon(
@@ -488,6 +531,13 @@ export default function HomePage() {
     const selectedCombination = recommendation?.combinations.find(
         item => item.id === selectedCombinationId
     ) ?? recommendation?.combinations[0];
+    const selectedCombinationIntent = selectedCombination
+        ? getCombinationIntent(
+            selectedCombination,
+            benefitProfile.smallBenefitThreshold,
+            effectiveRecommendationPriority,
+        )
+        : undefined;
 
     const handleKeypadChange = (value: string) => {
         setAmount(current => {
@@ -884,16 +934,41 @@ export default function HomePage() {
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-2 text-emerald-300">
-                                                <ShieldCheck className="h-4 w-4" />
+                                                {selectedCombinationIntent === 'PERFORMANCE'
+                                                    ? <Target className="h-4 w-4 text-violet-300" />
+                                                    : selectedCombinationIntent === 'SMALL_BENEFIT'
+                                                        ? <Coins className="h-4 w-4 text-amber-300" />
+                                                        : <ShieldCheck className="h-4 w-4" />}
                                                 <span className="text-[10px] font-black uppercase tracking-widest">
-                                                    {eligibleItemAmount
-                                                        ? '대상 상품 포함 확정 혜택'
-                                                        : '매장 전체 기준 확정 혜택'}
+                                                    {selectedCombinationIntent === 'PERFORMANCE'
+                                                        ? selectedCombination.performanceProgress?.targetReached
+                                                            ? '다음 달 혜택 목표 달성 추천'
+                                                            : '다음 달 실적 우선 추천'
+                                                        : selectedCombinationIntent === 'SMALL_BENEFIT'
+                                                            ? `소액 혜택 · ${benefitProfile.smallBenefitThreshold.toLocaleString()}원 미만`
+                                                            : selectedCombinationIntent === 'NO_BENEFIT'
+                                                                ? '즉시 혜택 없음'
+                                                                : eligibleItemAmount
+                                                                    ? '대상 상품 포함 확정 혜택'
+                                                                    : '매장 전체 기준 확정 혜택'}
                                                 </span>
                                             </div>
-                                            <p className="mt-2 text-4xl font-black tracking-tight">
-                                                {formatWon(selectedCombination.confirmedValue)}
+                                            <p
+                                                data-testid="recommendation-primary-value"
+                                                className="mt-2 text-4xl font-black tracking-tight"
+                                            >
+                                                {selectedCombinationIntent === 'PERFORMANCE' &&
+                                                selectedCombination.performanceProgress
+                                                    ? `실적 +${formatWon(
+                                                        selectedCombination.performanceProgress.contributionAmount
+                                                    )}`
+                                                    : formatWon(selectedCombination.confirmedValue)}
                                             </p>
+                                            {selectedCombinationIntent === 'PERFORMANCE' && (
+                                                <p className="mt-1 text-[10px] font-bold text-gray-400">
+                                                    이번 결제 확정 혜택 +{formatWon(selectedCombination.confirmedValue)}
+                                                </p>
+                                            )}
                                             <p className="mt-3 text-[9px] font-black uppercase tracking-[0.16em] text-gray-500">
                                                 사용 수단
                                             </p>
@@ -1059,6 +1134,8 @@ export default function HomePage() {
                                                 combination={combination}
                                                 rank={index + 1}
                                                 selected={combination.id === selectedCombination.id}
+                                                priority={effectiveRecommendationPriority}
+                                                smallBenefitThreshold={benefitProfile.smallBenefitThreshold}
                                                 onSelect={() => setSelectedCombinationId(combination.id)}
                                             />
                                         ))}

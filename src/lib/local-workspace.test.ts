@@ -114,6 +114,19 @@ describe('local workspace', () => {
         expect(memory.storage.write).toHaveBeenCalledOnce();
     });
 
+    it('defaults legacy workspace small-benefit settings to 100 won', () => {
+        const workspace = createEmptyLocalWorkspace();
+        const {
+            smallBenefitThreshold,
+            ...legacyProfile
+        } = workspace.benefitProfile;
+        const legacy = { ...workspace, benefitProfile: legacyProfile };
+
+        expect(smallBenefitThreshold).toBe(100);
+        expect(parseLocalWorkspaceSnapshot(legacy).benefitProfile.smallBenefitThreshold)
+            .toBe(100);
+    });
+
     it('previews and imports an account snapshot only into an empty local workspace', async () => {
         const memory = createMemoryStorage();
         const client = createLocalWorkspaceClient(memory.storage);
@@ -151,6 +164,7 @@ describe('local workspace', () => {
                 moneyEnabled: true,
                 pointsEnabled: true,
                 pointValue: 1,
+                smallBenefitThreshold: 100,
             },
         });
 
@@ -189,6 +203,7 @@ describe('local workspace', () => {
             moneyEnabled: true,
             pointsEnabled: true,
             pointValue: 1,
+            smallBenefitThreshold: 250,
         });
         const local = await client.read();
         const exported = createAccountWorkspaceExportFromLocal(
@@ -199,6 +214,7 @@ describe('local workspace', () => {
         expect(exported.sourceWorkspaceId).toBe(local.workspaceId);
         expect(exported.recordMetadata[`categories:${category.id}`].deletedAt).toBeTruthy();
         expect(exported.categories).toEqual([]);
+        expect(exported.benefitProfile.smallBenefitThreshold).toBe(250);
         expect(accountWorkspaceMatchesLocal(local, exported)).toBe(true);
         expect(await client.exportAccountWorkspace('2026-08-18T12:00:00.000Z'))
             .toEqual(exported);
@@ -233,6 +249,7 @@ describe('local workspace', () => {
                 moneyEnabled: true,
                 pointsEnabled: true,
                 pointValue: 1,
+                smallBenefitThreshold: 100,
             },
         });
 
@@ -265,6 +282,7 @@ describe('local workspace', () => {
             moneyEnabled: true,
             pointsEnabled: true,
             pointValue: 1,
+            smallBenefitThreshold: 100,
         });
         const local = await localClient.read();
         const localExport = createAccountWorkspaceExportFromLocal(
@@ -287,6 +305,7 @@ describe('local workspace', () => {
                 moneyEnabled: true,
                 pointsEnabled: true,
                 pointValue: 1,
+                smallBenefitThreshold: 100,
             },
         });
 
@@ -427,6 +446,7 @@ describe('local workspace', () => {
             moneyEnabled: true,
             pointsEnabled: false,
             pointValue: 1,
+            smallBenefitThreshold: 100,
         });
         const transaction = await client.createTransaction({
             brandId: brand.id,
@@ -576,6 +596,7 @@ describe('local workspace', () => {
             moneyEnabled: true,
             pointsEnabled: true,
             pointValue: 1,
+            smallBenefitThreshold: 100,
         });
         const previous = await client.read();
         const ids = ['fresh-workspace', 'fresh-profile', 'fresh-device'];

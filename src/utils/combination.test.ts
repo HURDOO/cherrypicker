@@ -53,6 +53,7 @@ const profile: UserBenefitProfile = {
     moneyEnabled: true,
     pointsEnabled: true,
     pointValue: 1,
+    smallBenefitThreshold: 100,
 };
 
 const offer = (
@@ -236,6 +237,61 @@ describe('calculateBestCombinations', () => {
             },
         });
         expect(benefitFirst.combinations[0].performanceProgress).toBeUndefined();
+    });
+
+    it('prefers goal progress when every immediate benefit is below the user threshold', () => {
+        const performanceCard: Card = {
+            ...card,
+            id: 'performance-card',
+            name: '실적 카드',
+        };
+        const smallBenefitCard: Card = {
+            ...card,
+            id: 'small-benefit-card',
+            name: '소액 혜택 카드',
+        };
+        const smallBenefitRule: BenefitRule = {
+            ...cardRule,
+            id: 'small-benefit-rule',
+            cardId: smallBenefitCard.id,
+            action: { type: 'PERCENT', value: 0.3 },
+        };
+        const sharedInput = {
+            cards: [performanceCard, smallBenefitCard],
+            rules: [smallBenefitRule],
+            profile: {
+                ...profile,
+                enabledPayProviderIds: [],
+                smallBenefitThreshold: 100,
+            },
+            priority: 'BENEFIT' as const,
+            performanceGoals: [{
+                cardId: performanceCard.id,
+                performanceMonth: '2026-07',
+                amount: 290_000,
+                targetAmount: 300_000,
+            }],
+            performanceBenefitMonth: '2026-08',
+        };
+
+        const defaultThreshold = calculateBestCombinations(input([], sharedInput));
+        const lowerThreshold = calculateBestCombinations(input([], {
+            ...sharedInput,
+            profile: { ...sharedInput.profile, smallBenefitThreshold: 50 },
+        }));
+
+        expect(defaultThreshold.combinations[0]).toMatchObject({
+            cardId: performanceCard.id,
+            confirmedValue: 0,
+            performanceProgress: { targetReached: true, contributionAmount: 20_000 },
+        });
+        expect(defaultThreshold.combinations.some(combination =>
+            combination.cardId === smallBenefitCard.id && combination.confirmedValue === 60
+        )).toBe(true);
+        expect(lowerThreshold.combinations[0]).toMatchObject({
+            cardId: smallBenefitCard.id,
+            confirmedValue: 60,
+        });
     });
 
     it('keeps an unverified pay-routed card benefit out of the confirmed total', () => {

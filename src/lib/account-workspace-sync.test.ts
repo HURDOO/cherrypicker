@@ -9,6 +9,7 @@ const emptyProfile = () => ({
     moneyEnabled: true,
     pointsEnabled: true,
     pointValue: 1,
+    smallBenefitThreshold: 100,
 });
 
 const category = (name: string) => ({

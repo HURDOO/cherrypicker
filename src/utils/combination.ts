@@ -18,6 +18,10 @@ import type {
 } from '@/types';
 import { calculateBestCards } from './calculation';
 import { normalizeSubscriptionProductName } from './subscriptionProducts';
+import {
+    DEFAULT_SMALL_BENEFIT_THRESHOLD,
+    isSmallBenefitAmount,
+} from './recommendationPreferences';
 
 type WorkingCombination = {
     remainingAmount: number;
@@ -554,7 +558,7 @@ const getPerformanceProgress = (
     state: WorkingCombination,
     card?: Card,
 ) => {
-    if (input.priority !== 'PERFORMANCE' || !card || !input.performanceBenefitMonth) {
+    if (!card || !input.performanceBenefitMonth) {
         return undefined;
     }
     const performance = input.performanceGoals?.find(item => (
@@ -626,7 +630,7 @@ const compareCombinations = (a: BenefitCombination, b: BenefitCombination) => {
     return bPotential - aPotential || compareText(a.id, b.id);
 };
 
-const comparePerformanceCombinations = (a: BenefitCombination, b: BenefitCombination) => {
+const comparePerformanceProgress = (a: BenefitCombination, b: BenefitCombination) => {
     const aProgress = a.performanceProgress;
     const bProgress = b.performanceProgress;
     if (Boolean(aProgress) !== Boolean(bProgress)) return bProgress ? 1 : -1;
@@ -640,6 +644,28 @@ const comparePerformanceCombinations = (a: BenefitCombination, b: BenefitCombina
         if (aProgress.remainingAfter !== bProgress.remainingAfter) {
             return aProgress.remainingAfter - bProgress.remainingAfter;
         }
+    }
+    return 0;
+};
+
+const comparePerformanceCombinations = (a: BenefitCombination, b: BenefitCombination) =>
+    comparePerformanceProgress(a, b) || compareCombinations(a, b);
+
+const compareBenefitCombinations = (
+    a: BenefitCombination,
+    b: BenefitCombination,
+    smallBenefitThreshold: number,
+) => {
+    const aHasMeaningfulBenefit = a.confirmedValue > 0 &&
+        !isSmallBenefitAmount(a.confirmedValue, smallBenefitThreshold);
+    const bHasMeaningfulBenefit = b.confirmedValue > 0 &&
+        !isSmallBenefitAmount(b.confirmedValue, smallBenefitThreshold);
+    if (aHasMeaningfulBenefit !== bHasMeaningfulBenefit) {
+        return bHasMeaningfulBenefit ? 1 : -1;
+    }
+    if (!aHasMeaningfulBenefit && !bHasMeaningfulBenefit) {
+        const performanceComparison = comparePerformanceProgress(a, b);
+        if (performanceComparison !== 0) return performanceComparison;
     }
     return compareCombinations(a, b);
 };
@@ -676,9 +702,15 @@ export function calculateBestCombinations(
     };
     const now = input.now ?? new Date();
     const providerById = new Map(input.providers.map(provider => [provider.id, provider]));
+    const smallBenefitThreshold = input.profile.smallBenefitThreshold ??
+        DEFAULT_SMALL_BENEFIT_THRESHOLD;
     const compareResults = input.priority === 'PERFORMANCE'
         ? comparePerformanceCombinations
-        : compareCombinations;
+        : (a: BenefitCombination, b: BenefitCombination) => compareBenefitCombinations(
+            a,
+            b,
+            smallBenefitThreshold,
+        );
     const confirmedConditionIds = new Set(input.confirmedConditionIds ?? []);
     const currentOffers = input.promotions.filter(offer =>
         isPublishedAndCurrent(offer, now) &&

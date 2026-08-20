@@ -67,6 +67,7 @@ async function main() {
         moneyEnabled: true,
         pointsEnabled: true,
         pointValue: 1,
+        smallBenefitThreshold: 100,
     };
 
     const durations: number[] = [];

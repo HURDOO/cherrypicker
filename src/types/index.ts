@@ -287,6 +287,7 @@ export interface UserBenefitProfile {
     moneyEnabled: boolean;
     pointsEnabled: boolean;
     pointValue: number;
+    smallBenefitThreshold: number;
 }
 
 export interface RecommendationRequest {

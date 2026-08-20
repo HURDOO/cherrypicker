@@ -17,6 +17,10 @@ import {
     canonicalizeSubscriptionProductName,
     normalizeSubscriptionProductName,
 } from '@/utils/subscriptionProducts';
+import {
+    DEFAULT_SMALL_BENEFIT_THRESHOLD,
+    MAX_SMALL_BENEFIT_THRESHOLD,
+} from '@/utils/recommendationPreferences';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -137,6 +141,13 @@ export async function PUT(request: Request) {
             }
         }
         const pointValue = optionalInteger(input, 'pointValue', '포인트 가치', 0, 100) ?? 1;
+        const smallBenefitThreshold = optionalInteger(
+            input,
+            'smallBenefitThreshold',
+            '소액 혜택 기준',
+            0,
+            MAX_SMALL_BENEFIT_THRESHOLD,
+        ) ?? DEFAULT_SMALL_BENEFIT_THRESHOLD;
         const values = {
             userId: user.id,
             telecomMemberships,
@@ -145,6 +156,7 @@ export async function PUT(request: Request) {
             moneyEnabled: booleanValue(input, 'moneyEnabled', true),
             pointsEnabled: booleanValue(input, 'pointsEnabled', true),
             pointValue,
+            smallBenefitThreshold,
             updatedAt: new Date(),
         };
         const row = db.insert(userBenefitProfiles)

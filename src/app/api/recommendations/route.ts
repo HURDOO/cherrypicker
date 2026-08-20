@@ -1,4 +1,4 @@
-import { handleRouteError, readJsonObject, requireUser } from '@/lib/api-server';
+import { handleRouteError, HttpError, readJsonObject, requireUser } from '@/lib/api-server';
 import { booleanValue, optionalInteger, requiredInteger, requiredString } from '@/lib/api-validation';
 import { calculateRecommendationForUser } from '@/lib/recommendation-server';
 
@@ -22,6 +22,10 @@ export async function POST(request: Request) {
                 (value): value is string => typeof value === 'string'
             )
             : [];
+        const priority = input.priority ?? 'BENEFIT';
+        if (priority !== 'BENEFIT' && priority !== 'PERFORMANCE') {
+            throw new HttpError(400, '추천 우선순위 값이 올바르지 않습니다.');
+        }
 
         const result = calculateRecommendationForUser(user.id, {
             brandId: requiredString(input, 'brandId', '브랜드 ID'),
@@ -29,6 +33,7 @@ export async function POST(request: Request) {
             ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
             isOnline: booleanValue(input, 'isOnline', false),
             confirmedConditionIds,
+            priority,
         });
 
         return Response.json(result);

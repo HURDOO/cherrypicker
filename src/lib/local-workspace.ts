@@ -40,6 +40,10 @@ import {
     transactionDone,
 } from '@/lib/local-workspace-database';
 import { getCurrentMonthInKst } from '@/lib/monthly-performance';
+import {
+    DEFAULT_SMALL_BENEFIT_THRESHOLD,
+    MAX_SMALL_BENEFIT_THRESHOLD,
+} from '@/utils/recommendationPreferences';
 
 const CURRENT_WORKSPACE_KEY = 'current';
 
@@ -143,6 +147,7 @@ export const createEmptyBenefitProfile = (): UserBenefitProfile => ({
     moneyEnabled: true,
     pointsEnabled: true,
     pointValue: 1,
+    smallBenefitThreshold: DEFAULT_SMALL_BENEFIT_THRESHOLD,
 });
 
 export function createEmptyLocalWorkspace(
@@ -219,6 +224,15 @@ export function parseLocalWorkspaceSnapshot(value: unknown): LocalWorkspaceSnaps
     ) {
         throw new Error('로컬 혜택 프로필 값이 올바르지 않습니다.');
     }
+    const smallBenefitThreshold = profile.smallBenefitThreshold ??
+        DEFAULT_SMALL_BENEFIT_THRESHOLD;
+    if (
+        !Number.isSafeInteger(smallBenefitThreshold) ||
+        (smallBenefitThreshold as number) < 0 ||
+        (smallBenefitThreshold as number) > MAX_SMALL_BENEFIT_THRESHOLD
+    ) {
+        throw new Error('로컬 소액 혜택 기준이 올바르지 않습니다.');
+    }
     if (!isRecord(value.recordMetadata)) {
         throw new Error('로컬 workspace metadata가 올바르지 않습니다.');
     }
@@ -257,7 +271,13 @@ export function parseLocalWorkspaceSnapshot(value: unknown): LocalWorkspaceSnaps
         });
     });
 
-    return snapshot;
+    return {
+        ...snapshot,
+        benefitProfile: {
+            ...snapshot.benefitProfile,
+            smallBenefitThreshold: smallBenefitThreshold as number,
+        },
+    };
 }
 
 type StoredWorkspace = {
@@ -446,7 +466,8 @@ export const hasMeaningfulLocalWorkspaceData = (workspace: LocalWorkspaceSnapsho
     workspace.benefitProfile.enabledPayProviderIds.length > 0 ||
     !workspace.benefitProfile.moneyEnabled ||
     !workspace.benefitProfile.pointsEnabled ||
-    workspace.benefitProfile.pointValue !== 1
+    workspace.benefitProfile.pointValue !== 1 ||
+    workspace.benefitProfile.smallBenefitThreshold !== DEFAULT_SMALL_BENEFIT_THRESHOLD
 );
 
 const withoutLocalOwner = <T extends { userId?: string }>(row: T) => {

@@ -175,6 +175,7 @@ export function toBenefitProfile(
         moneyEnabled: row?.moneyEnabled ?? true,
         pointsEnabled: row?.pointsEnabled ?? true,
         pointValue: row?.pointValue ?? 1,
+        smallBenefitThreshold: row?.smallBenefitThreshold ?? 100,
     };
 }
 

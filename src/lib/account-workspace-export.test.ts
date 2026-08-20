@@ -59,6 +59,7 @@ const createExport = () => createAccountWorkspaceExport({
         moneyEnabled: true,
         pointsEnabled: true,
         pointValue: 1,
+        smallBenefitThreshold: 100,
     },
     profileUpdatedAt: '2026-08-16T09:00:00.000Z',
     performanceUpdatedAt: {
@@ -83,6 +84,7 @@ describe('account workspace export', () => {
         expect(workspace.sourceWorkspaceId).toBe('account-1');
         expect(workspace.performances[0].targetAmount).toBe(500000);
         expect(workspace.history[0].performanceContributionAmount).toBe(10000);
+        expect(workspace.benefitProfile.smallBenefitThreshold).toBe(100);
     });
 
     it('summarizes preview counts and validates the transport contract', () => {
@@ -100,6 +102,19 @@ describe('account workspace export', () => {
             hasProfile: true,
             totalRecords: 7,
         });
+    });
+
+    it('defaults legacy exports without a small-benefit setting to 100 won', () => {
+        const workspace = createExport();
+        const {
+            smallBenefitThreshold,
+            ...legacyProfile
+        } = workspace.benefitProfile;
+        const legacy = { ...workspace, benefitProfile: legacyProfile };
+
+        expect(smallBenefitThreshold).toBe(100);
+        expect(parseAccountWorkspaceExport(legacy).benefitProfile.smallBenefitThreshold)
+            .toBe(100);
     });
 
     it('rejects unsupported versions and server ownership leakage', () => {
