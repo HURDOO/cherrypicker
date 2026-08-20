@@ -3,6 +3,7 @@ import { db, databasePath } from '../src/db';
 import {
     benefitRules,
     brands,
+    cardBenefitRevisions,
     cards,
     categories,
     promotionProviders,
@@ -127,6 +128,17 @@ const providerSeeds = [
     },
 ];
 
+const revisionManagedCardIds = new Set(
+    db.select({
+        cardId: cardBenefitRevisions.cardId,
+        isActive: cardBenefitRevisions.isActive,
+    })
+        .from(cardBenefitRevisions)
+        .all()
+        .filter(row => row.isActive)
+        .map(row => row.cardId)
+);
+
 db.transaction((tx) => {
     providerSeeds.forEach((provider, sortOrder) => {
         tx.insert(promotionProviders)
@@ -191,6 +203,7 @@ db.transaction((tx) => {
     });
 
     seedCards.forEach((card) => {
+        if (revisionManagedCardIds.has(card.id)) return;
         tx.insert(cards)
             .values({
                 id: card.id,
@@ -214,6 +227,7 @@ db.transaction((tx) => {
     });
 
     seedRules.forEach((rule) => {
+        if (revisionManagedCardIds.has(rule.cardId)) return;
         tx.insert(benefitRules)
             .values({
                 id: rule.id,

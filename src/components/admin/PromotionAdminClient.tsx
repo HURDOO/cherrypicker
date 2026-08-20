@@ -1289,15 +1289,23 @@ export function PromotionAdminClient() {
                             </p>
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={collect}
-                        disabled={isCollecting}
-                        className="flex shrink-0 items-center gap-2 rounded-xl bg-gray-950 px-4 py-2.5 text-xs font-black text-white disabled:opacity-50"
-                    >
-                        {isCollecting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <DatabaseZap className="h-4 w-4" />}
-                        {isCollecting ? '수집 중' : '지금 수집'}
-                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                        <Link
+                            href="/admin/card-benefits"
+                            className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-black text-gray-700"
+                        >
+                            카드 혜택
+                        </Link>
+                        <button
+                            type="button"
+                            onClick={collect}
+                            disabled={isCollecting}
+                            className="flex items-center gap-2 rounded-xl bg-gray-950 px-4 py-2.5 text-xs font-black text-white disabled:opacity-50"
+                        >
+                            {isCollecting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <DatabaseZap className="h-4 w-4" />}
+                            {isCollecting ? '수집 중' : '지금 수집'}
+                        </button>
+                    </div>
                 </div>
             </header>
 

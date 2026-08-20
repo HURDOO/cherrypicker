@@ -71,6 +71,13 @@
       "when": 1787225898114,
       "tag": "0009_small-benefit-threshold",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1787240373148,
+      "tag": "0010_card-benefit-ingestion",
+      "breakpoints": true
     }
   ]
 }

@@ -54,6 +54,7 @@ ALLOW_SIGN_UP=true
 ADMIN_EMAILS=admin@example.com
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-3.6-flash
+CARD_BENEFIT_AI_MODEL=gemini-3.6-flash
 PROMOTION_AI_MAX_CALLS=25
 ```
 
@@ -61,6 +62,7 @@ PROMOTION_AI_MAX_CALLS=25
 `ALLOW_SIGN_UP`은 정확히 `true`일 때만 가입을 엽니다. 공개 서버에서는 필요한 계정을 만든 뒤 `false`로 바꾸고 서버를 재시작해 신규 가입 API와 가입 화면을 닫으세요.
 `ADMIN_EMAILS`는 `/admin/promotions`에 접근할 관리자 이메일을 쉼표로 구분합니다. 프로모션 수집, 원문 검수, 승인과 카드 승인 경로 검증은 이 계정만 수행할 수 있습니다.
 `GEMINI_API_KEY`는 선택 사항입니다. 값이 없거나 호출이 실패하면 공식 문구를 보수적으로 판정하는 규칙 분류기로 계속 수집합니다. `GEMINI_MODEL`을 바꾸면 Gemini 모델을 교체할 수 있고, `PROMOTION_AI_MAX_CALLS`는 한 번의 수집에서 AI로 재확인할 모호한 혜택 수를 제한합니다. AI에는 공개된 혜택 문구만 보내며 사용자 카드·결제·계정 데이터는 보내지 않습니다.
+`CARD_BENEFIT_AI_MODEL`은 카드 상품 원문을 고정 JSON schema로 구조화할 때 사용할 모델입니다. 비어 있으면 `GEMINI_MODEL`을 사용하며, 키가 없거나 호출에 실패하면 현재 대표 카드 전용 규칙 추출기로 검수 후보를 만듭니다.
 
 ### 데이터베이스 준비와 실행
 
@@ -113,10 +115,13 @@ npm run db:migrate
 - 카카오페이·굿딜 앱 전용 행사 수동 후보 등록
 - 브랜드·페이·카드사별 승인 가맹점/MCC 근거 등록
 
+`/admin/card-benefits`에서는 신한 SOL트래블 체크카드의 공식 상품 상세 HTML을 원문·hash·version과 함께 보존하고, AI 또는 규칙 추출 결과의 필드별 원문 근거와 검증 오류를 확인한 뒤 카드 혜택 revision을 게시하거나 과거 revision으로 rollback할 수 있습니다. 세부 출처·검증·보존 정책은 [카드 혜택 원문 수집·구조화 정책](docs/card-benefit-source-policy.md)을 따릅니다.
+
 카카오페이 앱처럼 로그인이나 앱 내부에서만 제공되는 목록은 자동 수집하지 않습니다. 공식 출처에서 계산 조건이 명확한 혜택만 자동 게시하며, 상품·카테고리 한정 혜택은 대표 최대 혜택에서 분리하고 대상 상품 금액을 입력했을 때만 계산합니다. 범위 미확정 혜택은 관리자가 범위를 선택하기 전에는 게시할 수 없습니다. 사용자가 일시 정지한 자동 혜택은 다음 수집에서도 일시 정지 상태를 유지합니다. 수동 실행 명령은 다음과 같습니다.
 
 ```bash
 npm run promotions:collect
+npm run cards:collect
 ```
 
 출처별 신규·자동 게시·검수·실패 건수는 명령 출력과 관리자 수집 결과에서 확인할 수 있습니다. 각 실행 결과는 `promotion_collection_runs`에도 저장되어 공개 카탈로그의 마지막 전체 수집 성공 시각과 실패 출처 수를 계산합니다. 수집 대상 페이지의 정책과 제휴 조건을 운영 전에 확인하고, 선착순·개인별 대상 여부는 조건부 정보로 유지하세요.
@@ -170,13 +175,13 @@ migration과 멱등 seed를 먼저 적용한 뒤 Next.js 서버를 실행합니�
 
 현재 deployd는 secret이 아닌 임의의 일반 환경 변수 설정을 지원하지 않습니다.
 따라서 `ALLOW_SIGN_UP`, `ADMIN_EMAILS`, `GEMINI_MODEL`,
-`PROMOTION_AI_MAX_CALLS`를 **Secrets**에 넣지 않습니다. 새 데이터베이스의 최초
+`CARD_BENEFIT_AI_MODEL`, `PROMOTION_AI_MAX_CALLS`를 **Secrets**에 넣지 않습니다. 새 데이터베이스의 최초
 온보딩에는 `ALLOW_SIGN_UP=true`인 임시 bootstrap 이미지를 private 접근으로만
 배포합니다. 의도한 첫 계정을 만든 직후 `ALLOW_SIGN_UP=false`로 되돌린 후속
 이미지를 발행하고, 그 이미지가 healthy 상태가 된 것을 확인해야 가입 종료와
 관리형 배포 온보딩이 완료됩니다. bootstrap 이미지가 실행 중인 동안에는 필요한
 계정만 만든 뒤 지체 없이 가입을 닫습니다. `ADMIN_EMAILS`, `GEMINI_MODEL`,
-`PROMOTION_AI_MAX_CALLS`는 일반 환경 변수 지원이나 별도의 애플리케이션 설정
+`CARD_BENEFIT_AI_MODEL`, `PROMOTION_AI_MAX_CALLS`는 일반 환경 변수 지원이나 별도의 애플리케이션 설정
 경로가 생기기 전까지 이미지의 기본 동작을 사용하며, 이를 secret으로 숨기지
 않습니다.
 

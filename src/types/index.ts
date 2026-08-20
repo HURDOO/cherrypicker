@@ -79,6 +79,32 @@ export interface BenefitRule {
     limitConfig: LimitConfig;
 }
 
+export type CardBenefitSourceKind = 'PRODUCT_PAGE' | 'PRODUCT_GUIDE_PDF' | 'NOTICE';
+export type CardBenefitCandidateStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface CardBenefitEvidence {
+    id: string;
+    ruleIds: RuleId[];
+    fields: Array<'description' | 'condition' | 'action' | 'limitConfig'>;
+    quote: string;
+    location?: string;
+    page?: number;
+}
+
+export interface CardBenefitExtraction {
+    schemaVersion: 1;
+    completeness: 'FULL';
+    card: Pick<Card, 'id' | 'name' | 'company' | 'limitTable'>;
+    rules: BenefitRule[];
+    evidence: CardBenefitEvidence[];
+    notes: string[];
+}
+
+export interface CardBenefitRevisionSnapshot {
+    card: Card;
+    rules: BenefitRule[];
+}
+
 // User Data
 export interface UserCardPerformance {
     cardId: CardId;

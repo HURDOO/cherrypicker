@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
     index,
     integer,
+    real,
     sqliteTable,
     text,
     uniqueIndex,
@@ -23,6 +24,10 @@ import type {
     RuleAction,
     RuleCondition,
     BenefitSubscription,
+    CardBenefitCandidateStatus,
+    CardBenefitExtraction,
+    CardBenefitRevisionSnapshot,
+    CardBenefitSourceKind,
     TelecomMembership,
 } from '@/types';
 import type { AccountWorkspaceExport } from '@/lib/account-workspace-export';
@@ -93,6 +98,106 @@ export const benefitRules = sqliteTable('benefit_rules', {
     index('benefit_rules_card_id_idx').on(table.cardId),
     index('benefit_rules_user_id_idx').on(table.userId),
     index('benefit_rules_category_idx').on(table.category),
+]);
+
+export const cardBenefitDocuments = sqliteTable('card_benefit_documents', {
+    id: text('id').primaryKey(),
+    cardId: text('card_id')
+        .notNull()
+        .references(() => cards.id, { onDelete: 'cascade' }),
+    sourceUrl: text('source_url').notNull(),
+    sourceKind: text('source_kind').$type<CardBenefitSourceKind>().notNull(),
+    mediaType: text('media_type').notNull(),
+    contentHash: text('content_hash').notNull(),
+    version: integer('version').notNull(),
+    rawContent: text('raw_content').notNull(),
+    extractedText: text('extracted_text').notNull(),
+    responseMetadata: text('response_metadata', { mode: 'json' })
+        .$type<{ etag?: string; lastModified?: string }>()
+        .notNull()
+        .default({}),
+    collectedAt: integer('collected_at', { mode: 'timestamp_ms' })
+        .notNull()
+        .default(nowInMilliseconds),
+}, (table) => [
+    uniqueIndex('card_benefit_documents_source_hash_unique').on(
+        table.cardId,
+        table.sourceUrl,
+        table.contentHash,
+    ),
+    uniqueIndex('card_benefit_documents_source_version_unique').on(
+        table.cardId,
+        table.sourceUrl,
+        table.version,
+    ),
+    index('card_benefit_documents_card_collected_idx').on(
+        table.cardId,
+        table.collectedAt,
+    ),
+]);
+
+export const cardBenefitCandidates = sqliteTable('card_benefit_candidates', {
+    id: text('id').primaryKey(),
+    documentId: text('document_id')
+        .notNull()
+        .references(() => cardBenefitDocuments.id, { onDelete: 'cascade' }),
+    cardId: text('card_id')
+        .notNull()
+        .references(() => cards.id, { onDelete: 'cascade' }),
+    schemaVersion: integer('schema_version').notNull().default(1),
+    extractor: text('extractor').notNull(),
+    model: text('model'),
+    confidence: real('confidence').notNull(),
+    extraction: text('extraction', { mode: 'json' })
+        .$type<CardBenefitExtraction>()
+        .notNull(),
+    validationErrors: text('validation_errors', { mode: 'json' })
+        .$type<string[]>()
+        .notNull(),
+    status: text('status')
+        .$type<CardBenefitCandidateStatus>()
+        .notNull()
+        .default('PENDING'),
+    reviewerId: text('reviewer_id').references(() => user.id, { onDelete: 'set null' }),
+    reviewedAt: integer('reviewed_at', { mode: 'timestamp_ms' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+        .notNull()
+        .default(nowInMilliseconds),
+}, (table) => [
+    uniqueIndex('card_benefit_candidates_document_extractor_unique').on(
+        table.documentId,
+        table.extractor,
+        table.schemaVersion,
+    ),
+    index('card_benefit_candidates_status_created_idx').on(table.status, table.createdAt),
+    index('card_benefit_candidates_card_created_idx').on(table.cardId, table.createdAt),
+]);
+
+export const cardBenefitRevisions = sqliteTable('card_benefit_revisions', {
+    id: text('id').primaryKey(),
+    cardId: text('card_id')
+        .notNull()
+        .references(() => cards.id, { onDelete: 'cascade' }),
+    revision: integer('revision').notNull(),
+    candidateId: text('candidate_id')
+        .references(() => cardBenefitCandidates.id, { onDelete: 'set null' }),
+    documentId: text('document_id')
+        .references(() => cardBenefitDocuments.id, { onDelete: 'set null' }),
+    snapshot: text('snapshot', { mode: 'json' })
+        .$type<CardBenefitRevisionSnapshot>()
+        .notNull(),
+    rollbackOfRevision: integer('rollback_of_revision'),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(false),
+    reviewerId: text('reviewer_id').references(() => user.id, { onDelete: 'set null' }),
+    publishedAt: integer('published_at', { mode: 'timestamp_ms' })
+        .notNull()
+        .default(nowInMilliseconds),
+}, (table) => [
+    uniqueIndex('card_benefit_revisions_card_revision_unique').on(
+        table.cardId,
+        table.revision,
+    ),
+    index('card_benefit_revisions_card_active_idx').on(table.cardId, table.isActive),
 ]);
 
 export const promotionProviders = sqliteTable('promotion_providers', {
