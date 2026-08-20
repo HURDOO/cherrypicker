@@ -14,10 +14,9 @@ import {
     ShieldCheck,
     Smartphone,
     Sparkles,
+    Store,
     Tag,
     Wallet,
-    Wifi,
-    WifiOff,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore } from '@/store/useAppStore';
@@ -26,12 +25,17 @@ import { IconByName } from '@/components/ui/IconByName';
 import { NumericKeypad } from '@/components/ui/NumericKeypad';
 import { MonthlyPerformanceReminder } from '@/components/performance/MonthlyPerformanceReminder';
 import { BrandDiscovery } from '@/components/brand/BrandDiscovery';
+import { CatalogFreshnessCard } from '@/components/catalog/CatalogFreshnessCard';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
+import { localWorkspaceClient } from '@/lib/local-workspace';
+import { useBenefitCatalog } from '@/hooks/useBenefitCatalog';
 import { useBrandDiscoveryPreferences } from '@/hooks/useBrandDiscoveryPreferences';
 import type {
     BenefitCombination,
     BenefitLayer,
     CombinationStep,
+    RecommendationRequest,
+    RecommendationResponse,
 } from '@/types';
 import {
     formatPerformanceMonthLabel,
@@ -42,6 +46,8 @@ import {
     FUNDING_TYPE_LABELS,
     getCombinationMethodSummary,
 } from '@/utils/combinationPresentation';
+import { calculateBestCombinations } from '@/utils/combination';
+import { buildPromotionUsage } from '@/utils/promotionUsage';
 
 const formatWon = (value: number) => `${value.toLocaleString()}원`;
 
@@ -228,24 +234,35 @@ function CombinationSummary({
 export default function HomePage() {
     const {
         userId,
-        categories,
-        brands,
-        cards,
-        rules,
+        storageMode,
+        categories: serverCategories,
+        brands: serverBrands,
+        cards: serverCards,
+        rules: serverRules,
         history,
         performances,
+        benefitProfile,
         isLoading,
         selectedBrandId,
         setSelectedBrandId,
         addTransaction,
     } = useAppStore();
     const addToast = useToastStore(state => state.addToast);
+    const {
+        snapshot: catalog,
+        isLoading: isCatalogLoading,
+        isRefreshing: isCatalogRefreshing,
+        isOnline: isNetworkOnline,
+        health: catalogHealth,
+        lastCheckedAt: catalogLastCheckedAt,
+        error: catalogError,
+        cacheWarning: catalogCacheWarning,
+        refresh: refreshCatalog,
+    } = useBenefitCatalog();
     const [amount, setAmount] = useState(0);
     const [eligibleItemAmount, setEligibleItemAmount] = useState<number | undefined>();
-    const [isOnline, setIsOnline] = useState(false);
-    const [recommendation, setRecommendation] = useState<Awaited<
-        ReturnType<typeof apiClient.getRecommendation>
-    > | null>(null);
+    const [isOnlinePurchase, setIsOnlinePurchase] = useState(false);
+    const [recommendation, setRecommendation] = useState<RecommendationResponse | null>(null);
     const [isRecommending, setIsRecommending] = useState(false);
     const [selectedCombinationId, setSelectedCombinationId] = useState<string>();
     const [confirmedConditionIds, setConfirmedConditionIds] = useState<Set<string>>(new Set());
@@ -274,6 +291,31 @@ export default function HomePage() {
         };
     });
 
+    const categories = useMemo(
+        () => catalog
+            ? [...catalog.categories, ...serverCategories.filter(category => category.userId)]
+            : serverCategories,
+        [catalog, serverCategories]
+    );
+    const brands = useMemo(
+        () => catalog
+            ? [...catalog.brands, ...serverBrands.filter(brand => brand.userId)]
+            : serverBrands,
+        [catalog, serverBrands]
+    );
+    const cards = useMemo(
+        () => catalog
+            ? [...catalog.cards, ...serverCards.filter(card => card.userId)]
+            : serverCards,
+        [catalog, serverCards]
+    );
+    const rules = useMemo(
+        () => catalog
+            ? [...catalog.rules, ...serverRules.filter(rule => rule.userId)]
+            : serverRules,
+        [catalog, serverRules]
+    );
+
     const currentBrand = useMemo(
         () => brands.find(brand => brand.id === selectedBrandId),
         [brands, selectedBrandId]
@@ -298,11 +340,27 @@ export default function HomePage() {
             return needsPerformance && activeCardIds.has(card.id) && !enteredCardIds.has(card.id);
         });
     }, [cards, currentPerformances, history, performances, rules]);
+    const promotionUsage = useMemo(() => buildPromotionUsage(history), [history]);
+
+    useEffect(() => {
+        if (!catalog && catalogError) {
+            addToast(
+                getErrorMessage(catalogError, '최신 혜택 정보를 불러오지 못했습니다.'),
+                'error'
+            );
+        }
+    }, [addToast, catalog, catalogError]);
 
     useEffect(() => {
         if (!currentBrand || amount <= 0) {
+            recommendationVersion.current += 1;
+            setIsRecommending(false);
             setRecommendation(null);
             setSelectedCombinationId(undefined);
+            return;
+        }
+        if (!catalog && isCatalogLoading) {
+            setIsRecommending(true);
             return;
         }
         const version = recommendationVersion.current + 1;
@@ -310,16 +368,60 @@ export default function HomePage() {
         const timer = window.setTimeout(async () => {
             setIsRecommending(true);
             try {
-                const result = await apiClient.getRecommendation({
+                const request = {
                     brandId: currentBrand.id,
                     amount,
                     ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
-                    isOnline,
+                    isOnline: isOnlinePurchase,
                     confirmedConditionIds: [...confirmedConditionIds],
-                });
+                } satisfies RecommendationRequest;
+                if (!catalog && storageMode === 'guest') {
+                    throw new Error('최신 혜택 정보를 받은 뒤 기기에서 계산할 수 있습니다.');
+                }
+                const result = catalog
+                    ? calculateBestCombinations(
+                        {
+                            ...request,
+                            brand: currentBrand,
+                            cards,
+                            rules,
+                            history,
+                            performances: currentPerformances,
+                            promotions: catalog.promotions,
+                            providers: catalog.providers,
+                            profile: benefitProfile,
+                            routeVerifications: catalog.routeVerifications,
+                            promotionUsage,
+                        },
+                        process.env.NODE_ENV === 'development'
+                            ? {
+                                onMetrics: metrics => {
+                                    if (metrics.durationMs > 50 || metrics.searchSpaceLimited) {
+                                        console.warn('브라우저 추천 계산 성능', metrics);
+                                    } else {
+                                        console.debug('브라우저 추천 계산 성능', metrics);
+                                    }
+                                },
+                            }
+                            : undefined,
+                    )
+                    : await apiClient.getRecommendation(request);
                 if (recommendationVersion.current !== version) return;
                 setRecommendation(result);
                 setSelectedCombinationId(result.combinations[0]?.id);
+
+                if (catalog && process.env.NODE_ENV === 'development') {
+                    void apiClient.getRecommendation(request)
+                        .then(serverResult => {
+                            if (JSON.stringify(serverResult) !== JSON.stringify(result)) {
+                                console.warn('브라우저와 서버 추천 결과가 다릅니다.', {
+                                    browser: result,
+                                    server: serverResult,
+                                });
+                            }
+                        })
+                        .catch(() => undefined);
+                }
             } catch (error) {
                 if (recommendationVersion.current !== version) return;
                 setRecommendation(null);
@@ -332,10 +434,19 @@ export default function HomePage() {
     }, [
         addToast,
         amount,
+        benefitProfile,
+        cards,
+        catalog,
         confirmedConditionIds,
         currentBrand,
+        currentPerformances,
         eligibleItemAmount,
-        isOnline,
+        history,
+        isCatalogLoading,
+        isOnlinePurchase,
+        promotionUsage,
+        rules,
+        storageMode,
     ]);
 
     const selectedCombination = recommendation?.combinations.find(
@@ -394,14 +505,22 @@ export default function HomePage() {
         setIsRecording(true);
         setRecordConfirmationId(undefined);
         try {
-            const transaction = await apiClient.createCombinationTransaction({
-                brandId: currentBrand.id,
-                amount,
-                ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
-                isOnline,
-                confirmedConditionIds: [...confirmedConditionIds],
-                combinationId: selectedCombination.id,
-            });
+            const transaction = storageMode === 'guest'
+                ? await localWorkspaceClient.createTransaction({
+                    brandId: currentBrand.id,
+                    amount,
+                    ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
+                    combination: selectedCombination,
+                    catalogVersion: catalog?.catalogVersion ?? 'unknown',
+                })
+                : await apiClient.createCombinationTransaction({
+                    brandId: currentBrand.id,
+                    amount,
+                    ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
+                    isOnline: isOnlinePurchase,
+                    confirmedConditionIds: [...confirmedConditionIds],
+                    combinationId: selectedCombination.id,
+                });
             addTransaction(transaction);
             recordBrandVisit(currentBrand.id);
             addToast('선택한 혜택 조합으로 기록했습니다.', 'success');
@@ -441,23 +560,46 @@ export default function HomePage() {
                         <span className="text-2xl">🍒</span> Cherry Picker
                     </h1>
                     <p className="text-[10px] font-bold text-gray-400">할인부터 결제수단까지 한 번에</p>
+                    {catalog && (
+                        <p className="mt-0.5 text-[9px] font-bold text-emerald-600">
+                            혜택 조합은 이 기기에서 계산
+                        </p>
+                    )}
+                    {storageMode === 'guest' && (
+                        <p className="mt-0.5 text-[9px] font-bold text-blue-600">
+                            개인 데이터는 이 기기에 저장
+                        </p>
+                    )}
                 </div>
                 <button
                     type="button"
-                    onClick={() => setIsOnline(value => !value)}
+                    onClick={() => setIsOnlinePurchase(value => !value)}
                     className={clsx(
                         'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black',
-                        isOnline
+                        isOnlinePurchase
                             ? 'border-violet-200 bg-violet-50 text-violet-700'
                             : 'border-gray-200 bg-gray-100 text-gray-600'
                     )}
                 >
-                    {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-                    {isOnline ? '온라인' : '오프라인'}
+                    {isOnlinePurchase
+                        ? <Smartphone className="h-3 w-3" />
+                        : <Store className="h-3 w-3" />}
+                    {isOnlinePurchase ? '온라인 결제' : '매장 결제'}
                 </button>
             </header>
 
             <div className="mx-auto max-w-lg space-y-7 px-5 pt-6">
+                <CatalogFreshnessCard
+                    health={catalogHealth}
+                    isOnline={isNetworkOnline}
+                    isRefreshing={isCatalogRefreshing}
+                    lastCheckedAt={catalogLastCheckedAt}
+                    catalogVersion={catalog?.catalogVersion}
+                    error={catalogError}
+                    cacheWarning={catalogCacheWarning}
+                    onRefresh={refreshCatalog}
+                />
+
                 <MonthlyPerformanceReminder
                     missingCount={missingPerformanceCards.length}
                     performanceMonthLabel={formatPerformanceMonthLabel(performancePeriod.performanceMonth)}

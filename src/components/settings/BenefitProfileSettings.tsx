@@ -11,6 +11,9 @@ import {
     X,
 } from 'lucide-react';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
+import { useBenefitCatalog } from '@/hooks/useBenefitCatalog';
+import { localWorkspaceClient } from '@/lib/local-workspace';
+import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
 import type {
     PromotionProvider,
@@ -38,7 +41,11 @@ const optionSummary = (value: string) =>
 
 export function BenefitProfileSettings() {
     const addToast = useToastStore(state => state.addToast);
-    const [profile, setProfile] = useState<UserBenefitProfile>(emptyProfile);
+    const storedProfile = useAppStore(state => state.benefitProfile);
+    const storageMode = useAppStore(state => state.storageMode);
+    const setStoredProfile = useAppStore(state => state.setBenefitProfile);
+    const catalogState = useBenefitCatalog();
+    const [profile, setProfile] = useState<UserBenefitProfile>(storedProfile ?? emptyProfile);
     const [providers, setProviders] = useState<PromotionProvider[]>([]);
     const [subscriptionProducts, setSubscriptionProducts] = useState<SubscriptionProduct[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -62,11 +69,40 @@ export function BenefitProfileSettings() {
     const selectedTelecom = profile.telecomMemberships[0];
 
     useEffect(() => {
+        if (storageMode !== 'guest') return;
+
+        setProfile(storedProfile);
+        if (catalogState.snapshot) {
+            setProviders(catalogState.snapshot.providers);
+            setSubscriptionProducts(catalogState.snapshot.subscriptionProducts);
+            setIsLoading(false);
+        } else {
+            setIsLoading(catalogState.isLoading);
+            if (catalogState.error) {
+                addToast(
+                    getErrorMessage(catalogState.error, '혜택 목록을 불러오지 못했습니다.'),
+                    'error'
+                );
+            }
+        }
+    }, [
+        addToast,
+        catalogState.error,
+        catalogState.isLoading,
+        catalogState.snapshot,
+        storageMode,
+        storedProfile,
+    ]);
+
+    useEffect(() => {
+        if (storageMode !== 'account') return;
+
         let active = true;
         apiClient.getBenefitProfile()
             .then(result => {
                 if (!active) return;
                 setProfile(result.profile);
+                setStoredProfile(result.profile);
                 setProviders(result.providers);
                 setSubscriptionProducts(result.subscriptionProducts);
             })
@@ -79,13 +115,18 @@ export function BenefitProfileSettings() {
         return () => {
             active = false;
         };
-    }, [addToast]);
+    }, [addToast, setStoredProfile, storageMode]);
+
+    const persistProfile = (nextProfile: UserBenefitProfile) => storageMode === 'guest'
+        ? localWorkspaceClient.updateBenefitProfile(nextProfile)
+        : apiClient.updateBenefitProfile(nextProfile);
 
     const save = async () => {
         setIsSaving(true);
         try {
-            const saved = await apiClient.updateBenefitProfile(profile);
+            const saved = await persistProfile(profile);
             setProfile(saved);
+            setStoredProfile(saved);
             addToast('보유 혜택 설정을 저장했습니다.', 'success');
         } catch (error) {
             addToast(getErrorMessage(error, '보유 혜택 설정을 저장하지 못했습니다.'), 'error');
@@ -129,8 +170,9 @@ export function BenefitProfileSettings() {
         setSavingSubscriptionProviderId(providerId);
 
         try {
-            const saved = await apiClient.updateBenefitProfile(nextProfile);
+            const saved = await persistProfile(nextProfile);
             setProfile(current => ({ ...current, subscriptions: saved.subscriptions }));
+            setStoredProfile(saved);
             setSubscriptionDrafts(current => ({ ...current, [providerId]: '' }));
             const supported = findSubscriptionProduct(
                 subscriptionProducts,
@@ -166,8 +208,9 @@ export function BenefitProfileSettings() {
         setSavingSubscriptionProviderId(providerId);
 
         try {
-            const saved = await apiClient.updateBenefitProfile(nextProfile);
+            const saved = await persistProfile(nextProfile);
             setProfile(current => ({ ...current, subscriptions: saved.subscriptions }));
+            setStoredProfile(saved);
             addToast(`${productName}을 삭제했습니다.`, 'success');
         } catch (error) {
             setProfile(current => ({

@@ -29,7 +29,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
                 <div className="text-center">
                     <h1 className="text-3xl font-extrabold text-gray-900">회원가입</h1>
                     <p className="mt-2 text-sm text-gray-600">
-                        가입 완료 후 로그인 화면에서 새 계정으로 로그인합니다.
+                        계정은 선택 사항입니다. 가입 완료 후 로그인할 수 있습니다.
                     </p>
                 </div>
 
@@ -94,6 +94,17 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
                     >
                         회원가입
                     </button>
+
+                    <Link
+                        href="/"
+                        className="flex w-full justify-center rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                        로그인 없이 계속
+                    </Link>
+
+                    <p className="rounded-lg bg-blue-50 px-3 py-2 text-center text-xs leading-relaxed text-blue-700">
+                        가입·로그인 후에도 이 기기 데이터를 유지하며, 빈 계정에 안전하게 백업할 수 있습니다.
+                    </p>
 
                     <div className="text-center text-sm">
                         <span className="text-gray-600">이미 계정이 있나요? </span>

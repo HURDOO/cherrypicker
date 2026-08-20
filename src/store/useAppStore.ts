@@ -1,11 +1,21 @@
 import { create } from 'zustand';
 import {
     Card, BenefitRule, Brand, Category,
-    TransactionHistory, UserCardPerformance
+    TransactionHistory, UserBenefitProfile, UserCardPerformance
 } from '@/types';
+
+const createEmptyBenefitProfile = (): UserBenefitProfile => ({
+    telecomMemberships: [],
+    subscriptions: [],
+    enabledPayProviderIds: [],
+    moneyEnabled: true,
+    pointsEnabled: true,
+    pointValue: 1,
+});
 
 interface AppState {
     userId: string;
+    storageMode: 'guest' | 'account';
 
     // Master Data
     categories: Category[];
@@ -16,6 +26,7 @@ interface AppState {
     // User Data
     performances: UserCardPerformance[];
     history: TransactionHistory[];
+    benefitProfile: UserBenefitProfile;
 
     // UI State
     isLoading: boolean;
@@ -23,17 +34,20 @@ interface AppState {
     // Actions
     setInitialData: (data: {
         userId: string;
+        storageMode: 'guest' | 'account';
         categories: Category[];
         brands: Brand[];
         cards: Card[];
         rules: BenefitRule[];
         performances: UserCardPerformance[];
         history: TransactionHistory[];
+        benefitProfile: UserBenefitProfile;
     }) => void;
 
     addTransaction: (transaction: TransactionHistory) => void;
     clearHistory: () => void;
     updatePerformance: (perf: UserCardPerformance) => void;
+    setBenefitProfile: (profile: UserBenefitProfile) => void;
     setLoading: (loading: boolean) => void;
     resetData: () => void;
 
@@ -60,22 +74,26 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
     userId: '',
+    storageMode: 'guest',
     categories: [],
     brands: [],
     cards: [],
     rules: [],
     performances: [],
     history: [],
+    benefitProfile: createEmptyBenefitProfile(),
     isLoading: true, // Default to loading until sync completes
 
     setInitialData: (data) => set({
         userId: data.userId,
+        storageMode: data.storageMode,
         categories: data.categories,
         brands: data.brands,
         cards: data.cards,
         rules: data.rules,
         performances: data.performances,
         history: data.history,
+        benefitProfile: data.benefitProfile,
         isLoading: false
     }),
 
@@ -96,16 +114,19 @@ export const useAppStore = create<AppState>((set) => ({
         }
         return { performances: newPerformances };
     }),
+    setBenefitProfile: (benefitProfile) => set({ benefitProfile }),
 
     setLoading: (loading) => set({ isLoading: loading }),
     resetData: () => set({
         userId: '',
+        storageMode: 'guest',
         categories: [],
         brands: [],
         cards: [],
         rules: [],
         performances: [],
         history: [],
+        benefitProfile: createEmptyBenefitProfile(),
         selectedBrandId: '',
         isLoading: false,
     }),
@@ -128,7 +149,12 @@ export const useAppStore = create<AppState>((set) => ({
         brands: state.brands.map(b => b.id === brand.id ? brand : b)
     })),
     removeBrand: (id) => set(state => ({
-        brands: state.brands.filter(b => b.id !== id)
+        brands: state.brands.filter(b => b.id !== id),
+        rules: state.rules.map(rule => ({
+            ...rule,
+            includedBrands: (rule.includedBrands ?? []).filter(brandId => brandId !== id),
+            excludedBrands: (rule.excludedBrands ?? []).filter(brandId => brandId !== id),
+        })),
     })),
     reorderBrands: (brands) => set({ brands }),
 
@@ -136,9 +162,25 @@ export const useAppStore = create<AppState>((set) => ({
     updateCategory: (category) => set(state => ({
         categories: state.categories.map(c => c.id === category.id ? category : c)
     })),
-    removeCategory: (id) => set(state => ({
-        categories: state.categories.filter(c => c.id !== id)
-    })),
+    removeCategory: (id) => set(state => {
+        const removedBrandIds = new Set(
+            state.brands.filter(brand => brand.categoryId === id).map(brand => brand.id)
+        );
+        return {
+            categories: state.categories.filter(category => category.id !== id),
+            brands: state.brands.filter(brand => brand.categoryId !== id),
+            rules: state.rules.map(rule => ({
+                ...rule,
+                ...(rule.category === id ? { category: undefined } : {}),
+                includedBrands: (rule.includedBrands ?? []).filter(
+                    brandId => !removedBrandIds.has(brandId)
+                ),
+                excludedBrands: (rule.excludedBrands ?? []).filter(
+                    brandId => !removedBrandIds.has(brandId)
+                ),
+            })),
+        };
+    }),
     reorderCategories: (categories) => set({ categories }),
 
     selectedBrandId: '',

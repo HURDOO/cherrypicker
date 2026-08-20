@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { getErrorMessage } from '@/lib/api-client';
 import {
-    ApiRequestError,
-    UNAUTHORIZED_EVENT,
-    apiClient,
-    getErrorMessage,
-} from '@/lib/api-client';
-import { authClient } from '@/lib/auth-client';
+    readCachedBenefitCatalog,
+    revalidateBenefitCatalog,
+    type CachedBenefitCatalog,
+} from '@/lib/benefit-catalog-client';
+import { readOrCreateLocalWorkspace } from '@/lib/local-workspace';
 import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
 
@@ -16,86 +16,70 @@ const isAuthPath = (pathname: string) =>
     pathname === '/login' || pathname.startsWith('/login/') ||
     pathname === '/signup' || pathname.startsWith('/signup/');
 
+async function loadLocalAppData() {
+    const workspace = await readOrCreateLocalWorkspace();
+    let cached: CachedBenefitCatalog | null = null;
+
+    try {
+        cached = await readCachedBenefitCatalog();
+    } catch {
+        // A fresh network snapshot can replace an unavailable or corrupt cache.
+    }
+
+    let catalog = cached?.snapshot ?? null;
+    try {
+        catalog = (await revalidateBenefitCatalog(cached)).entry.snapshot;
+    } catch (error) {
+        if (!catalog) throw error;
+    }
+
+    return {
+        userId: workspace.workspaceId,
+        storageMode: 'guest' as const,
+        categories: [...catalog.categories, ...workspace.categories],
+        brands: [...catalog.brands, ...workspace.brands],
+        cards: [...catalog.cards, ...workspace.cards],
+        rules: [...catalog.rules, ...workspace.rules],
+        performances: workspace.performances,
+        history: workspace.history,
+        benefitProfile: workspace.benefitProfile,
+    };
+}
+
 export function useAppData() {
     const pathname = usePathname();
-    const router = useRouter();
-    const { data: session, isPending: isSessionPending } = authClient.useSession();
-    const userId = session?.user.id ?? null;
     const { resetData, setInitialData, setLoading } = useAppStore();
     const addToast = useToastStore(state => state.addToast);
-    const loadedUserId = useRef<string | null>(null);
+    const isLoaded = useRef(false);
     const requestVersion = useRef(0);
-
-    useEffect(() => {
-        const handleUnauthorized = () => {
-            requestVersion.current += 1;
-            loadedUserId.current = null;
-            resetData();
-            router.replace('/login');
-        };
-
-        window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
-        return () => window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
-    }, [resetData, router]);
 
     useEffect(() => {
         if (isAuthPath(pathname)) {
             requestVersion.current += 1;
-            loadedUserId.current = null;
-            resetData();
+            setLoading(false);
             return;
         }
+        if (isLoaded.current) return;
 
-        if (isSessionPending) {
-            setLoading(true);
-            return;
-        }
-
-        if (!userId) {
-            requestVersion.current += 1;
-            loadedUserId.current = null;
-            resetData();
-            router.replace('/login');
-            return;
-        }
-
-        if (loadedUserId.current === userId) return;
-
-        loadedUserId.current = userId;
+        isLoaded.current = true;
         const currentVersion = requestVersion.current + 1;
         requestVersion.current = currentVersion;
         resetData();
         setLoading(true);
 
-        const loadAppData = async () => {
-            try {
-                const data = await apiClient.getAppData();
+        void loadLocalAppData()
+            .then(data => {
                 if (requestVersion.current !== currentVersion) return;
-                if (loadedUserId.current !== userId) return;
                 setInitialData(data);
-            } catch (error: unknown) {
+            })
+            .catch(error => {
                 if (requestVersion.current !== currentVersion) return;
-                loadedUserId.current = null;
+                isLoaded.current = false;
                 resetData();
-
-                if (error instanceof ApiRequestError && error.status === 401) {
-                    router.replace('/login');
-                    return;
-                }
-
-                addToast(getErrorMessage(error, '앱 데이터를 불러오지 못했습니다.'), 'error');
-            }
-        };
-
-        void loadAppData();
-    }, [
-        addToast,
-        isSessionPending,
-        pathname,
-        resetData,
-        router,
-        setInitialData,
-        setLoading,
-        userId,
-    ]);
+                addToast(
+                    getErrorMessage(error, '기기 저장 데이터를 불러오지 못했습니다.'),
+                    'error'
+                );
+            });
+    }, [addToast, pathname, resetData, setInitialData, setLoading]);
 }

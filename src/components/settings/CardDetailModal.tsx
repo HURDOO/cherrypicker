@@ -5,6 +5,7 @@ import { X, Plus, Edit2, CreditCard } from 'lucide-react';
 import { useToastStore } from '@/store/useToastStore';
 import EditRuleModal from './EditRuleModal';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
+import { localWorkspaceClient } from '@/lib/local-workspace';
 
 interface CardDetailModalProps {
     isOpen: boolean;
@@ -13,7 +14,7 @@ interface CardDetailModalProps {
 }
 
 export default function CardDetailModal({ isOpen, onClose, initialCard }: CardDetailModalProps) {
-    const { addCard, updateCard, rules } = useAppStore();
+    const { addCard, updateCard, rules, storageMode } = useAppStore();
     const { addToast } = useToastStore();
 
     // Form State
@@ -60,10 +61,14 @@ export default function CardDetailModal({ isOpen, onClose, initialCard }: CardDe
             };
 
             if (initialCard) {
-                const savedCard = await apiClient.updateCard(initialCard.id, payload);
+                const savedCard = storageMode === 'guest'
+                    ? await localWorkspaceClient.updateCard(initialCard.id, payload)
+                    : await apiClient.updateCard(initialCard.id, payload);
                 updateCard(savedCard);
             } else {
-                const savedCard = await apiClient.createCard(payload);
+                const savedCard = storageMode === 'guest'
+                    ? await localWorkspaceClient.createCard(payload)
+                    : await apiClient.createCard(payload);
                 addCard(savedCard);
             }
 

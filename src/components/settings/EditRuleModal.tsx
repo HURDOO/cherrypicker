@@ -4,6 +4,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { X, Trash2, Check } from 'lucide-react';
 import { useToastStore } from '@/store/useToastStore';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
+import { localWorkspaceClient } from '@/lib/local-workspace';
 
 interface EditRuleModalProps {
     isOpen: boolean;
@@ -59,7 +60,14 @@ const createInitialFormData = (cardId: string, existingRule?: BenefitRule | null
 };
 
 export default function EditRuleModal({ isOpen, onClose, cardId, existingRule }: EditRuleModalProps) {
-    const { brands, categories, addRule, updateRule, removeRule } = useAppStore();
+    const {
+        brands,
+        categories,
+        addRule,
+        updateRule,
+        removeRule,
+        storageMode,
+    } = useAppStore();
     const { addToast } = useToastStore();
 
     // Local State
@@ -90,10 +98,14 @@ export default function EditRuleModal({ isOpen, onClose, cardId, existingRule }:
             };
 
             if (existingRule) {
-                const savedRule = await apiClient.updateRule(existingRule.id, payload);
+                const savedRule = storageMode === 'guest'
+                    ? await localWorkspaceClient.updateRule(existingRule.id, payload)
+                    : await apiClient.updateRule(existingRule.id, payload);
                 updateRule(savedRule);
             } else {
-                const savedRule = await apiClient.createRule(payload);
+                const savedRule = storageMode === 'guest'
+                    ? await localWorkspaceClient.createRule(payload)
+                    : await apiClient.createRule(payload);
                 addRule(savedRule);
             }
 
@@ -109,7 +121,11 @@ export default function EditRuleModal({ isOpen, onClose, cardId, existingRule }:
         if (!existingRule || !confirm('정말 삭제하시겠습니까?')) return;
 
         try {
-            await apiClient.deleteRule(existingRule.id);
+            if (storageMode === 'guest') {
+                await localWorkspaceClient.deleteRule(existingRule.id);
+            } else {
+                await apiClient.deleteRule(existingRule.id);
+            }
             removeRule(existingRule.id);
             addToast('삭제되었습니다.', 'success');
             onClose();

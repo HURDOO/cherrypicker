@@ -6,7 +6,12 @@ import type {
     PromotionProvider,
     UserBenefitProfile,
 } from '@/types';
-import { calculateBestCombinations, type CombinationEngineInput } from './combination';
+import {
+    calculateBestCombinations,
+    createDeterministicCombinationId,
+    type CombinationEngineInput,
+    type CombinationEngineMetrics,
+} from './combination';
 
 const providers: PromotionProvider[] = [
     { id: 'skt', name: 'T멤버십', kind: 'TELECOM', isActive: true, sortOrder: 0 },
@@ -92,6 +97,56 @@ const input = (
 });
 
 describe('calculateBestCombinations', () => {
+    it('creates browser-safe deterministic combination IDs', () => {
+        const value = JSON.stringify({
+            payProviderId: 'naverpay',
+            fundingType: 'CARD',
+            cardId: 'card-1',
+            steps: ['promotion:npay', 'card:card-1:rule-1'],
+        });
+
+        expect(createDeterministicCombinationId(value)).toMatch(/^[a-f0-9]{20}$/);
+        expect(createDeterministicCombinationId(value))
+            .toBe(createDeterministicCombinationId(value));
+        expect(createDeterministicCombinationId(`${value}:changed`))
+            .not.toBe(createDeterministicCombinationId(value));
+    });
+
+    it('bounds combinatorial search and reports calculation metrics', () => {
+        const stackableOffers = Array.from({ length: 8 }, (_, index) => offer(
+            `stackable-${index}`,
+            {
+                action: { type: 'FLAT', value: 100 + index },
+                compatibility: { allowStackWithSameLayer: true },
+            }
+        ));
+        let measured: CombinationEngineMetrics | undefined;
+
+        const result = calculateBestCombinations(input(stackableOffers, {
+            profile: { ...profile, enabledPayProviderIds: [] },
+        }), {
+            maxWorkingStates: 8,
+            onMetrics: metrics => {
+                measured = metrics;
+            },
+        });
+
+        expect(measured).toMatchObject({
+            matchingOfferCount: 8,
+            calculableOfferCount: 8,
+            searchSpaceLimited: true,
+            returnedCombinationCount: result.combinations.length,
+        });
+        expect(measured?.peakWorkingStateCount).toBeGreaterThan(8);
+        expect(measured?.prunedWorkingStateCount).toBeGreaterThan(0);
+        expect(measured?.stateTransitionCount).toBeGreaterThan(0);
+        expect(measured?.durationMs).toBeGreaterThanOrEqual(0);
+        expect(result.combinations).toHaveLength(8);
+        expect(result.combinations.every(combination =>
+            combination.warnings.some(warning => warning.includes('상위 조합'))
+        )).toBe(true);
+    });
+
     it('applies discount, pay, and verified card benefits in sequence', () => {
         const promotions = [
             offer('telecom', {}),

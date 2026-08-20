@@ -1,17 +1,29 @@
 # Cherrypicker 🍒
 
-Cherrypicker는 결제처와 금액에 맞는 신용카드 혜택을 비교하고, 카드 실적과 결제 기록을 관리하는 Next.js 애플리케이션입니다. 데이터는 서버의 SQLite 파일에 저장하며 Drizzle ORM으로 접근하고, 계정과 세션은 Better Auth가 관리합니다.
+Cherrypicker는 결제처와 금액에 맞는 신용카드 혜택을 비교하고, 카드 실적과 결제 기록을 관리하는 Next.js 애플리케이션입니다. 공용 혜택 정보는 서버의 SQLite에서 관리하고 개인 데이터는 기본적으로 브라우저의 IndexedDB에 저장합니다.
 
 추천기는 통신사·매장 할인, Npay·카카오페이·굿딜, 카드·머니·포인트를 독립된 단계로 계산합니다. 확정 혜택으로 기본 순위를 정하고 쿠폰·응모 같은 조건부 혜택과 승인 가맹점이 검증되지 않은 예상 카드 혜택을 별도로 표시합니다.
+
+홈·설정·히스토리는 로그인 없이 사용할 수 있습니다. 브라우저는 공용 카탈로그와 개인 workspace를 서로 분리해 저장하고 추천을 기기에서 계산합니다. 로그인해도 현재 로컬 workspace를 계속 사용하며, 설정에서 빈 계정으로 snapshot을 백업하거나 빈 기기로 계정 snapshot을 복원할 수 있습니다. 같은 원본 기기는 revision을 확인한 뒤 수동으로 백업을 갱신할 수 있고, 서로 다른 데이터가 양쪽에 있으면 자동 덮어쓰지 않습니다. 레코드 단위 병합과 자동 양방향 동기화는 아직 구현 전입니다. 세부 진행 상황은 [Local-first 추천 및 선택적 계정 동기화 전환 계획](docs/local-first-optional-sync-plan.md)에 정리되어 있습니다.
 
 ## 기술 구성
 
 - Next.js 16 App Router, React 19, TypeScript
 - Tailwind CSS 4, Zustand, dnd-kit
 - SQLite, Drizzle ORM, better-sqlite3
-- Better Auth 이메일/비밀번호 인증
+- Better Auth 선택적 계정 및 관리자 인증
 
-브라우저는 SQLite 파일에 직접 접근하지 않습니다. 모든 데이터와 인증 처리는 Next.js의 Node.js 서버에서 수행됩니다.
+브라우저는 SQLite 파일에 직접 접근하지 않습니다. 서버는 수집·검수한 공개 카탈로그를 제공하고, 브라우저는 카탈로그와 개인 workspace를 IndexedDB에 저장해 추천을 기기에서 계산합니다. 로그인한 기존 계정의 데이터 API와 관리자 기능은 Next.js의 Node.js 서버가 계속 처리합니다.
+
+## 로그인 없이 사용하는 데이터
+
+- 사용자가 추가한 카드·혜택 규칙·브랜드·카테고리
+- 보유 통신사·구독·페이 프로필과 카드 실적
+- 결제 기록과 당시 추천 조합·카탈로그 버전
+
+이 데이터는 브라우저 origin별 IndexedDB에 저장됩니다. 설정에서 JSON 파일로 내보내거나 가져올 수 있으며, 브라우저 데이터 삭제 또는 서비스 주소 변경 시 자동으로 복구되지 않으므로 중요한 데이터는 직접 내보내 두세요. 로그인해도 현재 기기 workspace는 삭제되거나 서버 모드로 전환되지 않습니다. 계정 snapshot 백업을 사용하면 새 기기의 빈 workspace로 복원할 수 있지만 서로 다른 두 workspace의 자동 병합은 아직 지원하지 않습니다.
+
+계정 snapshot은 `account_workspace_snapshots`에 사용자별로 저장하며 content hash와 단조 증가 revision을 함께 기록합니다. 최초 백업은 계정에 개인 데이터가 없을 때만 허용하고, 갱신은 최초 snapshot을 만든 같은 로컬 workspace와 최신 revision이 모두 일치할 때만 허용합니다. 클라이언트는 업로드 직후 snapshot을 다시 내려받아 원본과 일치하는지 검증합니다.
 
 ## 로컬에서 시작하기
 
@@ -66,6 +78,14 @@ npm run build
 npm run start
 ```
 
+실행 중인 서버의 실제 카탈로그로 추천 엔진 성능을 반복 측정할 수 있습니다.
+
+```bash
+npm run benchmark:recommendations
+# 다른 주소나 반복 횟수 사용
+CATALOG_URL=http://localhost:3010/api/catalog BENCHMARK_RUNS=200 npm run benchmark:recommendations
+```
+
 ## 스키마 변경
 
 Drizzle 스키마의 기준 파일은 `src/db/schema/`입니다. 스키마를 바꾼 뒤 SQL migration을 생성하고 로컬 DB에 적용합니다.
@@ -99,7 +119,11 @@ npm run db:migrate
 npm run promotions:collect
 ```
 
-출처별 신규·자동 게시·검수·실패 건수는 명령 출력과 관리자 수집 결과에서 확인할 수 있습니다. 수집 대상 페이지의 정책과 제휴 조건을 운영 전에 확인하고, 선착순·개인별 대상 여부는 조건부 정보로 유지하세요.
+출처별 신규·자동 게시·검수·실패 건수는 명령 출력과 관리자 수집 결과에서 확인할 수 있습니다. 각 실행 결과는 `promotion_collection_runs`에도 저장되어 공개 카탈로그의 마지막 전체 수집 성공 시각과 실패 출처 수를 계산합니다. 수집 대상 페이지의 정책과 제휴 조건을 운영 전에 확인하고, 선착순·개인별 대상 여부는 조건부 정보로 유지하세요.
+
+게시된 공용 데이터는 로그인 없이 `GET /api/catalog`에서 versioned snapshot으로 조회할 수 있습니다. 응답의 `ETag`를 다음 요청의 `If-None-Match`에 보내면 내용과 수집 상태가 바뀌지 않았을 때 `304 Not Modified`를 반환합니다. 계산 데이터가 같으면 `catalogVersion`은 유지되고, 새 수집 실행의 성공·실패 시각만 바뀌어도 새 ETag와 snapshot을 반환합니다. snapshot은 시스템 카테고리·브랜드·카드·규칙, 활성 제공자·구독 상품, 게시 프로모션과 승인 경로만 포함하며 사용자 데이터와 내부 검수 metadata는 포함하지 않습니다.
+
+브라우저는 snapshot을 IndexedDB에 마지막 정상본으로 보관하고 앱 시작, 포커스 복귀, 네트워크 재연결, 사용자의 `다시 확인` 동작 때 재검증합니다. 홈의 상태 카드는 실제 네트워크 연결 여부, 기기의 마지막 확인 시각, 서버의 마지막 전체 수집 성공 시각을 구분해 표시합니다. 전체 수집 성공 후 36시간이 지나면 오래된 정보로 경고하지만 저장본이 있으면 오프라인 추천 계산과 기록은 계속할 수 있습니다.
 
 저장소 루트의 `schema.sql`과 `migration_*.sql`은 전환 전 Supabase/PostgreSQL 구조를 보존한 레거시 참고 파일입니다. SQLite 운영에는 실행하지 않으며, 현재 기준 스키마와 migration은 각각 `src/db/schema/`와 `drizzle/`입니다.
 

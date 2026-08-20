@@ -18,12 +18,14 @@ import type {
     PromotionCompatibility,
     PromotionCondition,
     PromotionProviderKind,
+    PromotionCollectionRunStatus,
     PromotionStatus,
     RuleAction,
     RuleCondition,
     BenefitSubscription,
     TelecomMembership,
 } from '@/types';
+import type { AccountWorkspaceExport } from '@/lib/account-workspace-export';
 import { user } from './auth';
 
 const nowInMilliseconds = sql`(unixepoch() * 1000)`;
@@ -205,6 +207,25 @@ export const promotionCandidates = sqliteTable('promotion_candidates', {
     index('promotion_candidates_status_idx').on(table.status, table.discoveredAt),
 ]);
 
+export const promotionCollectionRuns = sqliteTable('promotion_collection_runs', {
+    id: text('id').primaryKey(),
+    status: text('status').$type<PromotionCollectionRunStatus>().notNull(),
+    startedAt: integer('started_at', { mode: 'timestamp_ms' }).notNull(),
+    finishedAt: integer('finished_at', { mode: 'timestamp_ms' }).notNull(),
+    sourceCount: integer('source_count').notNull(),
+    successfulSourceCount: integer('successful_source_count').notNull(),
+    failedSourceCount: integer('failed_source_count').notNull(),
+    skippedSourceCount: integer('skipped_source_count').notNull(),
+    discoveredCount: integer('discovered_count').notNull(),
+    publishedCount: integer('published_count').notNull(),
+    reviewRequiredCount: integer('review_required_count').notNull(),
+    unchangedCount: integer('unchanged_count').notNull(),
+    expiredCount: integer('expired_count').notNull(),
+}, (table) => [
+    index('promotion_collection_runs_finished_idx').on(table.finishedAt),
+    index('promotion_collection_runs_status_finished_idx').on(table.status, table.finishedAt),
+]);
+
 export const userBenefitProfiles = sqliteTable('user_benefit_profiles', {
     userId: text('user_id')
         .primaryKey()
@@ -222,6 +243,23 @@ export const userBenefitProfiles = sqliteTable('user_benefit_profiles', {
     moneyEnabled: integer('money_enabled', { mode: 'boolean' }).notNull().default(true),
     pointsEnabled: integer('points_enabled', { mode: 'boolean' }).notNull().default(true),
     pointValue: integer('point_value').notNull().default(1),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+        .notNull()
+        .default(nowInMilliseconds),
+});
+
+export const accountWorkspaceSnapshots = sqliteTable('account_workspace_snapshots', {
+    userId: text('user_id')
+        .primaryKey()
+        .references(() => user.id, { onDelete: 'cascade' }),
+    schemaVersion: integer('schema_version').notNull(),
+    sourceWorkspaceId: text('source_workspace_id').notNull(),
+    revision: integer('revision').notNull().default(1),
+    contentHash: text('content_hash').notNull(),
+    snapshot: text('snapshot', { mode: 'json' }).$type<AccountWorkspaceExport>().notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+        .notNull()
+        .default(nowInMilliseconds),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
         .notNull()
         .default(nowInMilliseconds),

@@ -87,7 +87,7 @@ export interface UserCardPerformance {
 }
 
 export interface TransactionHistory {
-    id: number;
+    id: number | string;
     date: string; // ISO string
     brandId: BrandId;
     cardId?: CardId;
@@ -370,4 +370,45 @@ export interface MerchantRouteVerification {
     certainty: BenefitCertainty;
     evidenceUrl: string;
     verifiedAt: string;
+}
+
+export type CatalogCategory = Omit<Category, 'userId'>;
+export type CatalogBrand = Omit<Brand, 'userId'>;
+export type CatalogCard = Omit<Card, 'userId'>;
+export type CatalogBenefitRule = Omit<BenefitRule, 'userId'>;
+export type CatalogPromotionProvider = PromotionProvider & { isActive: true };
+export type CatalogSubscriptionProduct = Omit<SubscriptionProduct, 'collectedAt'> & {
+    isActive: true;
+};
+export type CatalogPromotionOffer = Omit<
+    PromotionOffer,
+    'status' | 'sourceHash' | 'collectedAt' | 'reviewedAt' | 'publishedAt'
+> & {
+    status: 'PUBLISHED';
+};
+
+export type PromotionCollectionRunStatus = 'SUCCEEDED' | 'PARTIAL' | 'FAILED';
+
+export interface BenefitCatalogFreshness {
+    collectionStatus: PromotionCollectionRunStatus | 'UNKNOWN';
+    sourceCount: number;
+    failedSourceCount: number;
+    lastAttemptAt?: string;
+    lastSuccessfulAt?: string;
+    lastPublishedAt?: string;
+}
+
+export interface BenefitCatalogSnapshot {
+    schemaVersion: 1;
+    catalogVersion: string;
+    generatedAt: string;
+    freshness?: BenefitCatalogFreshness;
+    categories: CatalogCategory[];
+    brands: CatalogBrand[];
+    cards: CatalogCard[];
+    rules: CatalogBenefitRule[];
+    providers: CatalogPromotionProvider[];
+    subscriptionProducts: CatalogSubscriptionProduct[];
+    promotions: CatalogPromotionOffer[];
+    routeVerifications: MerchantRouteVerification[];
 }

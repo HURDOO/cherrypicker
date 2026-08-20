@@ -106,14 +106,17 @@ function assertSameOriginMutation(request: Request) {
     }
 }
 
-export async function readJsonObject(request: Request) {
+export async function readJsonObject(
+    request: Request,
+    maximumBytes: number = MAX_JSON_BODY_BYTES
+) {
     const contentType = request.headers.get('content-type') || '';
     if (!contentType.toLowerCase().startsWith('application/json')) {
         throw new HttpError(415, 'Content-Type은 application/json이어야 합니다.');
     }
 
     const declaredLength = Number(request.headers.get('content-length'));
-    if (Number.isFinite(declaredLength) && declaredLength > MAX_JSON_BODY_BYTES) {
+    if (Number.isFinite(declaredLength) && declaredLength > maximumBytes) {
         throw new HttpError(413, '요청 본문이 너무 큽니다.');
     }
 
@@ -131,7 +134,7 @@ export async function readJsonObject(request: Request) {
         if (done) break;
 
         byteLength += value.byteLength;
-        if (byteLength > MAX_JSON_BODY_BYTES) {
+        if (byteLength > maximumBytes) {
             await reader.cancel();
             throw new HttpError(413, '요청 본문이 너무 큽니다.');
         }

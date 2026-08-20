@@ -99,7 +99,7 @@ export function BrandDiscoverySettings({ userId }: { userId: string }) {
                 })}
             </div>
             <p className="mt-2 px-2 text-[9px] font-medium text-gray-400">
-                선택한 값은 이 계정의 현재 브라우저에 자동 저장됩니다.
+                선택한 값은 현재 브라우저에 자동 저장됩니다.
             </p>
         </section>
     );

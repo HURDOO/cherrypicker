@@ -4,10 +4,12 @@ import { db } from '@/db';
 import {
     brands,
     promotionCandidates,
+    promotionCollectionRuns,
     promotionOffers,
     subscriptionProducts,
     transactionBenefits,
 } from '@/db/schema';
+import { summarizePromotionCollectionRun } from './promotion-collection-run';
 import { decodePromotionHtml } from './html-decoding';
 import { normalizePromotionDraft } from './promotion-input';
 import {
@@ -660,6 +662,7 @@ function rejectMissingPendingCandidates(
 }
 
 export async function collectPromotionCandidates() {
+    const startedAt = new Date();
     const results: PromotionCollectionResult[] = [];
     const claimedAutoPromotionIds = new Set<string>();
     const observedAutoPromotionIds = new Set<string>();
@@ -779,6 +782,15 @@ export async function collectPromotionCandidates() {
         result.expired += expired;
         if (result.status === 'unchanged') result.status = 'created';
     });
+
+    const finishedAt = new Date();
+    const summary = summarizePromotionCollectionRun(results);
+    db.insert(promotionCollectionRuns).values({
+        id: randomUUID(),
+        ...summary,
+        startedAt,
+        finishedAt,
+    }).run();
 
     return results;
 }

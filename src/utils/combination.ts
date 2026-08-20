@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type {
     BenefitCertainty,
     BenefitCombination,
@@ -56,6 +55,36 @@ export type CombinationEngineInput = RecommendationRequest & {
     now?: Date;
 };
 
+export interface CombinationEngineMetrics {
+    matchingOfferCount: number;
+    calculableOfferCount: number;
+    peakWorkingStateCount: number;
+    prunedWorkingStateCount: number;
+    stateTransitionCount: number;
+    generatedCombinationCount: number;
+    prunedCombinationCount: number;
+    returnedCombinationCount: number;
+    searchSpaceLimited: boolean;
+    durationMs: number;
+}
+
+export interface CombinationEngineOptions {
+    maxWorkingStates?: number;
+    maxStateTransitions?: number;
+    onMetrics?: (metrics: CombinationEngineMetrics) => void;
+}
+
+type EnumerationContext = {
+    maxWorkingStates: number;
+    maxStateTransitions: number;
+    metrics: CombinationEngineMetrics;
+};
+
+export const DEFAULT_MAX_WORKING_STATES = 2_048;
+export const DEFAULT_MAX_STATE_TRANSITIONS = 50_000;
+
+const LIMITED_SEARCH_WARNING = '혜택 후보가 많아 점수가 높은 상위 조합만 계산했어요.';
+
 const immediateActionTypes = new Set([
     'PERCENT',
     'FLAT',
@@ -73,6 +102,26 @@ const cloneWorking = (state: WorkingCombination): WorkingCombination => ({
 });
 
 const uniqueStrings = (items: string[]) => [...new Set(items.filter(Boolean))];
+
+const compareText = (left: string, right: string) => {
+    if (left === right) return 0;
+    return left < right ? -1 : 1;
+};
+
+const hashString = (value: string, seed: number) => {
+    let hash = seed >>> 0;
+    for (let index = 0; index < value.length; index += 1) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).padStart(8, '0');
+};
+
+export const createDeterministicCombinationId = (value: string) => [
+    hashString(value, 0x811c9dc5),
+    hashString(value, 0x9e3779b9),
+    hashString(value, 0x85ebca6b),
+].join('').slice(0, 20);
 
 const getBenefitAmount = (offer: PromotionOffer, basisAmount: number) => {
     const { action } = offer;
@@ -346,28 +395,80 @@ const applyOffer = (
     return next;
 };
 
+const compareWorkingStates = (a: WorkingCombination, b: WorkingCombination) => {
+    if (b.confirmedValue !== a.confirmedValue) return b.confirmedValue - a.confirmedValue;
+    if (b.immediateDiscount !== a.immediateDiscount) {
+        return b.immediateDiscount - a.immediateDiscount;
+    }
+    const bPotential = b.conditionalValue + b.estimatedValue;
+    const aPotential = a.conditionalValue + a.estimatedValue;
+    if (bPotential !== aPotential) return bPotential - aPotential;
+    if (a.remainingAmount !== b.remainingAmount) return a.remainingAmount - b.remainingAmount;
+    if (b.laterReward !== a.laterReward) return b.laterReward - a.laterReward;
+    if (a.requiredChecks.length !== b.requiredChecks.length) {
+        return a.requiredChecks.length - b.requiredChecks.length;
+    }
+    return compareText(
+        a.steps.map(step => step.id).join('\u0000'),
+        b.steps.map(step => step.id).join('\u0000'),
+    );
+};
+
+const limitWorkingStates = (
+    states: WorkingCombination[],
+    context: EnumerationContext,
+) => {
+    context.metrics.peakWorkingStateCount = Math.max(
+        context.metrics.peakWorkingStateCount,
+        states.length,
+    );
+    if (states.length <= context.maxWorkingStates) return states;
+
+    context.metrics.searchSpaceLimited = true;
+    context.metrics.prunedWorkingStateCount += states.length - context.maxWorkingStates;
+    return states.sort(compareWorkingStates).slice(0, context.maxWorkingStates);
+};
+
 const enumerateOfferSubsets = (
     initialStates: WorkingCombination[],
     offers: PromotionOffer[],
     input: CombinationEngineInput,
     providerById: Map<string, PromotionProvider>,
     confirmedConditionIds: Set<string>,
+    context: EnumerationContext,
     payProviderId?: string,
     fundingType?: FundingType,
-) => offers.reduce<WorkingCombination[]>((states, offer) => {
-    const added = states.flatMap(state => {
-        if (!canApplyOffer(offer, state, payProviderId, input.promotions, fundingType)) return [];
-        const applied = applyOffer(
-            offer,
-            state,
-            input,
-            providerById,
-            confirmedConditionIds,
-        );
-        return applied ? [applied] : [];
-    });
-    return [...states, ...added];
-}, initialStates);
+) => {
+    let states = initialStates;
+
+    for (const offer of offers) {
+        if (context.metrics.stateTransitionCount >= context.maxStateTransitions) {
+            context.metrics.searchSpaceLimited = true;
+            break;
+        }
+
+        const added: WorkingCombination[] = [];
+        for (const state of states) {
+            if (context.metrics.stateTransitionCount >= context.maxStateTransitions) {
+                context.metrics.searchSpaceLimited = true;
+                break;
+            }
+            context.metrics.stateTransitionCount += 1;
+            if (!canApplyOffer(offer, state, payProviderId, input.promotions, fundingType)) continue;
+            const applied = applyOffer(
+                offer,
+                state,
+                input,
+                providerById,
+                confirmedConditionIds,
+            );
+            if (applied) added.push(applied);
+        }
+        states = limitWorkingStates([...states, ...added], context);
+    }
+
+    return states;
+};
 
 const getRouteCertainty = (
     input: CombinationEngineInput,
@@ -438,15 +539,12 @@ const combinationId = (
     payProviderId: string | undefined,
     fundingType: FundingType,
     cardId?: string,
-) => createHash('sha256')
-    .update(JSON.stringify({
+) => createDeterministicCombinationId(JSON.stringify({
         payProviderId,
         fundingType,
         cardId,
         steps: state.steps.map(step => step.id),
-    }))
-    .digest('hex')
-    .slice(0, 20);
+    }));
 
 const toCombination = (
     state: WorkingCombination,
@@ -484,10 +582,39 @@ const compareCombinations = (a: BenefitCombination, b: BenefitCombination) => {
     }
     const bPotential = b.conditionalValue + b.estimatedValue;
     const aPotential = a.conditionalValue + a.estimatedValue;
-    return bPotential - aPotential;
+    return bPotential - aPotential || compareText(a.id, b.id);
 };
 
-export function calculateBestCombinations(input: CombinationEngineInput): RecommendationResponse {
+export function calculateBestCombinations(
+    input: CombinationEngineInput,
+    options: CombinationEngineOptions = {},
+): RecommendationResponse {
+    const startedAt = globalThis.performance?.now() ?? Date.now();
+    const maxWorkingStates = Number.isFinite(options.maxWorkingStates) &&
+        (options.maxWorkingStates ?? 0) > 0
+        ? Math.max(1, Math.floor(options.maxWorkingStates as number))
+        : DEFAULT_MAX_WORKING_STATES;
+    const maxStateTransitions = Number.isFinite(options.maxStateTransitions) &&
+        (options.maxStateTransitions ?? 0) > 0
+        ? Math.max(1, Math.floor(options.maxStateTransitions as number))
+        : DEFAULT_MAX_STATE_TRANSITIONS;
+    const metrics: CombinationEngineMetrics = {
+        matchingOfferCount: 0,
+        calculableOfferCount: 0,
+        peakWorkingStateCount: 1,
+        prunedWorkingStateCount: 0,
+        stateTransitionCount: 0,
+        generatedCombinationCount: 0,
+        prunedCombinationCount: 0,
+        returnedCombinationCount: 0,
+        searchSpaceLimited: false,
+        durationMs: 0,
+    };
+    const enumerationContext: EnumerationContext = {
+        maxWorkingStates,
+        maxStateTransitions,
+        metrics,
+    };
     const now = input.now ?? new Date();
     const providerById = new Map(input.providers.map(provider => [provider.id, provider]));
     const confirmedConditionIds = new Set(input.confirmedConditionIds ?? []);
@@ -498,6 +625,7 @@ export function calculateBestCombinations(input: CombinationEngineInput): Recomm
         isTelecomEligible(offer, providerById.get(offer.providerId), input.profile) &&
         isSubscriptionEligible(offer, providerById.get(offer.providerId), input.profile)
     );
+    metrics.matchingOfferCount = currentOffers.length;
     const isItemScoped = (offer: PromotionOffer) =>
         offer.condition.applicabilityScope === 'CATEGORY' ||
         offer.condition.applicabilityScope === 'PRODUCT_SET' ||
@@ -570,13 +698,27 @@ export function calculateBestCombinations(input: CombinationEngineInput): Recomm
             (isItemScoped(offer) && Boolean(input.eligibleItemAmount))
         )
     );
+    metrics.calculableOfferCount = calculableOffers.length;
 
     const payProviderIds = uniqueStrings(input.profile.enabledPayProviderIds);
     const payOptions: Array<string | undefined> = [undefined, ...payProviderIds];
     const discountOffers = calculableOffers.filter(offer => offer.layer === 'DISCOUNT');
     const payOffers = calculableOffers.filter(offer => offer.layer === 'PAY');
     const rewardOffers = calculableOffers.filter(offer => offer.layer === 'POST_REWARD');
-    const results: BenefitCombination[] = [];
+    let results: BenefitCombination[] = [];
+    const resultBufferLimit = Math.max(30, maxWorkingStates);
+    const retainBestResults = () => {
+        const before = results.length;
+        results = [...new Map(results.map(item => [item.id, item])).values()]
+            .sort(compareCombinations)
+            .slice(0, resultBufferLimit);
+        metrics.prunedCombinationCount += before - results.length;
+    };
+    const collectResult = (combination: BenefitCombination) => {
+        metrics.generatedCombinationCount += 1;
+        results.push(combination);
+        if (results.length >= resultBufferLimit * 2) retainBestResults();
+    };
 
     payOptions.forEach(payProviderId => {
         const initial: WorkingCombination = {
@@ -599,6 +741,7 @@ export function calculateBestCombinations(input: CombinationEngineInput): Recomm
             input,
             providerById,
             confirmedConditionIds,
+            enumerationContext,
             payProviderId,
         );
         const afterPay = enumerateOfferSubsets(
@@ -610,6 +753,7 @@ export function calculateBestCombinations(input: CombinationEngineInput): Recomm
             input,
             providerById,
             confirmedConditionIds,
+            enumerationContext,
             payProviderId,
         );
 
@@ -663,11 +807,12 @@ export function calculateBestCombinations(input: CombinationEngineInput): Recomm
                             input,
                             providerById,
                             confirmedConditionIds,
+                            enumerationContext,
                             payProviderId,
                             fundingType,
                         );
                         afterRewards.forEach(finalState => {
-                            results.push(toCombination(
+                            collectResult(toCombination(
                                 finalState,
                                 providerById,
                                 payProviderId,
@@ -685,11 +830,12 @@ export function calculateBestCombinations(input: CombinationEngineInput): Recomm
                     input,
                     providerById,
                     confirmedConditionIds,
+                    enumerationContext,
                     payProviderId,
                     fundingType,
                 );
                 afterRewards.forEach(finalState => {
-                    results.push(toCombination(
+                    collectResult(toCombination(
                         finalState,
                         providerById,
                         payProviderId,
@@ -702,7 +848,17 @@ export function calculateBestCombinations(input: CombinationEngineInput): Recomm
 
     const deduplicated = [...new Map(results.map(item => [item.id, item])).values()]
         .sort(compareCombinations)
-        .slice(0, 30);
+        .slice(0, 30)
+        .map(combination => metrics.searchSpaceLimited
+            ? {
+                ...combination,
+                warnings: uniqueStrings([...combination.warnings, LIMITED_SEARCH_WARNING]),
+            }
+            : combination);
+
+    metrics.returnedCombinationCount = deduplicated.length;
+    metrics.durationMs = (globalThis.performance?.now() ?? Date.now()) - startedAt;
+    options.onMetrics?.({ ...metrics });
 
     return {
         brandId: input.brand.id,

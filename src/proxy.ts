@@ -2,15 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 
 function isProtectedPath(pathname: string) {
-    return pathname === '/' ||
-        pathname === '/design-lab' ||
+    return pathname === '/design-lab' ||
         pathname.startsWith('/design-lab/') ||
         pathname === '/admin' ||
-        pathname.startsWith('/admin/') ||
-        pathname === '/settings' ||
-        pathname.startsWith('/settings/') ||
-        pathname === '/history' ||
-        pathname.startsWith('/history/');
+        pathname.startsWith('/admin/');
 }
 
 function isAuthPath(pathname: string) {
@@ -21,14 +16,19 @@ function isAuthPath(pathname: string) {
 }
 
 export async function proxy(request: NextRequest) {
+    const pathname = request.nextUrl.pathname;
+
+    if (process.env.ALLOW_SIGN_UP !== 'true' && pathname.startsWith('/signup')) {
+        return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    if (!isProtectedPath(pathname) && !isAuthPath(pathname)) {
+        return NextResponse.next();
+    }
+
     const session = await auth.api.getSession({
         headers: request.headers,
     });
-    const pathname = request.nextUrl.pathname;
-
-    if (!session && process.env.ALLOW_SIGN_UP !== 'true' && pathname.startsWith('/signup')) {
-        return NextResponse.redirect(new URL('/login', request.url));
-    }
 
     if (!session && isProtectedPath(pathname)) {
         return NextResponse.redirect(new URL('/login', request.url));

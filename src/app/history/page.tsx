@@ -8,9 +8,18 @@ import { IconByName } from '@/components/ui/IconByName';
 import { useToastStore } from '@/store/useToastStore';
 import clsx from 'clsx';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
+import { localWorkspaceClient } from '@/lib/local-workspace';
 
 export default function HistoryPage() {
-    const { history, brands, cards, isLoading, setLoading, clearHistory } = useAppStore();
+    const {
+        history,
+        brands,
+        cards,
+        storageMode,
+        isLoading,
+        setLoading,
+        clearHistory,
+    } = useAppStore();
     const { addToast } = useToastStore();
     const [confirmDelete, setConfirmDelete] = React.useState(false);
     const [selectedCardId, setSelectedCardId] = React.useState<string>('all');
@@ -73,7 +82,8 @@ export default function HistoryPage() {
         setLoading(true);
 
         try {
-            await apiClient.deleteTransactions();
+            if (storageMode === 'guest') await localWorkspaceClient.clearHistory();
+            else await apiClient.deleteTransactions();
             clearHistory();
             addToast('모든 기록이 삭제되었습니다.', 'success');
         } catch (error: unknown) {

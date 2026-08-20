@@ -28,6 +28,7 @@ import {
 import clsx from 'clsx';
 import { Brand, Category } from '@/types';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
+import { localWorkspaceClient } from '@/lib/local-workspace';
 
 interface MasterDataModalProps {
     isOpen: boolean;
@@ -224,7 +225,8 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
     const {
         categories, brands,
         addCategory, updateCategory, removeCategory, reorderCategories,
-        addBrand, updateBrand, removeBrand, reorderBrands
+        addBrand, updateBrand, removeBrand, reorderBrands,
+        storageMode,
     } = useAppStore();
     const { addToast } = useToastStore();
 
@@ -252,7 +254,9 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
     const handleAddCategory = async () => {
         if (!newCategoryName.trim()) return;
         try {
-            const category = await apiClient.createCategory({ name: newCategoryName.trim() });
+            const category = storageMode === 'guest'
+                ? await localWorkspaceClient.createCategory({ name: newCategoryName.trim() })
+                : await apiClient.createCategory({ name: newCategoryName.trim() });
             addCategory(category);
             setNewCategoryName('');
             addToast('카테고리가 추가되었습니다.', 'success');
@@ -266,11 +270,14 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
         if (!name?.trim()) return;
 
         try {
-            const brand = await apiClient.createBrand({
+            const payload = {
                 name: name.trim(),
                 categoryId: catId,
-                iconName: 'ShoppingBag'
-            });
+                iconName: 'ShoppingBag',
+            };
+            const brand = storageMode === 'guest'
+                ? await localWorkspaceClient.createBrand(payload)
+                : await apiClient.createBrand(payload);
 
             addBrand(brand);
             setNewBrandNames(prev => ({ ...prev, [catId]: '' }));
@@ -284,7 +291,8 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
         if (!confirm('정말 삭제하시겠습니까?')) return;
 
         try {
-            await apiClient.deleteCategory(id);
+            if (storageMode === 'guest') await localWorkspaceClient.deleteCategory(id);
+            else await apiClient.deleteCategory(id);
             removeCategory(id);
             addToast('삭제되었습니다.', 'info');
         } catch (error: unknown) {
@@ -296,7 +304,8 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
         if (!confirm('정말 삭제하시겠습니까?')) return;
 
         try {
-            await apiClient.deleteBrand(id);
+            if (storageMode === 'guest') await localWorkspaceClient.deleteBrand(id);
+            else await apiClient.deleteBrand(id);
             removeBrand(id);
             addToast('삭제되었습니다.', 'info');
         } catch (error: unknown) {
@@ -330,9 +339,14 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
             const reorderedUserCategories = arrayMove(userCategories, oldIndex, newIndex);
             const newPayload = [...systemCategories, ...reorderedUserCategories];
             reorderCategories(newPayload);
-            void apiClient.reorderCategories(
-                reorderedUserCategories.map(category => category.id)
-            ).catch((error: unknown) => {
+            const saveOrder = storageMode === 'guest'
+                ? localWorkspaceClient.reorderCategories(
+                    reorderedUserCategories.map(category => category.id)
+                )
+                : apiClient.reorderCategories(
+                    reorderedUserCategories.map(category => category.id)
+                );
+            void saveOrder.catch((error: unknown) => {
                 reorderCategories(categories);
                 addToast(getErrorMessage(error, '카테고리 순서를 저장하지 못했습니다.'), 'error');
             });
@@ -375,7 +389,13 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
             // But here we render grouped. So just appending valid data is fine.
 
             reorderBrands([...otherBrands, ...systemCatBrands, ...newCatBrands]);
-            void apiClient.reorderBrands(catId, newCatBrands.map(brand => brand.id)).catch((error: unknown) => {
+            const saveOrder = storageMode === 'guest'
+                ? localWorkspaceClient.reorderBrands(
+                    catId,
+                    newCatBrands.map(brand => brand.id)
+                )
+                : apiClient.reorderBrands(catId, newCatBrands.map(brand => brand.id));
+            void saveOrder.catch((error: unknown) => {
                 reorderBrands(brands);
                 addToast(getErrorMessage(error, '브랜드 순서를 저장하지 못했습니다.'), 'error');
             });
@@ -385,7 +405,9 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
     // Updates
     const handleUpdateCategory = async (id: string, name: string) => {
         try {
-            const category = await apiClient.updateCategory(id, { name });
+            const category = storageMode === 'guest'
+                ? await localWorkspaceClient.updateCategory(id, { name })
+                : await apiClient.updateCategory(id, { name });
             updateCategory(category);
         } catch (error: unknown) {
             addToast(getErrorMessage(error, '카테고리를 수정하지 못했습니다.'), 'error');
@@ -394,7 +416,9 @@ export default function MasterDataModal({ isOpen, onClose }: MasterDataModalProp
 
     const handleUpdateBrand = async (id: string, name: string) => {
         try {
-            const brand = await apiClient.updateBrand(id, { name });
+            const brand = storageMode === 'guest'
+                ? await localWorkspaceClient.updateBrand(id, { name })
+                : await apiClient.updateBrand(id, { name });
             updateBrand(brand);
         } catch (error: unknown) {
             addToast(getErrorMessage(error, '브랜드를 수정하지 못했습니다.'), 'error');

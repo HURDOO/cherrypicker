@@ -15,6 +15,10 @@ import type {
     UserBenefitProfile,
     UserCardPerformance,
 } from '@/types';
+import type {
+    AccountWorkspaceExport,
+    AccountWorkspaceState,
+} from '@/lib/account-workspace-export';
 
 export interface AppData {
     userId: string;
@@ -24,6 +28,7 @@ export interface AppData {
     rules: BenefitRule[];
     performances: UserCardPerformance[];
     history: TransactionHistory[];
+    benefitProfile: UserBenefitProfile;
 }
 
 type CardInput = Pick<Card, 'name' | 'company' | 'color' | 'limitTable'>;
@@ -127,6 +132,23 @@ const resourcePath = (collection: string, id: string) => `/api/${collection}/${e
 
 export const apiClient = {
     getAppData: () => request<AppData>('/api/app-data', { cache: 'no-store' }),
+
+    getAccountWorkspaceState: () =>
+        request<AccountWorkspaceState>('/api/account/data', { cache: 'no-store' }),
+
+    createAccountWorkspaceBackup: (workspace: AccountWorkspaceExport) =>
+        request<AccountWorkspaceState>('/api/account/data', {
+            method: 'POST',
+            body: jsonBody({ workspace }),
+        }),
+
+    updateAccountWorkspaceBackup: (
+        workspace: AccountWorkspaceExport,
+        expectedRevision: number
+    ) => request<AccountWorkspaceState>('/api/account/data', {
+        method: 'PUT',
+        body: jsonBody({ workspace, expectedRevision }),
+    }),
 
     createTransaction: (transaction: TransactionInput) =>
         request<TransactionHistory>('/api/transactions', {

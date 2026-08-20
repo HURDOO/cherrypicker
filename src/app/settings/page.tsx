@@ -6,12 +6,14 @@ import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
 import {
     Database, RefreshCw, CreditCard, ChevronRight,
-    PieChart, Settings2, Trash2, LogOut, CheckCircle2, AlertCircle
+    PieChart, Settings2, Trash2, LogOut, CheckCircle2, AlertCircle,
+    Download, Upload,
 } from 'lucide-react';
 import CardDetailModal from '@/components/settings/CardDetailModal';
 import MasterDataModal from '@/components/settings/MasterDataModal';
 import clsx from 'clsx';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
+import { localWorkspaceClient } from '@/lib/local-workspace';
 import { useAuth } from '@/hooks/useAuth';
 import {
     formatPerformanceMonthLabel,
@@ -20,15 +22,17 @@ import {
 } from '@/lib/monthly-performance';
 import { BenefitProfileSettings } from '@/components/settings/BenefitProfileSettings';
 import { BrandDiscoverySettings } from '@/components/settings/BrandDiscoverySettings';
+import { AccountWorkspaceSync } from '@/components/settings/AccountWorkspaceSync';
 
 export default function SettingsPage() {
     const {
         userId,
+        storageMode,
         cards,
         rules,
         performances,
         history,
-        resetData,
+        isLoading,
         updatePerformance,
     } = useAppStore();
     const { addToast } = useToastStore();
@@ -47,6 +51,7 @@ export default function SettingsPage() {
         };
     });
     const performanceRequestVersions = useRef<Record<string, number>>({});
+    const importInputRef = useRef<HTMLInputElement>(null);
     const performanceMonthLabel = formatPerformanceMonthLabel(performancePeriod.performanceMonth);
     const benefitMonthLabel = formatPerformanceMonthLabel(performancePeriod.benefitMonth);
 
@@ -80,8 +85,7 @@ export default function SettingsPage() {
         setIsSigningOut(true);
         try {
             await signOut();
-            resetData();
-            router.replace('/login');
+            router.replace('/');
             router.refresh();
         } catch (error: unknown) {
             addToast(getErrorMessage(error, '로그아웃하지 못했습니다.'), 'error');
@@ -99,7 +103,8 @@ export default function SettingsPage() {
         setIsSeeding(true);
         setConfirmStep(false);
         try {
-            await apiClient.resetAccountData();
+            if (storageMode === 'guest') await localWorkspaceClient.resetPersonalData();
+            else await apiClient.resetAccountData();
             addToast('개인 데이터 초기화 완료! 새로고침합니다.', 'success');
             setTimeout(() => window.location.reload(), 1000);
         } catch (error: unknown) {
@@ -115,11 +120,17 @@ export default function SettingsPage() {
         setSavingPerformanceCards(current => ({ ...current, [cardId]: true }));
 
         try {
-            const performance = await apiClient.updatePerformance(
-                cardId,
-                value,
-                performancePeriod.performanceMonth
-            );
+            const performance = storageMode === 'guest'
+                ? await localWorkspaceClient.updatePerformance(
+                    cardId,
+                    value,
+                    performancePeriod.performanceMonth
+                )
+                : await apiClient.updatePerformance(
+                    cardId,
+                    value,
+                    performancePeriod.performanceMonth
+                );
             if (performanceRequestVersions.current[cardId] !== requestVersion) return;
             updatePerformance(performance);
             setPerformanceDrafts(current => {
@@ -138,6 +149,42 @@ export default function SettingsPage() {
         }
     };
 
+    const handleExport = async () => {
+        try {
+            const json = await localWorkspaceClient.exportJson();
+            const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = `cherrypicker-workspace-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+            addToast('기기 데이터를 JSON으로 내보냈습니다.', 'success');
+        } catch (error) {
+            addToast(getErrorMessage(error, '기기 데이터를 내보내지 못했습니다.'), 'error');
+        }
+    };
+
+    const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            addToast('가져올 파일은 5MB 이하여야 합니다.', 'error');
+            return;
+        }
+        if (!window.confirm('현재 이 기기의 개인 데이터를 가져온 파일로 교체할까요?')) return;
+
+        try {
+            await localWorkspaceClient.importJson(await file.text());
+            addToast('기기 데이터를 가져왔습니다. 새로고침합니다.', 'success');
+            window.setTimeout(() => window.location.reload(), 500);
+        } catch (error) {
+            addToast(getErrorMessage(error, '기기 데이터를 가져오지 못했습니다.'), 'error');
+        }
+    };
+
     const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
     const [isCardModalOpen, setIsCardModalOpen] = useState(false);
     const [isMasterDataOpen, setIsMasterDataOpen] = useState(false);
@@ -146,6 +193,14 @@ export default function SettingsPage() {
     // Assuming we imported them at the top.
 
     // ... existing handles ...
+
+    if (isLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-gray-50">
+                <RefreshCw className="h-7 w-7 animate-spin text-blue-600" />
+            </div>
+        );
+    }
 
     return (
         <main className="min-h-screen bg-gray-50 pb-32 font-sans selection:bg-blue-100">
@@ -343,6 +398,33 @@ export default function SettingsPage() {
                             </button>
                         </div>
                     </div>
+                    {storageMode === 'guest' && (
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => void handleExport()}
+                                className="flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50"
+                            >
+                                <Download className="h-4 w-4" />
+                                JSON 내보내기
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => importInputRef.current?.click()}
+                                className="flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50"
+                            >
+                                <Upload className="h-4 w-4" />
+                                JSON 가져오기
+                            </button>
+                            <input
+                                ref={importInputRef}
+                                type="file"
+                                accept="application/json,.json"
+                                onChange={event => void handleImport(event)}
+                                className="hidden"
+                            />
+                        </div>
+                    )}
                 </section>
 
                 {/* 3. Card List View (Editable) */}
@@ -411,25 +493,53 @@ export default function SettingsPage() {
                     </div>
                 </section>
 
-                <section className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm">
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="min-w-0">
-                            <p className="text-sm font-bold text-gray-900 truncate">
-                                {user?.name || '내 계정'}
-                            </p>
-                            <p className="text-[11px] text-gray-400 truncate">{user?.email}</p>
+                {user && <AccountWorkspaceSync />}
+
+                {!user ? (
+                    <section className="rounded-3xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="min-w-0">
+                                <p className="text-sm font-bold text-emerald-900">이 기기에 저장 중</p>
+                                <p className="mt-1 text-[11px] leading-relaxed text-emerald-700">
+                                    로그인 없이 사용할 수 있어요. 브라우저 데이터를 지우기 전까지 이 기기에 보관됩니다.
+                                </p>
+                                <p className="mt-1 text-[10px] leading-relaxed text-emerald-600">
+                                    로그인해도 이 데이터는 그대로 유지되며, 계정 백업과 새 기기 복원을 선택할 수 있어요.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => router.push('/login')}
+                                className="shrink-0 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-emerald-800"
+                            >
+                                로그인
+                            </button>
                         </div>
-                        <button
-                            type="button"
-                            onClick={handleSignOut}
-                            disabled={isSigningOut}
-                            className="flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2.5 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50"
-                        >
-                            <LogOut className="h-4 w-4" />
-                            {isSigningOut ? '로그아웃 중' : '로그아웃'}
-                        </button>
-                    </div>
-                </section>
+                    </section>
+                ) : (
+                    <section className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="min-w-0">
+                                <p className="text-sm font-bold text-gray-900 truncate">
+                                    {user?.name || '내 계정'}
+                                </p>
+                                <p className="text-[11px] text-gray-400 truncate">{user?.email}</p>
+                                <p className="mt-1 text-[10px] text-blue-600">
+                                    이 기기의 로컬 데이터로 사용 중
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleSignOut}
+                                disabled={isSigningOut}
+                                className="flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2.5 text-xs font-bold text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50"
+                            >
+                                <LogOut className="h-4 w-4" />
+                                {isSigningOut ? '로그아웃 중' : '로그아웃'}
+                            </button>
+                        </div>
+                    </section>
+                )}
 
                 <div className="flex justify-center py-6">
                     <p className="text-[10px] text-gray-300 font-mono">Cherry Picker v0.2.0 • Powered by Gemini 3 Pro</p>

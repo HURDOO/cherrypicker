@@ -6,11 +6,13 @@ import {
     cards,
     categories,
     transactionHistory,
+    userBenefitProfiles,
     userCardPerformances,
 } from '@/db/schema';
 import { handleRouteError, requireUser } from '@/lib/api-server';
 import {
     toBrand,
+    toBenefitProfile,
     toCard,
     toCategory,
     toPerformance,
@@ -49,6 +51,9 @@ export async function GET(request: Request) {
             .where(eq(transactionHistory.userId, user.id))
             .orderBy(desc(transactionHistory.createdAt))
             .all();
+        const benefitProfileRow = db.select().from(userBenefitProfiles)
+            .where(eq(userBenefitProfiles.userId, user.id))
+            .get();
 
         return Response.json({
             userId: user.id,
@@ -58,6 +63,7 @@ export async function GET(request: Request) {
             rules: ruleRows.map(toRule),
             performances: performanceRows.map(toPerformance),
             history: historyRows.map(toTransaction),
+            benefitProfile: toBenefitProfile(benefitProfileRow),
         });
     } catch (error) {
         return handleRouteError(error);
