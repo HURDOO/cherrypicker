@@ -98,13 +98,59 @@ export interface BenefitRule {
 export type CardBenefitSourceKind = 'PRODUCT_PAGE' | 'PRODUCT_GUIDE_PDF' | 'NOTICE';
 export type CardBenefitCandidateStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
+export interface CardBenefitDocumentMetadata {
+    etag?: string;
+    lastModified?: string;
+    finalUrl?: string;
+    contentDisposition?: string;
+    rawEncoding?: 'utf8' | 'base64';
+    extractionMethod?: 'html-to-text' | 'pdfjs';
+    pageCount?: number;
+    title?: string;
+}
+
 export interface CardBenefitEvidence {
     id: string;
     ruleIds: RuleId[];
     fields: Array<'description' | 'condition' | 'action' | 'limitConfig'>;
     quote: string;
+    sourceUrl?: string;
     location?: string;
     page?: number;
+}
+
+export interface CardBenefitFieldChange {
+    scope: 'CARD' | 'RULE';
+    entityId: string;
+    entityLabel: string;
+    path: string;
+    kind: 'ADDED' | 'REMOVED' | 'CHANGED';
+    risk: 'NORMAL' | 'HIGH';
+    before?: unknown;
+    after?: unknown;
+}
+
+export interface CardBenefitCoverageItem {
+    ruleId: RuleId;
+    ruleLabel: string;
+    path: string;
+    status: 'COVERED' | 'MISSING_EVIDENCE';
+    evidenceIds: string[];
+}
+
+export interface CardBenefitCandidateAudit {
+    version: 1;
+    baselineRevision: number;
+    summary: {
+        addedRules: number;
+        removedRules: number;
+        changedFields: number;
+        coveredFields: number;
+        missingFields: number;
+    };
+    changes: CardBenefitFieldChange[];
+    coverage: CardBenefitCoverageItem[];
+    blockingErrors: string[];
 }
 
 export interface CardBenefitExtraction {

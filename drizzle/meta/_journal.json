@@ -85,6 +85,20 @@
       "when": 1787248682270,
       "tag": "0011_card-network",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1787252053025,
+      "tag": "0012_card-benefit-source-bundles",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1787253632296,
+      "tag": "0013_card-benefit-candidate-audits",
+      "breakpoints": true
     }
   ]
 }

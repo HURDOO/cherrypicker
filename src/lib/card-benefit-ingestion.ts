@@ -1,10 +1,11 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { and, desc, eq, isNull, notInArray } from 'drizzle-orm';
 import { db } from '@/db';
 import {
     benefitRules,
     brands,
     cardBenefitCandidates,
+    cardBenefitCandidateDocuments,
     cardBenefitDocuments,
     cardBenefitRevisions,
     cards,
@@ -22,9 +23,20 @@ import {
     type CardBenefitExtractionProvider,
     validateCardBenefitExtraction,
 } from './card-benefit-extraction';
-import { decodePromotionHtml } from './html-decoding';
+import { createCardBenefitCandidateAudit } from './card-benefit-audit';
+import {
+    getShinhanSolTravelSources,
+    SHINHAN_SOL_TRAVEL_SOURCE_URL,
+} from './card-benefit-source-registry';
 import { toCard, toRule } from './db-mappers';
-import { htmlToText } from './promotion-parsers';
+import {
+    collectOfficialDocument,
+    createOfficialSourceBundleHash,
+    discoverOfficialPdfSources,
+    splitPdfPages,
+    type CollectedOfficialDocument,
+    type OfficialDocumentSourceDefinition,
+} from './official-document-source';
 
 export class CardBenefitIngestionError extends Error {
     constructor(
@@ -35,25 +47,6 @@ export class CardBenefitIngestionError extends Error {
         this.name = 'CardBenefitIngestionError';
     }
 }
-
-export const SHINHAN_SOL_TRAVEL_SOURCE_URL =
-    'https://www.shinhancard.com/pconts/html/card/apply/check/1225714_2206.html';
-
-const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
-const requestHeaders = {
-    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/140.0 Safari/537.36',
-    accept: 'text/html,application/xhtml+xml',
-    'accept-language': 'ko-KR,ko;q=0.9,en;q=0.8',
-};
-
-type CollectedSource = {
-    sourceUrl: string;
-    mediaType: string;
-    rawContent: string;
-    extractedText: string;
-    contentHash: string;
-    responseMetadata: { etag?: string; lastModified?: string };
-};
 
 export type CardBenefitCollectionResult = {
     status: 'created' | 'unchanged';
@@ -66,48 +59,115 @@ export type CardBenefitCollectionResult = {
     model?: string;
     confidence: number;
     validationErrors: string[];
+    sources: Array<{
+        documentId: string;
+        label: string;
+        sourceUrl: string;
+        sourceKind: (typeof cardBenefitDocuments.$inferSelect)['sourceKind'];
+        mediaType: string;
+        version: number;
+        status: 'created' | 'unchanged';
+        pageCount?: number;
+    }>;
+    sourceFailures: Array<{
+        label: string;
+        sourceUrl: string;
+        message: string;
+    }>;
 };
 
-const hashBytes = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+type StoredSource = {
+    collected: CollectedOfficialDocument;
+    document: typeof cardBenefitDocuments.$inferSelect;
+    status: 'created' | 'unchanged';
+};
 
-async function fetchOfficialHtml(sourceUrl: string): Promise<CollectedSource> {
-    const response = await fetch(sourceUrl, {
-        headers: requestHeaders,
-        cache: 'no-store',
-        signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok) throw new Error(`카드 공식 문서 HTTP ${response.status}`);
-    const declaredLength = Number(response.headers.get('content-length'));
-    if (Number.isFinite(declaredLength) && declaredLength > MAX_SOURCE_BYTES) {
-        throw new Error('카드 공식 문서가 허용 크기를 초과했습니다.');
-    }
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength === 0 || bytes.byteLength > MAX_SOURCE_BYTES) {
-        throw new Error('카드 공식 문서 크기가 올바르지 않습니다.');
-    }
-    const mediaType = response.headers.get('content-type') ?? 'text/html';
-    if (!mediaType.toLowerCase().includes('html')) {
-        throw new Error(`지원하지 않는 카드 공식 문서 형식입니다: ${mediaType}`);
-    }
-    const rawContent = decodePromotionHtml(bytes, mediaType);
-    const extractedText = htmlToText(rawContent);
-    if (extractedText.length < 100 || /Request Rejected|requested URL was rejected/i.test(extractedText)) {
-        throw new Error('카드 공식 문서에서 충분한 텍스트를 추출하지 못했습니다.');
-    }
+type SourceFailure = CardBenefitCollectionResult['sourceFailures'][number];
+
+const collectSourceDefinitions = async (
+    definitions: OfficialDocumentSourceDefinition[],
+): Promise<{ collected: CollectedOfficialDocument[]; failures: SourceFailure[] }> => {
+    const settled = await Promise.all(definitions.map(async definition => {
+        try {
+            return {
+                ok: true as const,
+                definition,
+                document: await collectOfficialDocument(definition),
+            };
+        } catch (error) {
+            if (definition.required) throw error;
+            return {
+                ok: false as const,
+                definition,
+                error: error instanceof Error ? error.message : '알 수 없는 수집 오류',
+            };
+        }
+    }));
     return {
-        sourceUrl,
-        mediaType: mediaType.slice(0, 200),
-        rawContent,
-        extractedText,
-        contentHash: hashBytes(bytes),
-        responseMetadata: {
-            ...(response.headers.get('etag') && { etag: response.headers.get('etag')! }),
-            ...(response.headers.get('last-modified') && {
-                lastModified: response.headers.get('last-modified')!,
-            }),
-        },
+        collected: settled.flatMap(result => result.ok ? [result.document] : []),
+        failures: settled.flatMap(result => !result.ok ? [{
+            label: result.definition.label,
+            sourceUrl: result.definition.sourceUrl,
+            message: result.error.slice(0, 500),
+        }] : []),
     };
-}
+};
+
+const collectShinhanSourceBundle = async () => {
+    const configured = getShinhanSolTravelSources();
+    const initial = await collectSourceDefinitions(configured);
+    const configuredUrls = new Set(configured.map(source => source.sourceUrl));
+    const discoveredByUrl = new Map(initial.collected
+        .filter(source => source.definition.format === 'html')
+        .flatMap(source => discoverOfficialPdfSources(source.rawContent, source.definition))
+        .filter(source => !configuredUrls.has(source.sourceUrl))
+        .map(source => [source.sourceUrl, source]));
+    const discovered = [...discoveredByUrl.values()];
+    const discoveredResult = discovered.length > 0
+        ? await collectSourceDefinitions(discovered)
+        : { collected: [], failures: [] };
+    return {
+        collected: [...initial.collected, ...discoveredResult.collected],
+        failures: [...initial.failures, ...discoveredResult.failures],
+    };
+};
+
+const storeCollectedSource = (
+    cardId: string,
+    collected: CollectedOfficialDocument,
+): StoredSource => {
+    const existingDocument = db.select().from(cardBenefitDocuments)
+        .where(and(
+            eq(cardBenefitDocuments.cardId, cardId),
+            eq(cardBenefitDocuments.sourceUrl, collected.sourceUrl),
+            eq(cardBenefitDocuments.contentHash, collected.contentHash),
+        ))
+        .get();
+    if (existingDocument) {
+        return { collected, document: existingDocument, status: 'unchanged' };
+    }
+    const latestDocument = db.select().from(cardBenefitDocuments)
+        .where(and(
+            eq(cardBenefitDocuments.cardId, cardId),
+            eq(cardBenefitDocuments.sourceUrl, collected.sourceUrl),
+        ))
+        .orderBy(desc(cardBenefitDocuments.version))
+        .get();
+    const document = db.insert(cardBenefitDocuments).values({
+        id: randomUUID(),
+        cardId,
+        sourceUrl: collected.sourceUrl,
+        sourceKind: collected.definition.sourceKind,
+        mediaType: collected.mediaType.slice(0, 200),
+        contentHash: collected.contentHash,
+        version: (latestDocument?.version ?? 0) + 1,
+        rawContent: collected.rawContent,
+        extractedText: collected.extractedText,
+        responseMetadata: collected.responseMetadata,
+        collectedAt: new Date(),
+    }).returning().get();
+    return { collected, document, status: 'created' };
+};
 
 const currentReferences = () => ({
     categoryIds: new Set(db.select({ id: categories.id }).from(categories).all().map(row => row.id)),
@@ -122,68 +182,87 @@ const currentReferences = () => ({
     }])),
 });
 
+const activeRevisionNumber = (cardId: string) => db.select({
+    revision: cardBenefitRevisions.revision,
+}).from(cardBenefitRevisions)
+    .where(and(
+        eq(cardBenefitRevisions.cardId, cardId),
+        eq(cardBenefitRevisions.isActive, true),
+    ))
+    .get()?.revision ?? 0;
+
 const toCollectionResult = (
     status: CardBenefitCollectionResult['status'],
-    document: typeof cardBenefitDocuments.$inferSelect,
+    sources: StoredSource[],
     candidate: typeof cardBenefitCandidates.$inferSelect,
+    sourceFailures: SourceFailure[],
 ): CardBenefitCollectionResult => ({
     status,
-    documentId: document.id,
+    documentId: candidate.documentId,
     candidateId: candidate.id,
     cardId: candidate.cardId,
-    sourceUrl: document.sourceUrl,
-    version: document.version,
+    sourceUrl: sources.find(source => source.document.id === candidate.documentId)?.document.sourceUrl ?? '',
+    version: sources.find(source => source.document.id === candidate.documentId)?.document.version ?? 0,
     extractor: candidate.extractor,
     ...(candidate.model && { model: candidate.model }),
     confidence: candidate.confidence,
     validationErrors: candidate.validationErrors,
+    sources: sources.map(source => ({
+        documentId: source.document.id,
+        label: source.collected.definition.label,
+        sourceUrl: source.document.sourceUrl,
+        sourceKind: source.document.sourceKind,
+        mediaType: source.document.mediaType,
+        version: source.document.version,
+        status: source.status,
+        ...(source.document.responseMetadata.pageCount && {
+            pageCount: source.document.responseMetadata.pageCount,
+        }),
+    })),
+    sourceFailures,
 });
 
 export async function collectShinhanSolTravelBenefits(options: {
     provider?: CardBenefitExtractionProvider;
-    collectedSource?: CollectedSource;
+    collectedSources?: CollectedOfficialDocument[];
 } = {}): Promise<CardBenefitCollectionResult> {
     const cardRow = db.select().from(cards)
         .where(and(eq(cards.id, 'shinhan_sol'), isNull(cards.userId)))
         .get();
     if (!cardRow) throw new CardBenefitIngestionError(404, '대표 카드 신한 SOL트래블 체크카드를 찾을 수 없습니다.');
     const card = toCard(cardRow);
-    const source = options.collectedSource ?? await fetchOfficialHtml(SHINHAN_SOL_TRAVEL_SOURCE_URL);
-    if (source.sourceUrl !== SHINHAN_SOL_TRAVEL_SOURCE_URL) {
+    const bundle = options.collectedSources
+        ? { collected: options.collectedSources, failures: [] }
+        : await collectShinhanSourceBundle();
+    const primarySource = bundle.collected.find(source => (
+        source.definition.candidateRole === 'PRIMARY' &&
+        source.sourceUrl === SHINHAN_SOL_TRAVEL_SOURCE_URL
+    ));
+    if (!primarySource) {
         throw new CardBenefitIngestionError(400, '허용된 대표 카드 공식 출처가 아닙니다.');
     }
-    const existingDocument = db.select().from(cardBenefitDocuments)
-        .where(and(
-            eq(cardBenefitDocuments.cardId, card.id),
-            eq(cardBenefitDocuments.sourceUrl, source.sourceUrl),
-            eq(cardBenefitDocuments.contentHash, source.contentHash),
-        ))
-        .get();
-    const latestDocument = db.select().from(cardBenefitDocuments)
-        .where(and(
-            eq(cardBenefitDocuments.cardId, card.id),
-            eq(cardBenefitDocuments.sourceUrl, source.sourceUrl),
-        ))
-        .orderBy(desc(cardBenefitDocuments.version))
-        .get();
-    const document = existingDocument ?? db.insert(cardBenefitDocuments).values({
-        id: randomUUID(),
-        cardId: card.id,
-        sourceUrl: source.sourceUrl,
-        sourceKind: 'PRODUCT_PAGE',
-        mediaType: source.mediaType,
-        contentHash: source.contentHash,
-        version: (latestDocument?.version ?? 0) + 1,
-        rawContent: source.rawContent,
-        extractedText: source.extractedText,
-        responseMetadata: source.responseMetadata,
-        collectedAt: new Date(),
-    }).returning().get();
-
+    const storedSources = bundle.collected.map(source => storeCollectedSource(card.id, source));
+    const primaryStored = storedSources.find(source => source.collected === primarySource)!;
+    const baseRevision = activeRevisionNumber(card.id);
+    const sourceBundleHash = createOfficialSourceBundleHash([
+        ...bundle.collected,
+        ...bundle.failures.map(failure => ({
+            sourceUrl: failure.sourceUrl,
+            contentHash: '__COLLECTION_FAILED__',
+        })),
+    ]);
     const input: CardBenefitExtractionInput = {
         card,
-        sourceUrl: document.sourceUrl,
-        sourceText: document.extractedText,
+        sourceUrl: primaryStored.document.sourceUrl,
+        sourceText: primaryStored.document.extractedText,
+        sources: storedSources.map(source => ({
+            sourceUrl: source.document.sourceUrl,
+            sourceText: source.document.extractedText,
+            mediaType: source.document.mediaType,
+            ...(source.document.mediaType === 'application/pdf' && {
+                pageTexts: source.collected.pageTexts ?? splitPdfPages(source.document.extractedText),
+            }),
+        })),
     };
     const provider = options.provider ?? createCardBenefitExtractionProvider();
     let extractionResult;
@@ -201,44 +280,137 @@ export async function collectShinhanSolTravelBenefits(options: {
     }
     const existingCandidate = db.select().from(cardBenefitCandidates)
         .where(and(
-            eq(cardBenefitCandidates.documentId, document.id),
+            eq(cardBenefitCandidates.cardId, card.id),
+            eq(cardBenefitCandidates.sourceBundleHash, sourceBundleHash),
             eq(cardBenefitCandidates.extractor, extractionResult.extractor),
             eq(cardBenefitCandidates.schemaVersion, CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION),
+            eq(cardBenefitCandidates.baseRevision, baseRevision),
         ))
         .get();
     if (existingCandidate) {
-        return toCollectionResult('unchanged', document, existingCandidate);
+        const existingValidation = validateCardBenefitExtraction(
+            existingCandidate.extraction,
+            input,
+            currentReferences(),
+        );
+        const existingAudit = createCardBenefitCandidateAudit({
+            extraction: existingCandidate.extraction,
+            baseline: currentSnapshot(card.id),
+            baselineRevision: baseRevision,
+        });
+        const existingValidationErrors = [...new Set([
+            ...existingValidation.errors,
+            ...existingAudit.blockingErrors,
+            ...bundle.failures.map(failure => (
+                `공식 보조 출처를 수집하지 못했습니다: ${failure.label} (${failure.message})`
+            )),
+        ])];
+        const updatedCandidate = db.update(cardBenefitCandidates)
+            .set({ audit: existingAudit, validationErrors: existingValidationErrors })
+            .where(eq(cardBenefitCandidates.id, existingCandidate.id))
+            .returning()
+            .get();
+        return toCollectionResult('unchanged', storedSources, updatedCandidate, bundle.failures);
     }
     const validation = validateCardBenefitExtraction(
         extractionResult.extraction,
         input,
         currentReferences(),
     );
+    const audit = createCardBenefitCandidateAudit({
+        extraction: extractionResult.extraction,
+        baseline: currentSnapshot(card.id),
+        baselineRevision: baseRevision,
+    });
+    const validationErrors = [...new Set([
+        ...validation.errors,
+        ...audit.blockingErrors,
+        ...bundle.failures.map(failure => (
+            `공식 보조 출처를 수집하지 못했습니다: ${failure.label} (${failure.message})`
+        )),
+    ])];
     const now = new Date();
     const candidate = db.transaction(tx => {
-        tx.update(cardBenefitCandidates)
-            .set({ status: 'REJECTED', reviewedAt: now })
-            .where(and(
-                eq(cardBenefitCandidates.cardId, card.id),
-                eq(cardBenefitCandidates.status, 'PENDING'),
-            ))
-            .run();
-        return tx.insert(cardBenefitCandidates).values({
+        if (validationErrors.length === 0) {
+            tx.update(cardBenefitCandidates)
+                .set({ status: 'REJECTED', reviewedAt: now })
+                .where(and(
+                    eq(cardBenefitCandidates.cardId, card.id),
+                    eq(cardBenefitCandidates.status, 'PENDING'),
+                ))
+                .run();
+        }
+        const inserted = tx.insert(cardBenefitCandidates).values({
             id: randomUUID(),
-            documentId: document.id,
+            documentId: primaryStored.document.id,
             cardId: card.id,
             schemaVersion: CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION,
+            baseRevision,
+            sourceBundleHash,
             extractor: extractionResult.extractor,
             model: extractionResult.model ?? null,
             confidence: extractionResult.confidence,
             extraction: extractionResult.extraction,
-            validationErrors: validation.errors,
+            audit,
+            validationErrors,
             status: 'PENDING',
             createdAt: now,
         }).returning().get();
+        tx.insert(cardBenefitCandidateDocuments).values(storedSources.map(source => ({
+            candidateId: inserted.id,
+            documentId: source.document.id,
+            role: source.collected.definition.candidateRole,
+        }))).run();
+        return inserted;
     });
-    return toCollectionResult('created', document, candidate);
+    return toCollectionResult('created', storedSources, candidate, bundle.failures);
 }
+
+const getCandidateDocuments = (candidate: typeof cardBenefitCandidates.$inferSelect) => {
+    const relations = db.select().from(cardBenefitCandidateDocuments)
+        .where(eq(cardBenefitCandidateDocuments.candidateId, candidate.id))
+        .all();
+    const relationByDocumentId = new Map(relations.map(relation => [
+        relation.documentId,
+        relation.role,
+    ]));
+    const documentIds = relations.length > 0
+        ? new Set(relations.map(relation => relation.documentId))
+        : new Set([candidate.documentId]);
+    return db.select().from(cardBenefitDocuments)
+        .where(eq(cardBenefitDocuments.cardId, candidate.cardId))
+        .all()
+        .filter(document => documentIds.has(document.id))
+        .map(document => ({
+            document,
+            role: relationByDocumentId.get(document.id) ?? (
+                document.id === candidate.documentId ? 'PRIMARY' as const : 'SUPPORTING' as const
+            ),
+        }));
+};
+
+const createExtractionInputFromDocuments = (
+    card: ReturnType<typeof toCard>,
+    candidate: typeof cardBenefitCandidates.$inferSelect,
+    documents: ReturnType<typeof getCandidateDocuments>,
+): CardBenefitExtractionInput => {
+    const primary = documents.find(item => item.document.id === candidate.documentId) ??
+        documents.find(item => item.role === 'PRIMARY');
+    if (!primary) throw new CardBenefitIngestionError(409, '후보의 대표 공식 문서가 없습니다.');
+    return {
+        card,
+        sourceUrl: primary.document.sourceUrl,
+        sourceText: primary.document.extractedText,
+        sources: documents.map(item => ({
+            sourceUrl: item.document.sourceUrl,
+            sourceText: item.document.extractedText,
+            mediaType: item.document.mediaType,
+            ...(item.document.mediaType === 'application/pdf' && {
+                pageTexts: splitPdfPages(item.document.extractedText),
+            }),
+        })),
+    };
+};
 
 const currentSnapshot = (cardId: string): CardBenefitRevisionSnapshot => {
     const cardRow = db.select().from(cards).where(eq(cards.id, cardId)).get();
@@ -325,33 +497,48 @@ export function reviewCardBenefitCandidate(
             .returning()
             .get();
     }
-    const document = db.select().from(cardBenefitDocuments)
-        .where(eq(cardBenefitDocuments.id, candidate.documentId))
-        .get();
+    const currentBaseRevision = activeRevisionNumber(candidate.cardId);
+    if (candidate.baseRevision !== currentBaseRevision) {
+        throw new CardBenefitIngestionError(
+            409,
+            '후보 생성 후 게시 revision이 변경되었습니다. 공식 출처를 다시 수집해주세요.',
+        );
+    }
     const cardRow = db.select().from(cards).where(eq(cards.id, candidate.cardId)).get();
-    if (!document || !cardRow) {
+    const documents = getCandidateDocuments(candidate);
+    const document = documents.find(item => item.document.id === candidate.documentId)?.document;
+    if (!document || !cardRow || documents.length === 0) {
         throw new CardBenefitIngestionError(409, '후보의 카드 또는 공식 문서가 없습니다.');
     }
-    const latestDocument = db.select().from(cardBenefitDocuments)
-        .where(and(
-            eq(cardBenefitDocuments.cardId, candidate.cardId),
-            eq(cardBenefitDocuments.sourceUrl, document.sourceUrl),
-        ))
-        .orderBy(desc(cardBenefitDocuments.version))
-        .get();
-    if (latestDocument && latestDocument.version > document.version) {
-        throw new CardBenefitIngestionError(409, '더 최신 공식 문서 후보를 먼저 검수해야 합니다.');
+    for (const item of documents) {
+        const latestDocument = db.select().from(cardBenefitDocuments)
+            .where(and(
+                eq(cardBenefitDocuments.cardId, candidate.cardId),
+                eq(cardBenefitDocuments.sourceUrl, item.document.sourceUrl),
+            ))
+            .orderBy(desc(cardBenefitDocuments.version))
+            .get();
+        if (latestDocument && latestDocument.version > item.document.version) {
+            throw new CardBenefitIngestionError(409, '더 최신 공식 문서 묶음 후보를 먼저 검수해야 합니다.');
+        }
     }
+    const extractionInput = createExtractionInputFromDocuments(
+        toCard(cardRow),
+        candidate,
+        documents,
+    );
     const validation = validateCardBenefitExtraction(
         candidate.extraction,
-        {
-            card: toCard(cardRow),
-            sourceUrl: document.sourceUrl,
-            sourceText: document.extractedText,
-        },
+        extractionInput,
         currentReferences(),
     );
+    const audit = createCardBenefitCandidateAudit({
+        extraction: candidate.extraction,
+        baseline: currentSnapshot(candidate.cardId),
+        baselineRevision: currentBaseRevision,
+    });
     if (candidate.validationErrors.length > 0 || validation.errors.length > 0 ||
+        audit.blockingErrors.length > 0 ||
         !validation.extraction) {
         throw new CardBenefitIngestionError(400, '검증 오류가 있는 카드 혜택 후보는 승인할 수 없습니다.');
     }
@@ -470,18 +657,60 @@ export function getCardBenefitReviewData() {
         .orderBy(desc(cardBenefitDocuments.collectedAt))
         .all();
     const documentById = new Map(documents.map(document => [document.id, document]));
+    const candidateDocuments = db.select().from(cardBenefitCandidateDocuments).all();
+    const candidateDocumentIds = new Map<string, Array<{
+        documentId: string;
+        role: 'PRIMARY' | 'SUPPORTING';
+    }>>();
+    candidateDocuments.forEach(relation => {
+        const current = candidateDocumentIds.get(relation.candidateId) ?? [];
+        current.push({ documentId: relation.documentId, role: relation.role });
+        candidateDocumentIds.set(relation.candidateId, current);
+    });
     return {
         candidates: db.select().from(cardBenefitCandidates)
             .orderBy(desc(cardBenefitCandidates.createdAt))
             .all()
             .map(candidate => {
                 const document = documentById.get(candidate.documentId);
+                const currentBaseRevision = activeRevisionNumber(candidate.cardId);
+                const staleError = candidate.status === 'PENDING' &&
+                    candidate.baseRevision !== currentBaseRevision
+                    ? ['후보 생성 후 게시 revision이 변경되었습니다. 공식 출처를 다시 수집해주세요.']
+                    : [];
+                const relations = candidateDocumentIds.get(candidate.id) ?? [{
+                    documentId: candidate.documentId,
+                    role: 'PRIMARY' as const,
+                }];
                 return {
                     ...candidate,
+                    validationErrors: [...new Set([
+                        ...candidate.validationErrors,
+                        ...staleError,
+                    ])],
+                    audit: candidate.audit ?? createCardBenefitCandidateAudit({
+                        extraction: candidate.extraction,
+                        baseline: currentSnapshot(candidate.cardId),
+                        baselineRevision: currentBaseRevision,
+                    }),
                     sourceUrl: document?.sourceUrl ?? '',
                     documentVersion: document?.version ?? 0,
                     contentHash: document?.contentHash ?? '',
                     collectedAt: document?.collectedAt.toISOString(),
+                    sources: relations.flatMap(relation => {
+                        const source = documentById.get(relation.documentId);
+                        return source ? [{
+                            documentId: source.id,
+                            role: relation.role,
+                            sourceUrl: source.sourceUrl,
+                            sourceKind: source.sourceKind,
+                            mediaType: source.mediaType,
+                            version: source.version,
+                            contentHash: source.contentHash,
+                            pageCount: source.responseMetadata.pageCount,
+                            collectedAt: source.collectedAt.toISOString(),
+                        }] : [];
+                    }),
                     createdAt: candidate.createdAt.toISOString(),
                     reviewedAt: candidate.reviewedAt?.toISOString(),
                 };

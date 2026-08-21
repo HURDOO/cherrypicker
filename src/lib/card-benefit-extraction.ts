@@ -28,10 +28,18 @@ export const SHINHAN_SOL_REQUIRED_RULE_IDS = [
     'sol_usa_starbucks',
 ] as const;
 
+export interface CardBenefitExtractionSource {
+    sourceUrl: string;
+    sourceText: string;
+    mediaType?: string;
+    pageTexts?: string[];
+}
+
 export interface CardBenefitExtractionInput {
     card: Card;
     sourceUrl: string;
     sourceText: string;
+    sources?: CardBenefitExtractionSource[];
 }
 
 export interface CardBenefitExtractionResult {
@@ -68,6 +76,12 @@ const isIsoCalendarDate = (value: unknown): value is string => {
     const parsed = new Date(`${value}T00:00:00Z`);
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 };
+
+const extractionSources = (input: CardBenefitExtractionInput): CardBenefitExtractionSource[] => (
+    input.sources && input.sources.length > 0
+        ? input.sources
+        : [{ sourceUrl: input.sourceUrl, sourceText: input.sourceText }]
+);
 
 const ruleActionTypes = ['PERCENT', 'FLAT', 'FIXED_PRICE'] as const;
 const platformTypes: PlatformType[] = ['ALL', 'ONLINE', 'OFFLINE', 'OFFICIAL_SITE'];
@@ -307,7 +321,8 @@ export function validateCardBenefitExtraction(
         errors.push('공식 원문 근거가 없습니다.');
     } else {
         const evidenceIds = new Set<string>();
-        const source = normalizedSource(input.sourceText);
+        const sources = extractionSources(input);
+        const sourceByUrl = new Map(sources.map(source => [source.sourceUrl, source]));
         value.evidence.forEach((evidence, index) => {
             const label = `근거 ${index + 1}`;
             if (!isRecord(evidence) || typeof evidence.id !== 'string' ||
@@ -327,8 +342,18 @@ export function validateCardBenefitExtraction(
             if (evidenceIds.has(evidence.id)) errors.push(`근거 ID ${evidence.id}가 중복되었습니다.`);
             evidenceIds.add(evidence.id);
             const quote = normalizeText(evidence.quote);
-            if (quote.length < 3 || quote.length > 500 ||
-                !source.includes(normalizedSource(quote))) {
+            const evidenceSourceUrl = typeof evidence.sourceUrl === 'string'
+                ? evidence.sourceUrl
+                : sources.length === 1
+                    ? sources[0].sourceUrl
+                    : undefined;
+            const source = evidenceSourceUrl ? sourceByUrl.get(evidenceSourceUrl) : undefined;
+            if (!evidenceSourceUrl) {
+                errors.push(`${label}에 공식 원문 URL이 없습니다.`);
+            } else if (!source) {
+                errors.push(`${label}이 수집되지 않은 공식 원문을 참조합니다.`);
+            } else if (quote.length < 3 || quote.length > 500 ||
+                !normalizedSource(source.sourceText).includes(normalizedSource(quote))) {
                 errors.push(`${label} 문장이 공식 원문에서 확인되지 않습니다.`);
             }
             const evidenceFields = evidence.fields as CardBenefitEvidence['fields'];
@@ -341,6 +366,13 @@ export function validateCardBenefitExtraction(
             if (evidence.page !== undefined &&
                 (!Number.isSafeInteger(evidence.page) || (evidence.page as number) < 1)) {
                 errors.push(`${label} 페이지 번호가 올바르지 않습니다.`);
+            } else if (source?.mediaType === 'application/pdf' && evidence.page === undefined) {
+                errors.push(`${label}에 PDF 페이지 번호가 없습니다.`);
+            } else if (evidence.page !== undefined && source) {
+                const pageText = source.pageTexts?.[(evidence.page as number) - 1];
+                if (!pageText || !normalizedSource(pageText).includes(normalizedSource(quote))) {
+                    errors.push(`${label} 문장이 지정한 PDF 페이지에서 확인되지 않습니다.`);
+                }
             }
         });
     }
@@ -369,9 +401,22 @@ export function validateCardBenefitExtraction(
     };
 }
 
-const evidenceLine = (sourceText: string, pattern: RegExp) => normalizeText(sourceText)
-    .match(pattern)?.[0]
-    .trim();
+const findEvidence = (
+    input: CardBenefitExtractionInput,
+    pattern: RegExp,
+): Pick<CardBenefitEvidence, 'quote' | 'sourceUrl' | 'page'> | undefined => {
+    for (const source of extractionSources(input)) {
+        if (source.pageTexts) {
+            for (const [index, pageText] of source.pageTexts.entries()) {
+                const quote = normalizeText(pageText).match(pattern)?.[0].trim();
+                if (quote) return { quote, sourceUrl: source.sourceUrl, page: index + 1 };
+            }
+        }
+        const quote = normalizeText(source.sourceText).match(pattern)?.[0].trim();
+        if (quote) return { quote, sourceUrl: source.sourceUrl };
+    }
+    return undefined;
+};
 
 const rule = (
     id: string,
@@ -954,12 +999,12 @@ export function extractShinhanSolTravelWithRules(
         },
     ];
     const evidence = specs.flatMap<CardBenefitEvidence>(spec => {
-        const quote = evidenceLine(input.sourceText, spec.pattern);
-        return quote ? [{
+        const found = findEvidence(input, spec.pattern);
+        return found ? [{
             id: spec.id,
             ruleIds: spec.ruleIds,
             fields: spec.fields,
-            quote,
+            ...found,
             location: spec.location,
         }] : [];
     });
@@ -1016,7 +1061,9 @@ const isReviewSafeExtraction = (value: unknown): value is CardBenefitExtraction 
         isRecord(evidence) &&
         typeof evidence.id === 'string' &&
         Array.isArray(evidence.fields) &&
-        typeof evidence.quote === 'string'
+        typeof evidence.quote === 'string' &&
+        (evidence.sourceUrl === undefined || typeof evidence.sourceUrl === 'string') &&
+        (evidence.page === undefined || typeof evidence.page === 'number')
     ));
     return rulesAreSafe && evidenceIsSafe;
 };
@@ -1039,6 +1086,17 @@ export class GeminiCardBenefitExtractionProvider implements CardBenefitExtractio
         const canonicalExtraction = input.card.id === 'shinhan_sol'
             ? extractShinhanSolTravelWithRules(input).extraction
             : undefined;
+        let remainingSourceCharacters = 45_000;
+        const promptSources = extractionSources(input).map((source, index) => {
+            const sourceText = source.sourceText.slice(0, remainingSourceCharacters);
+            remainingSourceCharacters = Math.max(0, remainingSourceCharacters - sourceText.length);
+            return [
+                `[공식 원문 ${index + 1}]`,
+                `URL: ${source.sourceUrl}`,
+                `형식: ${source.mediaType ?? 'text/plain'}`,
+                sourceText,
+            ].join('\n');
+        }).join('\n\n');
         const prompt = [
             '당신은 한국 카드 상품의 공식 원문을 BenefitRule JSON으로 구조화합니다.',
             '원문에 명시된 내용만 사용하고 추측하지 마세요.',
@@ -1047,7 +1105,8 @@ export class GeminiCardBenefitExtractionProvider implements CardBenefitExtractio
             'card 객체의 키는 반드시 id, name, company, limitTable, network입니다. issuer 같은 다른 이름을 사용하지 마세요.',
             '결제금액으로 자동 계산할 수 없는 혜택은 action.value를 0으로 두고 manualCheckRequired=true로 표시하세요.',
             '각 규칙은 최소 하나의 evidence.ruleIds에 연결하고 evidence.quote는 원문에서 그대로 복사하세요.',
-            'evidence 객체의 키는 반드시 id, ruleIds, fields, quote, location이며 fields에는 description, condition, action, limitConfig 중 근거가 되는 필드를 넣으세요.',
+            'evidence 객체에는 id, ruleIds, fields, quote, sourceUrl, location을 넣고 PDF 근거에는 page도 넣으세요.',
+            'evidence.sourceUrl은 아래 제공된 공식 원문 URL 중 하나와 정확히 같아야 하며, quote는 해당 원문 또는 지정한 PDF 페이지에서 그대로 복사하세요.',
             '이번 후보는 카드의 전체 혜택을 교체하므로 공식 페이지의 상시 혜택과 현재 유효한 프로모션을 모두 포함하세요.',
             'Rule 필드는 id, cardId, category, includedBrands, excludedBrands, platformType, usesCardLimit, description, detail, condition, action, limitConfig를 사용하세요.',
             'condition에는 minSpend, minPerformance, startsAt, endsAt, requiredCardNetwork, performanceWaiver, confirmationRequired, stackableWithRuleIds, applicationOrder, manualCheckRequired, requiredNote를 사용할 수 있습니다.',
@@ -1062,8 +1121,7 @@ export class GeminiCardBenefitExtractionProvider implements CardBenefitExtractio
             '카드 브랜드: MASTERCARD',
             `필수 규칙 ID: ${SHINHAN_SOL_REQUIRED_RULE_IDS.join(', ')}`,
             `공식 기준 canonical extraction(키와 계산 필드를 변경하지 말고 모든 quote를 원문에서 확인):\n${JSON.stringify(canonicalExtraction)}`,
-            `출처: ${input.sourceUrl}`,
-            `공식 원문:\n${input.sourceText.slice(0, 30_000)}`,
+            promptSources,
         ].join('\n');
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`,

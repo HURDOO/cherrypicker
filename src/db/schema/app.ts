@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
     index,
     integer,
+    primaryKey,
     real,
     sqliteTable,
     text,
@@ -25,7 +26,9 @@ import type {
     RuleAction,
     RuleCondition,
     BenefitSubscription,
+    CardBenefitCandidateAudit,
     CardBenefitCandidateStatus,
+    CardBenefitDocumentMetadata,
     CardBenefitExtraction,
     CardBenefitRevisionSnapshot,
     CardBenefitSourceKind,
@@ -115,7 +118,7 @@ export const cardBenefitDocuments = sqliteTable('card_benefit_documents', {
     rawContent: text('raw_content').notNull(),
     extractedText: text('extracted_text').notNull(),
     responseMetadata: text('response_metadata', { mode: 'json' })
-        .$type<{ etag?: string; lastModified?: string }>()
+        .$type<CardBenefitDocumentMetadata>()
         .notNull()
         .default({}),
     collectedAt: integer('collected_at', { mode: 'timestamp_ms' })
@@ -147,12 +150,15 @@ export const cardBenefitCandidates = sqliteTable('card_benefit_candidates', {
         .notNull()
         .references(() => cards.id, { onDelete: 'cascade' }),
     schemaVersion: integer('schema_version').notNull().default(1),
+    baseRevision: integer('base_revision').notNull().default(0),
+    sourceBundleHash: text('source_bundle_hash').notNull().default(''),
     extractor: text('extractor').notNull(),
     model: text('model'),
     confidence: real('confidence').notNull(),
     extraction: text('extraction', { mode: 'json' })
         .$type<CardBenefitExtraction>()
         .notNull(),
+    audit: text('audit', { mode: 'json' }).$type<CardBenefitCandidateAudit>(),
     validationErrors: text('validation_errors', { mode: 'json' })
         .$type<string[]>()
         .notNull(),
@@ -166,13 +172,28 @@ export const cardBenefitCandidates = sqliteTable('card_benefit_candidates', {
         .notNull()
         .default(nowInMilliseconds),
 }, (table) => [
-    uniqueIndex('card_benefit_candidates_document_extractor_unique').on(
-        table.documentId,
+    uniqueIndex('card_benefit_candidates_bundle_extractor_unique').on(
+        table.cardId,
+        table.sourceBundleHash,
         table.extractor,
         table.schemaVersion,
+        table.baseRevision,
     ),
     index('card_benefit_candidates_status_created_idx').on(table.status, table.createdAt),
     index('card_benefit_candidates_card_created_idx').on(table.cardId, table.createdAt),
+]);
+
+export const cardBenefitCandidateDocuments = sqliteTable('card_benefit_candidate_documents', {
+    candidateId: text('candidate_id')
+        .notNull()
+        .references(() => cardBenefitCandidates.id, { onDelete: 'cascade' }),
+    documentId: text('document_id')
+        .notNull()
+        .references(() => cardBenefitDocuments.id, { onDelete: 'cascade' }),
+    role: text('role').$type<'PRIMARY' | 'SUPPORTING'>().notNull(),
+}, (table) => [
+    primaryKey({ columns: [table.candidateId, table.documentId] }),
+    index('card_benefit_candidate_documents_document_idx').on(table.documentId),
 ]);
 
 export const cardBenefitRevisions = sqliteTable('card_benefit_revisions', {

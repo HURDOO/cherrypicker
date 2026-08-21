@@ -29,6 +29,7 @@ import {
     parseTUniverseSources,
     type ParsedSubscriptionProduct,
 } from './t-universe-parser';
+import { diffStructuredValues } from './structured-diff';
 
 type PromotionSource = {
     id: string;
@@ -271,6 +272,16 @@ async function parseSource(source: PromotionSource): Promise<ParsedSource> {
 const hashValue = (value: unknown) => createHash('sha256')
     .update(JSON.stringify(value))
     .digest('hex');
+
+const promotionForDiff = (value: Record<string, unknown>) => Object.fromEntries(
+    Object.entries(value).filter(([key]) => ![
+        'sourceHash',
+        'collectedAt',
+        'reviewedAt',
+        'publishedAt',
+        'updatedAt',
+    ].includes(key))
+);
 
 const autoPromotionId = (providerId: string, sourceKey: string) =>
     `promotion-auto-${createHash('sha256')
@@ -578,6 +589,12 @@ function persistParsedPromotion(parsed: ParsedPromotion, now: Date, collectionSo
     const previous = previousCandidates.find(candidate =>
         candidate.diff?.sourceKey === parsed.sourceKey
     );
+    const fieldChanges = previous
+        ? diffStructuredValues(
+            promotionForDiff(previous.parsedOffer),
+            promotionForDiff(parsedOffer),
+        )
+        : [];
     const candidateId = randomUUID();
 
     db.transaction(() => {
@@ -605,7 +622,8 @@ function persistParsedPromotion(parsed: ParsedPromotion, now: Date, collectionSo
                 structured: true,
                 autoPublished: parsed.autoPublish,
                 previousHash: previous?.sourceHash ?? null,
-                changed: Boolean(previous),
+                changed: fieldChanges.length > 0,
+                fieldChanges,
                 linkedPromotionId: existingOffer?.id ?? previous?.linkedPromotionId ?? null,
                 warnings: parsed.warnings,
                 ...(parsed.semanticAnalysis && {

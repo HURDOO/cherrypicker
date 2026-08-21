@@ -29,6 +29,7 @@ import type {
     PromotionSemanticAnalysis,
     PromotionValueSemantics,
 } from '@/types';
+import type { StructuredFieldChange } from '@/lib/structured-diff';
 import { getErrorMessage } from '@/lib/api-client';
 import { useToastStore } from '@/store/useToastStore';
 
@@ -209,6 +210,31 @@ const formatAction = (offer: CandidateOffer) => {
 const candidateWarnings = (candidate: Candidate) => Array.isArray(candidate.diff.warnings)
     ? candidate.diff.warnings.filter((warning): warning is string => typeof warning === 'string')
     : [];
+
+const candidateFieldChanges = (candidate: Candidate): StructuredFieldChange[] => {
+    const changes = candidate.diff.fieldChanges;
+    if (!Array.isArray(changes)) return [];
+    return changes.filter((change): change is StructuredFieldChange => (
+        Boolean(change) &&
+        typeof change === 'object' &&
+        typeof (change as StructuredFieldChange).path === 'string' &&
+        ['ADDED', 'REMOVED', 'CHANGED'].includes((change as StructuredFieldChange).kind)
+    ));
+};
+
+const fieldChangeKindLabel: Record<StructuredFieldChange['kind'], string> = {
+    ADDED: '추가',
+    REMOVED: '삭제',
+    CHANGED: '변경',
+};
+
+const formatFieldChangeValue = (value: unknown) => {
+    if (value === undefined || value === null || value === '') return '없음';
+    if (typeof value === 'boolean') return value ? '예' : '아니요';
+    if (typeof value === 'number') return value.toLocaleString('ko-KR');
+    if (typeof value === 'string') return value;
+    return JSON.stringify(value);
+};
 
 const candidateRisk = (candidate: Candidate): Exclude<RiskFilter, 'ALL'> | 'NORMAL' => {
     if (hasBrokenEncoding(candidate.rawContent) || hasBrokenEncoding(candidate.parsedOffer)) {
@@ -649,6 +675,7 @@ function CandidateCard({
     const offer = asOffer(candidate);
     const risk = candidateRisk(candidate);
     const warnings = candidateWarnings(candidate);
+    const fieldChanges = candidateFieldChanges(candidate);
     const semanticAnalysis = candidateSemanticAnalysis(candidate);
     const [form, setForm] = useState({
         title: offer.title ?? candidate.sourceTitle,
@@ -857,6 +884,38 @@ function CandidateCard({
                         </p>
                     )}
                 </div>
+            )}
+
+            {fieldChanges.length > 0 && (
+                <details className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
+                    <summary className="cursor-pointer text-[10px] font-black text-blue-800">
+                        이전 수집본 대비 필드 변경 {fieldChanges.length}건
+                    </summary>
+                    <div className="mt-2 max-h-52 space-y-2 overflow-y-auto">
+                        {fieldChanges.map((change, index) => (
+                            <div
+                                key={`${change.path}-${change.kind}-${index}`}
+                                className="rounded-lg bg-white/80 px-2.5 py-2 text-[9px] leading-relaxed text-gray-700"
+                            >
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className={`rounded-full px-1.5 py-0.5 font-black ${
+                                        change.kind === 'REMOVED'
+                                            ? 'bg-rose-100 text-rose-700'
+                                            : change.kind === 'ADDED'
+                                                ? 'bg-emerald-100 text-emerald-700'
+                                                : 'bg-blue-100 text-blue-700'
+                                    }`}>
+                                        {fieldChangeKindLabel[change.kind]}
+                                    </span>
+                                    <code className="break-all font-bold text-gray-800">{change.path}</code>
+                                </div>
+                                <p className="mt-1 break-words text-gray-500">
+                                    {formatFieldChangeValue(change.before)} → {formatFieldChangeValue(change.after)}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </details>
             )}
 
             <div className="mt-3 border-t border-gray-100 pt-3">

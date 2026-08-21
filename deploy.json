@@ -3,10 +3,10 @@
   "appId": "cherrypicker-promotion",
   "imageRepository": "ghcr.io/hurdoo/cherrypicker",
   "displayName": "Cherrypicker Promotion",
-  "description": "Private credit-card benefit and promotion management application",
+  "description": "Public guest-first credit-card benefit and promotion application",
   "containerPort": 3000,
   "healthPath": "/api/health",
-  "access": "private",
+  "access": "public",
   "dataEnabled": true,
   "requiredSecrets": [
     "BETTER_AUTH_SECRET"

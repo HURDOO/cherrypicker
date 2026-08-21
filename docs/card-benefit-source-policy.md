@@ -2,18 +2,23 @@
 
 ## 첫 지원 범위
 
-Phase 7의 첫 수직 흐름은 시스템 카드 `shinhan_sol`(신한 SOL트래블 체크카드) 한 장만 지원한다. 공식 상품 상세 페이지를 HTML source adapter로 수집하고, 검증·검수·revision 게시·rollback이 안정화된 뒤 같은 카드사의 다른 상품과 상품설명서 PDF로 범위를 넓힌다.
+Phase 7의 첫 수직 흐름은 시스템 카드 `shinhan_sol`(신한 SOL트래블 체크카드) 한 장만 지원한다. 여러 공식 문서를 하나의 source bundle로 수집하고, 검증·검수·revision 게시·rollback이 안정화된 뒤 같은 adapter 계약으로 다른 카드와 프로모션의 기타 혜택까지 범위를 넓힌다.
 
-- 공식 출처: `https://www.shinhancard.com/pconts/html/card/apply/check/1225714_2206.html`
-- 출처 종류: 공개 상품 상세 페이지
+- 대표 출처: `https://www.shinhancard.com/pconts/html/card/apply/check/1225714_2206.html`
+- 보조 출처: `https://www.shinhancard.com/pconts/html/card/travel/travel_supersol.html`
+- 보조 공지: `https://www.shinhancard.com/pconts/html/helpdesk/dataRoom/MOBFM164N/1227673_1119.html`
+- PDF 출처: 위 공식 HTML에서 발견한 같은 소유자 PDF 또는 운영자가 `SHINHAN_SOL_TRAVEL_GUIDE_PDF_URL`로 지정한 신한카드 공식 PDF
 - 수집 제한: 로그인, 앱 세션, CAPTCHA 또는 접근 제한 우회 금지
+- 신뢰 경계: 자격 증명·별도 포트가 없는 `https://shinhancard.com`과 그 하위 도메인만 허용하며 redirect 후 URL도 다시 검사
 - 전송 데이터: 공개된 카드 상품 원문만 사용하며 사용자·결제·계정 데이터는 AI API로 보내지 않는다.
+
+2026-08-21 확인 기준으로 대표 상품 페이지와 이용가이드에는 상품 전용 PDF 링크가 노출되지 않았다. 따라서 관련 없는 국제브랜드 안내서를 SOL트래블 상품 근거로 오인하지 않으며, 실제 공식 상품안내 PDF 주소가 확인될 때만 선택 설정으로 추가한다.
 
 ## 원문 보존
 
-`card_benefit_documents`는 응답 원문, 사람이 읽을 수 있게 정리한 텍스트, URL, media type, SHA-256 content hash, 응답 ETag/Last-Modified, 수집 시각과 출처별 단조 증가 version을 보존한다. 같은 URL과 hash는 새 문서 version을 만들지 않는다. 공개 카탈로그 API에는 원문과 내부 후보를 포함하지 않는다.
+`card_benefit_documents`는 응답 원문, 사람이 읽을 수 있게 정리한 텍스트, URL, media type, SHA-256 content hash, 응답 ETag/Last-Modified, 수집 시각과 출처별 단조 증가 version을 보존한다. 같은 URL과 hash는 새 문서 version을 만들지 않는다. `card_benefit_candidate_documents`는 후보와 대표·보조 문서를 연결하고, 정렬한 URL·content hash 집합의 bundle hash로 같은 문서 묶음의 중복 후보 생성을 막는다. 공개 카탈로그 API에는 원문과 내부 후보를 포함하지 않는다.
 
-원문은 현재 SQLite에 저장한다. 단일 공개 HTML 문서는 2 MiB로 제한한다. PDF adapter와 별도 object storage는 첫 HTML 수직 흐름의 운영 크기와 백업 영향을 확인한 뒤 결정한다.
+원문은 현재 SQLite에 저장한다. 단일 공개 HTML은 2 MiB, PDF는 8 MiB·200쪽·추출 텍스트 100만 자로 제한한다. HTML은 UTF-8 문자열로, PDF 원본 bytes는 base64로 보존한다. PDF.js가 추출한 텍스트에는 페이지 경계를 넣고 page count와 문서 제목을 metadata에 기록한다. 텍스트 층이 없는 스캔 PDF는 추측이나 자동 OCR 없이 수집 실패로 처리한다. 별도 object storage 전환은 실제 카드 수와 백업 크기를 측정한 뒤 결정한다.
 
 ## 구조화와 검증
 
@@ -23,13 +28,18 @@ Phase 7의 첫 수직 흐름은 시스템 카드 `shinhan_sol`(신한 SOL트래�
 - 규칙 ID 중복, 숫자 범위, 할인율, 실적·건별·일·월·연 한도 검증
 - 존재하는 카테고리와 브랜드만 참조
 - 각 규칙의 혜택, 계산값, 적용 조건, 한도를 공식 원문 인용과 연결
-- 인용 문장이 저장한 원문에 실제로 포함되는지 검증
+- 여러 문서를 사용한 후보는 모든 인용에 정확한 출처 URL을 요구하고, 인용 문장이 해당 저장 원문에 실제로 포함되는지 검증
+- PDF 인용은 해당 페이지 텍스트에 문장이 실제로 포함되는지 추가 검증
 - 대표 카드의 공식 상시 혜택과 현재 프로모션 13개가 모두 존재하는지 검증
 - 대표 카드별 canonical 계산 조건·한도·적용 채널과 정확히 일치하는지 검증
 - 기간형 규칙의 `startsAt`·`endsAt` 형식과 순서 검증
 
-검증 오류가 있는 후보는 저장하되 게시를 차단한다. 관리자 화면 `/admin/card-benefits`에서 원문, 구조화 규칙, 필드별 근거와 오류를 함께 검수한다.
+검증 오류가 있는 후보는 저장하되 게시를 차단한다. 선택 보조 출처가 일시적으로 실패해도 실패 URL을 bundle 상태에 포함하고 검증 오류로 남겨, 더 적은 원문만 사용한 후보가 정상 후보를 대체하지 못하게 한다. 관리자 화면 `/admin/card-benefits`에서 source bundle, PDF 페이지, 구조화 규칙, 필드별 근거와 오류를 함께 검수한다.
 공식 상품 페이지에 포함된 해외 가맹점 프로모션 종료일은 `endsAt`으로 저장하고 계산 시 한국 날짜 기준으로 만료를 차단한다. 별도 기간형 공지 adapter를 추가할 때 문서 공시일과 공지 효력 기간의 교차 검증을 추가한다.
+
+후보는 생성 시점의 활성 revision을 `base_revision`으로 기억한다. 카드 기본 정보와 규칙을 안정적인 rule ID 기준으로 비교하며, 배열 순서와 JSON key 순서만 달라진 경우에는 변경으로 잡지 않는다. 관리자 화면은 규칙 추가·삭제와 조건·혜택·한도 필드의 이전값/새값을 보여준다. 활성 revision이 바뀐 오래된 후보는 재수집 전까지 승인할 수 없다.
+
+구조화된 계산 필드마다 같은 규칙의 공식 근거가 연결됐는지 coverage를 계산한다. 기존 게시본의 활성 규칙이나 계산 조건·혜택·한도가 삭제됐거나, 새 후보의 금액·기간·실적·한도 필드에 공식 근거가 없으면 승인 차단 사유가 된다. 문구 수정과 만료된 규칙 제거는 diff에는 남기되 그 사실만으로 게시를 막지 않는다.
 
 ## 게시와 rollback
 

@@ -10,6 +10,11 @@ fi
 BETTER_AUTH_URL="${BETTER_AUTH_URL:-https://cherrypicker-promotion.app.hurdoo.kr}"
 export BETTER_AUTH_URL
 
+if [ -f "${DATABASE_PATH}" ]; then
+    backup_timestamp="$(date -u +%Y%m%dT%H%M%S%NZ)"
+    npm run db:backup -- "/data/backups/pre-start-${backup_timestamp}.db"
+fi
+
 npm run db:setup
 
 exec ./node_modules/.bin/next start --hostname "${HOSTNAME:-0.0.0.0}" --port "${PORT:-3000}"

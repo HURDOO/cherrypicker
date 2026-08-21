@@ -1,0 +1,288 @@
+import { createHash } from 'node:crypto';
+import { join, sep } from 'node:path';
+import type {
+    CardBenefitDocumentMetadata,
+    CardBenefitSourceKind,
+} from '@/types';
+import { decodePromotionHtml } from './html-decoding';
+import { htmlToText } from './promotion-parsers';
+
+const HTML_MAX_BYTES = 2 * 1024 * 1024;
+const PDF_MAX_BYTES = 8 * 1024 * 1024;
+const PDF_MAX_PAGES = 200;
+const PDF_MAX_TEXT_CHARACTERS = 1_000_000;
+const PDF_PAGE_MARKER = /^\[\[PDF_PAGE_(\d+)\]\]$/m;
+
+const requestHeaders = {
+    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/140.0 Safari/537.36',
+    'accept-language': 'ko-KR,ko;q=0.9,en;q=0.8',
+};
+
+export interface OfficialDocumentSourceDefinition {
+    id: string;
+    label: string;
+    sourceUrl: string;
+    sourceKind: CardBenefitSourceKind;
+    format: 'html' | 'pdf';
+    allowedHosts: string[];
+    required: boolean;
+    candidateRole: 'PRIMARY' | 'SUPPORTING';
+}
+
+export interface CollectedOfficialDocument {
+    definition: OfficialDocumentSourceDefinition;
+    sourceUrl: string;
+    mediaType: string;
+    rawContent: string;
+    extractedText: string;
+    contentHash: string;
+    responseMetadata: CardBenefitDocumentMetadata;
+    pageTexts?: string[];
+}
+
+export interface PdfTextExtraction {
+    pages: string[];
+    title?: string;
+}
+
+const hashBytes = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+
+const normalizePageText = (value: string) => value
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+
+const isAllowedHost = (hostname: string, allowedHosts: string[]) => allowedHosts.some(host => (
+    hostname === host || hostname.endsWith(`.${host}`)
+));
+
+export function assertTrustedOfficialSourceUrl(sourceUrl: string, allowedHosts: string[]) {
+    let parsed: URL;
+    try {
+        parsed = new URL(sourceUrl);
+    } catch {
+        throw new Error('공식 문서 URL이 올바르지 않습니다.');
+    }
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.port) {
+        throw new Error('공식 문서는 자격 증명이나 별도 포트가 없는 HTTPS URL이어야 합니다.');
+    }
+    if (!isAllowedHost(parsed.hostname.toLowerCase(), allowedHosts.map(host => host.toLowerCase()))) {
+        throw new Error(`허용되지 않은 공식 문서 호스트입니다: ${parsed.hostname}`);
+    }
+    return parsed;
+}
+
+export async function extractPdfText(bytes: Uint8Array): Promise<PdfTextExtraction> {
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const pdfAssetDirectory = join(process.cwd(), 'node_modules', 'pdfjs-dist');
+    const loadingTask = pdfjs.getDocument({
+        data: bytes,
+        cMapUrl: join(pdfAssetDirectory, 'cmaps') + sep,
+        cMapPacked: true,
+        standardFontDataUrl: join(pdfAssetDirectory, 'standard_fonts') + sep,
+        isEvalSupported: false,
+        useSystemFonts: true,
+    });
+    const document = await loadingTask.promise;
+    try {
+        if (document.numPages > PDF_MAX_PAGES) {
+            throw new Error('PDF 공식 문서의 페이지 또는 텍스트가 허용 크기를 초과했습니다.');
+        }
+        const pages: string[] = [];
+        let extractedCharacters = 0;
+        for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+            const page = await document.getPage(pageNumber);
+            const content = await page.getTextContent();
+            let text = '';
+            content.items.forEach(item => {
+                if (!('str' in item) || !item.str) return;
+                text += item.str;
+                text += item.hasEOL ? '\n' : ' ';
+            });
+            const normalized = normalizePageText(text);
+            page.cleanup();
+            extractedCharacters += normalized.length;
+            if (extractedCharacters > PDF_MAX_TEXT_CHARACTERS) {
+                throw new Error('PDF 공식 문서의 페이지 또는 텍스트가 허용 크기를 초과했습니다.');
+            }
+            pages.push(normalized);
+        }
+        const metadata = await document.getMetadata().catch(() => undefined);
+        const title = metadata?.info && 'Title' in metadata.info &&
+            typeof metadata.info.Title === 'string'
+            ? metadata.info.Title.trim()
+            : undefined;
+        return {
+            pages,
+            ...(title && { title }),
+        };
+    } finally {
+        await loadingTask.destroy();
+    }
+}
+
+export const joinPdfPages = (pages: string[]) => pages
+    .map((page, index) => `[[PDF_PAGE_${index + 1}]]\n${page}`)
+    .join('\n\n');
+
+export function splitPdfPages(extractedText: string) {
+    const matches = [...extractedText.matchAll(/\[\[PDF_PAGE_(\d+)\]\]\n/g)];
+    if (matches.length === 0 || !PDF_PAGE_MARKER.test(extractedText)) return [];
+    return matches.map((match, index) => {
+        const start = (match.index ?? 0) + match[0].length;
+        const end = matches[index + 1]?.index ?? extractedText.length;
+        return extractedText.slice(start, end).trim();
+    });
+}
+
+export async function collectOfficialDocument(
+    definition: OfficialDocumentSourceDefinition,
+    options: {
+        fetcher?: typeof fetch;
+        pdfExtractor?: (bytes: Uint8Array) => Promise<PdfTextExtraction>;
+    } = {},
+): Promise<CollectedOfficialDocument> {
+    assertTrustedOfficialSourceUrl(definition.sourceUrl, definition.allowedHosts);
+    const response = await (options.fetcher ?? fetch)(definition.sourceUrl, {
+        headers: {
+            ...requestHeaders,
+            accept: definition.format === 'pdf'
+                ? 'application/pdf,application/octet-stream;q=0.8'
+                : 'text/html,application/xhtml+xml',
+        },
+        cache: 'no-store',
+        redirect: 'follow',
+        signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`공식 문서 HTTP ${response.status}`);
+    const finalUrl = response.url || definition.sourceUrl;
+    assertTrustedOfficialSourceUrl(finalUrl, definition.allowedHosts);
+
+    const maximumBytes = definition.format === 'pdf' ? PDF_MAX_BYTES : HTML_MAX_BYTES;
+    const declaredLengthHeader = response.headers.get('content-length');
+    const declaredLength = declaredLengthHeader ? Number(declaredLengthHeader) : undefined;
+    if (declaredLength !== undefined && Number.isFinite(declaredLength) &&
+        declaredLength > maximumBytes) {
+        throw new Error('공식 문서가 허용 크기를 초과했습니다.');
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength === 0 || bytes.byteLength > maximumBytes) {
+        throw new Error('공식 문서 크기가 올바르지 않습니다.');
+    }
+
+    const declaredMediaType = response.headers.get('content-type') ?? '';
+    const mediaType = declaredMediaType.split(';')[0]?.trim().toLowerCase();
+    const responseMetadata: CardBenefitDocumentMetadata = {
+        ...(response.headers.get('etag') && { etag: response.headers.get('etag')! }),
+        ...(response.headers.get('last-modified') && {
+            lastModified: response.headers.get('last-modified')!,
+        }),
+        ...(response.headers.get('content-disposition') && {
+            contentDisposition: response.headers.get('content-disposition')!,
+        }),
+        ...(finalUrl !== definition.sourceUrl && { finalUrl }),
+    };
+
+    if (definition.format === 'pdf') {
+        const hasPdfSignature = bytes.byteLength >= 5 &&
+            String.fromCharCode(...bytes.slice(0, 5)) === '%PDF-';
+        if (!hasPdfSignature || (mediaType &&
+            mediaType !== 'application/pdf' && mediaType !== 'application/octet-stream')) {
+            throw new Error(`PDF 공식 문서 형식이 올바르지 않습니다: ${mediaType || 'unknown'}`);
+        }
+        // PDF.js transfers the input ArrayBuffer to its worker and may detach it.
+        // Preserve the immutable source bytes before extraction for audit/rollback.
+        const rawContent = Buffer.from(bytes).toString('base64');
+        const contentHash = hashBytes(bytes);
+        const parsed = await (options.pdfExtractor ?? extractPdfText)(bytes);
+        if (parsed.pages.length > PDF_MAX_PAGES ||
+            parsed.pages.reduce((total, page) => total + page.length, 0) >
+                PDF_MAX_TEXT_CHARACTERS) {
+            throw new Error('PDF 공식 문서의 페이지 또는 텍스트가 허용 크기를 초과했습니다.');
+        }
+        if (parsed.pages.length === 0 || parsed.pages.every(page => page.length < 20)) {
+            throw new Error('PDF 공식 문서에서 충분한 텍스트를 추출하지 못했습니다.');
+        }
+        return {
+            definition,
+            sourceUrl: definition.sourceUrl,
+            mediaType: 'application/pdf',
+            rawContent,
+            extractedText: joinPdfPages(parsed.pages),
+            contentHash,
+            responseMetadata: {
+                ...responseMetadata,
+                rawEncoding: 'base64',
+                extractionMethod: 'pdfjs',
+                pageCount: parsed.pages.length,
+                ...(parsed.title && { title: parsed.title }),
+            },
+            pageTexts: parsed.pages,
+        };
+    }
+
+    if (mediaType && !mediaType.includes('html')) {
+        throw new Error(`HTML 공식 문서 형식이 올바르지 않습니다: ${mediaType}`);
+    }
+    const decodedMediaType = declaredMediaType || 'text/html';
+    const rawContent = decodePromotionHtml(bytes, decodedMediaType);
+    const extractedText = htmlToText(rawContent);
+    if (extractedText.length < 100 || /Request Rejected|requested URL was rejected/i.test(extractedText)) {
+        throw new Error('HTML 공식 문서에서 충분한 텍스트를 추출하지 못했습니다.');
+    }
+    return {
+        definition,
+        sourceUrl: definition.sourceUrl,
+        mediaType: mediaType || 'text/html',
+        rawContent,
+        extractedText,
+        contentHash: hashBytes(bytes),
+        responseMetadata: {
+            ...responseMetadata,
+            rawEncoding: 'utf8',
+            extractionMethod: 'html-to-text',
+        },
+    };
+}
+
+export function discoverOfficialPdfSources(
+    html: string,
+    parent: OfficialDocumentSourceDefinition,
+): OfficialDocumentSourceDefinition[] {
+    const discovered = new Map<string, OfficialDocumentSourceDefinition>();
+    for (const match of html.matchAll(/href\s*=\s*(["'])(.*?)\1/gi)) {
+        const href = match[2]
+            .replaceAll('&amp;', '&')
+            .trim();
+        let url: URL;
+        try {
+            url = new URL(href, parent.sourceUrl);
+            assertTrustedOfficialSourceUrl(url.toString(), parent.allowedHosts);
+        } catch {
+            continue;
+        }
+        if (!/\.pdf(?:$|[?#])/i.test(url.toString())) continue;
+        const sourceUrl = url.toString();
+        discovered.set(sourceUrl, {
+            id: `${parent.id}-pdf-${createHash('sha256').update(sourceUrl).digest('hex').slice(0, 10)}`,
+            label: `${parent.label} 첨부 PDF`,
+            sourceUrl,
+            sourceKind: 'PRODUCT_GUIDE_PDF',
+            format: 'pdf',
+            allowedHosts: parent.allowedHosts,
+            required: false,
+            candidateRole: 'SUPPORTING',
+        });
+    }
+    return [...discovered.values()];
+}
+
+export const createOfficialSourceBundleHash = (
+    documents: Array<Pick<CollectedOfficialDocument, 'sourceUrl' | 'contentHash'>>,
+) => createHash('sha256')
+    .update(documents
+        .map(document => `${document.sourceUrl}\0${document.contentHash}`)
+        .sort()
+        .join('\n'))
+    .digest('hex');

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type {
     BenefitRule,
+    CardBenefitCandidateAudit,
     CardBenefitCandidateStatus,
     CardBenefitEvidence,
     CardBenefitExtraction,
@@ -38,6 +39,18 @@ type Candidate = {
     status: CardBenefitCandidateStatus;
     createdAt: string;
     reviewedAt?: string;
+    audit: CardBenefitCandidateAudit;
+    sources: Array<{
+        documentId: string;
+        role: 'PRIMARY' | 'SUPPORTING';
+        sourceUrl: string;
+        sourceKind: 'PRODUCT_PAGE' | 'PRODUCT_GUIDE_PDF' | 'NOTICE';
+        mediaType: string;
+        version: number;
+        contentHash: string;
+        pageCount?: number;
+        collectedAt: string;
+    }>;
 };
 
 type Revision = {
@@ -100,6 +113,142 @@ const ruleConditionLabels = (rule: BenefitRule) => [
     ...(rule.action.amountBasis === 'REMAINING_AMOUNT' ? ['잔액 기준 계산'] : []),
 ];
 
+const sourceHost = (sourceUrl?: string) => {
+    if (!sourceUrl) return undefined;
+    try {
+        return new URL(sourceUrl).hostname;
+    } catch {
+        return sourceUrl;
+    }
+};
+
+const sourceKindLabel = {
+    PRODUCT_PAGE: '웹 원문',
+    PRODUCT_GUIDE_PDF: 'PDF 안내서',
+    NOTICE: '공식 공지',
+};
+
+const auditFieldLabels: Record<string, string> = {
+    rule: '혜택 규칙',
+    name: '카드명',
+    company: '카드사',
+    network: '카드 브랜드',
+    limitTable: '실적별 통합 한도',
+    category: '카테고리',
+    includedBrands: '적용 브랜드',
+    excludedBrands: '제외 브랜드',
+    platformType: '적용 채널',
+    sharedGroupId: '공유 한도 그룹',
+    usesCardLimit: '카드 통합 한도 사용',
+    description: '혜택명',
+    detail: '상세 설명',
+    'condition.minSpend': '최소 결제금액',
+    'condition.minPerformance': '전월 실적',
+    'condition.startsAt': '시작일',
+    'condition.endsAt': '종료일',
+    'condition.requiredCardNetwork': '필수 카드 브랜드',
+    'condition.performanceWaiver': '신규회원 실적 면제',
+    'condition.confirmationRequired': '사용자 조건 확인',
+    'condition.stackableWithRuleIds': '중복 적용 규칙',
+    'condition.applicationOrder': '적용 순서',
+    'condition.manualCheckRequired': '수동 확인',
+    'condition.requiredNote': '필수 확인 문구',
+    'action.type': '혜택 계산 방식',
+    'action.value': '혜택 값',
+    'action.maxDiscount': '건별 최대 혜택',
+    'action.amountBasis': '혜택 계산 기준금액',
+    'limitConfig.dailyCount': '일 이용 횟수',
+    'limitConfig.dailyAmount': '일 혜택 한도',
+    'limitConfig.monthlyCount': '월 이용 횟수',
+    'limitConfig.yearlyCount': '연 이용 횟수',
+    'limitConfig.monthlyAmount': '월 혜택 한도',
+};
+
+const auditValue = (value: unknown) => {
+    if (value === undefined || value === null || value === '') return '없음';
+    if (typeof value === 'boolean') return value ? '예' : '아니요';
+    if (typeof value === 'number') return value.toLocaleString('ko-KR');
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) {
+        return value.every(item => ['boolean', 'number', 'string'].includes(typeof item))
+            ? value.join(', ') || '없음'
+            : JSON.stringify(value);
+    }
+    return JSON.stringify(value);
+};
+
+const AuditPanel = ({ audit }: { audit: CardBenefitCandidateAudit }) => {
+    const missing = audit.coverage.filter(item => item.status === 'MISSING_EVIDENCE');
+    const totalCoverage = audit.summary.coveredFields + audit.summary.missingFields;
+    return (
+        <details
+            open={audit.blockingErrors.length > 0}
+            className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-3"
+        >
+            <summary className="cursor-pointer text-[10px] font-black text-sky-900">
+                게시본 대비 변경 · 기준 {audit.baselineRevision > 0
+                    ? `revision ${audit.baselineRevision}`
+                    : '초기 카탈로그'} · 변경 {audit.changes.length}건 · 필수 근거 {audit.summary.coveredFields}/{totalCoverage}
+            </summary>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="rounded-xl bg-white px-3 py-2">
+                    <p className="text-[8px] font-black text-gray-400">추가 규칙</p>
+                    <p className="mt-0.5 text-sm font-black text-emerald-700">{audit.summary.addedRules}</p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                    <p className="text-[8px] font-black text-gray-400">삭제 규칙</p>
+                    <p className="mt-0.5 text-sm font-black text-rose-700">{audit.summary.removedRules}</p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                    <p className="text-[8px] font-black text-gray-400">변경 필드</p>
+                    <p className="mt-0.5 text-sm font-black text-blue-700">{audit.summary.changedFields}</p>
+                </div>
+            </div>
+            {audit.changes.length === 0 ? (
+                <p className="mt-3 text-[10px] font-bold text-sky-800">
+                    현재 게시본과 구조화된 계산 필드가 같습니다.
+                </p>
+            ) : (
+                <div className="mt-3 space-y-1.5">
+                    {audit.changes.map((change, index) => (
+                        <div
+                            key={`${change.entityId}:${change.path}:${index}`}
+                            className="rounded-xl border border-sky-100 bg-white px-3 py-2"
+                        >
+                            <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-black">
+                                <span className={change.risk === 'HIGH' ? 'text-rose-700' : 'text-gray-500'}>
+                                    {change.risk === 'HIGH' ? '중요' : '문구'}
+                                </span>
+                                <span className="text-gray-800">{change.entityLabel}</span>
+                                <span className="text-gray-400">· {auditFieldLabels[change.path] ?? change.path}</span>
+                            </div>
+                            <p className="mt-1 break-words text-[9px] font-bold text-gray-500">
+                                {change.kind === 'ADDED'
+                                    ? `추가: ${auditValue(change.after)}`
+                                    : change.kind === 'REMOVED'
+                                        ? `삭제: ${auditValue(change.before)}`
+                                        : `${auditValue(change.before)} → ${auditValue(change.after)}`}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+            )}
+            {missing.length > 0 && (
+                <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
+                    <p className="text-[9px] font-black text-rose-800">근거가 빠진 필수 조건</p>
+                    <ul className="mt-1 space-y-1 pl-4 text-[9px] font-bold text-rose-700">
+                        {missing.map(item => (
+                            <li key={`${item.ruleId}:${item.path}`} className="list-disc">
+                                {item.ruleLabel} · {auditFieldLabels[item.path] ?? item.path}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+        </details>
+    );
+};
+
 const EvidenceList = ({ evidence }: { evidence: CardBenefitEvidence[] }) => (
     <div className="space-y-2">
         {evidence.map(item => (
@@ -107,6 +256,17 @@ const EvidenceList = ({ evidence }: { evidence: CardBenefitEvidence[] }) => (
                 <p className="text-[9px] font-black text-gray-400">
                     {item.location ?? '공식 원문'} · {item.fields.join(', ')}
                 </p>
+                {item.sourceUrl && (
+                    <a
+                        href={item.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-[9px] font-black text-blue-600"
+                    >
+                        {sourceHost(item.sourceUrl)}{item.page ? ` · ${item.page}쪽` : ''}
+                        <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
+                )}
                 <p className="mt-1 text-[10px] font-bold leading-relaxed text-gray-700">
                     “{item.quote}”
                 </p>
@@ -139,14 +299,21 @@ export function CardBenefitAdminClient() {
     const collect = async () => {
         setBusyKey('collect');
         try {
-            const result = await request<{ validationErrors: string[] }>({
+            const result = await request<{
+                validationErrors: string[];
+                sources: Array<unknown>;
+                sourceFailures: Array<unknown>;
+            }>({
                 method: 'POST',
                 body: JSON.stringify({ action: 'collect-shinhan-sol' }),
             });
             addToast(
                 result.validationErrors.length > 0
-                    ? `수집했지만 검증 오류 ${result.validationErrors.length}건이 있어 게시를 막았습니다.`
-                    : '공식 문서와 카드 혜택 후보를 수집했습니다.',
+                    ? `출처 ${result.sources.length}개를 수집했지만 검증 오류 ${result.validationErrors.length}건이 있어 게시를 막았습니다.`
+                    : `공식 출처 ${result.sources.length}개를 묶어 후보를 만들었습니다.` +
+                        (result.sourceFailures.length > 0
+                            ? ` 선택 출처 ${result.sourceFailures.length}개는 실패했습니다.`
+                            : ''),
                 result.validationErrors.length > 0 ? 'error' : 'success',
             );
             await load();
@@ -231,7 +398,7 @@ export function CardBenefitAdminClient() {
                         {busyKey === 'collect'
                             ? <LoaderCircle className="h-4 w-4 animate-spin" />
                             : <DatabaseZap className="h-4 w-4" />}
-                        SOL트래블 수집
+                        SOL트래블 출처 수집
                     </button>
                 </div>
             </header>
@@ -257,7 +424,7 @@ export function CardBenefitAdminClient() {
                 </section>
 
                 <section className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-[11px] font-bold leading-relaxed text-violet-900">
-                    AI 또는 규칙 추출 결과는 자동 게시되지 않습니다. 원문 인용·참조 무결성·금액 범위 검증이 모두 통과한 후보만 승인할 수 있고, 첫 승인 전에 현재 seed 규칙을 기준 revision으로 보존합니다.
+                    AI 또는 규칙 추출 결과는 자동 게시되지 않습니다. 상품 페이지·이용가이드·공지·PDF를 source bundle로 묶고, 원문 인용·PDF 페이지·참조 무결성·금액 범위 검증이 모두 통과한 후보만 승인할 수 있습니다.
                 </section>
 
                 {isLoading && (
@@ -296,14 +463,21 @@ export function CardBenefitAdminClient() {
                                     schema v{candidate.extraction.schemaVersion} · {candidate.extraction.card.network ?? '브랜드 미지정'} · 추출 신뢰도 {Math.round(candidate.confidence * 100)}% · 규칙 {candidate.extraction.rules.length}개 · 근거 {candidate.extraction.evidence.length}개 · hash {candidate.contentHash.slice(0, 10)}
                                 </p>
                             </div>
-                            <a
-                                href={candidate.sourceUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-[10px] font-black text-blue-600"
-                            >
-                                공식 원문 <ExternalLink className="h-3 w-3" />
-                            </a>
+                            <div className="flex flex-wrap justify-end gap-1.5">
+                                {candidate.sources.map(source => (
+                                    <a
+                                        key={source.documentId}
+                                        href={source.sourceUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[9px] font-black text-blue-700"
+                                    >
+                                        {sourceKindLabel[source.sourceKind]} v{source.version}
+                                        {source.pageCount ? ` · ${source.pageCount}쪽` : ''}
+                                        <ExternalLink className="h-2.5 w-2.5" />
+                                    </a>
+                                ))}
+                            </div>
                         </div>
 
                         {candidate.validationErrors.length > 0 && (
@@ -327,6 +501,8 @@ export function CardBenefitAdminClient() {
                                 </ul>
                             </div>
                         )}
+
+                        <AuditPanel audit={candidate.audit} />
 
                         <div className="mt-4 grid gap-4 lg:grid-cols-2">
                             <div>

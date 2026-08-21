@@ -55,6 +55,7 @@ ADMIN_EMAILS=admin@example.com
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-3.6-flash
 CARD_BENEFIT_AI_MODEL=gemini-3.6-flash
+SHINHAN_SOL_TRAVEL_GUIDE_PDF_URL=
 PROMOTION_AI_MAX_CALLS=25
 ```
 
@@ -63,6 +64,7 @@ PROMOTION_AI_MAX_CALLS=25
 `ADMIN_EMAILS`는 `/admin/promotions`에 접근할 관리자 이메일을 쉼표로 구분합니다. 프로모션 수집, 원문 검수, 승인과 카드 승인 경로 검증은 이 계정만 수행할 수 있습니다.
 `GEMINI_API_KEY`는 선택 사항입니다. 값이 없거나 호출이 실패하면 공식 문구를 보수적으로 판정하는 규칙 분류기로 계속 수집합니다. `GEMINI_MODEL`을 바꾸면 Gemini 모델을 교체할 수 있고, `PROMOTION_AI_MAX_CALLS`는 한 번의 수집에서 AI로 재확인할 모호한 혜택 수를 제한합니다. AI에는 공개된 혜택 문구만 보내며 사용자 카드·결제·계정 데이터는 보내지 않습니다.
 `CARD_BENEFIT_AI_MODEL`은 카드 상품 원문을 고정 JSON schema로 구조화할 때 사용할 모델입니다. 비어 있으면 `GEMINI_MODEL`을 사용하며, 키가 없거나 호출에 실패하면 현재 대표 카드 전용 규칙 추출기로 검수 후보를 만듭니다.
+`SHINHAN_SOL_TRAVEL_GUIDE_PDF_URL`은 신한카드가 공개한 SOL트래블 체크 상품안내 PDF 주소를 확인했을 때만 설정하는 선택 값입니다. 수집기는 `shinhancard.com`의 HTTPS 문서만 허용하며 상품 페이지에서 같은 소유자의 PDF 링크가 발견되면 별도 설정 없이도 보조 출처로 수집합니다.
 
 ### 데이터베이스 준비와 실행
 
@@ -115,7 +117,7 @@ npm run db:migrate
 - 카카오페이·굿딜 앱 전용 행사 수동 후보 등록
 - 브랜드·페이·카드사별 승인 가맹점/MCC 근거 등록
 
-`/admin/card-benefits`에서는 신한 SOL트래블 체크카드의 공식 상품 상세 HTML을 원문·hash·version과 함께 보존하고, AI 또는 규칙 추출 결과의 필드별 원문 근거와 검증 오류를 확인한 뒤 카드 혜택 revision을 게시하거나 과거 revision으로 rollback할 수 있습니다. 세부 출처·검증·보존 정책은 [카드 혜택 원문 수집·구조화 정책](docs/card-benefit-source-policy.md)을 따릅니다.
+`/admin/card-benefits`에서는 신한 SOL트래블 체크카드의 공식 상품 페이지·이용가이드·공지와 발견된 상품안내 PDF를 하나의 source bundle로 수집합니다. HTML 원문과 PDF 원본 bytes, hash, 출처별 version, PDF 페이지를 보존하고, AI 또는 규칙 추출 결과의 필드별 출처·페이지 근거와 검증 오류를 확인한 뒤 카드 혜택 revision을 게시하거나 과거 revision으로 rollback할 수 있습니다. 보조 출처 수집 실패도 검증 오류로 남아 불완전한 후보의 게시를 차단합니다. 세부 출처·검증·보존 정책은 [카드 혜택 원문 수집·구조화 정책](docs/card-benefit-source-policy.md)을 따릅니다.
 
 카카오페이 앱처럼 로그인이나 앱 내부에서만 제공되는 목록은 자동 수집하지 않습니다. 공식 출처에서 계산 조건이 명확한 혜택만 자동 게시하며, 상품·카테고리 한정 혜택은 대표 최대 혜택에서 분리하고 대상 상품 금액을 입력했을 때만 계산합니다. 범위 미확정 혜택은 관리자가 범위를 선택하기 전에는 게시할 수 없습니다. 사용자가 일시 정지한 자동 혜택은 다음 수집에서도 일시 정지 상태를 유지합니다. 수동 실행 명령은 다음과 같습니다.
 
@@ -153,10 +155,12 @@ npm run db:backup -- /mnt/external-backup/cherrypicker.db
 ### deployd 관리형 배포
 
 이 worktree의 관리형 앱 ID는 `cherrypicker-promotion`이며 기본 주소는
-`https://cherrypicker-promotion.app.hurdoo.kr`입니다. 최초 배포는
-LAN/WireGuard에서만 접근 가능한 `private` 모드로 시작하고, SQLite와 WAL 파일은
-영속 볼륨의 `/data/cherrypicker.db`에 저장합니다. 컨테이너 시작 시 커밋된
-migration과 멱등 seed를 먼저 적용한 뒤 Next.js 서버를 실행합니다.
+`https://cherrypicker-promotion.app.hurdoo.kr`입니다. 일반 사용자 화면은
+로그인 없이 팀에 공유할 수 있도록 `public` 모드로 운영하고, 관리자·디자인 화면과
+관리자 API는 인증 경계를 유지합니다. SQLite와 WAL 파일은 영속 볼륨의
+`/data/cherrypicker.db`에 저장합니다. 컨테이너 시작 시 기존 DB가 있으면 먼저
+`/data/backups/pre-start-*.db` 온라인 snapshot을 만들고, 커밋된 migration과
+멱등 seed를 적용한 뒤 Next.js 서버를 실행합니다.
 
 배포 계약은 `deploy.json`, 이미지 구성은 `Dockerfile`과 `.dockerignore`에 있습니다.
 이미지는 읽기 전용 루트 파일시스템과 `/tmp` tmpfs에서 실행되며, health check는
@@ -185,8 +189,10 @@ migration과 멱등 seed를 먼저 적용한 뒤 Next.js 서버를 실행합니�
 경로가 생기기 전까지 이미지의 기본 동작을 사용하며, 이를 secret으로 숨기지
 않습니다.
 
-이미지 롤백은 `/data`의 SQLite 상태를 되돌리지 않습니다. 운영 DB migration은
-별도 승인과 사전 백업이 필요합니다. 아래 `deploy/systemd/` 타이머는 기존 수동
+이미지 롤백은 `/data`의 SQLite 상태를 되돌리지 않습니다. 컨테이너 시작 전
+snapshot은 schema migration 복구 지점을 제공하지만 같은 디스크 장애까지 보호하지
+않으므로 별도 장치나 원격 백업도 유지해야 합니다. 운영 DB migration은 별도 승인과
+사전 백업이 필요합니다. 아래 `deploy/systemd/` 타이머는 기존 수동
 설치용 예시이며 deployd가 자동 설치하지 않으므로, 관리형 배포만으로 정기
 프로모션 수집이 활성화되지는 않습니다.
 
