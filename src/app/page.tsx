@@ -28,6 +28,7 @@ import { NumericKeypad } from '@/components/ui/NumericKeypad';
 import { MonthlyPerformanceReminder } from '@/components/performance/MonthlyPerformanceReminder';
 import { BrandDiscovery } from '@/components/brand/BrandDiscovery';
 import { CatalogFreshnessCard } from '@/components/catalog/CatalogFreshnessCard';
+import { CardBenefitSupportCard } from '@/components/catalog/CardBenefitSupportCard';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
 import { localWorkspaceClient } from '@/lib/local-workspace';
 import { useBenefitCatalog } from '@/hooks/useBenefitCatalog';
@@ -547,6 +548,14 @@ export default function HomePage() {
             selectedCombination,
             benefitProfile.smallBenefitThreshold,
             effectiveRecommendationPriority,
+        )
+        : undefined;
+    const selectedCard = selectedCombination?.cardId
+        ? cards.find(card => card.id === selectedCombination.cardId)
+        : undefined;
+    const selectedCardSupport = selectedCombination?.cardId
+        ? catalog?.cardBenefitSupports.find(
+            support => support.cardId === selectedCombination.cardId
         )
         : undefined;
 
@@ -1093,6 +1102,13 @@ export default function HomePage() {
                                         ))}
                                     </div>
                                 </section>
+
+                                {selectedCard && selectedCardSupport && (
+                                    <CardBenefitSupportCard
+                                        cardName={selectedCard.name}
+                                        support={selectedCardSupport}
+                                    />
+                                )}
 
                                 {(selectedCombination.warnings.length > 0 ||
                                     selectedCombination.requiredChecks.length > 0) && (

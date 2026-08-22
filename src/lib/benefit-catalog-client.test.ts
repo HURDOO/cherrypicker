@@ -8,7 +8,7 @@ import {
 } from './benefit-catalog-client';
 
 const snapshot: BenefitCatalogSnapshot = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     catalogVersion: 'b'.repeat(64),
     generatedAt: '2026-08-18T09:00:00.000Z',
     categories: [],
@@ -19,6 +19,7 @@ const snapshot: BenefitCatalogSnapshot = {
     subscriptionProducts: [],
     promotions: [],
     routeVerifications: [],
+    cardBenefitSupports: [],
 };
 
 const createCache = (initial: CachedBenefitCatalog | null = null) => {
@@ -88,7 +89,7 @@ describe('benefit catalog browser client', () => {
         const memory = createCache(cached);
         const fetcher = vi.fn(async () => Response.json({
             ...snapshot,
-            schemaVersion: 2,
+            schemaVersion: 1,
         })) as unknown as typeof fetch;
 
         await expect(revalidateBenefitCatalog(cached, memory.cache, fetcher))

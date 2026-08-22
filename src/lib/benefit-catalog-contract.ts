@@ -35,6 +35,72 @@ function assertEntityArray(
     });
 }
 
+function assertCardBenefitSupports(snapshot: BenefitCatalogContent) {
+    const cardIds = new Set(snapshot.cards.map(card => card.id));
+    const supportCardIds = new Set<string>();
+
+    snapshot.cardBenefitSupports.forEach(support => {
+        if (
+            typeof support.cardId !== 'string' ||
+            !['REVIEWED', 'NOT_REVIEWED'].includes(String(support.reviewStatus)) ||
+            !['FULL', 'PARTIAL'].includes(String(support.supportScope)) ||
+            !Array.isArray(support.sources) ||
+            !Array.isArray(support.caveats)
+        ) {
+            throw new Error('공개 카탈로그의 카드 지원 상태가 올바르지 않습니다.');
+        }
+        if (!cardIds.has(support.cardId)) {
+            throw new Error(
+                `공개 카드 지원 상태가 없는 카드 ${support.cardId}를 참조합니다.`
+            );
+        }
+        if (supportCardIds.has(support.cardId)) {
+            throw new Error(`공개 카드 지원 상태가 중복되었습니다: ${support.cardId}`);
+        }
+        supportCardIds.add(support.cardId);
+
+        if (
+            support.lastVerifiedAt !== undefined &&
+            (typeof support.lastVerifiedAt !== 'string' ||
+                Number.isNaN(new Date(support.lastVerifiedAt).getTime()))
+        ) {
+            throw new Error(`공개 카드 ${support.cardId}의 공식 확인 시각이 올바르지 않습니다.`);
+        }
+        if (
+            support.reviewStatus === 'REVIEWED' &&
+            (!support.lastVerifiedAt || support.sources.length === 0)
+        ) {
+            throw new Error(`공개 카드 ${support.cardId}의 공식 검수 근거가 없습니다.`);
+        }
+        if (
+            (support.reviewStatus === 'NOT_REVIEWED' && support.lastVerifiedAt !== undefined) ||
+            (support.supportScope === 'FULL' && support.reviewStatus !== 'REVIEWED')
+        ) {
+            throw new Error(`공개 카드 ${support.cardId}의 검수 상태와 지원 범위가 일치하지 않습니다.`);
+        }
+        support.sources.forEach(source => {
+            if (!isRecord(source) || typeof source.label !== 'string' ||
+                typeof source.url !== 'string') {
+                throw new Error(`공개 카드 ${support.cardId}의 공식 출처가 올바르지 않습니다.`);
+            }
+            try {
+                if (new URL(source.url).protocol !== 'https:') throw new Error();
+            } catch {
+                throw new Error(`공개 카드 ${support.cardId}의 공식 출처 URL이 올바르지 않습니다.`);
+            }
+        });
+        if (support.caveats.some(caveat => typeof caveat !== 'string')) {
+            throw new Error(`공개 카드 ${support.cardId}의 지원 범위 안내가 올바르지 않습니다.`);
+        }
+    });
+
+    snapshot.cards.forEach(card => {
+        if (!supportCardIds.has(card.id)) {
+            throw new Error(`공개 카드 ${card.id}의 지원 상태가 없습니다.`);
+        }
+    });
+}
+
 export function assertBenefitCatalogReferences(snapshot: BenefitCatalogContent) {
     assertUniqueIds('카테고리', snapshot.categories);
     assertUniqueIds('브랜드', snapshot.brands);
@@ -127,13 +193,15 @@ export function assertBenefitCatalogReferences(snapshot: BenefitCatalogContent) 
             );
         }
     });
+
+    assertCardBenefitSupports(snapshot);
 }
 
 export function parseBenefitCatalogSnapshot(value: unknown): BenefitCatalogSnapshot {
     if (!isRecord(value)) {
         throw new Error('공개 카탈로그 응답이 객체가 아닙니다.');
     }
-    if (value.schemaVersion !== 1) {
+    if (value.schemaVersion !== 2) {
         throw new Error('지원하지 않는 공개 카탈로그 schema 버전입니다.');
     }
     if (
@@ -184,6 +252,7 @@ export function parseBenefitCatalogSnapshot(value: unknown): BenefitCatalogSnaps
     assertEntityArray(value, 'subscriptionProducts', '구독 상품');
     assertEntityArray(value, 'promotions', '프로모션');
     assertEntityArray(value, 'routeVerifications', '승인 경로', false);
+    assertEntityArray(value, 'cardBenefitSupports', '카드 지원 상태', false);
 
     const snapshot = value as unknown as BenefitCatalogSnapshot;
     assertBenefitCatalogReferences(snapshot);

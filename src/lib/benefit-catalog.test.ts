@@ -183,13 +183,24 @@ const createSource = (): BenefitCatalogSource => ({
             verifiedAt: '2026-08-18T06:00:00.000Z',
         },
     ],
+    cardBenefitSupports: [{
+        cardId: 'card-1',
+        reviewStatus: 'REVIEWED',
+        supportScope: 'FULL',
+        lastVerifiedAt: '2026-08-18T05:00:00.000Z',
+        sources: [{
+            label: '공식 상품 안내',
+            url: 'https://example.com/card-1',
+        }],
+        caveats: [],
+    }],
 });
 
 describe('benefit catalog builder', () => {
     it('publishes only system and active data without internal review metadata', () => {
         const snapshot = buildBenefitCatalogSnapshot(createSource(), GENERATED_AT);
 
-        expect(snapshot.schemaVersion).toBe(1);
+        expect(snapshot.schemaVersion).toBe(2);
         expect(snapshot.generatedAt).toBe(GENERATED_AT);
         expect(snapshot.catalogVersion).toMatch(/^[a-f0-9]{64}$/);
         expect(snapshot.categories.map(item => item.id)).toEqual(['cafe', 'dining']);
@@ -200,6 +211,14 @@ describe('benefit catalog builder', () => {
         expect(snapshot.subscriptionProducts.map(item => item.id)).toEqual(['product-1']);
         expect(snapshot.promotions.map(item => item.id)).toEqual(['promotion-1']);
         expect(snapshot.routeVerifications).toHaveLength(1);
+        expect(snapshot.cardBenefitSupports).toEqual([{
+            cardId: 'card-1',
+            reviewStatus: 'REVIEWED',
+            supportScope: 'FULL',
+            lastVerifiedAt: '2026-08-18T05:00:00.000Z',
+            sources: [{ label: '공식 상품 안내', url: 'https://example.com/card-1' }],
+            caveats: [],
+        }]);
 
         const serialized = JSON.stringify(snapshot);
         expect(serialized).not.toContain('user-1');
@@ -221,6 +240,7 @@ describe('benefit catalog builder', () => {
             subscriptionProducts: [...source.subscriptionProducts].reverse(),
             promotions: [...source.promotions].reverse(),
             routeVerifications: [...source.routeVerifications].reverse(),
+            cardBenefitSupports: [...source.cardBenefitSupports].reverse(),
         };
 
         const first = buildBenefitCatalogSnapshot(source, GENERATED_AT);
@@ -292,7 +312,7 @@ describe('benefit catalog builder', () => {
         expect(parseBenefitCatalogSnapshot(snapshot)).toBe(snapshot);
         expect(() => parseBenefitCatalogSnapshot({
             ...snapshot,
-            schemaVersion: 2,
+            schemaVersion: 1,
         })).toThrow('지원하지 않는 공개 카탈로그 schema 버전');
         expect(() => parseBenefitCatalogSnapshot({
             ...snapshot,
@@ -306,5 +326,19 @@ describe('benefit catalog builder', () => {
                 failedSourceCount: 2,
             },
         })).toThrow('freshness 값이 올바르지 않습니다');
+        expect(() => parseBenefitCatalogSnapshot({
+            ...snapshot,
+            cardBenefitSupports: [{
+                ...snapshot.cardBenefitSupports[0],
+                sources: [{ label: '안전하지 않은 출처', url: 'http://example.com/card-1' }],
+            }],
+        })).toThrow('공식 출처 URL이 올바르지 않습니다');
+        expect(() => parseBenefitCatalogSnapshot({
+            ...snapshot,
+            cardBenefitSupports: [{
+                ...snapshot.cardBenefitSupports[0],
+                reviewStatus: 'NOT_REVIEWED',
+            }],
+        })).toThrow('검수 상태와 지원 범위가 일치하지 않습니다');
     });
 });

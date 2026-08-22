@@ -526,6 +526,23 @@ export type CatalogPromotionOffer = Omit<
     status: 'PUBLISHED';
 };
 
+export type CardBenefitReviewStatus = 'REVIEWED' | 'NOT_REVIEWED';
+export type CardBenefitSupportScope = 'FULL' | 'PARTIAL';
+
+export interface CardBenefitSupportSource {
+    label: string;
+    url: string;
+}
+
+export interface CatalogCardBenefitSupport {
+    cardId: CardId;
+    reviewStatus: CardBenefitReviewStatus;
+    supportScope: CardBenefitSupportScope;
+    lastVerifiedAt?: string;
+    sources: CardBenefitSupportSource[];
+    caveats: string[];
+}
+
 export type PromotionCollectionRunStatus = 'SUCCEEDED' | 'PARTIAL' | 'FAILED';
 
 export interface BenefitCatalogFreshness {
@@ -538,7 +555,7 @@ export interface BenefitCatalogFreshness {
 }
 
 export interface BenefitCatalogSnapshot {
-    schemaVersion: 1;
+    schemaVersion: 2;
     catalogVersion: string;
     generatedAt: string;
     freshness?: BenefitCatalogFreshness;
@@ -550,4 +567,5 @@ export interface BenefitCatalogSnapshot {
     subscriptionProducts: CatalogSubscriptionProduct[];
     promotions: CatalogPromotionOffer[];
     routeVerifications: MerchantRouteVerification[];
+    cardBenefitSupports: CatalogCardBenefitSupport[];
 }

@@ -16,7 +16,7 @@ vi.mock('@/lib/benefit-catalog-server', () => ({
 import { GET } from './route';
 
 const snapshot: BenefitCatalogSnapshot = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     catalogVersion: 'a'.repeat(64),
     generatedAt: '2026-08-18T09:00:00.000Z',
     categories: [],
@@ -27,6 +27,7 @@ const snapshot: BenefitCatalogSnapshot = {
     subscriptionProducts: [],
     promotions: [],
     routeVerifications: [],
+    cardBenefitSupports: [],
 };
 
 describe('public benefit catalog route', () => {
@@ -47,7 +48,7 @@ describe('public benefit catalog route', () => {
             'public, max-age=0, must-revalidate'
         );
         expect(response.headers.get('etag')).toBe(getBenefitCatalogEtag(snapshot));
-        expect(response.headers.get('x-catalog-schema-version')).toBe('1');
+        expect(response.headers.get('x-catalog-schema-version')).toBe('2');
         expect(response.headers.get('x-catalog-version')).toBe(snapshot.catalogVersion);
         await expect(response.json()).resolves.toEqual(snapshot);
         expect(mocks.getBenefitCatalogSnapshot).toHaveBeenCalledOnce();

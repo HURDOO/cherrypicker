@@ -8,6 +8,7 @@ import type {
     CatalogBenefitRule,
     CatalogBrand,
     CatalogCard,
+    CatalogCardBenefitSupport,
     CatalogCategory,
     CatalogPromotionOffer,
     CatalogPromotionProvider,
@@ -20,7 +21,7 @@ import type {
 } from '@/types';
 import { assertBenefitCatalogReferences } from './benefit-catalog-contract';
 
-export const BENEFIT_CATALOG_SCHEMA_VERSION = 1 as const;
+export const BENEFIT_CATALOG_SCHEMA_VERSION = 2 as const;
 
 export interface BenefitCatalogSource {
     categories: Category[];
@@ -31,6 +32,7 @@ export interface BenefitCatalogSource {
     subscriptionProducts: SubscriptionProduct[];
     promotions: PromotionOffer[];
     routeVerifications: MerchantRouteVerification[];
+    cardBenefitSupports: CatalogCardBenefitSupport[];
     freshness?: BenefitCatalogFreshness;
 }
 
@@ -228,6 +230,11 @@ export function buildBenefitCatalogSnapshot(
             compareText(left.channel, right.channel) ||
             compareText(left.verifiedAt, right.verifiedAt)
         ));
+    const cardIds = new Set(cards.map(card => card.id));
+    const cardBenefitSupports = source.cardBenefitSupports
+        .filter(support => cardIds.has(support.cardId))
+        .map(support => clone(support))
+        .sort((left, right) => compareText(left.cardId, right.cardId));
 
     const versionedContent = {
         schemaVersion: BENEFIT_CATALOG_SCHEMA_VERSION,
@@ -239,6 +246,7 @@ export function buildBenefitCatalogSnapshot(
         subscriptionProducts,
         promotions,
         routeVerifications,
+        cardBenefitSupports,
     };
     assertBenefitCatalogReferences(versionedContent);
 
@@ -259,5 +267,6 @@ export function buildBenefitCatalogSnapshot(
         subscriptionProducts,
         promotions,
         routeVerifications,
+        cardBenefitSupports,
     };
 }

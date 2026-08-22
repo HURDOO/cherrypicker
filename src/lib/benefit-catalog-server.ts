@@ -5,6 +5,7 @@ import { db } from '@/db';
 import {
     benefitRules,
     brands,
+    cardBenefitRevisions,
     cards,
     categories,
     merchantRouteVerifications,
@@ -25,6 +26,7 @@ import {
 } from '@/lib/db-mappers';
 import type { BenefitCatalogFreshness, BenefitCatalogSnapshot } from '@/types';
 import { buildBenefitCatalogSnapshot } from './benefit-catalog';
+import { buildCardBenefitSupports } from './card-benefit-support';
 
 type CatalogServerGlobal = typeof globalThis & {
     cherryPickerBenefitCatalog?: BenefitCatalogSnapshot;
@@ -63,6 +65,19 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
                 }),
             };
 
+            const systemCards = tx.select().from(cards)
+                .where(isNull(cards.userId))
+                .orderBy(asc(cards.name), asc(cards.id))
+                .all()
+                .map(toCard);
+            const activeCardBenefitRevisions = tx.select({
+                cardId: cardBenefitRevisions.cardId,
+                candidateId: cardBenefitRevisions.candidateId,
+                publishedAt: cardBenefitRevisions.publishedAt,
+            }).from(cardBenefitRevisions)
+                .where(eq(cardBenefitRevisions.isActive, true))
+                .all();
+
             return {
                 categories: tx.select().from(categories)
                     .where(isNull(categories.userId))
@@ -74,11 +89,7 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
                     .orderBy(asc(brands.sortOrder), asc(brands.name), asc(brands.id))
                     .all()
                     .map(toBrand),
-                cards: tx.select().from(cards)
-                    .where(isNull(cards.userId))
-                    .orderBy(asc(cards.name), asc(cards.id))
-                    .all()
-                    .map(toCard),
+                cards: systemCards,
                 rules: tx.select().from(benefitRules)
                     .where(isNull(benefitRules.userId))
                     .orderBy(
@@ -117,6 +128,10 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
                     )
                     .all()
                     .map(toMerchantRouteVerification),
+                cardBenefitSupports: buildCardBenefitSupports(
+                    systemCards,
+                    activeCardBenefitRevisions,
+                ),
                 freshness,
             };
         });

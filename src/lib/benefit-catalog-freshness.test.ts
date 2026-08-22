@@ -6,7 +6,7 @@ import {
 } from './benefit-catalog-freshness';
 
 const snapshot = (overrides: Partial<BenefitCatalogSnapshot> = {}): BenefitCatalogSnapshot => ({
-    schemaVersion: 1,
+    schemaVersion: 2,
     catalogVersion: 'a'.repeat(64),
     generatedAt: '2026-08-18T09:00:00.000Z',
     freshness: {
@@ -24,6 +24,7 @@ const snapshot = (overrides: Partial<BenefitCatalogSnapshot> = {}): BenefitCatal
     subscriptionProducts: [],
     promotions: [],
     routeVerifications: [],
+    cardBenefitSupports: [],
     ...overrides,
 });
 

@@ -31,6 +31,7 @@
 - 2026-08-20: 멱등 operation push, revision cursor pull, IndexedDB outbox·backoff 기반 자동 증분 동기화 추가
 - 2026-08-20: 로그아웃·계정 삭제 시 로컬 유지 또는 완전 삭제 선택, sync 연결 해제와 새 workspace 생성 추가
 - 2026-08-20: 카드별 자동 실적 목표, 결제 맥락별 다음 달 예상 혜택 비교와 사용자 설정 소액 혜택 임계값 추가
+- 2026-08-23: 공개 카탈로그 v2에 카드별 공식 검수 상태·지원 범위·마지막 확인일·출처·주의 조건을 추가하고 추천 결과에 표시
 - 2026-08-21: 신한 SOL트래블 공식 HTML 원문 보존, 고정 schema 구조화, 필드별 근거 검증, 관리자 검수와 revision rollback 수직 흐름 추가
 - 2026-08-21: Gemini 중첩 schema 400 오류 수정, SOL트래블 상시·기간형 혜택 13개 완전성 검증과 프로모션 만료 계산 추가
 - 2026-08-21: 공식 상품 페이지·이용가이드·공지·PDF source adapter, 원문 bundle/version 저장, 출처·PDF 페이지 단위 인용 검증과 관리자 표시 추가
@@ -383,7 +384,7 @@ interface SyncMetadata {
 - [x] 기존 카드 규칙 계산기에 구조화 결과를 연결하고 대표 거래 fixture로 계산 결과를 검증한다.
 - [x] 원문 변경 감지, 규칙 revision, 이전 게시본 보존과 rollback을 구현한다.
 - [x] 게시본 대비 규칙·조건·한도 필드 diff와 필수 공식 근거 coverage를 검수 화면에 표시하고, 고위험 삭제·근거 누락·stale revision 승인을 차단한다.
-- [ ] 카드별 마지막 확인일·출처·지원 범위·불확실한 조건을 사용자에게 표시한다.
+- [x] 카드별 마지막 확인일·출처·지원 범위·불확실한 조건을 사용자에게 표시한다.
 - [x] 지원하지 않는 카드는 사용자 커스텀 카드와 규칙으로 사용할 수 있게 한다.
 - [x] 로그인·앱 내부·비공식 출처의 수집 제한과 출처별 이용 정책을 운영 문서에 기록한다.
 
@@ -443,11 +444,10 @@ interface SyncMetadata {
 
 비로그인 추천, 실적 우선 정책, 자동 증분 동기화와 SOL트래블 공식 source bundle 수직 흐름까지 동작한다. 실제 기기 측정은 보류하고, 다음 안전 작업은 같은 출처·근거 계약을 기타 카드와 프로모션 수집기로 확장하는 것이다.
 
-1. 카드별 지원 registry와 마지막 확인일·수집 출처·지원 범위를 공개 카탈로그와 사용자 UI에 표시한다.
-2. 기존 프로모션 수집기의 HTML/API 응답도 공통 raw document·source bundle 계약으로 보존하고, 현재 저장하는 필드 diff에 고위험 삭제·근거 coverage 정책을 연결한다.
-3. SOL트래블 전용 공식 상품안내 PDF URL을 확보하면 선택 설정으로 실제 bundle 수집·검수 회귀 시험을 수행한다.
-4. 별도 기간형 공식 공지의 공시일과 효력 기간을 교차 검증한다.
-5. 첫 카드에서 검증한 adapter·diff·coverage 계약으로 다음 공식 카드 상품을 추가한다.
+1. 기존 프로모션 수집기의 HTML/API 응답도 공통 raw document·source bundle 계약으로 보존하고, 현재 저장하는 필드 diff에 고위험 삭제·근거 coverage 정책을 연결한다.
+2. SOL트래블 전용 공식 상품안내 PDF URL을 확보하면 선택 설정으로 실제 bundle 수집·검수 회귀 시험을 수행한다.
+3. 별도 기간형 공식 공지의 공시일과 효력 기간을 교차 검증한다.
+4. 첫 카드에서 검증한 adapter·diff·coverage 계약으로 다음 공식 카드 상품을 추가한다.
 
 자동 동기화는 IndexedDB schema v2의 `sync-state`와 `sync-outbox`를 사용한다. 로컬 변경은 device ID, base revision과 UUID operation ID를 가진 outbox snapshot으로 원자 저장된다. 서버는 `account_workspace_operations`에서 계정별 operation ID와 요청 hash를 기록해 재전송을 한 번만 반영하며, stale base revision은 기존 레코드 metadata의 `updatedAt`과 tombstone 우선순위로 병합한다. pull은 revision cursor 이후 변경이 있을 때만 최신 검증 snapshot을 반환한다. 실패한 outbox는 5초부터 최대 1시간까지 backoff하고, 온라인 복귀·화면 재진입·30초 주기·수동 실행에서 다시 시도한다.
 

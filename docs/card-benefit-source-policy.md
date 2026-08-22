@@ -46,3 +46,5 @@ Phase 7의 첫 수직 흐름은 시스템 카드 `shinhan_sol`(신한 SOL트래�
 승인 전에는 라이브 `cards`와 `benefit_rules`를 변경하지 않는다. 최초 승인 시 기존 시스템 카드와 규칙을 기준 revision으로 먼저 저장하고, 승인 후보를 다음 revision으로 게시한다. 이후 seed 실행은 활성 revision이 있는 카드를 덮어쓰지 않는다.
 
 Rollback은 과거 revision을 활성 상태로 직접 되돌리는 대신, 해당 snapshot을 내용으로 하는 새 revision을 만든다. 따라서 revision 번호는 항상 증가하고 어떤 과거 상태로 되돌렸는지 `rollback_of_revision`으로 추적할 수 있다. 사용자 커스텀 규칙은 게시와 rollback 대상에서 제외한다.
+
+공개 카탈로그는 시스템 카드마다 공식 검수 여부, 지원 범위, 마지막 검수 시각, 공식 출처와 주의 조건을 함께 제공한다. 승인된 공식 source bundle 기반 활성 revision만 `공식 원문 검수`로 표시하며, seed 데이터만 있는 카드는 날짜를 추정하지 않고 `주요 혜택 일부 반영·전체 검수 전`으로 표시한다.
