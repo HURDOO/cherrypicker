@@ -27,7 +27,7 @@ import { IconByName } from '@/components/ui/IconByName';
 import { NumericKeypad } from '@/components/ui/NumericKeypad';
 import { MonthlyPerformanceReminder } from '@/components/performance/MonthlyPerformanceReminder';
 import { BrandDiscovery } from '@/components/brand/BrandDiscovery';
-import { CatalogFreshnessCard } from '@/components/catalog/CatalogFreshnessCard';
+import { ContestDemoBanner } from '@/components/demo/ContestDemoBanner';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
 import { localWorkspaceClient } from '@/lib/local-workspace';
 import { useBenefitCatalog } from '@/hooks/useBenefitCatalog';
@@ -57,6 +57,7 @@ import {
     type CombinationIntent,
 } from '@/utils/recommendationPreferences';
 import { derivePerformanceGoals } from '@/utils/performanceGoals';
+import { selectAvailableCards } from '@/utils/availableCards';
 
 const formatWon = (value: number) => `${value.toLocaleString()}원`;
 
@@ -300,13 +301,7 @@ export default function HomePage() {
     const {
         snapshot: catalog,
         isLoading: isCatalogLoading,
-        isRefreshing: isCatalogRefreshing,
-        isOnline: isNetworkOnline,
-        health: catalogHealth,
-        lastCheckedAt: catalogLastCheckedAt,
         error: catalogError,
-        cacheWarning: catalogCacheWarning,
-        refresh: refreshCatalog,
     } = useBenefitCatalog();
     const [amount, setAmount] = useState(0);
     const [eligibleItemAmount, setEligibleItemAmount] = useState<number | undefined>();
@@ -378,10 +373,14 @@ export default function HomePage() {
         ),
         [performances, performancePeriod.performanceMonth]
     );
+    const recommendationCards = useMemo(
+        () => selectAvailableCards({ cards, performances, history }),
+        [cards, history, performances]
+    );
     const performanceGoals = useMemo(() => {
         if (!currentBrand || amount <= 0) return [];
         return derivePerformanceGoals({
-            cards,
+            cards: recommendationCards,
             rules,
             performances,
             performanceMonth: performancePeriod.benefitMonth,
@@ -391,11 +390,11 @@ export default function HomePage() {
         });
     }, [
         amount,
-        cards,
         currentBrand,
         isOnlinePurchase,
         performances,
         performancePeriod.benefitMonth,
+        recommendationCards,
         rules,
     ]);
     const effectiveRecommendationPriority: RecommendationPriority = performanceGoals.length > 0
@@ -459,7 +458,7 @@ export default function HomePage() {
                         {
                             ...request,
                             brand: currentBrand,
-                            cards,
+                            cards: recommendationCards,
                             rules,
                             history,
                             performances: currentPerformances,
@@ -517,7 +516,6 @@ export default function HomePage() {
         addToast,
         amount,
         benefitProfile,
-        cards,
         catalog,
         confirmedConditionIds,
         currentBrand,
@@ -528,6 +526,7 @@ export default function HomePage() {
         isCatalogLoading,
         isOnlinePurchase,
         promotionUsage,
+        recommendationCards,
         performanceGoals,
         performancePeriod.nextBenefitMonth,
         rules,
@@ -705,17 +704,7 @@ export default function HomePage() {
             </header>
 
             <div className="mx-auto max-w-lg space-y-7 px-5 pt-6">
-                <CatalogFreshnessCard
-                    health={catalogHealth}
-                    isOnline={isNetworkOnline}
-                    isRefreshing={isCatalogRefreshing}
-                    lastCheckedAt={catalogLastCheckedAt}
-                    catalogVersion={catalog?.catalogVersion}
-                    error={catalogError}
-                    cacheWarning={catalogCacheWarning}
-                    onRefresh={refreshCatalog}
-                    collectionManagementHref="/admin/promotions"
-                />
+                <ContestDemoBanner />
 
                 <MonthlyPerformanceReminder
                     missingCount={missingPerformanceCards.length}

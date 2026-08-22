@@ -23,6 +23,12 @@ Cherrypicker는 결제처와 금액에 맞는 신용카드 혜택을 비교하�
 
 이 데이터는 브라우저 origin별 IndexedDB에 저장됩니다. 설정에서 JSON 파일로 내보내거나 가져올 수 있으며, 브라우저 데이터 삭제 또는 서비스 주소 변경 시 자동으로 복구되지 않으므로 중요한 데이터는 직접 내보내 두세요. 로그인해도 현재 기기 workspace는 삭제되거나 서버 모드로 전환되지 않습니다. 계정 snapshot 백업을 사용하면 새 기기의 빈 workspace로 복원할 수 있고, 양쪽에 데이터가 있으면 계정에만 있거나 기기에만 있는 항목은 보존하면서 같은 항목의 수정본·삭제본을 사용자가 선택해 병합할 수 있습니다.
 
+공모전 데모 기간에는 저장 데이터가 전혀 없는 첫 방문 브라우저에만 임시 프로필을
+만듭니다. GS25·CU·세븐일레븐·다이소·올리브영·투썸플레이스·스타벅스를 즐겨찾기로
+보여주고, KB국민 나라사랑카드 10만원·신한 나라사랑카드 10만원·신한 Hey Young
+체크카드 20만원의 직전 달 실적과 T멤버십 VIP·Npay·T 우주패스 편의점&카페를
+설정합니다. 이미 만들어진 workspace는 빈 상태여도 덮어쓰지 않습니다.
+
 계정 snapshot은 `account_workspace_snapshots`에 사용자별로 저장하며 content hash와 단조 증가 revision을 함께 기록합니다. 최초 백업은 계정에 개인 데이터가 없을 때만 허용하고, 갱신은 최초 snapshot을 만든 같은 로컬 workspace와 최신 revision이 모두 일치할 때만 허용합니다. 명시적 병합은 결과를 먼저 IndexedDB에 보존한 다음 서버가 최신 revision과 계정 전용 레코드 보존을 다시 검증하며, 클라이언트는 저장 직후 snapshot을 다시 내려받아 로컬 원본과 일치하는지 확인합니다.
 
 ## 로컬에서 시작하기
@@ -52,6 +58,7 @@ BETTER_AUTH_SECRET=<generated-secret>
 BETTER_AUTH_URL=http://localhost:3000
 ALLOW_SIGN_UP=true
 ADMIN_EMAILS=admin@example.com
+ADMIN_ACCESS_MODE=
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-3.6-flash
 CARD_BENEFIT_AI_MODEL=gemini-3.6-flash
@@ -62,6 +69,7 @@ PROMOTION_AI_MAX_CALLS=25
 `DATABASE_PATH`의 상대 경로는 명령을 실행한 현재 디렉터리를 기준으로 합니다. 운영 환경에서는 절대 경로를 권장합니다. `BETTER_AUTH_URL`은 사용자가 실제로 접속하는 origin과 정확히 같아야 하며 운영 환경에서는 공개 HTTPS 주소를 사용합니다.
 `ALLOW_SIGN_UP`은 정확히 `true`일 때만 가입을 엽니다. 공개 서버에서는 필요한 계정을 만든 뒤 `false`로 바꾸고 서버를 재시작해 신규 가입 API와 가입 화면을 닫으세요.
 `ADMIN_EMAILS`는 `/admin/promotions`에 접근할 관리자 이메일을 쉼표로 구분합니다. 프로모션 수집, 원문 검수, 승인과 카드 승인 경로 검증은 이 계정만 수행할 수 있습니다.
+`ADMIN_ACCESS_MODE=FIRST_USER`는 단일 소유자 설치를 위한 명시적 대체 방식입니다. `ADMIN_EMAILS`가 비어 있고 회원가입이 닫힌 경우에만 가장 먼저 생성된 계정을 관리자로 인정합니다. 이메일 목록을 설정하면 목록이 항상 우선하며 첫 계정 대체 방식은 비활성화됩니다.
 `GEMINI_API_KEY`는 선택 사항입니다. 값이 없거나 호출이 실패하면 공식 문구를 보수적으로 판정하는 규칙 분류기로 계속 수집합니다. `GEMINI_MODEL`을 바꾸면 Gemini 모델을 교체할 수 있고, `PROMOTION_AI_MAX_CALLS`는 한 번의 수집에서 AI로 재확인할 모호한 혜택 수를 제한합니다. AI에는 공개된 혜택 문구만 보내며 사용자 카드·결제·계정 데이터는 보내지 않습니다.
 `CARD_BENEFIT_AI_MODEL`은 카드 상품 원문을 고정 JSON schema로 구조화할 때 사용할 모델입니다. 비어 있으면 `GEMINI_MODEL`을 사용하며, 키가 없거나 호출에 실패하면 현재 대표 카드 전용 규칙 추출기로 검수 후보를 만듭니다.
 `SHINHAN_SOL_TRAVEL_GUIDE_PDF_URL`은 신한카드가 공개한 SOL트래블 체크 상품안내 PDF 주소를 확인했을 때만 설정하는 선택 값입니다. 수집기는 `shinhancard.com`의 HTTPS 문서만 허용하며 상품 페이지에서 같은 소유자의 PDF 링크가 발견되면 별도 설정 없이도 보조 출처로 수집합니다.
@@ -177,17 +185,24 @@ npm run db:backup -- /mnt/external-backup/cherrypicker.db
 뒤에만 **배포** 화면에서 이미지를 실행하거나 재시도합니다. 선택 값인
 `GEMINI_API_KEY`가 없으면 보수적인 규칙 분류기로 계속 동작합니다.
 
-현재 deployd는 secret이 아닌 임의의 일반 환경 변수 설정을 지원하지 않습니다.
-따라서 `ALLOW_SIGN_UP`, `ADMIN_EMAILS`, `GEMINI_MODEL`,
+관리형 배포는 비민감 설정 `ADMIN_ACCESS_MODE=FIRST_USER`를 공개된 배포 계약으로
+관리합니다. `ALLOW_SIGN_UP`, `ADMIN_EMAILS`, `GEMINI_MODEL`,
 `CARD_BENEFIT_AI_MODEL`, `PROMOTION_AI_MAX_CALLS`를 **Secrets**에 넣지 않습니다. 새 데이터베이스의 최초
 온보딩에는 `ALLOW_SIGN_UP=true`인 임시 bootstrap 이미지를 private 접근으로만
 배포합니다. 의도한 첫 계정을 만든 직후 `ALLOW_SIGN_UP=false`로 되돌린 후속
 이미지를 발행하고, 그 이미지가 healthy 상태가 된 것을 확인해야 가입 종료와
 관리형 배포 온보딩이 완료됩니다. bootstrap 이미지가 실행 중인 동안에는 필요한
-계정만 만든 뒤 지체 없이 가입을 닫습니다. `ADMIN_EMAILS`, `GEMINI_MODEL`,
-`CARD_BENEFIT_AI_MODEL`, `PROMOTION_AI_MAX_CALLS`는 일반 환경 변수 지원이나 별도의 애플리케이션 설정
+계정만 만든 뒤 지체 없이 가입을 닫습니다. 이 배포에서는 회원가입이 닫혀 있고
+`ADMIN_EMAILS`가 비어 있으므로 가장 먼저 생성된 기존 계정이 관리자가 됩니다.
+`ADMIN_EMAILS`를 설정하는 환경에서는 해당 목록이 항상 우선합니다. `GEMINI_MODEL`,
+`CARD_BENEFIT_AI_MODEL`, `PROMOTION_AI_MAX_CALLS`는 별도의 애플리케이션 설정
 경로가 생기기 전까지 이미지의 기본 동작을 사용하며, 이를 secret으로 숨기지
 않습니다.
+
+인증 기준 URL은 로컬·수동 환경에서 `BETTER_AUTH_URL`을 우선 사용하고, 관리형
+배포에서는 deployd가 제공하는 `APP_BASE_URL`을 사용합니다. `APP_BASE_URL`은 플랫폼
+예약 값이므로 `deploy.json`에 다시 선언하지 않습니다. 공개 배포의 쓰기 API는 이
+origin과 브라우저의 `Origin`/`Sec-Fetch-Site`를 함께 검사합니다.
 
 이미지 롤백은 `/data`의 SQLite 상태를 되돌리지 않습니다. 컨테이너 시작 전
 snapshot은 schema migration 복구 지점을 제공하지만 같은 디스크 장애까지 보호하지

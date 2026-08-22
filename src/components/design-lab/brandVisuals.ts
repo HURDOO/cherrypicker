@@ -94,6 +94,17 @@ const BRAND_LOGO_DOMAINS: Record<string, string> = {
     naver_webtoon: 'comic.naver.com',
 };
 
+const LOCAL_BRAND_LOGO_URLS: Record<string, string> = {
+    gs25: '/brand-logos/gs25.svg',
+    cu: '/brand-logos/cu.svg',
+    cu_event: '/brand-logos/cu.svg',
+    seveneleven: '/brand-logos/seveneleven.svg',
+    daiso: '/brand-logos/daiso.png',
+    oliveyoung: '/brand-logos/oliveyoung.svg',
+    twosome: '/brand-logos/twosome.png',
+    starbucks: '/brand-logos/starbucks.png',
+};
+
 function stableHash(value: string) {
     return Array.from(value).reduce((hash, character) => (
         ((hash << 5) - hash + character.codePointAt(0)!) | 0
@@ -130,6 +141,9 @@ export function getBrandMonogram(name: string, compact = false): string {
 }
 
 export function getBrandLogoUrl(brand: Pick<Brand, 'id'>): string | null {
+    const localLogoUrl = LOCAL_BRAND_LOGO_URLS[brand.id];
+    if (localLogoUrl) return localLogoUrl;
+
     const domain = BRAND_LOGO_DOMAINS[brand.id];
 
     if (!domain) return null;

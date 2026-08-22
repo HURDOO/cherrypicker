@@ -5,6 +5,7 @@ export const BENEFIT_CATALOG_STALE_AFTER_MS = 36 * 60 * 60 * 1000;
 export type BenefitCatalogHealthStatus =
     | 'loading'
     | 'fresh'
+    | 'baseline'
     | 'refreshing'
     | 'offline'
     | 'stale'
@@ -56,6 +57,16 @@ export function assessBenefitCatalogHealth({
     }
 
     const freshness = snapshot.freshness;
+    const hasCatalogData = [
+        snapshot.categories,
+        snapshot.brands,
+        snapshot.cards,
+        snapshot.rules,
+        snapshot.providers,
+        snapshot.subscriptionProducts,
+        snapshot.promotions,
+        snapshot.routeVerifications,
+    ].some(items => items.length > 0);
     const reference = freshness?.lastSuccessfulAt ?? (
         freshness === undefined ? snapshot.generatedAt : undefined
     );
@@ -76,7 +87,12 @@ export function assessBenefitCatalogHealth({
 
     if (!isOnline) return { ...base, status: 'offline' };
     if (!freshness || freshness.collectionStatus === 'UNKNOWN') {
-        return { ...base, status: isRefreshing ? 'refreshing' : 'unknown' };
+        return {
+            ...base,
+            status: isRefreshing
+                ? 'refreshing'
+                : hasCatalogData ? 'baseline' : 'unknown',
+        };
     }
     if (
         refreshError ||

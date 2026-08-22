@@ -3,8 +3,11 @@ import { betterAuth } from 'better-auth/minimal';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 
+const authBaseURL = process.env.BETTER_AUTH_URL || process.env.APP_BASE_URL;
+
 export const auth = betterAuth({
     appName: 'Cherry Picker',
+    ...(authBaseURL && { baseURL: authBaseURL }),
     database: drizzleAdapter(db, {
         provider: 'sqlite',
         schema,

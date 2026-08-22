@@ -113,6 +113,25 @@ describe('benefit catalog freshness', () => {
         expect(health.isStale).toBe(true);
     });
 
+    it('reports a usable baseline when seeded data exists without a collection run', () => {
+        const health = assessBenefitCatalogHealth({
+            snapshot: snapshot({
+                freshness: {
+                    collectionStatus: 'UNKNOWN',
+                    sourceCount: 0,
+                    failedSourceCount: 0,
+                },
+                categories: [{ id: 'etc', name: '기타' }],
+            }),
+            isOnline: true,
+            isRefreshing: false,
+            now: '2026-08-18T10:00:00.000Z',
+        });
+
+        expect(health.status).toBe('baseline');
+        expect(health.isStale).toBe(true);
+    });
+
     it('uses generatedAt for legacy cached snapshots without freshness metadata', () => {
         const health = assessBenefitCatalogHealth({
             snapshot: snapshot({ freshness: undefined }),

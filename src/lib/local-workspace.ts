@@ -41,6 +41,10 @@ import {
 } from '@/lib/local-workspace-database';
 import { getCurrentMonthInKst } from '@/lib/monthly-performance';
 import {
+    createContestDemoBenefitProfile,
+    createContestDemoPerformances,
+} from '@/lib/contest-demo-profile';
+import {
     DEFAULT_SMALL_BENEFIT_THRESHOLD,
     MAX_SMALL_BENEFIT_THRESHOLD,
 } from '@/utils/recommendationPreferences';
@@ -179,6 +183,30 @@ export function createEmptyLocalWorkspace(
             },
         },
     };
+}
+
+export function createContestDemoLocalWorkspace(
+    options: WorkspaceCreationOptions = {}
+): LocalWorkspaceSnapshot {
+    const idFactory = options.idFactory ?? createId;
+    const workspace = createEmptyLocalWorkspace({ ...options, idFactory });
+    const referenceDate = options.now === undefined
+        ? new Date()
+        : new Date(options.now);
+
+    workspace.performances = createContestDemoPerformances(referenceDate);
+    workspace.benefitProfile = createContestDemoBenefitProfile();
+    workspace.performances.forEach(performance => {
+        workspace.recordMetadata[
+            `performances:${performance.cardId}:${performance.performanceMonth}`
+        ] = {
+            id: idFactory(),
+            createdAt: workspace.createdAt,
+            updatedAt: workspace.updatedAt,
+        };
+    });
+
+    return workspace;
 }
 
 const assertArray = (value: Record<string, unknown>, key: string) => {
@@ -381,6 +409,18 @@ export async function readOrCreateLocalWorkspace(
     if (stored) return parseLocalWorkspaceSnapshot(stored);
 
     const created = createEmptyLocalWorkspace(options);
+    await storage.write(created);
+    return created;
+}
+
+export async function readOrCreateContestDemoLocalWorkspace(
+    storage: LocalWorkspaceStorage = browserLocalWorkspaceStorage,
+    options: WorkspaceCreationOptions = {}
+) {
+    const stored = await storage.read();
+    if (stored) return parseLocalWorkspaceSnapshot(stored);
+
+    const created = createContestDemoLocalWorkspace(options);
     await storage.write(created);
     return created;
 }

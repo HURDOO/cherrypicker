@@ -1,3 +1,4 @@
+import { getAdminAccessMode } from '@/lib/admin-authorization-server';
 import { auth } from '@/lib/auth';
 
 const MAX_JSON_BODY_BYTES = 256 * 1024;
@@ -47,12 +48,9 @@ export async function requireUser(request: Request) {
 
 export async function requireAdmin(request: Request) {
     const user = await requireUser(request);
-    const adminEmails = (process.env.ADMIN_EMAILS || '')
-        .split(',')
-        .map(email => email.trim().toLowerCase())
-        .filter(Boolean);
+    const accessMode = await getAdminAccessMode(user);
 
-    if (!user.email || !adminEmails.includes(user.email.toLowerCase())) {
+    if (accessMode === 'DENY') {
         throw new HttpError(403, '프로모션 관리자 권한이 필요합니다.');
     }
 
@@ -81,9 +79,9 @@ function assertRequestRateLimit(userId: string, method: string) {
 function assertSameOriginMutation(request: Request) {
     if (SAFE_METHODS.has(request.method.toUpperCase())) return;
 
-    const configuredUrl = process.env.BETTER_AUTH_URL;
+    const configuredUrl = process.env.BETTER_AUTH_URL || process.env.APP_BASE_URL;
     if (!configuredUrl && process.env.NODE_ENV === 'production') {
-        throw new HttpError(500, 'BETTER_AUTH_URL 설정이 필요합니다.');
+        throw new HttpError(500, '공개 서비스 URL 설정이 필요합니다.');
     }
 
     const expectedOrigin = new URL(configuredUrl || request.url).origin;

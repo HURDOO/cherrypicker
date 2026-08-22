@@ -34,6 +34,7 @@ import {
     getStartOfCurrentYearInKst,
 } from './monthly-performance';
 import { derivePerformanceGoals } from '@/utils/performanceGoals';
+import { selectAvailableCards } from '@/utils/availableCards';
 
 export function calculateRecommendationForUser(
     userId: string,
@@ -73,6 +74,13 @@ export function calculateRecommendationForUser(
             eq(userCardPerformances.userId, userId),
             eq(userCardPerformances.performanceMonth, getCurrentMonthInKst())
         ))
+        .all();
+    const managedPerformanceRows = db.select({
+        cardId: userCardPerformances.cardId,
+        performanceMonth: userCardPerformances.performanceMonth,
+        amount: userCardPerformances.amount,
+    }).from(userCardPerformances)
+        .where(eq(userCardPerformances.userId, userId))
         .all();
     const providerRows = db.select().from(promotionProviders)
         .where(eq(promotionProviders.isActive, true))
@@ -142,15 +150,21 @@ export function calculateRecommendationForUser(
         promotionUsage[row.promotionId] = usage;
     });
 
+    const recommendationCards = selectAvailableCards({
+        cards: cardRows.map(toCard),
+        performances: managedPerformanceRows,
+        history: historyRows.map(toTransaction),
+    });
+
     return calculateBestCombinations({
         ...input,
         brand: toBrand(brand),
-        cards: cardRows.map(toCard),
+        cards: recommendationCards,
         rules: ruleRows.map(toRule),
         history: historyRows.map(toTransaction),
         performances: performanceRows.map(toPerformance),
         performanceGoals: derivePerformanceGoals({
-            cards: cardRows.map(toCard),
+            cards: recommendationCards,
             rules: ruleRows.map(toRule),
             performances: currentPerformanceRows.map(toPerformance),
             performanceMonth: getCurrentMonthInKst(),

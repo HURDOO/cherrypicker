@@ -8,6 +8,9 @@
   "healthPath": "/api/health",
   "access": "public",
   "dataEnabled": true,
+  "environment": {
+    "ADMIN_ACCESS_MODE": "FIRST_USER"
+  },
   "requiredSecrets": [
     "BETTER_AUTH_SECRET"
   ],

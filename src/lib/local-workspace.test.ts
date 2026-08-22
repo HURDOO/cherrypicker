@@ -4,11 +4,13 @@ import { createAccountWorkspaceExport } from './account-workspace-export';
 import {
     accountWorkspaceMatchesLocal,
     createAccountWorkspaceExportFromLocal,
+    createContestDemoLocalWorkspace,
     createEmptyLocalWorkspace,
     createLocalWorkspaceFromMergedAccountExport,
     createLocalWorkspaceClient,
     getAccountWorkspaceSyncMode,
     parseLocalWorkspaceSnapshot,
+    readOrCreateContestDemoLocalWorkspace,
     readOrCreateLocalWorkspace,
     type LocalWorkspaceSnapshot,
     type LocalWorkspaceStorage,
@@ -112,6 +114,75 @@ describe('local workspace', () => {
         });
         expect(first.recordMetadata.profile.id).toBe('profile-id');
         expect(memory.storage.write).toHaveBeenCalledOnce();
+    });
+
+    it('creates the contest demo profile only for a brand-new workspace', async () => {
+        const memory = createMemoryStorage();
+        const ids = [
+            'workspace-id',
+            'profile-id',
+            'device-id',
+            'kb-performance-id',
+            'shinhan-performance-id',
+            'heyoung-performance-id',
+        ];
+
+        const first = await readOrCreateContestDemoLocalWorkspace(memory.storage, {
+            now: '2026-08-22T03:00:00.000Z',
+            idFactory: () => ids.shift() ?? 'unexpected-id',
+        });
+        const second = await readOrCreateContestDemoLocalWorkspace(memory.storage, {
+            now: '2026-09-22T03:00:00.000Z',
+        });
+
+        expect(first).toEqual(second);
+        expect(first.performances).toEqual([
+            { cardId: 'kb_nara', amount: 100_000, performanceMonth: '2026-07' },
+            { cardId: 'shinhan_nara', amount: 100_000, performanceMonth: '2026-07' },
+            { cardId: 'shinhan_heyoung', amount: 200_000, performanceMonth: '2026-07' },
+        ]);
+        expect(first.benefitProfile).toMatchObject({
+            telecomMemberships: [{ providerId: 'skt', tier: 'VIP' }],
+            subscriptions: [{
+                providerId: 't-universe',
+                productName: 'T 우주패스 편의점&카페',
+            }],
+            enabledPayProviderIds: ['naverpay'],
+            moneyEnabled: true,
+            pointsEnabled: true,
+            smallBenefitThreshold: 100,
+        });
+        expect(first.recordMetadata['performances:kb_nara:2026-07'].id)
+            .toBe('kb-performance-id');
+        expect(memory.storage.write).toHaveBeenCalledOnce();
+    });
+
+    it('never replaces an existing workspace with contest demo data', async () => {
+        const existing = createEmptyLocalWorkspace({
+            now: '2026-08-22T03:00:00.000Z',
+            idFactory: vi.fn()
+                .mockReturnValueOnce('existing-workspace')
+                .mockReturnValueOnce('existing-profile')
+                .mockReturnValueOnce('existing-device'),
+        });
+        const memory = createMemoryStorage(existing);
+
+        const result = await readOrCreateContestDemoLocalWorkspace(memory.storage);
+
+        expect(result).toEqual(existing);
+        expect(result.performances).toEqual([]);
+        expect(result.benefitProfile.telecomMemberships).toEqual([]);
+        expect(memory.storage.write).not.toHaveBeenCalled();
+    });
+
+    it('materializes contest demo data with a valid local workspace schema', () => {
+        const ids = Array.from({ length: 6 }, (_, index) => `demo-id-${index}`);
+        const workspace = createContestDemoLocalWorkspace({
+            now: '2026-08-22T03:00:00.000Z',
+            idFactory: () => ids.shift() ?? 'unexpected-id',
+        });
+
+        expect(parseLocalWorkspaceSnapshot(workspace)).toEqual(workspace);
     });
 
     it('defaults legacy workspace small-benefit settings to 100 won', () => {

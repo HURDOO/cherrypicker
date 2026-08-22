@@ -34,6 +34,12 @@ const statusMeta: Record<BenefitCatalogHealthStatus, {
         color: 'border-emerald-100 bg-emerald-50/80',
         iconColor: 'text-emerald-600',
     },
+    baseline: {
+        title: '기본 혜택 정보 사용 중',
+        icon: CheckCircle2,
+        color: 'border-blue-100 bg-blue-50/80',
+        iconColor: 'text-blue-600',
+    },
     refreshing: {
         title: '최신 혜택 확인 중',
         icon: RefreshCw,
@@ -103,6 +109,9 @@ function getDescription(health: BenefitCatalogHealth) {
     if (health.status === 'unknown') {
         return '아직 서버의 수집 성공 이력이 없습니다.';
     }
+    if (health.status === 'baseline') {
+        return '공개 카탈로그는 사용할 수 있습니다. 자동 수집 성공 이력은 아직 없습니다.';
+    }
     if (health.status === 'unavailable') {
         return '저장된 데이터도 없어 혜택 계산을 시작할 수 없습니다.';
     }
@@ -139,6 +148,7 @@ export function CatalogFreshnessCard({
     const checkedAt = formatTimestamp(lastCheckedAt);
     const needsCollection = health.status === 'stale' ||
         health.status === 'degraded' ||
+        health.status === 'baseline' ||
         health.status === 'unknown';
 
     return (
@@ -172,14 +182,14 @@ export function CatalogFreshnessCard({
                                         'h-3 w-3',
                                         isRefreshing && 'animate-spin'
                                     )} />
-                                    공개본 확인
+                                    공개본 다시 불러오기
                                 </button>
                                 {needsCollection && collectionManagementHref && (
                                     <Link
                                         href={collectionManagementHref}
                                         className="px-1 text-[9px] font-black text-amber-800 underline decoration-amber-400 underline-offset-2"
                                     >
-                                        새 수집 열기
+                                        관리자 수집 실행
                                     </Link>
                                 )}
                             </div>
