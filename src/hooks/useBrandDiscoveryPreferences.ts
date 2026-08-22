@@ -10,7 +10,6 @@ import {
     type BrandDiscoveryViewMode,
     type CoarseLocation,
 } from '@/utils/brandDiscovery';
-import { CONTEST_DEMO_FAVORITE_BRAND_IDS } from '@/lib/contest-demo-profile';
 
 const STORAGE_PREFIX = 'cherrypicker:brand-discovery';
 const MAX_LOCATION_VISITS = 200;
@@ -36,12 +35,7 @@ export function useBrandDiscoveryPreferences(userId: string) {
         }
 
         const stored = window.localStorage.getItem(`${STORAGE_PREFIX}:${userId}`);
-        setPreferences(stored === null
-            ? {
-                ...EMPTY_BRAND_DISCOVERY_PREFERENCES,
-                favoriteBrandIds: [...CONTEST_DEMO_FAVORITE_BRAND_IDS],
-            }
-            : parseBrandDiscoveryPreferences(stored));
+        setPreferences(parseBrandDiscoveryPreferences(stored));
         setLoadedUserId(userId);
         setCurrentLocation(undefined);
     }, [userId]);

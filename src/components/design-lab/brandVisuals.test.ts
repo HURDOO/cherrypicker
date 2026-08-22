@@ -10,7 +10,7 @@ describe('brand logo URLs', () => {
         ['oliveyoung', '/brand-logos/oliveyoung.svg'],
         ['twosome', '/brand-logos/twosome.png'],
         ['starbucks', '/brand-logos/starbucks.png'],
-    ])('uses a local contest-demo logo for %s', (id, expected) => {
+    ])('uses a reviewed local logo for %s', (id, expected) => {
         expect(getBrandLogoUrl({ id })).toBe(expected);
     });
 

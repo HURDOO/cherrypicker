@@ -8,7 +8,7 @@ import {
     revalidateBenefitCatalog,
     type CachedBenefitCatalog,
 } from '@/lib/benefit-catalog-client';
-import { readOrCreateContestDemoLocalWorkspace } from '@/lib/local-workspace';
+import { readOrCreateLocalWorkspace } from '@/lib/local-workspace';
 import { WORKSPACE_SYNC_COMPLETED_EVENT } from '@/lib/local-workspace-sync';
 import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
@@ -18,7 +18,7 @@ const isAuthPath = (pathname: string) =>
     pathname === '/signup' || pathname.startsWith('/signup/');
 
 async function loadLocalAppData() {
-    const workspace = await readOrCreateContestDemoLocalWorkspace();
+    const workspace = await readOrCreateLocalWorkspace();
     let cached: CachedBenefitCatalog | null = null;
 
     try {

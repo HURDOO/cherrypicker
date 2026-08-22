@@ -27,7 +27,7 @@ import { IconByName } from '@/components/ui/IconByName';
 import { NumericKeypad } from '@/components/ui/NumericKeypad';
 import { MonthlyPerformanceReminder } from '@/components/performance/MonthlyPerformanceReminder';
 import { BrandDiscovery } from '@/components/brand/BrandDiscovery';
-import { ContestDemoBanner } from '@/components/demo/ContestDemoBanner';
+import { CatalogFreshnessCard } from '@/components/catalog/CatalogFreshnessCard';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
 import { localWorkspaceClient } from '@/lib/local-workspace';
 import { useBenefitCatalog } from '@/hooks/useBenefitCatalog';
@@ -301,7 +301,13 @@ export default function HomePage() {
     const {
         snapshot: catalog,
         isLoading: isCatalogLoading,
+        isRefreshing: isCatalogRefreshing,
+        isOnline: isNetworkOnline,
+        health: catalogHealth,
+        lastCheckedAt: catalogLastCheckedAt,
         error: catalogError,
+        cacheWarning: catalogCacheWarning,
+        refresh: refreshCatalog,
     } = useBenefitCatalog();
     const [amount, setAmount] = useState(0);
     const [eligibleItemAmount, setEligibleItemAmount] = useState<number | undefined>();
@@ -704,7 +710,17 @@ export default function HomePage() {
             </header>
 
             <div className="mx-auto max-w-lg space-y-7 px-5 pt-6">
-                <ContestDemoBanner />
+                <CatalogFreshnessCard
+                    health={catalogHealth}
+                    isOnline={isNetworkOnline}
+                    isRefreshing={isCatalogRefreshing}
+                    lastCheckedAt={catalogLastCheckedAt}
+                    catalogVersion={catalog?.catalogVersion}
+                    error={catalogError}
+                    cacheWarning={catalogCacheWarning}
+                    onRefresh={refreshCatalog}
+                    collectionManagementHref="/admin/promotions"
+                />
 
                 <MonthlyPerformanceReminder
                     missingCount={missingPerformanceCards.length}

@@ -20,6 +20,9 @@
 # production
 /build
 
+# local submission artifacts
+/submission/
+
 # sqlite databases and online backups
 /data/*.db
 /data/*.db-*
