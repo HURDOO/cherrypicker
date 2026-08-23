@@ -2,7 +2,7 @@ import type {
     Card,
     CatalogCardBenefitSupport,
 } from '@/types';
-import { getShinhanSolTravelSources } from './card-benefit-source-registry';
+import { getSystemCardBenefitSourceInventory } from './card-benefit-source-registry';
 
 export interface ActiveCardBenefitRevision {
     cardId: string;
@@ -14,38 +14,42 @@ interface CardBenefitSupportDefinition {
     supportScope: 'FULL';
     sources: CatalogCardBenefitSupport['sources'];
     caveats: string[];
+    revisionReviewEnabled: boolean;
 }
 
 const DEFAULT_CAVEAT =
     '초기 입력된 주요 혜택만 반영되어 있으며 공식 문서 전체 검수는 아직 완료되지 않았습니다.';
 
-const isPublicShinhanSource = (sourceUrl: string) => {
+const OFFICIAL_CARD_SOURCE_DOMAINS = [
+    'hanacard.co.kr',
+    'kbcard.com',
+    'kbstar.com',
+    'shinhancard.com',
+];
+
+const isPublicOfficialSource = (sourceUrl: string) => {
     try {
         const url = new URL(sourceUrl);
-        return url.protocol === 'https:' && (
-            url.hostname === 'shinhancard.com' || url.hostname.endsWith('.shinhancard.com')
-        );
+        return url.protocol === 'https:' && OFFICIAL_CARD_SOURCE_DOMAINS.some(domain => (
+            url.hostname === domain || url.hostname.endsWith(`.${domain}`)
+        ));
     } catch {
         return false;
     }
 };
 
 const getSupportDefinitions = () => {
-    const shinhanSources = getShinhanSolTravelSources()
-        .filter(source => isPublicShinhanSource(source.sourceUrl));
-
-    return new Map<string, CardBenefitSupportDefinition>([
-        ['shinhan_sol', {
+    return new Map<string, CardBenefitSupportDefinition>(
+        getSystemCardBenefitSourceInventory().map(item => [item.cardId, {
             supportScope: 'FULL',
-            sources: shinhanSources.map(source => ({
+            sources: item.sources.filter(source => isPublicOfficialSource(source.url)).map(source => ({
                 label: source.label,
-                url: source.sourceUrl,
+                url: source.url,
             })),
-            caveats: shinhanSources.some(source => source.format === 'pdf')
-                ? []
-                : ['공식 상품안내 PDF가 연결되지 않아 세부 약관은 공식 페이지에서 다시 확인해야 합니다.'],
-        }],
-    ]);
+            caveats: [...item.caveats],
+            revisionReviewEnabled: item.revisionReviewEnabled,
+        }]),
+    );
 };
 
 const toIsoString = (value: Date | string) => {
@@ -68,7 +72,9 @@ export function buildCardBenefitSupports(
         .map(card => {
             const definition = definitions.get(card.id);
             const revision = revisions.get(card.id);
-            const reviewed = Boolean(definition && revision?.candidateId);
+            const reviewed = Boolean(
+                definition?.revisionReviewEnabled && revision?.candidateId
+            );
 
             return {
                 cardId: card.id,
@@ -80,7 +86,7 @@ export function buildCardBenefitSupports(
                 sources: definition?.sources.map(source => ({ ...source })) ?? [],
                 caveats: reviewed
                     ? [...(definition?.caveats ?? [])]
-                    : [DEFAULT_CAVEAT],
+                    : [DEFAULT_CAVEAT, ...(definition?.caveats ?? [])],
             } satisfies CatalogCardBenefitSupport;
         })
         .sort((left, right) => left.cardId.localeCompare(right.cardId));

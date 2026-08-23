@@ -11,6 +11,13 @@ const cards: Card[] = [
         limitTable: [],
     },
     {
+        id: 'shinhan_deep_dream',
+        name: '신한 Deep Dream 체크카드',
+        company: '신한카드',
+        color: 'bg-sky-500',
+        limitTable: [],
+    },
+    {
         id: 'other-card',
         name: '기존 입력 카드',
         company: '테스트카드',
@@ -27,14 +34,16 @@ describe('card benefit support registry', () => {
             publishedAt: '2026-08-23T03:00:00.000Z',
         }]);
 
-        expect(supports[1]).toMatchObject({
+        const support = supports.find(item => item.cardId === 'shinhan_sol');
+
+        expect(support).toMatchObject({
             cardId: 'shinhan_sol',
             reviewStatus: 'REVIEWED',
             supportScope: 'FULL',
             lastVerifiedAt: '2026-08-23T03:00:00.000Z',
         });
-        expect(supports[1].sources.length).toBeGreaterThanOrEqual(3);
-        expect(supports[1].sources.every(source => (
+        expect(support?.sources.length).toBeGreaterThanOrEqual(3);
+        expect(support?.sources.every(source => (
             new URL(source.url).hostname.endsWith('shinhancard.com')
         ))).toBe(true);
     });
@@ -50,6 +59,22 @@ describe('card benefit support registry', () => {
         });
         expect(support).not.toHaveProperty('lastVerifiedAt');
         expect(support?.caveats[0]).toContain('공식 문서 전체 검수');
+    });
+
+    it('shows located official sources without claiming a manual audit is approved', () => {
+        const support = buildCardBenefitSupports(cards, [{
+            cardId: 'shinhan_deep_dream',
+            candidateId: 'candidate-without-adapter',
+            publishedAt: '2026-08-24T03:00:00.000Z',
+        }]).find(item => item.cardId === 'shinhan_deep_dream');
+
+        expect(support).toMatchObject({
+            reviewStatus: 'NOT_REVIEWED',
+            supportScope: 'PARTIAL',
+        });
+        expect(support?.sources[0]?.url).toContain('shinhancard.com');
+        expect(support?.caveats.join(' ')).toContain('3·6·9번째');
+        expect(support).not.toHaveProperty('lastVerifiedAt');
     });
 
     it('does not call a baseline rollback an official review', () => {

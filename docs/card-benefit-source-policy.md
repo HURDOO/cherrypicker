@@ -4,6 +4,8 @@
 
 Phase 7의 첫 수직 흐름은 시스템 카드 `shinhan_sol`(신한 SOL트래블 체크카드) 한 장만 지원한다. 여러 공식 문서를 하나의 source bundle로 수집하고, 검증·검수·revision 게시·rollback이 안정화된 뒤 같은 adapter 계약으로 다른 카드와 프로모션의 기타 혜택까지 범위를 넓힌다.
 
+2026-08-24에 시스템 카드 8장·게시 규칙 88개의 공식 원문 대조를 시작해 카드별 공식 출처와 알려진 계산 차이를 인벤토리에 등록했다. 이 수동 대조는 source adapter의 승인 revision을 대신하지 않으며, 상세 결과와 다음 adapter 우선순위는 [시스템 카드 혜택 공식 원문 대조](./system-card-benefit-audit-2026-08-24.md)에 기록한다.
+
 - 대표 출처: `https://www.shinhancard.com/pconts/html/card/apply/check/1225714_2206.html`
 - 보조 출처: `https://www.shinhancard.com/pconts/html/card/travel/travel_supersol.html`
 - 보조 공지: `https://www.shinhancard.com/pconts/html/helpdesk/dataRoom/MOBFM164N/1227673_1119.html`
