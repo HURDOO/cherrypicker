@@ -1,4 +1,4 @@
-import { HttpError } from './api-server';
+import { HttpError } from './http-error';
 import type { promotionOffers } from '@/db/schema';
 import type {
     BenefitCertainty,

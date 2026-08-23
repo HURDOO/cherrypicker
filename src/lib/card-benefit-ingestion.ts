@@ -13,6 +13,8 @@ import {
 } from '@/db/schema';
 import type {
     CardBenefitCandidateStatus,
+    CardBenefitDocumentMetadata,
+    CardBenefitNoticeDates,
     CardBenefitRevisionSnapshot,
 } from '@/types';
 import {
@@ -68,6 +70,7 @@ export type CardBenefitCollectionResult = {
         version: number;
         status: 'created' | 'unchanged';
         pageCount?: number;
+        noticeDates?: CardBenefitNoticeDates;
     }>;
     sourceFailures: Array<{
         label: string;
@@ -144,7 +147,12 @@ const storeCollectedSource = (
         ))
         .get();
     if (existingDocument) {
-        return { collected, document: existingDocument, status: 'unchanged' };
+        const document = db.update(cardBenefitDocuments)
+            .set({ responseMetadata: collected.responseMetadata })
+            .where(eq(cardBenefitDocuments.id, existingDocument.id))
+            .returning()
+            .get();
+        return { collected, document, status: 'unchanged' };
     }
     const latestDocument = db.select().from(cardBenefitDocuments)
         .where(and(
@@ -168,6 +176,13 @@ const storeCollectedSource = (
     }).returning().get();
     return { collected, document, status: 'created' };
 };
+
+const noticeDocumentsFrom = (
+    documents: Array<{ sourceUrl: string; responseMetadata: CardBenefitDocumentMetadata }>,
+) => documents.flatMap(document => {
+    const noticeDates = document.responseMetadata.noticeDates;
+    return noticeDates ? [{ sourceUrl: document.sourceUrl, noticeDates }] : [];
+});
 
 const currentReferences = () => ({
     categoryIds: new Set(db.select({ id: categories.id }).from(categories).all().map(row => row.id)),
@@ -217,6 +232,9 @@ const toCollectionResult = (
         status: source.status,
         ...(source.document.responseMetadata.pageCount && {
             pageCount: source.document.responseMetadata.pageCount,
+        }),
+        ...(source.document.responseMetadata.noticeDates && {
+            noticeDates: source.document.responseMetadata.noticeDates,
         }),
     })),
     sourceFailures,
@@ -297,6 +315,7 @@ export async function collectShinhanSolTravelBenefits(options: {
             extraction: existingCandidate.extraction,
             baseline: currentSnapshot(card.id),
             baselineRevision: baseRevision,
+            noticeDocuments: noticeDocumentsFrom(storedSources.map(source => source.document)),
         });
         const existingValidationErrors = [...new Set([
             ...existingValidation.errors,
@@ -321,6 +340,7 @@ export async function collectShinhanSolTravelBenefits(options: {
         extraction: extractionResult.extraction,
         baseline: currentSnapshot(card.id),
         baselineRevision: baseRevision,
+        noticeDocuments: noticeDocumentsFrom(storedSources.map(source => source.document)),
     });
     const validationErrors = [...new Set([
         ...validation.errors,
@@ -536,6 +556,7 @@ export function reviewCardBenefitCandidate(
         extraction: candidate.extraction,
         baseline: currentSnapshot(candidate.cardId),
         baselineRevision: currentBaseRevision,
+        noticeDocuments: noticeDocumentsFrom(documents.map(item => item.document)),
     });
     if (candidate.validationErrors.length > 0 || validation.errors.length > 0 ||
         audit.blockingErrors.length > 0 ||
@@ -682,35 +703,51 @@ export function getCardBenefitReviewData() {
                     documentId: candidate.documentId,
                     role: 'PRIMARY' as const,
                 }];
+                const sourceDocuments = relations.flatMap(relation => {
+                    const source = documentById.get(relation.documentId);
+                    return source ? [{ source, role: relation.role }] : [];
+                });
+                const audit = candidate.status === 'PENDING'
+                    ? createCardBenefitCandidateAudit({
+                        extraction: candidate.extraction,
+                        baseline: currentSnapshot(candidate.cardId),
+                        baselineRevision: currentBaseRevision,
+                        noticeDocuments: noticeDocumentsFrom(
+                            sourceDocuments.map(item => item.source)
+                        ),
+                    })
+                    : candidate.audit ?? createCardBenefitCandidateAudit({
+                        extraction: candidate.extraction,
+                        baseline: currentSnapshot(candidate.cardId),
+                        baselineRevision: currentBaseRevision,
+                        noticeDocuments: noticeDocumentsFrom(
+                            sourceDocuments.map(item => item.source)
+                        ),
+                    });
                 return {
                     ...candidate,
                     validationErrors: [...new Set([
                         ...candidate.validationErrors,
                         ...staleError,
+                        ...audit.blockingErrors,
                     ])],
-                    audit: candidate.audit ?? createCardBenefitCandidateAudit({
-                        extraction: candidate.extraction,
-                        baseline: currentSnapshot(candidate.cardId),
-                        baselineRevision: currentBaseRevision,
-                    }),
+                    audit,
                     sourceUrl: document?.sourceUrl ?? '',
                     documentVersion: document?.version ?? 0,
                     contentHash: document?.contentHash ?? '',
                     collectedAt: document?.collectedAt.toISOString(),
-                    sources: relations.flatMap(relation => {
-                        const source = documentById.get(relation.documentId);
-                        return source ? [{
+                    sources: sourceDocuments.map(({ source, role }) => ({
                             documentId: source.id,
-                            role: relation.role,
+                            role,
                             sourceUrl: source.sourceUrl,
                             sourceKind: source.sourceKind,
                             mediaType: source.mediaType,
                             version: source.version,
                             contentHash: source.contentHash,
                             pageCount: source.responseMetadata.pageCount,
+                            noticeDates: source.responseMetadata.noticeDates,
                             collectedAt: source.collectedAt.toISOString(),
-                        }] : [];
-                    }),
+                    })),
                     createdAt: candidate.createdAt.toISOString(),
                     reviewedAt: candidate.reviewedAt?.toISOString(),
                 };

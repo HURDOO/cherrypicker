@@ -31,6 +31,20 @@ const pdfSource: OfficialDocumentSourceDefinition = {
     candidateRole: 'SUPPORTING',
 };
 
+const noticeSource: OfficialDocumentSourceDefinition = {
+    ...htmlSource,
+    id: 'card-notice',
+    label: '카드 약관 변경 공지',
+    sourceUrl: 'https://www.card.example/notices/one',
+    sourceKind: 'NOTICE',
+    candidateRole: 'SUPPORTING',
+    noticeDatePolicy: {
+        affectedRuleIds: ['sol_cu_event'],
+        requirePublicationDate: true,
+        requireEffectiveFrom: true,
+    },
+};
+
 describe('official document source adapter', () => {
     it('collects trusted HTML and discovers only same-owner PDF links', async () => {
         const html = `
@@ -90,6 +104,32 @@ describe('official document source adapter', () => {
         });
         expect(splitPdfPages(collected.extractedText)).toEqual(pages);
         expect(collected.extractedText).toBe(joinPdfPages(pages));
+    });
+
+    it('extracts publication and effective dates from an official notice', async () => {
+        const html = `
+            <html><body>
+                <h1>카드 약관 개정 안내</h1>
+                <p>2024.06.13</p>
+                <p>${'공식 혜택 변경 내용을 안내합니다. '.repeat(8)}</p>
+                <h2>시행일자</h2>
+                <p>2024년 6월 20일부터</p>
+            </body></html>
+        `;
+        const collected = await collectOfficialDocument(noticeSource, {
+            fetcher: vi.fn().mockResolvedValue(new Response(html, {
+                status: 200,
+                headers: { 'content-type': 'text/html; charset=utf-8' },
+            })),
+        });
+
+        expect(collected.responseMetadata.noticeDates).toMatchObject({
+            affectedRuleIds: ['sol_cu_event'],
+            publicationDate: '2024-06-13',
+            effectiveFrom: '2024-06-20',
+            requirePublicationDate: true,
+            requireEffectiveFrom: true,
+        });
     });
 
     it('rejects non-HTTPS, lookalike hosts, and redirects outside the allowlist', async () => {

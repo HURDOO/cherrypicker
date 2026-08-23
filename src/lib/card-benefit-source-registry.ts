@@ -39,6 +39,11 @@ const baseSources: OfficialDocumentSourceDefinition[] = [
         allowedHosts: SHINHAN_CARD_HOSTS,
         required: false,
         candidateRole: 'SUPPORTING',
+        noticeDatePolicy: {
+            affectedRuleIds: ['sol_cu_event'],
+            requirePublicationDate: true,
+            requireEffectiveFrom: true,
+        },
     },
 ];
 

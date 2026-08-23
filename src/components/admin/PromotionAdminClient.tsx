@@ -24,6 +24,7 @@ import {
 import type {
     PromotionApplicabilityScope,
     PromotionCalculationMode,
+    PromotionCandidateAudit,
     PromotionOffer,
     PromotionProvider,
     PromotionSemanticAnalysis,
@@ -31,6 +32,11 @@ import type {
 } from '@/types';
 import type { StructuredFieldChange } from '@/lib/structured-diff';
 import { getErrorMessage } from '@/lib/api-client';
+import {
+    canAcknowledgePromotionAuditErrors,
+    formatPromotionAuditError,
+    unresolvedPromotionAuditErrors,
+} from '@/lib/promotion-candidate-audit';
 import { useToastStore } from '@/store/useToastStore';
 
 type Candidate = {
@@ -42,6 +48,8 @@ type Candidate = {
     rawContent: string;
     parsedOffer: Record<string, unknown>;
     diff: Record<string, unknown>;
+    sourceBundleHash: string;
+    audit?: PromotionCandidateAudit;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     linkedPromotionId?: string;
     discoveredAt: string;
@@ -87,6 +95,7 @@ type AdminData = {
     providers: PromotionProvider[];
     promotions: PromotionOffer[];
     candidates: Candidate[];
+    sourceBundles: Record<string, SourceDocumentSummary[]>;
     brands: Array<{ id: string; name: string }>;
     categories: Array<{ id: string; name: string }>;
     routeVerifications: Array<{
@@ -102,6 +111,15 @@ type AdminData = {
     }>;
 };
 
+type SourceDocumentSummary = {
+    id: string;
+    sourceUrl: string;
+    mediaType: string;
+    contentHash: string;
+    version: number;
+    collectedAt: string;
+};
+
 type CollectionResult = {
     sourceId: string;
     sourceUrl: string;
@@ -115,7 +133,7 @@ type CollectionResult = {
     message?: string;
 };
 
-type RiskFilter = 'ALL' | 'CHANGED' | 'COMPLEX' | 'ENCODING';
+type RiskFilter = 'ALL' | 'BLOCKED' | 'CHANGED' | 'COMPLEX' | 'ENCODING';
 type ScopeFilter = 'ALL' | PromotionApplicabilityScope;
 
 const PAGE_SIZE = 20;
@@ -175,6 +193,9 @@ const scopeDescriptions: Record<PromotionApplicabilityScope, string> = {
     UNKNOWN: '게시 전에 범위를 반드시 선택',
 };
 
+const UNKNOWN_ELIGIBLE_ITEM_SUMMARY =
+    '제휴사가 지정한 상품·서비스에 한해 적용(세부 대상은 공식 유의사항 확인)';
+
 const hasBrokenEncoding = (value: unknown) => {
     const text = typeof value === 'string' ? value : JSON.stringify(value) ?? '';
     return text.includes('\uFFFD') || text.includes('ï¿½');
@@ -211,6 +232,12 @@ const candidateWarnings = (candidate: Candidate) => Array.isArray(candidate.diff
     ? candidate.diff.warnings.filter((warning): warning is string => typeof warning === 'string')
     : [];
 
+const candidateResolutionMessages: Record<string, string> = {
+    MISSING_FROM_LATEST_SOURCE: '승인 전에 최신 공식 목록에서 사라져 자동 반려되었습니다. 이 후보는 게시되지 않았습니다.',
+    REAPPEARED_IN_SOURCE: '삭제 의심 후 최신 공식 목록에 다시 나타나 삭제 후보가 자동 반려되었습니다.',
+    REMOVAL_CONFIRMED: '공식 목록에서 사라진 사실을 확인해 연결된 게시 혜택을 만료했습니다.',
+};
+
 const candidateFieldChanges = (candidate: Candidate): StructuredFieldChange[] => {
     const changes = candidate.diff.fieldChanges;
     if (!Array.isArray(changes)) return [];
@@ -220,6 +247,18 @@ const candidateFieldChanges = (candidate: Candidate): StructuredFieldChange[] =>
         typeof (change as StructuredFieldChange).path === 'string' &&
         ['ADDED', 'REMOVED', 'CHANGED'].includes((change as StructuredFieldChange).kind)
     ));
+};
+
+const candidateBlockingErrors = (candidate: Candidate) => {
+    if (candidate.audit) return candidate.audit.blockingErrors;
+    if (
+        candidate.status === 'PENDING' &&
+        candidate.diff.structured === true &&
+        candidate.diff.manual !== true
+    ) {
+        return ['원문 source bundle 검증이 없는 기존 후보입니다. 공식 페이지를 다시 수집해주세요.'];
+    }
+    return [];
 };
 
 const fieldChangeKindLabel: Record<StructuredFieldChange['kind'], string> = {
@@ -237,6 +276,7 @@ const formatFieldChangeValue = (value: unknown) => {
 };
 
 const candidateRisk = (candidate: Candidate): Exclude<RiskFilter, 'ALL'> | 'NORMAL' => {
+    if (candidateBlockingErrors(candidate).length > 0) return 'BLOCKED';
     if (hasBrokenEncoding(candidate.rawContent) || hasBrokenEncoding(candidate.parsedOffer)) {
         return 'ENCODING';
     }
@@ -659,6 +699,7 @@ function CandidateCard({
     providerName,
     brandNames,
     brands,
+    sourceDocuments,
     selected,
     onSelect,
     onComplete,
@@ -667,6 +708,7 @@ function CandidateCard({
     providerName: string;
     brandNames: Map<string, string>;
     brands: AdminData['brands'];
+    sourceDocuments: SourceDocumentSummary[];
     selected: boolean;
     onSelect: (checked: boolean) => void;
     onComplete: () => Promise<void>;
@@ -677,6 +719,22 @@ function CandidateCard({
     const warnings = candidateWarnings(candidate);
     const fieldChanges = candidateFieldChanges(candidate);
     const semanticAnalysis = candidateSemanticAnalysis(candidate);
+    const storedBlockingErrors = candidateBlockingErrors(candidate);
+    const removalCandidate = candidate.diff.removedFromSource === true;
+    const resolution = typeof candidate.diff.resolution === 'string'
+        ? candidate.diff.resolution
+        : undefined;
+    const resolutionMessage = resolution
+        ? candidateResolutionMessages[resolution]
+        : undefined;
+    const auditEvidence = [...new Map(
+        (candidate.audit?.coverage ?? [])
+            .flatMap(item => item.evidence)
+            .map(reference => [
+                `${reference.documentId}:${reference.quote}`,
+                reference,
+            ])
+    ).values()];
     const [form, setForm] = useState({
         title: offer.title ?? candidate.sourceTitle,
         description: offer.description ?? '',
@@ -698,70 +756,149 @@ function CandidateCard({
     });
     const [isSaving, setIsSaving] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [highRiskChangesAcknowledged, setHighRiskChangesAcknowledged] = useState(false);
+    const buildReviewedParsedOffer = () => {
+        const actionValue = Number(form.actionValue);
+        const maxBenefit = form.maxBenefit ? Number(form.maxBenefit) : undefined;
+        const minSpend = form.minSpend ? Number(form.minSpend) : undefined;
+        const itemScoped = form.applicabilityScope === 'CATEGORY' ||
+            form.applicabilityScope === 'PRODUCT_SET';
+        const requiredInputs = [
+            ...(offer.condition?.requiredInputs ?? []).filter(input =>
+                input !== 'ELIGIBLE_ITEM_AMOUNT'
+            ),
+            ...(itemScoped ? ['ELIGIBLE_ITEM_AMOUNT'] : []),
+        ];
+        return {
+            ...candidate.parsedOffer,
+            title: form.title.trim(),
+            description: form.description.trim(),
+            brandIds: form.brandId ? [form.brandId] : offer.brandIds ?? [],
+            certainty: form.calculationMode === 'CONDITIONAL'
+                ? 'CONDITIONAL'
+                : offer.certainty,
+            action: {
+                ...offer.action,
+                type: form.actionType,
+                value: actionValue,
+                valueSemantics: form.valueSemantics,
+                ...(maxBenefit ? { maxBenefit } : { maxBenefit: undefined }),
+            },
+            condition: {
+                ...offer.condition,
+                amountBasis: itemScoped
+                    ? 'ELIGIBLE_ITEM_AMOUNT'
+                    : offer.condition?.amountBasis === 'ELIGIBLE_ITEM_AMOUNT'
+                        ? offer.layer === 'DISCOUNT' ? 'ORIGINAL_AMOUNT' : 'REMAINING_AMOUNT'
+                        : offer.condition?.amountBasis,
+                applicabilityScope: form.applicabilityScope,
+                calculationMode: form.calculationMode,
+                headlineEligible: form.applicabilityScope === 'STORE_WIDE' &&
+                    form.calculationMode !== 'INFORMATION_ONLY',
+                itemSpecific: itemScoped,
+                requiredInputs,
+                ...(form.eligibleItemSummary.trim()
+                    ? { eligibleItemSummary: form.eligibleItemSummary.trim() }
+                    : { eligibleItemSummary: undefined }),
+                ...(minSpend ? { minSpend } : { minSpend: undefined }),
+                confirmationRequired: form.calculationMode === 'CONDITIONAL',
+                manualCheckRequired: form.manualCheckRequired ||
+                    form.applicabilityScope === 'UNKNOWN',
+                ...(form.requiredNote.trim()
+                    ? { requiredNote: form.requiredNote.trim() }
+                    : { requiredNote: undefined }),
+            },
+        };
+    };
+    const blockingErrors = unresolvedPromotionAuditErrors(
+        storedBlockingErrors,
+        buildReviewedParsedOffer(),
+    );
+    const hasBlockingErrors = blockingErrors.length > 0;
+    const resolvedBlockingErrorCount = storedBlockingErrors.length - blockingErrors.length;
+    const canAcknowledgeHighRiskChanges = !removalCandidate &&
+        canAcknowledgePromotionAuditErrors(blockingErrors);
+    const approvalBlocked = candidate.status === 'PENDING' && hasBlockingErrors &&
+        !(canAcknowledgeHighRiskChanges && highRiskChangesAcknowledged);
+
+    const previousRestrictedScope = fieldChanges.find(change => (
+        change.path === 'condition.applicabilityScope' &&
+        change.kind === 'CHANGED' &&
+        (change.before === 'CATEGORY' || change.before === 'PRODUCT_SET') &&
+        change.after !== 'CATEGORY' && change.after !== 'PRODUCT_SET'
+    ))?.before as PromotionApplicabilityScope | undefined;
+    const removedEligibleItemSummary = fieldChanges.find(change => (
+        change.path === 'condition.eligibleItemSummary' && change.kind === 'REMOVED'
+    ));
+    const canApplyRestrictedFallback = candidate.status === 'PENDING' &&
+        Boolean(previousRestrictedScope && removedEligibleItemSummary);
+
+    const applyRestrictedFallback = () => {
+        if (!previousRestrictedScope) return;
+        setForm(current => ({
+            ...current,
+            applicabilityScope: previousRestrictedScope,
+            eligibleItemSummary: UNKNOWN_ELIGIBLE_ITEM_SUMMARY,
+            calculationMode: 'CONDITIONAL',
+            manualCheckRequired: true,
+            requiredNote: current.requiredNote.trim() ||
+                '세부 대상 상품·서비스는 결제 전 공식 유의사항을 확인해야 합니다.',
+        }));
+        setHighRiskChangesAcknowledged(false);
+        setIsEditing(true);
+    };
 
     const update = async (status: 'APPROVED' | 'REJECTED') => {
         setIsSaving(true);
         try {
-            const actionValue = Number(form.actionValue);
-            const maxBenefit = form.maxBenefit ? Number(form.maxBenefit) : undefined;
-            const minSpend = form.minSpend ? Number(form.minSpend) : undefined;
-            const itemScoped = form.applicabilityScope === 'CATEGORY' ||
-                form.applicabilityScope === 'PRODUCT_SET';
-            const requiredInputs = [
-                ...(offer.condition?.requiredInputs ?? []).filter(input =>
-                    input !== 'ELIGIBLE_ITEM_AMOUNT'
-                ),
-                ...(itemScoped ? ['ELIGIBLE_ITEM_AMOUNT'] : []),
-            ];
-            const parsedOffer = status === 'APPROVED' ? {
-                ...candidate.parsedOffer,
-                title: form.title.trim(),
-                description: form.description.trim(),
-                brandIds: form.brandId ? [form.brandId] : offer.brandIds ?? [],
-                    action: {
-                        ...offer.action,
-                        type: form.actionType,
-                        value: actionValue,
-                        valueSemantics: form.valueSemantics,
-                    ...(maxBenefit ? { maxBenefit } : { maxBenefit: undefined }),
-                },
-                condition: {
-                    ...offer.condition,
-                    amountBasis: itemScoped
-                        ? 'ELIGIBLE_ITEM_AMOUNT'
-                        : offer.condition?.amountBasis === 'ELIGIBLE_ITEM_AMOUNT'
-                            ? offer.layer === 'DISCOUNT' ? 'ORIGINAL_AMOUNT' : 'REMAINING_AMOUNT'
-                            : offer.condition?.amountBasis,
-                    applicabilityScope: form.applicabilityScope,
-                    calculationMode: form.calculationMode,
-                    headlineEligible: form.applicabilityScope === 'STORE_WIDE' &&
-                        form.calculationMode !== 'INFORMATION_ONLY',
-                    itemSpecific: itemScoped,
-                    requiredInputs,
-                    ...(form.eligibleItemSummary.trim()
-                        ? { eligibleItemSummary: form.eligibleItemSummary.trim() }
-                        : { eligibleItemSummary: undefined }),
-                    ...(minSpend ? { minSpend } : { minSpend: undefined }),
-                    confirmationRequired: form.calculationMode === 'CONDITIONAL',
-                    manualCheckRequired: form.manualCheckRequired ||
-                        form.applicabilityScope === 'UNKNOWN',
-                    ...(form.requiredNote.trim()
-                        ? { requiredNote: form.requiredNote.trim() }
-                        : { requiredNote: undefined }),
-                },
-            } : undefined;
+            const parsedOffer = status === 'APPROVED'
+                ? buildReviewedParsedOffer()
+                : undefined;
             await request({
                 method: 'PATCH',
                 body: JSON.stringify({
                     candidateId: candidate.id,
                     status,
                     ...(parsedOffer && { parsedOffer }),
+                    ...(status === 'APPROVED' && highRiskChangesAcknowledged && {
+                        acknowledgeHighRiskChanges: true,
+                    }),
                 }),
             });
-            addToast(status === 'APPROVED' ? '혜택을 게시했습니다.' : '후보를 반려했습니다.', 'success');
+            addToast(
+                status === 'APPROVED'
+                    ? '혜택을 게시했습니다.'
+                    : removalCandidate
+                        ? '삭제 감지를 오탐으로 처리하고 기존 혜택을 유지했습니다.'
+                        : '후보를 반려했습니다.',
+                'success',
+            );
             await onComplete();
         } catch (error) {
             addToast(getErrorMessage(error, '검수 결과를 저장하지 못했습니다.'), 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const confirmRemoval = async () => {
+        const title = offer.title ?? candidate.sourceTitle;
+        if (!window.confirm(
+            `${title} 혜택이 공식 목록에서 사라진 것으로 확정하고 만료 처리할까요?`
+        )) return;
+        setIsSaving(true);
+        try {
+            await request({
+                method: 'PATCH',
+                body: JSON.stringify({
+                    action: 'confirm-removal',
+                    candidateId: candidate.id,
+                }),
+            });
+            addToast('사라진 혜택을 만료 처리했습니다.', 'success');
+            await onComplete();
+        } catch (error) {
+            addToast(getErrorMessage(error, '사라진 혜택을 만료하지 못했습니다.'), 'error');
         } finally {
             setIsSaving(false);
         }
@@ -780,9 +917,10 @@ function CandidateCard({
                     <input
                         type="checkbox"
                         checked={selected}
+                        disabled={storedBlockingErrors.length > 0}
                         onChange={event => onSelect(event.target.checked)}
                         aria-label={`${offer.title ?? candidate.sourceTitle} 선택`}
-                        className="mt-1 h-4 w-4 shrink-0 accent-blue-600"
+                        className="mt-1 h-4 w-4 shrink-0 accent-blue-600 disabled:opacity-30"
                     />
                 )}
                 <div className="min-w-0 flex-1">
@@ -799,6 +937,23 @@ function CandidateCard({
                         }`}>
                             {statusLabel[candidate.status]}
                         </span>
+                        {hasBlockingErrors && (
+                            <span className="rounded-full bg-rose-100 px-2 py-1 text-[9px] font-black text-rose-700">
+                                {canAcknowledgeHighRiskChanges
+                                    ? highRiskChangesAcknowledged ? '위험 변경 확인 완료' : '위험 변경 확인 필요'
+                                    : '승인 차단'}
+                            </span>
+                        )}
+                        {!hasBlockingErrors && resolvedBlockingErrorCount > 0 && (
+                            <span className="rounded-full bg-emerald-100 px-2 py-1 text-[9px] font-black text-emerald-700">
+                                위험 변경 수정 완료
+                            </span>
+                        )}
+                        {removalCandidate && (
+                            <span className="rounded-full bg-rose-100 px-2 py-1 text-[9px] font-black text-rose-700">
+                                공식 목록에서 사라짐
+                            </span>
+                        )}
                         {risk === 'CHANGED' && (
                             <span className="rounded-full bg-blue-100 px-2 py-1 text-[9px] font-black text-blue-700">변경 감지</span>
                         )}
@@ -863,6 +1018,120 @@ function CandidateCard({
                 <div className="mt-3 flex items-start gap-2 rounded-xl bg-violet-50 px-3 py-2 text-[10px] font-bold leading-relaxed text-violet-800">
                     <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     {warnings[0] ?? offer.condition?.requiredNote}
+                </div>
+            )}
+
+            {removalCandidate && candidate.status === 'PENDING' && (
+                <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-bold leading-relaxed text-rose-800">
+                    기존 게시 혜택은 아직 유지 중입니다. 공식 원문에서 실제로 사라진 것을 확인했다면 만료하고, 수집 누락이면 오탐으로 처리하세요.
+                </div>
+            )}
+
+            {resolutionMessage && (
+                <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-[10px] font-bold leading-relaxed text-gray-600">
+                    {resolutionMessage}
+                </div>
+            )}
+
+            {(candidate.audit || approvalBlocked) && (
+                <div className={`mt-3 rounded-xl border px-3 py-3 ${
+                    hasBlockingErrors
+                        ? 'border-rose-200 bg-rose-50'
+                        : 'border-emerald-200 bg-emerald-50'
+                }`}>
+                    <div className="flex flex-wrap items-center gap-2 text-[9px] font-black">
+                        {candidate.audit ? (
+                            <>
+                                <span className={hasBlockingErrors ? 'text-rose-800' : 'text-emerald-800'}>
+                                    공식 근거 {candidate.audit.summary.coveredFields}개
+                                </span>
+                                <span className="text-gray-400">
+                                    누락 {candidate.audit.summary.missingFields}개
+                                </span>
+                                <span className="text-gray-400">
+                                    고위험 변경 {candidate.audit.summary.highRiskChanges}개
+                                </span>
+                            </>
+                        ) : (
+                            <span className="text-rose-800">원문 감사 기록 없음</span>
+                        )}
+                        {candidate.sourceBundleHash && (
+                            <code className="text-gray-400">
+                                bundle {candidate.sourceBundleHash.slice(0, 8)}
+                            </code>
+                        )}
+                    </div>
+                    {blockingErrors.length > 0 && (
+                        <ul className="mt-2 space-y-1.5 text-[10px] font-bold leading-relaxed text-rose-800">
+                            {blockingErrors.slice(0, 5).map(error => (
+                                <li key={error} className="flex gap-1.5">
+                                    <span>•</span>
+                                    <span>{formatPromotionAuditError(error)}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    {resolvedBlockingErrorCount > 0 && (
+                        <p className="mt-2 text-[10px] font-bold leading-relaxed text-emerald-800">
+                            수정한 최종값에서 제거 예정 필드 {resolvedBlockingErrorCount}개가 복원되어 해당 경고를 해소했습니다.
+                        </p>
+                    )}
+                    {canApplyRestrictedFallback && hasBlockingErrors && (
+                        <button
+                            type="button"
+                            onClick={applyRestrictedFallback}
+                            className="mt-2 rounded-lg bg-amber-600 px-3 py-1.5 text-[10px] font-black text-white"
+                        >
+                            상품 한정·조건부로 안전 보정
+                        </button>
+                    )}
+                    {auditEvidence.length > 0 && (
+                        <details className="mt-2 border-t border-current/10 pt-2">
+                            <summary className="cursor-pointer text-[9px] font-black text-gray-600">
+                                연결된 공식 근거 문장 {auditEvidence.length}개
+                            </summary>
+                            <ul className="mt-2 space-y-1.5">
+                                {auditEvidence.slice(0, 5).map(reference => (
+                                    <li key={`${reference.documentId}:${reference.quote}`}>
+                                        <a
+                                            href={reference.sourceUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="line-clamp-2 text-[9px] font-bold leading-relaxed text-blue-700"
+                                        >
+                                            “{reference.quote}”
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        </details>
+                    )}
+                    {sourceDocuments.length > 0 && (
+                        <details className="mt-2 border-t border-current/10 pt-2">
+                            <summary className="cursor-pointer text-[9px] font-black text-gray-600">
+                                보존된 공식 원문 {sourceDocuments.length}개
+                            </summary>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                {sourceDocuments.slice(0, 12).map(document => (
+                                    <a
+                                        key={document.id}
+                                        href={`/api/admin/promotions/source-documents/${encodeURIComponent(document.id)}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-[9px] font-black text-blue-700"
+                                    >
+                                        저장 원문 v{document.version}
+                                        <ExternalLink className="h-2.5 w-2.5" />
+                                    </a>
+                                ))}
+                                {sourceDocuments.length > 12 && (
+                                    <span className="rounded-full bg-white px-2 py-1 text-[9px] font-black text-gray-500">
+                                        외 {sourceDocuments.length - 12}개
+                                    </span>
+                                )}
+                            </div>
+                        </details>
+                    )}
                 </div>
             )}
 
@@ -1114,29 +1383,72 @@ function CandidateCard({
                 )}
             </div>
 
+            {candidate.status === 'PENDING' && canAcknowledgeHighRiskChanges && (
+                <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold leading-relaxed text-amber-900">
+                    <input
+                        type="checkbox"
+                        checked={highRiskChangesAcknowledged}
+                        onChange={event => setHighRiskChangesAcknowledged(event.target.checked)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-amber-600"
+                    />
+                    <span>기존 혜택에서 제거되는 고위험 조건과 현재 수정값을 확인했으며, 이 내용으로 게시합니다.</span>
+                </label>
+            )}
+
             {candidate.status === 'PENDING' && (
                 <div className="mt-3 flex justify-end gap-2 border-t border-gray-100 pt-3">
-                    <button
-                        type="button"
-                        onClick={() => update('REJECTED')}
-                        disabled={isSaving}
-                        className="flex items-center gap-1.5 rounded-xl bg-rose-50 px-4 py-2 text-[11px] font-black text-rose-700 disabled:opacity-50"
-                    >
-                        <XCircle className="h-4 w-4" />
-                        반려
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => update('APPROVED')}
-                        disabled={isSaving || form.applicabilityScope === 'UNKNOWN'}
-                        title={form.applicabilityScope === 'UNKNOWN'
-                            ? '적용 범위를 먼저 선택해주세요.'
-                            : undefined}
-                        className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-[11px] font-black text-white disabled:opacity-50"
-                    >
-                        {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                        확인 후 게시
-                    </button>
+                    {removalCandidate ? (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => update('REJECTED')}
+                                disabled={isSaving}
+                                className="flex items-center gap-1.5 rounded-xl bg-gray-100 px-4 py-2 text-[11px] font-black text-gray-700 disabled:opacity-50"
+                            >
+                                <XCircle className="h-4 w-4" />
+                                오탐·혜택 유지
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmRemoval}
+                                disabled={isSaving}
+                                className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-[11px] font-black text-white disabled:opacity-50"
+                            >
+                                {isSaving
+                                    ? <LoaderCircle className="h-4 w-4 animate-spin" />
+                                    : <CheckCircle2 className="h-4 w-4" />}
+                                사라짐 확정·만료
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => update('REJECTED')}
+                                disabled={isSaving}
+                                className="flex items-center gap-1.5 rounded-xl bg-rose-50 px-4 py-2 text-[11px] font-black text-rose-700 disabled:opacity-50"
+                            >
+                                <XCircle className="h-4 w-4" />
+                                반려
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => update('APPROVED')}
+                                disabled={isSaving || form.applicabilityScope === 'UNKNOWN' || approvalBlocked}
+                                title={approvalBlocked
+                                    ? blockingErrors[0]
+                                    : form.applicabilityScope === 'UNKNOWN'
+                                        ? '적용 범위를 먼저 선택해주세요.'
+                                        : undefined}
+                                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-[11px] font-black text-white disabled:opacity-50"
+                            >
+                                {isSaving
+                                    ? <LoaderCircle className="h-4 w-4 animate-spin" />
+                                    : <CheckCircle2 className="h-4 w-4" />}
+                                확인 후 게시
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
         </article>
@@ -1197,6 +1509,7 @@ export function PromotionAdminClient() {
             .sort((a, b) => {
                 const score = (candidate: Candidate) => {
                     const risk = candidateRisk(candidate);
+                    if (risk === 'BLOCKED') return 4;
                     if (risk === 'ENCODING') return 3;
                     if (risk === 'CHANGED') return 2;
                     if (risk === 'COMPLEX') return 1;
@@ -1286,6 +1599,12 @@ export function PromotionAdminClient() {
             addToast('범위 미확정 후보는 적용 범위를 선택한 뒤 게시해주세요.', 'error');
             return;
         }
+        if (status === 'APPROVED' && (data?.candidates ?? []).some(candidate =>
+            selectedIds.has(candidate.id) && candidateBlockingErrors(candidate).length > 0
+        )) {
+            addToast('공식 근거 또는 삭제 검증 오류가 있는 후보는 일괄 게시할 수 없습니다.', 'error');
+            return;
+        }
         setIsBulkSaving(true);
         try {
             const result = await request<{
@@ -1325,12 +1644,17 @@ export function PromotionAdminClient() {
     };
 
     const selectablePageIds = pagedCandidates
-        .filter(candidate => candidate.status === 'PENDING')
+        .filter(candidate => (
+            candidate.status === 'PENDING' && candidateBlockingErrors(candidate).length === 0
+        ))
         .map(candidate => candidate.id);
     const allPageSelected = selectablePageIds.length > 0 &&
         selectablePageIds.every(id => selectedIds.has(id));
     const selectedHasUnknown = (data?.candidates ?? []).some(candidate =>
         selectedIds.has(candidate.id) && candidateScope(candidate) === 'UNKNOWN'
+    );
+    const selectedHasBlocked = (data?.candidates ?? []).some(candidate =>
+        selectedIds.has(candidate.id) && candidateBlockingErrors(candidate).length > 0
     );
 
     return (
@@ -1488,6 +1812,7 @@ export function PromotionAdminClient() {
                                     className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold"
                                 >
                                     <option value="ALL">전체 유형</option>
+                                    <option value="BLOCKED">승인 차단</option>
                                     <option value="CHANGED">변경 감지</option>
                                     <option value="COMPLEX">조건 확인</option>
                                     <option value="ENCODING">문자 오류</option>
@@ -1544,6 +1869,9 @@ export function PromotionAdminClient() {
                                         providerName={providerNames.get(candidate.providerId) ?? candidate.providerId}
                                         brandNames={brandNames}
                                         brands={data?.brands ?? []}
+                                        sourceDocuments={
+                                            data?.sourceBundles[candidate.sourceBundleHash] ?? []
+                                        }
                                         selected={selectedIds.has(candidate.id)}
                                         onSelect={checked => setSelectedIds(current => {
                                             const next = new Set(current);
@@ -1696,8 +2024,10 @@ export function PromotionAdminClient() {
                     <div>
                         <p className="text-xs font-black">{selectedIds.size}건 선택됨</p>
                         <p className="text-[9px] font-bold text-gray-400">
-                            {selectedHasUnknown
-                                ? '범위 미확정 항목은 일괄 게시할 수 없습니다.'
+                            {selectedHasBlocked
+                                ? '공식 근거·삭제 검증 오류가 있는 항목은 게시할 수 없습니다.'
+                                : selectedHasUnknown
+                                    ? '범위 미확정 항목은 일괄 게시할 수 없습니다.'
                                 : '적용 범위와 같은 근거인지 확인 후 처리하세요.'}
                         </p>
                     </div>
@@ -1713,7 +2043,7 @@ export function PromotionAdminClient() {
                         <button
                             type="button"
                             onClick={() => bulkUpdate('APPROVED')}
-                            disabled={isBulkSaving || selectedHasUnknown}
+                            disabled={isBulkSaving || selectedHasUnknown || selectedHasBlocked}
                             className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2 text-[10px] font-black text-white disabled:opacity-50"
                         >
                             {isBulkSaving && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}

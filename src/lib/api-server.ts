@@ -1,5 +1,8 @@
 import { getAdminAccessMode } from '@/lib/admin-authorization-server';
 import { auth } from '@/lib/auth';
+import { HttpError } from '@/lib/http-error';
+
+export { HttpError } from '@/lib/http-error';
 
 const MAX_JSON_BODY_BYTES = 256 * 1024;
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -19,16 +22,6 @@ type ApiServerGlobal = typeof globalThis & {
 const apiServerGlobal = globalThis as ApiServerGlobal;
 const rateLimitBuckets = apiServerGlobal.cherryPickerRateLimits ?? new Map();
 apiServerGlobal.cherryPickerRateLimits = rateLimitBuckets;
-
-export class HttpError extends Error {
-    constructor(
-        public readonly status: number,
-        message: string
-    ) {
-        super(message);
-        this.name = 'HttpError';
-    }
-}
 
 export async function requireUser(request: Request) {
     assertSameOriginMutation(request);

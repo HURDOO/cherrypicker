@@ -18,6 +18,7 @@ import type {
     CardBenefitCandidateStatus,
     CardBenefitEvidence,
     CardBenefitExtraction,
+    CardBenefitNoticeDates,
     CardBenefitRevisionSnapshot,
 } from '@/types';
 import { getErrorMessage } from '@/lib/api-client';
@@ -49,6 +50,7 @@ type Candidate = {
         version: number;
         contentHash: string;
         pageCount?: number;
+        noticeDates?: CardBenefitNoticeDates;
         collectedAt: string;
     }>;
 };
@@ -474,6 +476,12 @@ export function CardBenefitAdminClient() {
                                     >
                                         {sourceKindLabel[source.sourceKind]} v{source.version}
                                         {source.pageCount ? ` · ${source.pageCount}쪽` : ''}
+                                        {source.noticeDates?.publicationDate
+                                            ? ` · 게시 ${source.noticeDates.publicationDate}`
+                                            : ''}
+                                        {source.noticeDates?.effectiveFrom
+                                            ? ` · 시행 ${source.noticeDates.effectiveFrom}`
+                                            : ''}
                                         <ExternalLink className="h-2.5 w-2.5" />
                                     </a>
                                 ))}

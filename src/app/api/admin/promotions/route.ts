@@ -8,6 +8,9 @@ import {
     promotionCandidates,
     promotionOffers,
     promotionProviders,
+    promotionSourceBundleDocuments,
+    promotionSourceBundles,
+    promotionSourceDocuments,
 } from '@/db/schema';
 import {
     handleRouteError,
@@ -15,12 +18,26 @@ import {
     readJsonObject,
     requireAdmin,
 } from '@/lib/api-server';
-import { collectPromotionCandidates } from '@/lib/promotion-collector';
+import { autoPromotionId, collectPromotionCandidates } from '@/lib/promotion-collector';
 import { normalizePromotionDraft } from '@/lib/promotion-input';
+import {
+    canAcknowledgePromotionAuditErrors,
+    unresolvedPromotionAuditErrors,
+} from '@/lib/promotion-candidate-audit';
+import { confirmPromotionRemoval } from '@/lib/promotion-removal-server';
 import { toPromotionOffer, toPromotionProvider } from '@/lib/db-mappers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+type SourceDocumentSummary = {
+    id: string;
+    sourceUrl: string;
+    mediaType: string;
+    contentHash: string;
+    version: number;
+    collectedAt: string;
+};
 
 const toCandidate = (row: typeof promotionCandidates.$inferSelect) => ({
     ...row,
@@ -31,11 +48,18 @@ const toCandidate = (row: typeof promotionCandidates.$inferSelect) => ({
 
 type CandidateReviewStatus = 'APPROVED' | 'REJECTED';
 
+const needsSourceAudit = (candidate: typeof promotionCandidates.$inferSelect) => (
+    candidate.diff.structured === true &&
+    candidate.diff.manual !== true &&
+    !candidate.audit
+);
+
 function reviewCandidate(
     candidateId: string,
     status: CandidateReviewStatus,
     reviewerId: string,
     parsedOfferOverride?: unknown,
+    acknowledgeHighRiskChanges = false,
 ) {
     const candidate = db.select().from(promotionCandidates)
         .where(eq(promotionCandidates.id, candidateId))
@@ -59,6 +83,13 @@ function reviewCandidate(
         return { candidate: toCandidate(row) };
     }
 
+    if (needsSourceAudit(candidate)) {
+        throw new HttpError(
+            400,
+            '원문 source bundle 검증이 없는 기존 후보입니다. 공식 페이지를 다시 수집해주세요.'
+        );
+    }
+
     const parsedOffer = parsedOfferOverride ?? candidate.parsedOffer;
     const offer = normalizePromotionDraft(parsedOffer);
     if (offer.providerId !== candidate.providerId) {
@@ -79,7 +110,24 @@ function reviewCandidate(
         ...(parsedOffer as Record<string, unknown>),
         condition: offer.condition,
     };
-    const promotionId = candidate.linkedPromotionId || `promotion-${randomUUID()}`;
+    const blockingErrors = unresolvedPromotionAuditErrors(
+        candidate.audit?.blockingErrors ?? [],
+        reviewedParsedOffer,
+    );
+    const acknowledgedReviewableErrors = acknowledgeHighRiskChanges &&
+        canAcknowledgePromotionAuditErrors(blockingErrors);
+    if (blockingErrors.length > 0 && !acknowledgedReviewableErrors) {
+        throw new HttpError(
+            400,
+            `공식 근거 또는 고위험 변경을 먼저 확인해야 합니다: ${blockingErrors[0]}`
+        );
+    }
+    const sourceKey = candidate.diff.sourceKey;
+    const promotionId = candidate.linkedPromotionId || (
+        candidate.diff.structured === true && typeof sourceKey === 'string'
+            ? autoPromotionId(candidate.providerId, sourceKey)
+            : `promotion-${randomUUID()}`
+    );
     const values = {
         ...offer,
         sourceHash: candidate.sourceHash,
@@ -101,6 +149,17 @@ function reviewCandidate(
         tx.update(promotionCandidates)
             .set({
                 parsedOffer: reviewedParsedOffer,
+                diff: acknowledgedReviewableErrors
+                    ? {
+                        ...candidate.diff,
+                        auditOverride: {
+                            type: 'HIGH_RISK_CHANGE_ACKNOWLEDGED',
+                            reviewerId,
+                            reviewedAt: now.toISOString(),
+                            errors: blockingErrors,
+                        },
+                    }
+                    : candidate.diff,
                 status: 'APPROVED',
                 linkedPromotionId: promotionId,
                 reviewerId,
@@ -128,6 +187,40 @@ function reviewCandidate(
 export async function GET(request: Request) {
     try {
         await requireAdmin(request);
+        const sourceDocuments = db.select({
+            id: promotionSourceDocuments.id,
+            sourceUrl: promotionSourceDocuments.sourceUrl,
+            mediaType: promotionSourceDocuments.mediaType,
+            contentHash: promotionSourceDocuments.contentHash,
+            version: promotionSourceDocuments.version,
+            collectedAt: promotionSourceDocuments.collectedAt,
+        }).from(promotionSourceDocuments).all();
+        const sourceDocumentById = new Map(sourceDocuments.map(document => [
+            document.id,
+            document,
+        ]));
+        const sourceBundles = db.select().from(promotionSourceBundles).all();
+        const bundleHashById = new Map(sourceBundles.map(bundle => [
+            bundle.id,
+            bundle.sourceBundleHash,
+        ]));
+        const sourceDocumentsByBundleHash = new Map<string, SourceDocumentSummary[]>();
+        db.select().from(promotionSourceBundleDocuments).all().forEach(relation => {
+            const sourceBundleHash = bundleHashById.get(relation.bundleId);
+            const document = sourceDocumentById.get(relation.documentId);
+            if (!sourceBundleHash || !document) return;
+            const current = sourceDocumentsByBundleHash.get(sourceBundleHash) ?? [];
+            current.push({
+                id: document.id,
+                sourceUrl: document.sourceUrl,
+                mediaType: document.mediaType,
+                contentHash: document.contentHash,
+                version: document.version,
+                collectedAt: document.collectedAt.toISOString(),
+            });
+            sourceDocumentsByBundleHash.set(sourceBundleHash, current);
+        });
+
         return Response.json({
             providers: db.select().from(promotionProviders)
                 .orderBy(asc(promotionProviders.sortOrder))
@@ -141,6 +234,7 @@ export async function GET(request: Request) {
                 .orderBy(desc(promotionCandidates.discoveredAt))
                 .all()
                 .map(toCandidate),
+            sourceBundles: Object.fromEntries(sourceDocumentsByBundleHash),
             brands: db.select({ id: brands.id, name: brands.name })
                 .from(brands)
                 .orderBy(asc(brands.name))
@@ -239,6 +333,17 @@ export async function PATCH(request: Request) {
         const user = await requireAdmin(request);
         const input = await readJsonObject(request);
 
+        if (input.action === 'confirm-removal') {
+            if (typeof input.candidateId !== 'string' || !input.candidateId) {
+                throw new HttpError(400, '삭제 감지 후보 ID가 필요합니다.');
+            }
+            const result = confirmPromotionRemoval(input.candidateId, user.id);
+            return Response.json({
+                candidate: toCandidate(result.candidate),
+                promotion: toPromotionOffer(result.promotion),
+            });
+        }
+
         if (Array.isArray(input.candidateIds)) {
             const candidateIds = [...new Set(input.candidateIds)]
                 .filter((id): id is string => typeof id === 'string' && Boolean(id));
@@ -272,6 +377,7 @@ export async function PATCH(request: Request) {
                     input.status,
                     user.id,
                     input.parsedOffer,
+                    input.acknowledgeHighRiskChanges === true,
                 ));
             }
         }

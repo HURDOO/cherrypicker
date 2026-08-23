@@ -9,7 +9,12 @@ type LoginPageProps = {
 
 const ERROR_MESSAGES: Record<string, string> = {
     invalid_credentials: '이메일 또는 비밀번호가 올바르지 않습니다.',
+    invalid_email: '올바른 이메일 주소를 입력해주세요.',
     invalid_form: '이메일과 비밀번호를 다시 확인해주세요.',
+    email_not_verified: '이메일 인증을 완료한 뒤 로그인해주세요.',
+    login_disabled: '현재 이메일·비밀번호 로그인을 사용할 수 없습니다.',
+    session_failed: '로그인 세션을 만들지 못했습니다. 잠시 후 다시 시도해주세요.',
+    origin_not_allowed: '현재 접속 주소가 인증 서버에 허용되지 않았습니다. 관리자에게 알려주세요.',
     rate_limited: '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.',
     server_error: '로그인 서버를 준비하지 못했습니다. 잠시 후 다시 시도해주세요.',
 };
@@ -72,8 +77,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
                     {signupProcessed && (
                         <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-center text-sm font-medium text-emerald-700">
-                            가입 요청을 처리했습니다. 새 이메일이면 가입이 완료되었습니다.
-                            기존 이메일이면 원래 비밀번호로 로그인해주세요.
+                            회원가입이 완료되었습니다. 등록한 이메일과 비밀번호로 로그인해주세요.
                         </p>
                     )}
 

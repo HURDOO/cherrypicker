@@ -19,10 +19,12 @@ import type {
     PromotionAction,
     PromotionChannel,
     PromotionCompatibility,
+    PromotionCandidateAudit,
     PromotionCondition,
     PromotionProviderKind,
     PromotionCollectionRunStatus,
     PromotionStatus,
+    PromotionSourceDocumentMetadata,
     RuleAction,
     RuleCondition,
     BenefitSubscription,
@@ -300,6 +302,69 @@ export const promotionOffers = sqliteTable('promotion_offers', {
     index('promotion_offers_period_idx').on(table.startsAt, table.endsAt),
 ]);
 
+export const promotionSourceDocuments = sqliteTable('promotion_source_documents', {
+    id: text('id').primaryKey(),
+    collectionSourceId: text('collection_source_id').notNull(),
+    sourceUrl: text('source_url').notNull(),
+    mediaType: text('media_type').notNull(),
+    contentHash: text('content_hash').notNull(),
+    version: integer('version').notNull(),
+    rawContent: text('raw_content').notNull(),
+    extractedText: text('extracted_text').notNull(),
+    responseMetadata: text('response_metadata', { mode: 'json' })
+        .$type<PromotionSourceDocumentMetadata>()
+        .notNull()
+        .default({}),
+    collectedAt: integer('collected_at', { mode: 'timestamp_ms' })
+        .notNull()
+        .default(nowInMilliseconds),
+}, (table) => [
+    uniqueIndex('promotion_source_documents_source_hash_unique').on(
+        table.collectionSourceId,
+        table.sourceUrl,
+        table.contentHash,
+    ),
+    uniqueIndex('promotion_source_documents_source_version_unique').on(
+        table.collectionSourceId,
+        table.sourceUrl,
+        table.version,
+    ),
+    index('promotion_source_documents_source_collected_idx').on(
+        table.collectionSourceId,
+        table.collectedAt,
+    ),
+]);
+
+export const promotionSourceBundles = sqliteTable('promotion_source_bundles', {
+    id: text('id').primaryKey(),
+    collectionSourceId: text('collection_source_id').notNull(),
+    sourceBundleHash: text('source_bundle_hash').notNull(),
+    collectedAt: integer('collected_at', { mode: 'timestamp_ms' })
+        .notNull()
+        .default(nowInMilliseconds),
+}, (table) => [
+    uniqueIndex('promotion_source_bundles_source_hash_unique').on(
+        table.collectionSourceId,
+        table.sourceBundleHash,
+    ),
+]);
+
+export const promotionSourceBundleDocuments = sqliteTable(
+    'promotion_source_bundle_documents',
+    {
+        bundleId: text('bundle_id')
+            .notNull()
+            .references(() => promotionSourceBundles.id, { onDelete: 'cascade' }),
+        documentId: text('document_id')
+            .notNull()
+            .references(() => promotionSourceDocuments.id, { onDelete: 'cascade' }),
+    },
+    (table) => [
+        primaryKey({ columns: [table.bundleId, table.documentId] }),
+        index('promotion_source_bundle_documents_document_idx').on(table.documentId),
+    ],
+);
+
 export const promotionCandidates = sqliteTable('promotion_candidates', {
     id: text('id').primaryKey(),
     providerId: text('provider_id')
@@ -315,6 +380,8 @@ export const promotionCandidates = sqliteTable('promotion_candidates', {
     diff: text('diff', { mode: 'json' })
         .$type<Record<string, unknown>>()
         .notNull(),
+    sourceBundleHash: text('source_bundle_hash').notNull().default(''),
+    audit: text('audit', { mode: 'json' }).$type<PromotionCandidateAudit>(),
     status: text('status')
         .$type<'PENDING' | 'APPROVED' | 'REJECTED'>()
         .notNull()

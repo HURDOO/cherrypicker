@@ -3,8 +3,10 @@ import { join, sep } from 'node:path';
 import type {
     CardBenefitDocumentMetadata,
     CardBenefitSourceKind,
+    RuleId,
 } from '@/types';
 import { decodePromotionHtml } from './html-decoding';
+import { extractOfficialNoticeDates } from './official-notice-dates';
 import { htmlToText } from './promotion-parsers';
 
 const HTML_MAX_BYTES = 2 * 1024 * 1024;
@@ -27,6 +29,11 @@ export interface OfficialDocumentSourceDefinition {
     allowedHosts: string[];
     required: boolean;
     candidateRole: 'PRIMARY' | 'SUPPORTING';
+    noticeDatePolicy?: {
+        affectedRuleIds: RuleId[];
+        requirePublicationDate: boolean;
+        requireEffectiveFrom: boolean;
+    };
 }
 
 export interface CollectedOfficialDocument {
@@ -242,6 +249,12 @@ export async function collectOfficialDocument(
             ...responseMetadata,
             rawEncoding: 'utf8',
             extractionMethod: 'html-to-text',
+            ...(definition.sourceKind === 'NOTICE' && definition.noticeDatePolicy && {
+                noticeDates: {
+                    ...definition.noticeDatePolicy,
+                    ...extractOfficialNoticeDates(extractedText),
+                },
+            }),
         },
     };
 }

@@ -98,6 +98,17 @@ export interface BenefitRule {
 export type CardBenefitSourceKind = 'PRODUCT_PAGE' | 'PRODUCT_GUIDE_PDF' | 'NOTICE';
 export type CardBenefitCandidateStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
+export interface CardBenefitNoticeDates {
+    affectedRuleIds: RuleId[];
+    requirePublicationDate: boolean;
+    requireEffectiveFrom: boolean;
+    publicationDate?: string;
+    effectiveFrom?: string;
+    effectiveTo?: string;
+    publicationEvidence?: string;
+    effectiveEvidence?: string;
+}
+
 export interface CardBenefitDocumentMetadata {
     etag?: string;
     lastModified?: string;
@@ -107,6 +118,7 @@ export interface CardBenefitDocumentMetadata {
     extractionMethod?: 'html-to-text' | 'pdfjs';
     pageCount?: number;
     title?: string;
+    noticeDates?: CardBenefitNoticeDates;
 }
 
 export interface CardBenefitEvidence {
@@ -304,6 +316,46 @@ export interface PromotionSemanticAnalysis {
     model?: string;
     inputHash?: string;
     diagnostic?: string;
+}
+
+export interface PromotionSourceDocumentMetadata {
+    contentType?: string;
+    etag?: string;
+    lastModified?: string;
+    finalUrl?: string;
+}
+
+export interface PromotionCandidateEvidenceReference {
+    documentId: string;
+    sourceUrl: string;
+    quote: string;
+}
+
+export interface PromotionCandidateFieldChange {
+    path: string;
+    kind: 'ADDED' | 'REMOVED' | 'CHANGED';
+    risk: 'NORMAL' | 'HIGH';
+    before?: unknown;
+    after?: unknown;
+}
+
+export interface PromotionCandidateCoverageItem {
+    path: string;
+    status: 'COVERED' | 'MISSING_EVIDENCE';
+    evidence: PromotionCandidateEvidenceReference[];
+}
+
+export interface PromotionCandidateAudit {
+    version: 1;
+    summary: {
+        changedFields: number;
+        highRiskChanges: number;
+        coveredFields: number;
+        missingFields: number;
+    };
+    changes: PromotionCandidateFieldChange[];
+    coverage: PromotionCandidateCoverageItem[];
+    blockingErrors: string[];
 }
 
 export interface PromotionProvider {

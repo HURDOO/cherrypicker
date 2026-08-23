@@ -9,6 +9,7 @@ import {
     subscriptionProducts,
     transactionBenefits,
 } from '@/db/schema';
+import { toPromotionOffer } from './db-mappers';
 import { summarizePromotionCollectionRun } from './promotion-collection-run';
 import { decodePromotionHtml } from './html-decoding';
 import { normalizePromotionDraft } from './promotion-input';
@@ -16,20 +17,37 @@ import {
     classifyParsedPromotions,
     createPromotionSemanticClassifier,
 } from './promotion-semantic-classifier';
-import type { PromotionSemanticAnalysis } from '@/types';
+import type { PromotionCandidateAudit, PromotionSemanticAnalysis } from '@/types';
 import {
     parseLguplusBenefits,
     parseNaverPayPromotions,
     parseParisMembershipHtml,
     parseSktMembershipHtml,
     parseTousLesJoursHtml,
+    htmlToText,
     type ParsedPromotion,
 } from './promotion-parsers';
 import {
     parseTUniverseSources,
     type ParsedSubscriptionProduct,
 } from './t-universe-parser';
-import { diffStructuredValues } from './structured-diff';
+import { createPromotionCandidateAudit } from './promotion-candidate-audit';
+import {
+    persistPromotionSourceBundle,
+    type CollectedPromotionSourceDocument,
+    type PersistedPromotionSourceBundle,
+} from './promotion-source-bundle';
+import {
+    isPromotionRemovalCandidate,
+    PROMOTION_CANDIDATE_RESOLUTION,
+    removalCandidateMatchesObservedPromotion,
+    shouldRejectPendingCandidateMissingFromSource,
+    withPromotionCandidateResolution,
+} from './promotion-removal-policy';
+import {
+    canAutomaticallyPublishPromotionCandidate,
+    shouldPreserveReviewedPromotionCandidate,
+} from './promotion-review-policy';
 
 type PromotionSource = {
     id: string;
@@ -143,6 +161,9 @@ const requestHeaders = {
     accept: 'text/html,application/xhtml+xml,application/json',
 };
 
+const PROMOTION_DOCUMENT_MAX_BYTES = 4 * 1024 * 1024;
+const PROMOTION_BUNDLE_MAX_BYTES = 32 * 1024 * 1024;
+
 async function fetchResponse(url: string, accept = requestHeaders.accept) {
     const response = await fetch(url, {
         headers: {
@@ -158,21 +179,76 @@ async function fetchResponse(url: string, accept = requestHeaders.accept) {
     return response;
 }
 
-async function fetchHtml(url: string) {
-    const response = await fetchResponse(url, 'text/html,application/xhtml+xml');
-    return decodePromotionHtml(
-        new Uint8Array(await response.arrayBuffer()),
-        response.headers.get('content-type'),
-    );
+const collectJsonText = (value: unknown): string[] => {
+    if (typeof value === 'string') return [value];
+    if (typeof value === 'number' || typeof value === 'boolean') return [String(value)];
+    if (Array.isArray(value)) return value.flatMap(collectJsonText);
+    if (!value || typeof value !== 'object') return [];
+    return Object.values(value).flatMap(collectJsonText);
+};
+
+async function responseBytes(response: Response) {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > PROMOTION_DOCUMENT_MAX_BYTES) {
+        throw new Error('프로모션 공식 원문이 문서별 허용 크기를 초과했습니다.');
+    }
+    return bytes;
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
+const responseMetadata = (
+    response: Response,
+    requestedUrl: string,
+    contentType: string,
+) => ({
+    ...(contentType && { contentType }),
+    ...(response.headers.get('etag') && { etag: response.headers.get('etag')! }),
+    ...(response.headers.get('last-modified') && {
+        lastModified: response.headers.get('last-modified')!,
+    }),
+    ...(response.url && response.url !== requestedUrl && { finalUrl: response.url }),
+});
+
+async function fetchHtml(url: string) {
+    const response = await fetchResponse(url, 'text/html,application/xhtml+xml');
+    const bytes = await responseBytes(response);
+    const mediaType = response.headers.get('content-type') ?? 'text/html';
+    const rawContent = decodePromotionHtml(bytes, mediaType);
+    return {
+        value: rawContent,
+        document: {
+            sourceUrl: url,
+            mediaType,
+            rawContent,
+            extractedText: htmlToText(rawContent),
+            contentHash: createHash('sha256').update(bytes).digest('hex'),
+            responseMetadata: responseMetadata(response, url, mediaType),
+        } satisfies CollectedPromotionSourceDocument,
+    };
+}
+
+async function fetchJson<T>(url: string): Promise<{
+    value: T;
+    document: CollectedPromotionSourceDocument;
+}> {
     const response = await fetchResponse(url, 'application/json');
     const contentType = response.headers.get('content-type') ?? '';
     if (!contentType.toLowerCase().includes('json')) {
         throw new Error(`JSON 대신 ${contentType || '알 수 없는 형식'} 응답`);
     }
-    return response.json() as Promise<T>;
+    const bytes = await responseBytes(response);
+    const rawContent = new TextDecoder().decode(bytes);
+    const value = JSON.parse(rawContent) as T;
+    return {
+        value,
+        document: {
+            sourceUrl: url,
+            mediaType: contentType,
+            rawContent,
+            extractedText: collectJsonText(value).join('\n').slice(0, 2_000_000),
+            contentHash: createHash('sha256').update(bytes).digest('hex'),
+            responseMetadata: responseMetadata(response, url, contentType),
+        },
+    };
 }
 
 async function collectLguplusSource() {
@@ -184,10 +260,14 @@ async function collectLguplusSource() {
         rowSize: '500',
         _paging: 'true',
     });
-    const rows = await fetchJson<Parameters<typeof parseLguplusBenefits>[0]>(
+    const collected = await fetchJson<Parameters<typeof parseLguplusBenefits>[0]>(
         `${LGUPLUS_API_URL}?${params}`
     );
-    return parseLguplusBenefits(rows, LGUPLUS_PAGE_URL);
+    return {
+        promotions: parseLguplusBenefits(collected.value, LGUPLUS_PAGE_URL),
+        products: [],
+        documents: [collected.document],
+    };
 }
 
 type NaverCategory = { name: string; code: string };
@@ -197,10 +277,12 @@ type NaverPage = {
 };
 
 async function collectNaverPaySource() {
-    const categories = await fetchJson<NaverCategory[]>(
+    const categoryResponse = await fetchJson<NaverCategory[]>(
         `${NAVERPAY_API_BASE}/benefit/payment/first-category`
     );
+    const categories = categoryResponse.value;
     const offers: ParsedPromotion[] = [];
+    const documents = [categoryResponse.document];
 
     for (const category of categories) {
         let page = 1;
@@ -210,9 +292,11 @@ async function collectNaverPaySource() {
                 firstCategory: category.code,
                 page: String(page),
             });
-            const result = await fetchJson<NaverPage>(
+            const response = await fetchJson<NaverPage>(
                 `${NAVERPAY_API_BASE}/benefit/payment/accumulation-promotions?${params}`
             );
+            const result = response.value;
+            documents.push(response.document);
             offers.push(...parseNaverPayPromotions(
                 result.elements,
                 category.code,
@@ -223,50 +307,73 @@ async function collectNaverPaySource() {
         } while (page <= totalPages);
     }
 
-    return offers;
+    return { promotions: offers, products: [], documents };
 }
 
 type ParsedSource = {
     promotions: ParsedPromotion[];
     products: ParsedSubscriptionProduct[];
+    documents: CollectedPromotionSourceDocument[];
 };
 
 async function parseSource(source: PromotionSource): Promise<ParsedSource> {
     if (source.kind === 'lguplus-api') {
-        return { promotions: await collectLguplusSource(), products: [] };
+        return collectLguplusSource();
     }
     if (source.kind === 'naverpay-api') {
-        return { promotions: await collectNaverPaySource(), products: [] };
+        return collectNaverPaySource();
     }
-    if (source.kind === 'unsupported') return { promotions: [], products: [] };
+    if (source.kind === 'unsupported') {
+        return { promotions: [], products: [], documents: [] };
+    }
     if (source.kind === 't-universe-composite') {
-        const [bigGuideHtml, dailyPassHtml, oliveStarbucksHtml] = await Promise.all([
+        const [bigGuide, dailyPass, oliveStarbucks] = await Promise.all([
             fetchHtml(T_UNIVERSE_BIG_GUIDE_URL),
             fetchHtml(T_UNIVERSE_DAILY_PASS_URL),
             fetchHtml(T_UNIVERSE_OLIVE_STARBUCKS_URL),
         ]);
         const parsed = parseTUniverseSources({
-            bigGuideHtml,
+            bigGuideHtml: bigGuide.value,
             bigGuideUrl: T_UNIVERSE_BIG_GUIDE_URL,
-            dailyPassHtml,
+            dailyPassHtml: dailyPass.value,
             dailyPassUrl: T_UNIVERSE_DAILY_PASS_URL,
-            oliveStarbucksHtml,
+            oliveStarbucksHtml: oliveStarbucks.value,
             oliveStarbucksUrl: T_UNIVERSE_OLIVE_STARBUCKS_URL,
         });
-        return { promotions: parsed.promotions, products: parsed.products };
+        return {
+            promotions: parsed.promotions,
+            products: parsed.products,
+            documents: [bigGuide.document, dailyPass.document, oliveStarbucks.document],
+        };
     }
 
     const html = await fetchHtml(source.url);
     if (source.kind === 'skt-html') {
-        return { promotions: parseSktMembershipHtml(html, source.url), products: [] };
+        return {
+            promotions: parseSktMembershipHtml(html.value, source.url),
+            products: [],
+            documents: [html.document],
+        };
     }
     if (source.kind === 'paris-skt-html') {
-        return { promotions: parseParisMembershipHtml(html, 'skt', source.url), products: [] };
+        return {
+            promotions: parseParisMembershipHtml(html.value, 'skt', source.url),
+            products: [],
+            documents: [html.document],
+        };
     }
     if (source.kind === 'paris-kt-html') {
-        return { promotions: parseParisMembershipHtml(html, 'kt', source.url), products: [] };
+        return {
+            promotions: parseParisMembershipHtml(html.value, 'kt', source.url),
+            products: [],
+            documents: [html.document],
+        };
     }
-    return { promotions: parseTousLesJoursHtml(html, source.url), products: [] };
+    return {
+        promotions: parseTousLesJoursHtml(html.value, source.url),
+        products: [],
+        documents: [html.document],
+    };
 }
 
 const hashValue = (value: unknown) => createHash('sha256')
@@ -275,6 +382,8 @@ const hashValue = (value: unknown) => createHash('sha256')
 
 const promotionForDiff = (value: Record<string, unknown>) => Object.fromEntries(
     Object.entries(value).filter(([key]) => ![
+        'id',
+        'status',
         'sourceHash',
         'collectedAt',
         'reviewedAt',
@@ -283,7 +392,7 @@ const promotionForDiff = (value: Record<string, unknown>) => Object.fromEntries(
     ].includes(key))
 );
 
-const autoPromotionId = (providerId: string, sourceKey: string) =>
+export const autoPromotionId = (providerId: string, sourceKey: string) =>
     `promotion-auto-${createHash('sha256')
         .update(`${providerId}:${sourceKey}`)
         .digest('hex')
@@ -335,12 +444,11 @@ function expireLegacyTUniversePromotions(now: Date) {
             .from(promotionOffers)
             .where(eq(promotionOffers.id, replacementId))
             .get();
-        if (replacement) {
-            db.update(transactionBenefits)
-                .set({ promotionId: replacementId })
-                .where(eq(transactionBenefits.promotionId, id))
-                .run();
-        }
+        if (!replacement) return;
+        db.update(transactionBenefits)
+            .set({ promotionId: replacementId })
+            .where(eq(transactionBenefits.promotionId, id))
+            .run();
         if (offer.status === 'EXPIRED') return;
         db.update(promotionOffers)
             .set({ status: 'EXPIRED', updatedAt: now })
@@ -406,18 +514,19 @@ function persistSubscriptionProductCatalog(
     });
 }
 
-function expireMissingAutoPromotions(
+function queueMissingAutoPromotions(
     successfulSourceIds: Set<string>,
     observedAutoPromotionIds: Set<string>,
+    sourceBundles: Map<string, PersistedPromotionSourceBundle>,
     now: Date,
 ) {
-    const expiredByProvider = new Map<string, number>();
+    const queuedBySource = new Map<string, number>();
     const coveredProviders = new Set(
         Object.entries(providerSourceCoverage)
             .filter(([, sourceIds]) => sourceIds.every(id => successfulSourceIds.has(id)))
             .map(([providerId]) => providerId)
     );
-    if (coveredProviders.size === 0) return expiredByProvider;
+    if (coveredProviders.size === 0) return queuedBySource;
 
     db.select().from(promotionOffers).all()
         .filter(offer =>
@@ -427,17 +536,106 @@ function expireMissingAutoPromotions(
             !observedAutoPromotionIds.has(offer.id)
         )
         .forEach(offer => {
-            db.update(promotionOffers)
-                .set({ status: 'EXPIRED', updatedAt: now })
-                .where(eq(promotionOffers.id, offer.id))
-                .run();
-            expiredByProvider.set(
-                offer.providerId,
-                (expiredByProvider.get(offer.providerId) ?? 0) + 1,
+            const previousCandidates = db.select().from(promotionCandidates)
+                .where(eq(promotionCandidates.providerId, offer.providerId))
+                .orderBy(desc(promotionCandidates.discoveredAt))
+                .all();
+            const previous = previousCandidates.find(candidate => (
+                candidate.linkedPromotionId === offer.id
+            ));
+            const previousSourceId = previous?.diff.collectionSourceId;
+            const collectionSourceId = typeof previousSourceId === 'string'
+                ? previousSourceId
+                : providerExpiryReportSource[offer.providerId];
+            const sourceBundle = sourceBundles.get(collectionSourceId);
+            const source = promotionSources.find(item => item.id === collectionSourceId);
+            if (!sourceBundle || !source) return;
+            const sourceKey = typeof previous?.diff.sourceKey === 'string'
+                ? previous.diff.sourceKey
+                : offer.id;
+            const sourceHash = hashValue({
+                kind: 'missing-published-promotion',
+                promotionId: offer.id,
+                sourceBundleHash: sourceBundle.sourceBundleHash,
+            });
+            const existing = db.select({ id: promotionCandidates.id })
+                .from(promotionCandidates)
+                .where(and(
+                    eq(promotionCandidates.providerId, offer.providerId),
+                    eq(promotionCandidates.sourceUrl, source.url),
+                    eq(promotionCandidates.sourceHash, sourceHash),
+                ))
+                .get();
+            if (existing) return;
+            const blockingError =
+                `기존 게시 혜택이 최신 공식 source bundle에서 사라졌습니다: ${offer.title}`;
+            const audit: PromotionCandidateAudit = {
+                version: 1,
+                summary: {
+                    changedFields: 1,
+                    highRiskChanges: 1,
+                    coveredFields: 0,
+                    missingFields: 0,
+                },
+                changes: [{
+                    path: 'promotion',
+                    kind: 'REMOVED',
+                    risk: 'HIGH',
+                    before: promotionForDiff(
+                        toPromotionOffer(offer) as unknown as Record<string, unknown>
+                    ),
+                }],
+                coverage: [],
+                blockingErrors: [blockingError],
+            };
+
+            db.transaction(() => {
+                previousCandidates
+                    .filter(candidate => (
+                        candidate.status === 'PENDING' &&
+                        candidate.linkedPromotionId === offer.id &&
+                        candidate.diff.removedFromSource === true
+                    ))
+                    .forEach(candidate => {
+                        db.update(promotionCandidates)
+                            .set({ status: 'REJECTED', reviewedAt: now })
+                            .where(eq(promotionCandidates.id, candidate.id))
+                            .run();
+                    });
+                db.insert(promotionCandidates).values({
+                    id: randomUUID(),
+                    providerId: offer.providerId,
+                    sourceUrl: source.url,
+                    sourceHash,
+                    sourceTitle: `${offer.title} 삭제 감지`,
+                    rawContent: blockingError,
+                    parsedOffer: promotionForDiff(
+                        toPromotionOffer(offer) as unknown as Record<string, unknown>
+                    ),
+                    diff: {
+                        collectionSourceId,
+                        sourceKey,
+                        structured: true,
+                        removedFromSource: true,
+                        changed: true,
+                        fieldChanges: audit.changes,
+                        auditSummary: audit.summary,
+                        blockingErrors: audit.blockingErrors,
+                    },
+                    sourceBundleHash: sourceBundle.sourceBundleHash,
+                    audit,
+                    status: 'PENDING',
+                    linkedPromotionId: offer.id,
+                    discoveredAt: now,
+                }).run();
+            });
+            queuedBySource.set(
+                collectionSourceId,
+                (queuedBySource.get(collectionSourceId) ?? 0) + 1,
             );
         });
 
-    return expiredByProvider;
+    return queuedBySource;
 }
 
 const isLegacyPlaceholder = (candidate: typeof promotionCandidates.$inferSelect) => {
@@ -467,9 +665,9 @@ function upsertAutoPromotion(
     parsedOffer: Record<string, unknown>,
     sourceHash: string,
     candidateId: string,
+    promotionId: string,
     now: Date,
 ) {
-    const promotionId = autoPromotionId(parsed.offer.providerId, parsed.sourceKey);
     const existingOffer = db.select().from(promotionOffers)
         .where(eq(promotionOffers.id, promotionId))
         .get();
@@ -502,7 +700,12 @@ function upsertAutoPromotion(
         .run();
 }
 
-function persistParsedPromotion(parsed: ParsedPromotion, now: Date, collectionSourceId: string) {
+function persistParsedPromotion(
+    parsed: ParsedPromotion,
+    now: Date,
+    collectionSourceId: string,
+    sourceBundle: PersistedPromotionSourceBundle,
+) {
     if (parsed.discoveredBrand) {
         db.insert(brands)
             .values({
@@ -514,17 +717,87 @@ function persistParsedPromotion(parsed: ParsedPromotion, now: Date, collectionSo
             .onConflictDoNothing()
             .run();
     }
+    const normalizedOffer = normalizePromotionDraft(parsed.offer);
+    const parsedOffer = {
+        ...normalizedOffer,
+        startsAt: normalizedOffer.startsAt?.toISOString(),
+        endsAt: normalizedOffer.endsAt?.toISOString(),
+        collectedAt: now.toISOString(),
+    } as Record<string, unknown>;
     const sourceHash = hashValue({
         sourceKey: parsed.sourceKey,
-        offer: parsed.offer,
+        offer: promotionForDiff(parsedOffer),
         evidence: parsed.evidence,
         semanticAnalysis: parsed.semanticAnalysis,
     });
-    const parsedOffer = {
-        ...parsed.offer,
-        sourceHash,
-        collectedAt: now.toISOString(),
-    } as Record<string, unknown>;
+    parsedOffer.sourceHash = sourceHash;
+    const promotionId = autoPromotionId(parsed.offer.providerId, parsed.sourceKey);
+    const previousCandidates = db.select().from(promotionCandidates)
+        .where(and(
+            eq(promotionCandidates.providerId, parsed.offer.providerId),
+            eq(promotionCandidates.sourceUrl, parsed.offer.sourceUrl),
+        ))
+        .orderBy(desc(promotionCandidates.discoveredAt))
+        .all();
+    previousCandidates
+        .filter(candidate => removalCandidateMatchesObservedPromotion(candidate, {
+            providerId: parsed.offer.providerId,
+            promotionId,
+            sourceKey: parsed.sourceKey,
+            collectionSourceId,
+        }))
+        .forEach(candidate => {
+            db.update(promotionCandidates)
+                .set({
+                    status: 'REJECTED',
+                    diff: withPromotionCandidateResolution(
+                        candidate.diff,
+                        PROMOTION_CANDIDATE_RESOLUTION.REAPPEARED_IN_SOURCE,
+                        {
+                            resolvedAt: now,
+                            sourceBundleHash: sourceBundle.sourceBundleHash,
+                        },
+                    ),
+                    reviewedAt: now,
+                })
+                .where(eq(promotionCandidates.id, candidate.id))
+                .run();
+        });
+    const previous = previousCandidates.find(candidate => (
+        candidate.diff?.sourceKey === parsed.sourceKey &&
+        !isPromotionRemovalCandidate(candidate)
+    )) ?? previousCandidates.find(candidate => candidate.diff?.sourceKey === parsed.sourceKey);
+    const stableOffer = db.select().from(promotionOffers)
+        .where(eq(promotionOffers.id, promotionId))
+        .get();
+    const linkedOffer = !stableOffer && previous?.linkedPromotionId
+        ? db.select().from(promotionOffers)
+            .where(eq(promotionOffers.id, previous.linkedPromotionId))
+            .get()
+        : undefined;
+    const existingOffer = stableOffer ?? linkedOffer;
+    const baseline = existingOffer
+        ? promotionForDiff(toPromotionOffer(existingOffer) as unknown as Record<string, unknown>)
+        : previous
+            ? promotionForDiff(previous.parsedOffer)
+            : undefined;
+    const audit = createPromotionCandidateAudit({
+        candidate: promotionForDiff(parsedOffer),
+        baseline,
+        evidenceTexts: [
+            ...(parsed.semanticAnalysis?.evidenceQuotes ?? []),
+            parsed.evidence,
+        ],
+        documents: sourceBundle.documents.map(document => ({
+            id: document.id,
+            sourceUrl: document.sourceUrl,
+            extractedText: document.extractedText,
+        })),
+    });
+    const canAutoPublish = canAutomaticallyPublishPromotionCandidate({
+        parserApproved: parsed.autoPublish,
+        audit,
+    });
     const existing = db.select().from(promotionCandidates)
         .where(and(
             eq(promotionCandidates.providerId, parsed.offer.providerId),
@@ -532,12 +805,21 @@ function persistParsedPromotion(parsed: ParsedPromotion, now: Date, collectionSo
             eq(promotionCandidates.sourceHash, sourceHash),
         ))
         .get();
-    const promotionId = autoPromotionId(parsed.offer.providerId, parsed.sourceKey);
-    const existingOffer = parsed.autoPublish
-        ? db.select().from(promotionOffers).where(eq(promotionOffers.id, promotionId)).get()
-        : undefined;
 
     if (existing) {
+        const sourceBundleChanged = existing.sourceBundleHash !== sourceBundle.sourceBundleHash;
+        const preserveReviewedApproval = shouldPreserveReviewedPromotionCandidate({
+            candidateStatus: existing.status,
+            reviewerId: existing.reviewerId,
+            audit,
+            linkedOfferStatus: existingOffer?.status,
+            sourceHashMatches: existing.sourceHash === sourceHash,
+        });
+        const requiresReview = !canAutoPublish && !preserveReviewedApproval && (
+            audit.blockingErrors.length > 0 ||
+            !existing.reviewerId ||
+            sourceBundleChanged
+        );
         const supersededPending = db.select().from(promotionCandidates)
             .where(and(
                 eq(promotionCandidates.providerId, parsed.offer.providerId),
@@ -556,12 +838,26 @@ function persistParsedPromotion(parsed: ParsedPromotion, now: Date, collectionSo
             });
             db.update(promotionCandidates)
                 .set({
-                    diff: { ...existing.diff, collectionSourceId },
-                    ...(!parsed.autoPublish && !existing.reviewerId && {
+                    sourceTitle: parsed.offer.title,
+                    rawContent: parsed.evidence.slice(0, 120_000),
+                    parsedOffer,
+                    diff: {
+                        ...existing.diff,
+                        collectionSourceId,
+                        autoPublished: canAutoPublish,
+                        changed: audit.changes.length > 0,
+                        fieldChanges: audit.changes,
+                        auditSummary: audit.summary,
+                        blockingErrors: audit.blockingErrors,
+                    },
+                    sourceBundleHash: sourceBundle.sourceBundleHash,
+                    audit,
+                    ...(requiresReview && {
                         status: 'PENDING' as const,
+                        reviewerId: null,
                         reviewedAt: null,
                     }),
-                    ...(parsed.autoPublish && existingOffer?.sourceHash === sourceHash && {
+                    ...(canAutoPublish && existingOffer?.sourceHash === sourceHash && {
                         status: 'APPROVED' as const,
                         linkedPromotionId: promotionId,
                         reviewedAt: now,
@@ -570,31 +866,26 @@ function persistParsedPromotion(parsed: ParsedPromotion, now: Date, collectionSo
                 .where(eq(promotionCandidates.id, existing.id))
                 .run();
         });
-        if (parsed.autoPublish && (!existingOffer || existingOffer.sourceHash !== sourceHash)) {
+        if (canAutoPublish && (!existingOffer || existingOffer.sourceHash !== sourceHash)) {
             db.transaction(() => {
-                upsertAutoPromotion(parsed, parsedOffer, sourceHash, existing.id, now);
+                upsertAutoPromotion(
+                    parsed,
+                    parsedOffer,
+                    sourceHash,
+                    existing.id,
+                    existingOffer?.id ?? promotionId,
+                    now,
+                );
             });
             return { inserted: false, published: true, reviewRequired: false };
         }
-        return { inserted: false, published: false, reviewRequired: false };
+        return {
+            inserted: false,
+            published: false,
+            reviewRequired: requiresReview,
+        };
     }
 
-    const previousCandidates = db.select().from(promotionCandidates)
-        .where(and(
-            eq(promotionCandidates.providerId, parsed.offer.providerId),
-            eq(promotionCandidates.sourceUrl, parsed.offer.sourceUrl),
-        ))
-        .orderBy(desc(promotionCandidates.discoveredAt))
-        .all();
-    const previous = previousCandidates.find(candidate =>
-        candidate.diff?.sourceKey === parsed.sourceKey
-    );
-    const fieldChanges = previous
-        ? diffStructuredValues(
-            promotionForDiff(previous.parsedOffer),
-            promotionForDiff(parsedOffer),
-        )
-        : [];
     const candidateId = randomUUID();
 
     db.transaction(() => {
@@ -616,41 +907,53 @@ function persistParsedPromotion(parsed: ParsedPromotion, now: Date, collectionSo
             sourceTitle: parsed.offer.title,
             rawContent: parsed.evidence.slice(0, 120_000),
             parsedOffer,
+            sourceBundleHash: sourceBundle.sourceBundleHash,
+            audit,
             diff: {
                 collectionSourceId,
                 sourceKey: parsed.sourceKey,
                 structured: true,
-                autoPublished: parsed.autoPublish,
+                autoPublished: canAutoPublish,
                 previousHash: previous?.sourceHash ?? null,
-                changed: fieldChanges.length > 0,
-                fieldChanges,
+                changed: audit.changes.length > 0,
+                fieldChanges: audit.changes,
+                auditSummary: audit.summary,
+                blockingErrors: audit.blockingErrors,
                 linkedPromotionId: existingOffer?.id ?? previous?.linkedPromotionId ?? null,
                 warnings: parsed.warnings,
                 ...(parsed.semanticAnalysis && {
                     semanticAnalysis: parsed.semanticAnalysis,
                 }),
             },
-            status: parsed.autoPublish ? 'APPROVED' : 'PENDING',
-            linkedPromotionId: null,
+            status: canAutoPublish ? 'APPROVED' : 'PENDING',
+            linkedPromotionId: existingOffer?.id ?? previous?.linkedPromotionId ?? null,
             discoveredAt: now,
-            reviewedAt: parsed.autoPublish ? now : null,
+            reviewedAt: canAutoPublish ? now : null,
         }).run();
 
-        if (parsed.autoPublish) {
-            upsertAutoPromotion(parsed, parsedOffer, sourceHash, candidateId, now);
+        if (canAutoPublish) {
+            upsertAutoPromotion(
+                parsed,
+                parsedOffer,
+                sourceHash,
+                candidateId,
+                existingOffer?.id ?? promotionId,
+                now,
+            );
         }
     });
 
     return {
         inserted: true,
-        published: parsed.autoPublish,
-        reviewRequired: !parsed.autoPublish,
+        published: canAutoPublish,
+        reviewRequired: !canAutoPublish,
     };
 }
 
 function rejectMissingPendingCandidates(
     source: PromotionSource,
     parsed: ParsedPromotion[],
+    sourceBundleHash: string,
     now: Date,
 ) {
     const observed = new Set(parsed.map(item => `${item.offer.providerId}:${item.sourceKey}`));
@@ -660,20 +963,28 @@ function rejectMissingPendingCandidates(
         .where(eq(promotionCandidates.status, 'PENDING'))
         .all()
         .filter(candidate => {
+            if (candidate.diff.removedFromSource === true) return false;
             const collectionSourceId = candidate.diff.collectionSourceId;
             if (typeof collectionSourceId === 'string') return collectionSourceId === source.id;
             if (candidate.diff.structured !== true) return false;
             if (source.id === 'naverpay-benefits' && candidate.providerId === 'naverpay') return true;
             return sourceUrls.has(candidate.sourceUrl);
         })
-        .filter(candidate => {
-            const sourceKey = candidate.diff.sourceKey;
-            return typeof sourceKey !== 'string' ||
-                !observed.has(`${candidate.providerId}:${sourceKey}`);
-        })
+        .filter(candidate => shouldRejectPendingCandidateMissingFromSource(
+            candidate,
+            observed,
+        ))
         .forEach(candidate => {
             db.update(promotionCandidates)
-                .set({ status: 'REJECTED', reviewedAt: now })
+                .set({
+                    status: 'REJECTED',
+                    diff: withPromotionCandidateResolution(
+                        candidate.diff,
+                        PROMOTION_CANDIDATE_RESOLUTION.MISSING_FROM_LATEST_SOURCE,
+                        { resolvedAt: now, sourceBundleHash },
+                    ),
+                    reviewedAt: now,
+                })
                 .where(eq(promotionCandidates.id, candidate.id))
                 .run();
         });
@@ -685,6 +996,7 @@ export async function collectPromotionCandidates() {
     const claimedAutoPromotionIds = new Set<string>();
     const observedAutoPromotionIds = new Set<string>();
     const successfulSourceIds = new Set<string>();
+    const sourceBundles = new Map<string, PersistedPromotionSourceBundle>();
     const cachedSemanticAnalyses = db.select({ diff: promotionCandidates.diff })
         .from(promotionCandidates)
         .all()
@@ -716,6 +1028,20 @@ export async function collectPromotionCandidates() {
 
         try {
             const sourceData = await parseSource(source);
+            const sourceBytes = sourceData.documents.reduce(
+                (sum, document) => sum + Buffer.byteLength(document.rawContent, 'utf8'),
+                0,
+            );
+            if (sourceBytes > PROMOTION_BUNDLE_MAX_BYTES) {
+                throw new Error('프로모션 source bundle이 허용 크기를 초과했습니다.');
+            }
+            const now = new Date();
+            const sourceBundle = persistPromotionSourceBundle(
+                source.id,
+                sourceData.documents,
+                now,
+            );
+            sourceBundles.set(source.id, sourceBundle);
             const parsed = await classifyParsedPromotions(
                 sourceData.promotions,
                 semanticClassifier,
@@ -723,7 +1049,6 @@ export async function collectPromotionCandidates() {
             if (parsed.length === 0) {
                 throw new Error('구조화 가능한 혜택을 찾지 못했습니다. 출처 형식 또는 브랜드 매핑을 확인해주세요.');
             }
-            const now = new Date();
             rejectLegacyPlaceholders(source, now);
             if (sourceData.products.length > 0) {
                 persistSubscriptionProductCatalog(sourceData.products, now);
@@ -738,13 +1063,34 @@ export async function collectPromotionCandidates() {
                     offer.offer.providerId,
                     offer.sourceKey,
                 );
-                if (offer.autoPublish) observedAutoPromotionIds.add(promotionId);
-                if (offer.autoPublish && claimedAutoPromotionIds.has(promotionId)) {
+                observedAutoPromotionIds.add(promotionId);
+                if (claimedAutoPromotionIds.has(promotionId)) {
+                    db.select().from(promotionCandidates)
+                        .where(and(
+                            eq(promotionCandidates.providerId, offer.offer.providerId),
+                            eq(promotionCandidates.status, 'PENDING'),
+                        ))
+                        .all()
+                        .filter(candidate => (
+                            candidate.diff.collectionSourceId === source.id &&
+                            candidate.diff.sourceKey === offer.sourceKey
+                        ))
+                        .forEach(candidate => {
+                            db.update(promotionCandidates)
+                                .set({ status: 'REJECTED', reviewedAt: now })
+                                .where(eq(promotionCandidates.id, candidate.id))
+                                .run();
+                        });
                     unchanged += 1;
                     return;
                 }
-                const persisted = persistParsedPromotion(offer, now, source.id);
-                if (offer.autoPublish) claimedAutoPromotionIds.add(promotionId);
+                const persisted = persistParsedPromotion(
+                    offer,
+                    now,
+                    source.id,
+                    sourceBundle,
+                );
+                claimedAutoPromotionIds.add(promotionId);
                 if (persisted.inserted) discovered += 1;
                 else unchanged += 1;
                 if (persisted.published) published += 1;
@@ -752,7 +1098,12 @@ export async function collectPromotionCandidates() {
             });
 
             successfulSourceIds.add(source.id);
-            rejectMissingPendingCandidates(source, parsed, now);
+            rejectMissingPendingCandidates(
+                source,
+                parsed,
+                sourceBundle.sourceBundleHash,
+                now,
+            );
             const legacyExpired = source.id === 't-universe-products'
                 ? expireLegacyTUniversePromotions(now)
                 : 0;
@@ -788,17 +1139,21 @@ export async function collectPromotionCandidates() {
         }
     }
 
-    const expiredByProvider = expireMissingAutoPromotions(
+    const queuedBySource = queueMissingAutoPromotions(
         successfulSourceIds,
         observedAutoPromotionIds,
+        sourceBundles,
         new Date(),
     );
-    expiredByProvider.forEach((expired, providerId) => {
-        const sourceId = providerExpiryReportSource[providerId];
+    queuedBySource.forEach((queued, sourceId) => {
         const result = results.find(item => item.sourceId === sourceId);
         if (!result) return;
-        result.expired += expired;
+        result.reviewRequired += queued;
         if (result.status === 'unchanged') result.status = 'created';
+        result.message = [
+            result.message,
+            `삭제 의심 ${queued}건 검수 대기`,
+        ].filter(Boolean).join(' · ');
     });
 
     const finishedAt = new Date();

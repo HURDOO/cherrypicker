@@ -23,6 +23,35 @@ function errorCodeFromStatus(kind: AuthFormKind, status: number) {
     return kind === 'login' ? 'invalid_credentials' : 'signup_failed';
 }
 
+const sharedAuthErrorCodes: Record<string, string> = {
+    INVALID_EMAIL: 'invalid_email',
+    VALIDATION_ERROR: 'invalid_form',
+    MISSING_FIELD: 'invalid_form',
+    BODY_MUST_BE_AN_OBJECT: 'invalid_form',
+    INVALID_ORIGIN: 'origin_not_allowed',
+    MISSING_OR_NULL_ORIGIN: 'origin_not_allowed',
+    CROSS_SITE_NAVIGATION_LOGIN_BLOCKED: 'origin_not_allowed',
+};
+
+const loginAuthErrorCodes: Record<string, string> = {
+    INVALID_EMAIL_OR_PASSWORD: 'invalid_credentials',
+    INVALID_PASSWORD: 'invalid_credentials',
+    USER_NOT_FOUND: 'invalid_credentials',
+    CREDENTIAL_ACCOUNT_NOT_FOUND: 'invalid_credentials',
+    EMAIL_NOT_VERIFIED: 'email_not_verified',
+    EMAIL_PASSWORD_DISABLED: 'login_disabled',
+    FAILED_TO_CREATE_SESSION: 'session_failed',
+};
+
+const signupAuthErrorCodes: Record<string, string> = {
+    EMAIL_PASSWORD_SIGN_UP_DISABLED: 'signup_closed',
+    USER_ALREADY_EXISTS: 'email_exists',
+    USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: 'email_exists',
+    PASSWORD_TOO_SHORT: 'password_too_short',
+    PASSWORD_TOO_LONG: 'password_too_long',
+    FAILED_TO_CREATE_USER: 'account_creation_failed',
+};
+
 async function errorCodeFromResponse(kind: AuthFormKind, response: Response) {
     let code: string | undefined;
 
@@ -33,8 +62,16 @@ async function errorCodeFromResponse(kind: AuthFormKind, response: Response) {
         // Better Auth may return an empty or non-JSON error. Use a generic safe code.
     }
 
-    if (code === 'EMAIL_PASSWORD_SIGN_UP_DISABLED') return 'signup_closed';
-    if (code?.includes('USER_ALREADY_EXISTS')) return 'email_exists';
+    if (response.status === 429) return 'rate_limited';
+    const normalizedCode = code?.trim().toUpperCase();
+    if (normalizedCode) {
+        const mappedCode = sharedAuthErrorCodes[normalizedCode] ?? (
+            kind === 'login'
+                ? loginAuthErrorCodes[normalizedCode]
+                : signupAuthErrorCodes[normalizedCode]
+        );
+        if (mappedCode) return mappedCode;
+    }
     return errorCodeFromStatus(kind, response.status);
 }
 

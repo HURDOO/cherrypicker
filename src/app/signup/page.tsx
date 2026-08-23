@@ -8,9 +8,14 @@ type SignupPageProps = {
 
 const ERROR_MESSAGES: Record<string, string> = {
     email_exists: '이미 사용 중인 이메일입니다. 로그인해주세요.',
+    invalid_email: '올바른 이메일 주소를 입력해주세요.',
     invalid_form: '이름, 이메일, 비밀번호를 다시 확인해주세요.',
+    password_too_short: '비밀번호는 8자 이상이어야 합니다.',
+    password_too_long: '비밀번호는 128자 이하여야 합니다.',
     rate_limited: '회원가입 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
     signup_closed: '현재 신규 회원가입이 닫혀 있습니다.',
+    origin_not_allowed: '현재 접속 주소가 인증 서버에 허용되지 않았습니다. 관리자에게 알려주세요.',
+    account_creation_failed: '계정을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.',
     signup_failed: '회원가입을 완료하지 못했습니다. 입력값을 확인해주세요.',
     server_error: '회원가입 서버를 준비하지 못했습니다. 잠시 후 다시 시도해주세요.',
 };

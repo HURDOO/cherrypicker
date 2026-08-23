@@ -96,4 +96,70 @@ describe('card benefit candidate audit', () => {
             expect.stringContaining('공항 라운지 무료 · condition.minPerformance'),
         ]));
     });
+
+    it('cross-checks official notice publication and effective dates with affected rules', () => {
+        const noticeDocuments = [{
+            sourceUrl: 'https://www.shinhancard.com/notice/sol-travel',
+            noticeDates: {
+                affectedRuleIds: ['sol_cu_event'] as const,
+                requirePublicationDate: true,
+                requireEffectiveFrom: true,
+                publicationDate: '2024-06-13',
+                effectiveFrom: '2024-06-20',
+            },
+        }];
+        const validAudit = createCardBenefitCandidateAudit({
+            extraction: extraction(),
+            baseline: baseline(),
+            baselineRevision: 2,
+            noticeDocuments: noticeDocuments.map(document => ({
+                ...document,
+                noticeDates: {
+                    ...document.noticeDates,
+                    affectedRuleIds: [...document.noticeDates.affectedRuleIds],
+                },
+            })),
+        });
+        expect(validAudit.blockingErrors).toEqual([]);
+
+        const candidate = extraction();
+        delete candidate.rules.find(rule => rule.id === 'sol_cu_event')!.condition.startsAt;
+        const invalidAudit = createCardBenefitCandidateAudit({
+            extraction: candidate,
+            baseline: baseline(),
+            baselineRevision: 2,
+            noticeDocuments: [{
+                sourceUrl: noticeDocuments[0].sourceUrl,
+                noticeDates: {
+                    ...noticeDocuments[0].noticeDates,
+                    affectedRuleIds: [...noticeDocuments[0].noticeDates.affectedRuleIds],
+                },
+            }],
+        });
+        expect(invalidAudit.blockingErrors).toEqual(expect.arrayContaining([
+            expect.stringContaining('공식 공지 시행일이 규칙 시작일과 다릅니다'),
+        ]));
+    });
+
+    it('blocks impossible official notice date ordering', () => {
+        const audit = createCardBenefitCandidateAudit({
+            extraction: extraction(),
+            baseline: baseline(),
+            baselineRevision: 2,
+            noticeDocuments: [{
+                sourceUrl: 'https://www.shinhancard.com/notice/sol-travel',
+                noticeDates: {
+                    affectedRuleIds: ['sol_cu_event'],
+                    requirePublicationDate: true,
+                    requireEffectiveFrom: true,
+                    publicationDate: '2024-06-21',
+                    effectiveFrom: '2024-06-20',
+                },
+            }],
+        });
+
+        expect(audit.blockingErrors).toEqual(expect.arrayContaining([
+            expect.stringContaining('공식 공지 게시일이 시행일보다 늦습니다'),
+        ]));
+    });
 });

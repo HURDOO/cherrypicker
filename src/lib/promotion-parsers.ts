@@ -58,6 +58,7 @@ type TelecomOfferOptions = {
     brandName: string;
     tiers: string[];
     description: string;
+    evidence?: string;
     sourceUrl: string;
     action: PromotionAction;
     autoPublish: boolean;
@@ -368,7 +369,7 @@ const buildTelecomOffer = (options: TelecomOfferOptions): ParsedPromotion => {
         : `${action.value.toLocaleString('ko-KR')}원 할인`;
     return {
         sourceKey: telecomSourceKey(options.brandId, tiers),
-        evidence: options.description,
+        evidence: options.evidence ?? options.description,
         autoPublish: options.autoPublish,
         warnings: options.warnings ?? [],
         ...(options.discoveredBrand && { discoveredBrand: options.discoveredBrand }),
@@ -511,7 +512,8 @@ export function parseParisMembershipHtml(
         ];
 
     return configs.flatMap(config => {
-        const rate = findRateAfter(text, config.pattern);
+        const sourceExcerpt = text.match(config.pattern)?.[0];
+        const rate = sourceExcerpt ? findRateAfter(sourceExcerpt, config.pattern) : undefined;
         if (!rate) return [];
         const maxBenefit = Math.floor(200_000 * (rate / 100));
         return [buildTelecomOffer({
@@ -520,6 +522,7 @@ export function parseParisMembershipHtml(
             brandName: '파리바게뜨',
             tiers: config.tiers,
             description: `${config.tiers.join('/')} 1,000원당 ${rate * 10}원 할인 · 1일 1회 · 이용금액 20만원 한도`,
+            evidence: sourceExcerpt,
             sourceUrl,
             action: { type: 'PERCENT', value: rate },
             maxBenefit,
@@ -568,6 +571,7 @@ export function parseTousLesJoursHtml(html: string, sourceUrl: string): ParsedPr
                 brandName: '뚜레쥬르',
                 tiers,
                 description: `${description} · ${limitsText}`,
+                evidence: `${line}\n${limitsText}`,
                 sourceUrl,
                 action: parsed.action,
                 ...(purchaseCap && parsed.action.type === 'PERCENT' && {

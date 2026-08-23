@@ -5,6 +5,7 @@ import type {
     CardBenefitEvidence,
     CardBenefitExtraction,
     CardBenefitFieldChange,
+    CardBenefitNoticeDates,
     CardBenefitRevisionSnapshot,
 } from '@/types';
 import { diffStructuredValues } from './structured-diff';
@@ -96,11 +97,79 @@ const isExpiredRule = (rule: BenefitRule, asOfDate: string) => (
     Boolean(rule.condition.endsAt && rule.condition.endsAt < asOfDate)
 );
 
+const noticeDateErrors = (
+    extraction: CardBenefitExtraction,
+    notices: Array<{ sourceUrl: string; noticeDates: CardBenefitNoticeDates }>,
+) => {
+    const rules = new Map(extraction.rules.map(rule => [rule.id, rule]));
+    return notices.flatMap(({ sourceUrl, noticeDates }) => {
+        const label = (() => {
+            try {
+                return new URL(sourceUrl).hostname;
+            } catch {
+                return sourceUrl;
+            }
+        })();
+        const errors: string[] = [];
+        if (noticeDates.requirePublicationDate && !noticeDates.publicationDate) {
+            errors.push(`공식 공지 게시일을 확인하지 못했습니다: ${label}`);
+        }
+        if (noticeDates.requireEffectiveFrom && !noticeDates.effectiveFrom) {
+            errors.push(`공식 공지 시행일을 확인하지 못했습니다: ${label}`);
+        }
+        if (
+            noticeDates.publicationDate &&
+            noticeDates.effectiveFrom &&
+            noticeDates.publicationDate > noticeDates.effectiveFrom
+        ) {
+            errors.push(
+                `공식 공지 게시일이 시행일보다 늦습니다: ${noticeDates.publicationDate} > ${noticeDates.effectiveFrom}`
+            );
+        }
+        if (
+            noticeDates.effectiveFrom &&
+            noticeDates.effectiveTo &&
+            noticeDates.effectiveFrom > noticeDates.effectiveTo
+        ) {
+            errors.push(
+                `공식 공지 종료일이 시행일보다 빠릅니다: ${noticeDates.effectiveFrom} > ${noticeDates.effectiveTo}`
+            );
+        }
+        noticeDates.affectedRuleIds.forEach(ruleId => {
+            const rule = rules.get(ruleId);
+            if (!rule) {
+                errors.push(`공식 공지 영향 규칙이 후보에서 누락되었습니다: ${ruleId}`);
+                return;
+            }
+            if (
+                noticeDates.effectiveFrom &&
+                rule.condition.startsAt !== noticeDates.effectiveFrom
+            ) {
+                errors.push(
+                    `공식 공지 시행일이 규칙 시작일과 다릅니다: ${rule.description} · ` +
+                    `${rule.condition.startsAt ?? '없음'} → ${noticeDates.effectiveFrom}`
+                );
+            }
+            if (
+                noticeDates.effectiveTo &&
+                rule.condition.endsAt !== noticeDates.effectiveTo
+            ) {
+                errors.push(
+                    `공식 공지 종료일이 규칙 종료일과 다릅니다: ${rule.description} · ` +
+                    `${rule.condition.endsAt ?? '없음'} → ${noticeDates.effectiveTo}`
+                );
+            }
+        });
+        return errors;
+    });
+};
+
 export function createCardBenefitCandidateAudit(options: {
     extraction: CardBenefitExtraction;
     baseline: CardBenefitRevisionSnapshot;
     baselineRevision: number;
     asOfDate?: string;
+    noticeDocuments?: Array<{ sourceUrl: string; noticeDates: CardBenefitNoticeDates }>;
 }): CardBenefitCandidateAudit {
     const asOfDate = options.asOfDate ?? new Date().toISOString().slice(0, 10);
     const changes: CardBenefitFieldChange[] = diffStructuredValues(
@@ -178,6 +247,7 @@ export function createCardBenefitCandidateAudit(options: {
                 ? [`필수 조건의 공식 근거가 없습니다: ${item.ruleLabel} · ${item.path}`]
                 : []
         )),
+        ...noticeDateErrors(options.extraction, options.noticeDocuments ?? []),
     ]);
 
     return {

@@ -11,7 +11,7 @@ import type {
 } from '@/types';
 
 export const CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION = 2 as const;
-export const SHINHAN_SOL_RULESET_VERSION = 'shinhan-sol-v4' as const;
+export const SHINHAN_SOL_RULESET_VERSION = 'shinhan-sol-v5' as const;
 export const SHINHAN_SOL_REQUIRED_RULE_IDS = [
     'sol_foreign_currency_payment',
     'sol_overseas_fee',
@@ -552,6 +552,7 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
             description: 'CU 행사상품 5% 즉시할인',
             detail: '전월 실적 없음, 행사상품 건당 최대 2천원, 복합결제·일부 간편결제·일부 매장 제외',
             condition: {
+                startsAt: '2024-06-20',
                 confirmationRequired: true,
                 requiredNote: '행사상품을 전액 카드로 결제하며 제외 간편결제·매장이 아닌지 확인',
                 stackableWithRuleIds: ['sol_domestic_convenience'],
