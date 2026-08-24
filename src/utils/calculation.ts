@@ -23,6 +23,15 @@ type RuleUsage = {
     isMonthlyAmountLimitReached?: boolean;
 };
 
+type RuleUsageField = 'dailyCount' | 'dailyAmount' | 'monthlyCount' | 'yearlyCount' | 'monthlyAmount';
+const ruleUsageFields: RuleUsageField[] = [
+    'dailyCount',
+    'dailyAmount',
+    'monthlyCount',
+    'yearlyCount',
+    'monthlyAmount',
+];
+
 type RuleEvaluation = {
     rule: BenefitRule;
     discount: number;
@@ -37,10 +46,12 @@ type RuleEvaluation = {
 interface CardCalculationOptions {
     confirmedConditionIds?: Iterable<string>;
     allowPerformanceWaiver?: boolean;
+    eligibleItemAmount?: number;
 }
 
 type CalculationContext = {
     usageByCard: Map<string, Map<string, RuleUsage>>;
+    sharedLimitFieldsByGroup: Map<string, Set<RuleUsageField>>;
     monthlyDiscountByCard: Map<string, number>;
     integratedMonthlyDiscountByCard: Map<string, number>;
 };
@@ -107,6 +118,17 @@ const getActionMaxDiscount = (action: RuleAction) =>
 const getConditionMinSpend = (rule: BenefitRule) =>
     getSnakeOrCamel<number | undefined>(rule.condition, 'minSpend', 'min_spend', undefined) || 0;
 
+const getConditionMaxSpend = (rule: BenefitRule) =>
+    getSnakeOrCamel<number | undefined>(rule.condition, 'maxSpend', 'max_spend', undefined);
+
+const getConditionMaxSpendExclusive = (rule: BenefitRule) =>
+    getSnakeOrCamel<number | undefined>(
+        rule.condition,
+        'maxSpendExclusive',
+        'max_spend_exclusive',
+        undefined,
+    );
+
 const getConditionMinPerformance = (rule: BenefitRule) =>
     getSnakeOrCamel<number | undefined>(rule.condition, 'minPerformance', 'min_performance', undefined) || 0;
 
@@ -152,6 +174,9 @@ const getConditionManualCheckRequired = (rule: BenefitRule) =>
 const getConditionRequiredNote = (rule: BenefitRule) =>
     getSnakeOrCamel<string | undefined>(rule.condition, 'requiredNote', 'required_note', undefined);
 
+const getConditionItemSpecific = (rule: BenefitRule) =>
+    getSnakeOrCamel<boolean>(rule.condition, 'itemSpecific', 'item_specific', false);
+
 const ruleUsesCardLimit = (rule: BenefitRule) =>
     getSnakeOrCamel<boolean>(rule, 'usesCardLimit', 'uses_card_limit', true);
 
@@ -176,7 +201,16 @@ const matchesRule = (rule: BenefitRule, brand: Brand) => {
     return getRuleSpecificity(rule, brand) > 0;
 };
 
-const getTrackingId = (rule: BenefitRule) => getSharedGroupId(rule) || rule.id;
+const ruleTrackingId = (ruleId: string) => `rule:${ruleId}`;
+const groupTrackingId = (groupId: string) => `group:${groupId}`;
+
+const emptyRuleUsage = (): RuleUsage => ({
+    dailyCount: 0,
+    dailyAmount: 0,
+    monthlyCount: 0,
+    yearlyCount: 0,
+    monthlyAmount: 0,
+});
 
 const addAmount = (totals: Map<string, number>, cardId: string, amount: number) => {
     totals.set(cardId, (totals.get(cardId) ?? 0) + amount);
@@ -213,6 +247,27 @@ const buildCalculationContext = (
 ): CalculationContext => {
     const ruleById = new Map(rules.map(rule => [rule.id, rule]));
     const usageByCard = new Map<string, Map<string, RuleUsage>>();
+    const groupedRules = new Map<string, BenefitRule[]>();
+    rules.forEach(rule => {
+        const groupId = getSharedGroupId(rule);
+        if (!groupId) return;
+        const members = groupedRules.get(groupId) ?? [];
+        members.push(rule);
+        groupedRules.set(groupId, members);
+    });
+    const sharedLimitFieldsByGroup = new Map<string, Set<RuleUsageField>>();
+    groupedRules.forEach((members, groupId) => {
+        const fields = new Set<RuleUsageField>();
+        ruleUsageFields.forEach(field => {
+            const values = members.map(member => getLimitValue(
+                getLimitConfig(member),
+                field,
+                field.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`),
+            )).filter((value): value is number => typeof value === 'number');
+            if (values.length >= 2 && new Set(values).size === 1) fields.add(field);
+        });
+        if (fields.size > 0) sharedLimitFieldsByGroup.set(groupId, fields);
+    });
     const monthlyDiscountByCard = new Map<string, number>();
     const integratedMonthlyDiscountByCard = new Map<string, number>();
 
@@ -256,33 +311,31 @@ const buildCalculationContext = (
         applications.forEach(application => {
             const transactionRule = ruleById.get(application.ruleId);
             if (!transactionRule) return;
-            const trackingId = getTrackingId(transactionRule);
-            let usage = cardUsage.get(trackingId);
-            if (!usage) {
-                usage = {
-                    dailyCount: 0,
-                    dailyAmount: 0,
-                    monthlyCount: 0,
-                    yearlyCount: 0,
-                    monthlyAmount: 0,
-                };
-                cardUsage.set(trackingId, usage);
-            }
-
-            if (isDaily) {
-                usage.dailyCount += 1;
-                usage.dailyAmount += application.benefitAmount;
-            }
-            if (isMonthly) {
-                usage.monthlyCount += 1;
-                usage.monthlyAmount += application.benefitAmount;
-            }
-            if (isYearly) usage.yearlyCount += 1;
+            const trackingIds = [ruleTrackingId(transactionRule.id)];
+            const sharedGroupId = getSharedGroupId(transactionRule);
+            if (sharedGroupId) trackingIds.push(groupTrackingId(sharedGroupId));
+            trackingIds.forEach(trackingId => {
+                let usage = cardUsage.get(trackingId);
+                if (!usage) {
+                    usage = emptyRuleUsage();
+                    cardUsage.set(trackingId, usage);
+                }
+                if (isDaily) {
+                    usage.dailyCount += 1;
+                    usage.dailyAmount += application.benefitAmount;
+                }
+                if (isMonthly) {
+                    usage.monthlyCount += 1;
+                    usage.monthlyAmount += application.benefitAmount;
+                }
+                if (isYearly) usage.yearlyCount += 1;
+            });
         });
     });
 
     return {
         usageByCard,
+        sharedLimitFieldsByGroup,
         monthlyDiscountByCard,
         integratedMonthlyDiscountByCard,
     };
@@ -293,16 +346,25 @@ const getUsageStat = (
     card: Card,
     context: CalculationContext,
 ): RuleUsage => {
-    const usage = context.usageByCard
-        .get(card.id)
-        ?.get(getTrackingId(matchedRule));
+    const cardUsage = context.usageByCard.get(card.id);
+    const ruleUsage = cardUsage?.get(ruleTrackingId(matchedRule.id));
+    const sharedGroupId = getSharedGroupId(matchedRule);
+    const sharedFields = sharedGroupId
+        ? context.sharedLimitFieldsByGroup.get(sharedGroupId)
+        : undefined;
+    const groupUsage = sharedGroupId
+        ? cardUsage?.get(groupTrackingId(sharedGroupId))
+        : undefined;
+    const usageValue = (field: RuleUsageField) => (
+        sharedFields?.has(field) ? groupUsage?.[field] : ruleUsage?.[field]
+    ) ?? 0;
 
     return {
-        dailyCount: usage?.dailyCount ?? 0,
-        dailyAmount: usage?.dailyAmount ?? 0,
-        monthlyCount: usage?.monthlyCount ?? 0,
-        yearlyCount: usage?.yearlyCount ?? 0,
-        monthlyAmount: usage?.monthlyAmount ?? 0,
+        dailyCount: usageValue('dailyCount'),
+        dailyAmount: usageValue('dailyAmount'),
+        monthlyCount: usageValue('monthlyCount'),
+        yearlyCount: usageValue('yearlyCount'),
+        monthlyAmount: usageValue('monthlyAmount'),
         isDailyLimitReached: false,
         isDailyAmountLimitReached: false,
         isMonthlyLimitReached: false,
@@ -317,6 +379,15 @@ const getMonthlyMaxLimit = (card: Card, myPerformance: number) => {
     const sortedTable = [...card.limitTable].sort((a, b) => b.threshold - a.threshold);
     const tier = sortedTable.find(t => myPerformance >= t.threshold);
     return tier ? tier.limit : 0;
+};
+
+const getNewCardWaiverMonthlyLimit = (card: Card) => {
+    if (!card.limitTable || card.limitTable.length === 0) return INFINITE_LIMIT;
+
+    const firstBenefitTier = [...card.limitTable]
+        .filter(tier => tier.limit > 0)
+        .sort((left, right) => left.threshold - right.threshold)[0];
+    return firstBenefitTier?.limit ?? 0;
 };
 
 const getUsedIntegratedLimit = (
@@ -359,6 +430,7 @@ const evaluateRule = ({
     remainingLimit,
     confirmedConditionIds,
     allowPerformanceWaiver,
+    eligibleItemAmount,
 }: {
     rule: BenefitRule;
     amount: number;
@@ -370,6 +442,7 @@ const evaluateRule = ({
     remainingLimit: number;
     confirmedConditionIds: ReadonlySet<string>;
     allowPerformanceWaiver: boolean;
+    eligibleItemAmount?: number;
 }): RuleEvaluation => {
     const usage = getUsageStat(rule, card, context);
     const result: RuleEvaluation = {
@@ -405,16 +478,35 @@ const evaluateRule = ({
     }
 
     const requiredCardNetwork = getConditionRequiredCardNetwork(rule);
-    if (requiredCardNetwork && card.network !== requiredCardNetwork) {
-        result.reason = card.network
-            ? `${requiredCardNetwork} 카드 전용 혜택`
-            : '카드 브랜드 확인 필요';
+    if (requiredCardNetwork && card.network && card.network !== requiredCardNetwork) {
+        result.reason = `${requiredCardNetwork} 카드 전용 혜택`;
         return result;
     }
+    if (requiredCardNetwork && !card.network) {
+        result.requiredChecks.push(`${requiredCardNetwork} 브랜드 카드인지 확인`);
+    }
 
+    const isItemSpecific = getConditionItemSpecific(rule);
+    if (isItemSpecific && eligibleItemAmount === undefined) {
+        result.reason = '혜택 대상 상품 금액 입력 필요';
+        return result;
+    }
+    const conditionAmount = isItemSpecific
+        ? Math.min(amount, eligibleItemAmount ?? 0)
+        : amount;
     const minSpend = getConditionMinSpend(rule);
-    if (amount < minSpend) {
+    if (conditionAmount < minSpend) {
         result.reason = `최소 결제금액(${minSpend.toLocaleString()}원) 부족`;
+        return result;
+    }
+    const maxSpend = getConditionMaxSpend(rule);
+    if (maxSpend !== undefined && conditionAmount > maxSpend) {
+        result.reason = `최대 결제금액(${maxSpend.toLocaleString()}원) 초과`;
+        return result;
+    }
+    const maxSpendExclusive = getConditionMaxSpendExclusive(rule);
+    if (maxSpendExclusive !== undefined && conditionAmount >= maxSpendExclusive) {
+        result.reason = `결제금액 ${maxSpendExclusive.toLocaleString()}원 미만 전용`;
         return result;
     }
 
@@ -431,12 +523,7 @@ const evaluateRule = ({
         }
     }
 
-    if (getConditionManualCheckRequired(rule)) {
-        result.reason = getConditionRequiredNote(rule) || '추가 조건 확인 필요';
-        return result;
-    }
-
-    if (getConditionConfirmationRequired(rule)) {
+    if (getConditionManualCheckRequired(rule) || getConditionConfirmationRequired(rule)) {
         result.requiredChecks.push(getConditionRequiredNote(rule) || '혜택 제외 조건 확인');
     }
     if (result.requiredChecks.length > 0) {
@@ -589,21 +676,37 @@ export function calculateBestCards(
     const context = buildCalculationContext(rules, history);
     const confirmedConditionIds = new Set(options.confirmedConditionIds ?? []);
     const allowPerformanceWaiver = options.allowPerformanceWaiver ?? true;
+    const eligibleItemAmount = options.eligibleItemAmount === undefined
+        ? undefined
+        : Math.max(0, Math.min(amount, Math.floor(options.eligibleItemAmount)));
 
     return cards.map(card => {
         const perf = performances.find(p => p.cardId === card.id);
         const myPerformance = perf ? perf.amount : 0;
 
-        const monthlyMaxLimit = getMonthlyMaxLimit(card, myPerformance);
-        const usedDiscount = getUsedIntegratedLimit(card, context);
-        const remainingLimit = Math.max(0, monthlyMaxLimit - usedDiscount);
-
         const candidateRules = rules
-            .filter(rule => rule.cardId === card.id && matchesRule(rule, brand))
+            .filter(rule => {
+                if (rule.cardId !== card.id || !matchesRule(rule, brand)) return false;
+                const action = getAction(rule);
+                return action.value > 0 || (
+                    action.type === 'FIXED_PRICE' && getConditionItemSpecific(rule)
+                );
+            })
             .sort((a, b) => {
                 const specificity = getRuleSpecificity(b, brand) - getRuleSpecificity(a, brand);
                 return specificity || a.id.localeCompare(b.id);
             });
+        const hasIntegratedNewCardWaiver = allowPerformanceWaiver && candidateRules.some(rule => (
+            ruleUsesCardLimit(rule) &&
+            myPerformance < getConditionMinPerformance(rule) &&
+            getConditionPerformanceWaiver(rule) === 'NEW_CARD_REGISTRATION_WINDOW'
+        ));
+        const monthlyMaxLimit = Math.max(
+            getMonthlyMaxLimit(card, myPerformance),
+            hasIntegratedNewCardWaiver ? getNewCardWaiverMonthlyLimit(card) : 0,
+        );
+        const usedDiscount = getUsedIntegratedLimit(card, context);
+        const remainingLimit = Math.max(0, monthlyMaxLimit - usedDiscount);
 
         const evaluateSet = (ruleSet: BenefitRule[]) => {
             let remainingAmount = amount;
@@ -614,9 +717,12 @@ export function calculateBestCards(
                 left.id.localeCompare(right.id)
             ));
             for (const rule of orderedRules) {
-                const basisAmount = getActionAmountBasis(rule) === 'REMAINING_AMOUNT'
+                const unscopedBasisAmount = getActionAmountBasis(rule) === 'REMAINING_AMOUNT'
                     ? remainingAmount
                     : amount;
+                const basisAmount = getConditionItemSpecific(rule)
+                    ? Math.min(unscopedBasisAmount, eligibleItemAmount ?? 0)
+                    : unscopedBasisAmount;
                 const evaluation = evaluateRule({
                     rule,
                     amount,
@@ -628,6 +734,7 @@ export function calculateBestCards(
                     remainingLimit: integratedRemainingLimit,
                     confirmedConditionIds,
                     allowPerformanceWaiver,
+                    eligibleItemAmount,
                 });
                 if (!evaluation.isApplicable || evaluation.discount <= 0) return undefined;
                 evaluation.discount = Math.min(remainingAmount, evaluation.discount);
@@ -653,7 +760,9 @@ export function calculateBestCards(
                 ? evaluateRule({
                     rule: candidateRules[0],
                     amount,
-                    basisAmount: amount,
+                    basisAmount: getConditionItemSpecific(candidateRules[0])
+                        ? Math.min(amount, eligibleItemAmount ?? 0)
+                        : amount,
                     card,
                     context,
                     myPerformance,
@@ -661,6 +770,7 @@ export function calculateBestCards(
                     remainingLimit,
                     confirmedConditionIds,
                     allowPerformanceWaiver,
+                    eligibleItemAmount,
                 })
                 : undefined
         );

@@ -61,7 +61,7 @@ describe('card benefit support registry', () => {
         expect(support?.caveats[0]).toContain('공식 문서 전체 검수');
     });
 
-    it('shows located official sources without claiming a manual audit is approved', () => {
+    it('marks any enabled card adapter with an approved revision as reviewed', () => {
         const support = buildCardBenefitSupports(cards, [{
             cardId: 'shinhan_deep_dream',
             candidateId: 'candidate-without-adapter',
@@ -69,12 +69,12 @@ describe('card benefit support registry', () => {
         }]).find(item => item.cardId === 'shinhan_deep_dream');
 
         expect(support).toMatchObject({
-            reviewStatus: 'NOT_REVIEWED',
-            supportScope: 'PARTIAL',
+            reviewStatus: 'REVIEWED',
+            supportScope: 'FULL',
+            lastVerifiedAt: '2026-08-24T03:00:00.000Z',
         });
         expect(support?.sources[0]?.url).toContain('shinhancard.com');
         expect(support?.caveats.join(' ')).toContain('3·6·9번째');
-        expect(support).not.toHaveProperty('lastVerifiedAt');
     });
 
     it('does not call a baseline rollback an official review', () => {

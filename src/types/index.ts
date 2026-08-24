@@ -48,6 +48,8 @@ export type ActionType = 'PERCENT' | 'FLAT' | 'FIXED_PRICE';
 
 export interface RuleCondition {
     minSpend?: number;
+    maxSpend?: number; // Inclusive maximum payment amount
+    maxSpendExclusive?: number; // Exclusive maximum payment amount
     minPerformance?: number;
     startsAt?: string; // Inclusive YYYY-MM-DD validity boundary
     endsAt?: string; // Inclusive YYYY-MM-DD validity boundary
@@ -58,6 +60,8 @@ export interface RuleCondition {
     applicationOrder?: number;
     manualCheckRequired?: boolean;
     requiredNote?: string;
+    itemSpecific?: boolean;
+    eligibleItemSummary?: string;
 }
 
 export interface RuleAction {
@@ -102,6 +106,7 @@ export interface CardBenefitNoticeDates {
     affectedRuleIds: RuleId[];
     requirePublicationDate: boolean;
     requireEffectiveFrom: boolean;
+    applyAsRulePeriod?: boolean;
     publicationDate?: string;
     effectiveFrom?: string;
     effectiveTo?: string;

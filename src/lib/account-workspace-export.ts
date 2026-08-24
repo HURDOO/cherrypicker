@@ -322,7 +322,18 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
     ) {
         throw new Error('혜택 사용자 확인 조건이 올바르지 않습니다.');
     }
+    if (condition.itemSpecific !== undefined && typeof condition.itemSpecific !== 'boolean') {
+        throw new Error('특정 상품 조건이 올바르지 않습니다.');
+    }
     const requiredNote = optionalText(condition.requiredNote, '혜택 확인 메모', 500);
+    const eligibleItemSummary = optionalText(
+        condition.eligibleItemSummary,
+        '혜택 대상 상품 설명',
+        500,
+    );
+    if (condition.itemSpecific === true && !eligibleItemSummary) {
+        throw new Error('특정 상품 혜택에는 대상 상품 설명이 필요합니다.');
+    }
     const startsAt = optionalText(condition.startsAt, '혜택 시작일', 10);
     const endsAt = optionalText(condition.endsAt, '혜택 종료일', 10);
     [startsAt, endsAt].forEach(date => {
@@ -359,9 +370,22 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
     const minSpend = condition.minSpend === undefined
         ? undefined
         : safeInteger(condition.minSpend, '최소 결제 금액', 0, MAX_MONEY_AMOUNT);
+    const maxSpend = condition.maxSpend === undefined
+        ? undefined
+        : safeInteger(condition.maxSpend, '최대 결제 금액', 0, MAX_MONEY_AMOUNT);
+    const maxSpendExclusive = condition.maxSpendExclusive === undefined
+        ? undefined
+        : safeInteger(condition.maxSpendExclusive, '미만 결제 금액', 0, MAX_MONEY_AMOUNT);
     const minPerformance = condition.minPerformance === undefined
         ? undefined
         : safeInteger(condition.minPerformance, '최소 실적', 0, MAX_MONEY_AMOUNT);
+    if (minSpend !== undefined && maxSpend !== undefined && minSpend > maxSpend) {
+        throw new Error('최소 결제 금액은 최대 결제 금액보다 클 수 없습니다.');
+    }
+    if (minSpend !== undefined && maxSpendExclusive !== undefined &&
+        minSpend >= maxSpendExclusive) {
+        throw new Error('최소 결제 금액은 미만 결제 금액보다 작아야 합니다.');
+    }
     const maxDiscount = action.maxDiscount === undefined
         ? undefined
         : safeInteger(action.maxDiscount, '건별 최대 할인', 0, MAX_MONEY_AMOUNT);
@@ -391,6 +415,8 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
             : (() => { throw new Error('혜택 상세 값이 올바르지 않습니다.'); })(),
         condition: {
             ...(minSpend !== undefined && { minSpend }),
+            ...(maxSpend !== undefined && { maxSpend }),
+            ...(maxSpendExclusive !== undefined && { maxSpendExclusive }),
             ...(minPerformance !== undefined && { minPerformance }),
             ...(startsAt && { startsAt }),
             ...(endsAt && { endsAt }),
@@ -409,6 +435,10 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
                 manualCheckRequired: condition.manualCheckRequired,
             }),
             ...(requiredNote && { requiredNote }),
+            ...(condition.itemSpecific !== undefined && {
+                itemSpecific: condition.itemSpecific,
+            }),
+            ...(eligibleItemSummary && { eligibleItemSummary }),
         },
         action: {
             type: action.type as BenefitRule['action']['type'],

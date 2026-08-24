@@ -1,14 +1,21 @@
 import './load-env';
-import { collectShinhanSolTravelBenefits } from '../src/lib/card-benefit-ingestion';
+import { collectSystemCardBenefits } from '../src/lib/card-benefit-ingestion';
 
 async function main() {
-    const result = await collectShinhanSolTravelBenefits();
+    const cardId = process.argv.find(argument => argument.startsWith('--card='))
+        ?.slice('--card='.length) || 'shinhan_sol';
+    const result = await collectSystemCardBenefits(cardId, {
+        forceExtraction: process.argv.includes('--force'),
+    });
 
     console.log(
         `Card benefit collection: ${result.status}, ${result.cardId}, ` +
         `document v${result.version}, ${result.extractor}, ` +
         `${result.sources.length} sources, ${result.sourceFailures.length} source failures, ` +
-        `${result.validationErrors.length} validation errors.`
+        `${result.validationErrors.length} validation errors` +
+        `${result.cacheHit ? ', AI cache hit' : ''}` +
+        `${result.localRepair ? ', local evidence repair' : ''}` +
+        `${result.candidatePreserved ? ', previous clean candidate preserved' : ''}.`
     );
 
     result.sources.forEach(source => console.log(

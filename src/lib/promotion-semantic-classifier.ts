@@ -1,9 +1,14 @@
 import { createHash } from 'node:crypto';
+import { z } from 'zod';
 import type {
     PromotionApplicabilityScope,
     PromotionRequiredInput,
     PromotionSemanticAnalysis,
 } from '@/types';
+import {
+    OpenAIStructuredResponseClient,
+    resolveOpenAIReasoningEffort,
+} from './openai-responses';
 import type { ParsedPromotion } from './promotion-parsers';
 
 export type PromotionSemanticInput = {
@@ -23,34 +28,14 @@ export interface PromotionSemanticProvider {
     classify(input: PromotionSemanticInput): Promise<PromotionSemanticAnalysis>;
 }
 
-type GeminiResponse = {
-    error?: {
-        message?: string;
-    };
-    candidates?: Array<{
-        content?: {
-            parts?: Array<{ text?: string }>;
-        };
-    }>;
-};
-
-type GeminiClassification = {
-    scope: PromotionApplicabilityScope;
-    confidence: number;
-    evidenceQuotes: string[];
-    requiredInputs: PromotionRequiredInput[];
-    eligibleItemSummary: string;
-    reasoningSummary: string;
-};
-
-const scopes: PromotionApplicabilityScope[] = [
+const scopes = [
     'STORE_WIDE',
     'CATEGORY',
     'PRODUCT_SET',
     'CUSTOMER_TARGETED',
     'UNKNOWN',
-];
-const requiredInputValues: PromotionRequiredInput[] = [
+] as const satisfies readonly PromotionApplicabilityScope[];
+const requiredInputValues = [
     'ELIGIBLE_ITEM_AMOUNT',
     'COUPON',
     'ENROLLMENT',
@@ -58,7 +43,7 @@ const requiredInputValues: PromotionRequiredInput[] = [
     'TARGET_ELIGIBILITY',
     'STORE_ELIGIBILITY',
     'PAYMENT_INSTRUMENT',
-];
+] as const satisfies readonly PromotionRequiredInput[];
 
 const unique = <T,>(values: T[]) => [...new Set(values)];
 const normalizeText = (value: string) => value.replace(/\s+/g, ' ').trim();
@@ -297,69 +282,39 @@ export function classifyPromotionWithRules(parsed: ParsedPromotion): PromotionSe
     };
 }
 
-const geminiSchema = {
-    type: 'object',
-    properties: {
-        scope: {
-            type: 'string',
-            enum: scopes,
-            description: '혜택이 적용되는 범위',
-        },
-        confidence: {
-            type: 'number',
-            minimum: 0,
-            maximum: 1,
-            description: '공식 문구만으로 판단한 신뢰도',
-        },
-        evidenceQuotes: {
-            type: 'array',
-            items: { type: 'string' },
-            maxItems: 3,
-            description: '입력 원문에서 그대로 복사한 짧은 근거 문장',
-        },
-        requiredInputs: {
-            type: 'array',
-            items: { type: 'string', enum: requiredInputValues },
-            description: '계산 전에 사용자에게 추가로 받아야 하는 정보',
-        },
-        eligibleItemSummary: {
-            type: 'string',
-            description: '상품/카테고리 한정이면 대상 요약, 아니면 빈 문자열',
-        },
-        reasoningSummary: {
-            type: 'string',
-            description: '분류 이유를 설명하는 한 문장',
-        },
-    },
-    required: [
-        'scope',
-        'confidence',
-        'evidenceQuotes',
-        'requiredInputs',
-        'eligibleItemSummary',
-        'reasoningSummary',
-    ],
-};
+export const promotionSemanticOpenAISchema = z.object({
+    scope: z.enum(scopes).describe('혜택이 적용되는 범위'),
+    confidence: z.number().min(0).max(1).describe('공식 문구만으로 판단한 신뢰도'),
+    evidenceQuotes: z.array(z.string()).max(3)
+        .describe('입력 원문에서 그대로 복사한 짧은 근거 문장'),
+    requiredInputs: z.array(z.enum(requiredInputValues))
+        .describe('계산 전에 사용자에게 추가로 받아야 하는 정보'),
+    eligibleItemSummary: z.string()
+        .describe('상품/카테고리 한정이면 대상 요약, 아니면 빈 문자열'),
+    reasoningSummary: z.string().describe('분류 이유를 설명하는 한 문장'),
+}).strict();
 
-const validateGeminiClassification = (
+type OpenAIClassification = z.infer<typeof promotionSemanticOpenAISchema>;
+
+const validateOpenAIClassification = (
     value: unknown,
     input: PromotionSemanticInput,
-): GeminiClassification => {
+): OpenAIClassification => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        throw new Error('Gemini가 객체 형식의 분류를 반환하지 않았습니다.');
+        throw new Error('OpenAI가 객체 형식의 분류를 반환하지 않았습니다.');
     }
     const result = value as Record<string, unknown>;
     if (!scopes.includes(result.scope as PromotionApplicabilityScope)) {
-        throw new Error('Gemini 적용 범위가 올바르지 않습니다.');
+        throw new Error('OpenAI 적용 범위가 올바르지 않습니다.');
     }
     if (typeof result.confidence !== 'number' ||
         !Number.isFinite(result.confidence) ||
         result.confidence < 0 || result.confidence > 1) {
-        throw new Error('Gemini 신뢰도가 올바르지 않습니다.');
+        throw new Error('OpenAI 신뢰도가 올바르지 않습니다.');
     }
     if (!Array.isArray(result.evidenceQuotes) || result.evidenceQuotes.length > 3 ||
         result.evidenceQuotes.some(item => typeof item !== 'string')) {
-        throw new Error('Gemini 근거 문장이 올바르지 않습니다.');
+        throw new Error('OpenAI 근거 문장이 올바르지 않습니다.');
     }
     const sourceText = normalizeForEvidence(
         `${input.title}\n${input.description}\n${input.evidence}`
@@ -368,19 +323,19 @@ const validateGeminiClassification = (
         .map(item => normalizeText(String(item)).slice(0, 300))
         .filter(Boolean));
     if (evidenceQuotes.some(quote => !sourceText.includes(normalizeForEvidence(quote)))) {
-        throw new Error('Gemini 근거 문장이 공식 원문에 없습니다.');
+        throw new Error('OpenAI 근거 문장이 공식 원문에 없습니다.');
     }
     if (result.scope !== 'UNKNOWN' && evidenceQuotes.length === 0) {
-        throw new Error('Gemini 분류에 공식 원문 근거가 없습니다.');
+        throw new Error('OpenAI 분류에 공식 원문 근거가 없습니다.');
     }
     if (!Array.isArray(result.requiredInputs) || result.requiredInputs.some(item =>
         !requiredInputValues.includes(item as PromotionRequiredInput)
     )) {
-        throw new Error('Gemini 추가 입력값이 올바르지 않습니다.');
+        throw new Error('OpenAI 추가 입력값이 올바르지 않습니다.');
     }
     if (typeof result.eligibleItemSummary !== 'string' ||
         typeof result.reasoningSummary !== 'string') {
-        throw new Error('Gemini 분류 설명이 올바르지 않습니다.');
+        throw new Error('OpenAI 분류 설명이 올바르지 않습니다.');
     }
 
     return {
@@ -393,22 +348,22 @@ const validateGeminiClassification = (
     };
 };
 
-export class GeminiPromotionSemanticProvider implements PromotionSemanticProvider {
-    readonly id = 'gemini';
+export class OpenAIPromotionSemanticProvider implements PromotionSemanticProvider {
+    readonly id = 'openai';
     readonly model: string;
-    private readonly apiKey: string;
+    private readonly client: OpenAIStructuredResponseClient;
 
     constructor(options: { apiKey: string; model?: string }) {
-        if (!options.apiKey.trim()) throw new Error('Gemini API key가 비어 있습니다.');
-        this.apiKey = options.apiKey.trim();
-        this.model = options.model?.trim() || 'gemini-3.6-flash';
-        if (!/^[a-zA-Z0-9._-]+$/.test(this.model)) {
-            throw new Error('Gemini 모델명이 올바르지 않습니다.');
-        }
+        this.client = new OpenAIStructuredResponseClient({
+            apiKey: options.apiKey,
+            model: options.model,
+            timeoutMs: 45_000,
+        });
+        this.model = this.client.model;
     }
 
     async classify(input: PromotionSemanticInput): Promise<PromotionSemanticAnalysis> {
-        const prompt = [
+        const instructions = [
             '당신은 한국 결제 혜택의 적용 범위를 분류합니다.',
             '입력된 공식 문구에 명시된 내용만 사용하고 브랜드에 대한 상식이나 추측은 사용하지 마세요.',
             'STORE_WIDE는 선택한 매장의 일반 결제금액 전체에 적용된다고 문구상 판단할 수 있을 때만 사용합니다.',
@@ -416,51 +371,25 @@ export class GeminiPromotionSemanticProvider implements PromotionSemanticProvide
             'CUSTOMER_TARGETED는 선착순, 추첨, 신규/일부 고객처럼 개인별 자격 확인이 필요할 때 사용합니다.',
             '불명확하면 반드시 UNKNOWN으로 분류하세요.',
             'evidenceQuotes는 아래 원문에서 공백을 포함해 그대로 복사한 문장만 넣으세요.',
-            '',
+        ].join('\n');
+        const prompt = [
             `제공자: ${input.providerId}`,
             `제목: ${input.title}`,
             `설명: ${input.description}`,
             `공식 원문:\n${input.evidence.slice(0, 8_000)}`,
         ].join('\n');
-        const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`,
-            {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json',
-                    'x-goog-api-key': this.apiKey,
-                },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        temperature: 0,
-                        thinkingConfig: {
-                            thinkingLevel: 'minimal',
-                        },
-                        responseFormat: {
-                            text: {
-                                mimeType: 'APPLICATION_JSON',
-                                schema: geminiSchema,
-                            },
-                        },
-                    },
-                }),
-                signal: AbortSignal.timeout(30_000),
-            }
-        );
-        const body = await response.json().catch(() => ({})) as GeminiResponse;
-        if (!response.ok) {
-            const message = body.error?.message?.replace(/\s+/g, ' ').trim().slice(0, 300);
-            throw new Error(
-                `Gemini API HTTP ${response.status}${message ? `: ${message}` : ''}`
-            );
-        }
-        const text = body.candidates?.[0]?.content?.parts
-            ?.map(part => part.text ?? '')
-            .join('')
-            .trim();
-        if (!text) throw new Error('Gemini가 분류 결과를 반환하지 않았습니다.');
-        const classification = validateGeminiClassification(JSON.parse(text), input);
+        const parsed = await this.client.parse({
+            schema: promotionSemanticOpenAISchema,
+            schemaName: 'promotion_semantic_classification',
+            instructions,
+            input: prompt,
+            reasoningEffort: resolveOpenAIReasoningEffort(
+                process.env.PROMOTION_AI_REASONING_EFFORT,
+                'low',
+            ),
+            maxOutputTokens: 2_000,
+        });
+        const classification = validateOpenAIClassification(parsed, input);
         return {
             ...classification,
             ...(classification.eligibleItemSummary && {
@@ -528,10 +457,10 @@ const aiMaxCalls = () => {
 export function createPromotionSemanticClassifier(
     cachedAnalyses: PromotionSemanticAnalysis[] = [],
 ) {
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
-    const provider = apiKey ? new GeminiPromotionSemanticProvider({
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    const provider = apiKey ? new OpenAIPromotionSemanticProvider({
         apiKey,
-        model: process.env.GEMINI_MODEL,
+        model: process.env.PROMOTION_AI_MODEL || process.env.OPENAI_MODEL,
     }) : undefined;
     return new PromotionSemanticClassifier(provider, aiMaxCalls(), cachedAnalyses);
 }

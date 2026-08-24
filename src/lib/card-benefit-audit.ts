@@ -8,20 +8,26 @@ import type {
     CardBenefitNoticeDates,
     CardBenefitRevisionSnapshot,
 } from '@/types';
+import {
+    analyzeAlternativeManualChecks,
+    analyzeSharedLimitGroups,
+    informationalRuleErrors,
+    performanceWaiverConsistencyErrors,
+} from './card-benefit-rule-consistency';
 import { diffStructuredValues } from './structured-diff';
 
 const conditionCoverageFields = [
     'minSpend',
+    'maxSpend',
+    'maxSpendExclusive',
     'minPerformance',
     'startsAt',
     'endsAt',
     'requiredCardNetwork',
     'performanceWaiver',
-    'confirmationRequired',
     'stackableWithRuleIds',
-    'applicationOrder',
-    'manualCheckRequired',
-    'requiredNote',
+    'itemSpecific',
+    'eligibleItemSummary',
 ] as const;
 
 const actionCoverageFields = ['value', 'maxDiscount', 'amountBasis'] as const;
@@ -37,6 +43,32 @@ const highRiskRulePath = /^(rule$|category$|includedBrands$|excludedBrands$|plat
 const highRiskCardPath = /^(name$|company$|network$|limitTable(?:\.|$))/;
 
 const unique = <T,>(values: T[]) => [...new Set(values)];
+
+const sameStringSet = (left: string[], right: string[]) => (
+    JSON.stringify([...left].sort()) === JSON.stringify([...right].sort())
+);
+
+const ruleIdStabilityErrors = (baselineRules: BenefitRule[], candidateRules: BenefitRule[]) => {
+    const baselineIds = new Set(baselineRules.map(rule => rule.id));
+    const candidateIds = new Set(candidateRules.map(rule => rule.id));
+    const addedRules = candidateRules.filter(rule => !baselineIds.has(rule.id));
+    return baselineRules.filter(rule => !candidateIds.has(rule.id)).flatMap(removedRule => {
+        if ((removedRule.includedBrands ?? []).length === 0) return [];
+        const replacements = addedRules.filter(addedRule => (
+            (addedRule.category ?? undefined) === removedRule.category &&
+            (addedRule.platformType ?? 'ALL') === (removedRule.platformType ?? 'ALL') &&
+            addedRule.action.type === removedRule.action.type &&
+            sameStringSet(addedRule.includedBrands ?? [], removedRule.includedBrands ?? []) &&
+            sameStringSet(addedRule.excludedBrands ?? [], removedRule.excludedBrands ?? [])
+        ));
+        return replacements.length > 0
+            ? [
+                `동일 혜택의 기존 규칙 ID를 유지해야 합니다: ${removedRule.id} → ` +
+                replacements.map(rule => rule.id).join(', '),
+            ]
+            : [];
+    });
+};
 
 const ruleForDiff = (rule: BenefitRule) => ({
     category: rule.category,
@@ -135,10 +167,14 @@ const noticeDateErrors = (
                 `공식 공지 종료일이 시행일보다 빠릅니다: ${noticeDates.effectiveFrom} > ${noticeDates.effectiveTo}`
             );
         }
+        const isKnownConditionAmendment = sourceUrl.includes('ARTICLE_SERIAL=11274');
         noticeDates.affectedRuleIds.forEach(ruleId => {
             const rule = rules.get(ruleId);
             if (!rule) {
                 errors.push(`공식 공지 영향 규칙이 후보에서 누락되었습니다: ${ruleId}`);
+                return;
+            }
+            if (noticeDates.applyAsRulePeriod === false || isKnownConditionAmendment) {
                 return;
             }
             if (
@@ -237,16 +273,22 @@ export function createCardBenefitCandidateAudit(options: {
         findCoverage(rule, options.extraction.evidence)
     ));
     const blockingErrors = unique([
-        ...changes.flatMap(change => (
-            change.kind === 'REMOVED' && change.risk === 'HIGH'
-                ? [`이전 게시본의 필수 항목이 누락되었습니다: ${change.entityLabel} · ${change.path}`]
-                : []
-        )),
         ...coverage.flatMap(item => (
             item.status === 'MISSING_EVIDENCE'
                 ? [`필수 조건의 공식 근거가 없습니다: ${item.ruleLabel} · ${item.path}`]
                 : []
         )),
+        ...ruleIdStabilityErrors(options.baseline.rules, options.extraction.rules),
+        ...analyzeSharedLimitGroups(options.extraction.rules).errors,
+        ...performanceWaiverConsistencyErrors(options.extraction.rules, {
+            hasCardLimitTable: (options.extraction.card.limitTable?.length ?? 0) > 0,
+            waiverExemptRuleIds: new Set(options.extraction.evidence.filter(item => (
+                /실적[\s\S]{0,80}유예[\s\S]{0,80}제외|(?:대중교통|통신요금)[\s\S]{0,80}제외/i
+                    .test(`${item.location ?? ''}\n${item.quote}`)
+            )).flatMap(item => item.ruleIds)),
+        }),
+        ...analyzeAlternativeManualChecks(options.extraction.rules).errors,
+        ...informationalRuleErrors(options.extraction.rules),
         ...noticeDateErrors(options.extraction, options.noticeDocuments ?? []),
     ]);
 

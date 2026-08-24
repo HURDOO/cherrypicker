@@ -643,7 +643,7 @@ export default function SettingsPage() {
                 )}
 
                 <div className="flex justify-center py-6">
-                    <p className="text-[10px] text-gray-300 font-mono">Cherry Picker v0.2.0 • Powered by Gemini 3 Pro</p>
+                    <p className="text-[10px] text-gray-300 font-mono">Cherry Picker v0.2.0 • AI assisted by OpenAI</p>
                 </div>
 
             </div>

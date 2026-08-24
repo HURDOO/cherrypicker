@@ -68,6 +68,11 @@ type Revision = {
 };
 
 type ReviewData = {
+    collectionTargets: Array<{
+        cardId: string;
+        cardName: string;
+        sourceCount: number;
+    }>;
     candidates: Candidate[];
     revisions: Revision[];
 };
@@ -91,8 +96,8 @@ const statusLabel: Record<CardBenefitCandidateStatus, string> = {
     REJECTED: '반려',
 };
 
-const extractorLabel = (extractor: string) => extractor.startsWith('gemini:')
-    ? 'Gemini 구조화'
+const extractorLabel = (extractor: string) => extractor.startsWith('openai:')
+    ? 'OpenAI 2단계 구조화'
     : '공식 규칙 추출기';
 
 const formatAction = (rule: BenefitRule) => {
@@ -298,20 +303,37 @@ export function CardBenefitAdminClient() {
         void load();
     }, [load]);
 
-    const collect = async () => {
-        setBusyKey('collect');
+    const collect = async (
+        target: ReviewData['collectionTargets'][number],
+        forceExtraction = false,
+    ) => {
+        const key = `${forceExtraction ? 'force-collect' : 'collect'}:${target.cardId}`;
+        setBusyKey(key);
         try {
             const result = await request<{
                 validationErrors: string[];
                 sources: Array<unknown>;
                 sourceFailures: Array<unknown>;
+                candidatePreserved?: boolean;
+                cacheHit?: boolean;
+                localRepair?: boolean;
             }>({
                 method: 'POST',
-                body: JSON.stringify({ action: 'collect-shinhan-sol' }),
+                body: JSON.stringify({
+                    action: 'collect-card',
+                    cardId: target.cardId,
+                    forceExtraction,
+                }),
             });
             addToast(
-                result.validationErrors.length > 0
-                    ? `출처 ${result.sources.length}개를 수집했지만 검증 오류 ${result.validationErrors.length}건이 있어 게시를 막았습니다.`
+                result.localRepair
+                    ? '기존 후보를 공식 근거 기반 규칙으로 로컬 보정했습니다. AI API는 호출하지 않았습니다.'
+                    : result.cacheHit
+                    ? '공식 원문이 같아 기존 검증 통과 후보를 사용했습니다. AI API는 호출하지 않았습니다.'
+                    : result.validationErrors.length > 0
+                    ? result.candidatePreserved
+                        ? `이번 추출은 검증 오류 ${result.validationErrors.length}건으로 폐기하고, 기존 검증 통과 후보를 보존했습니다.`
+                        : `출처 ${result.sources.length}개를 수집했지만 검증 오류 ${result.validationErrors.length}건이 있어 게시를 막았습니다.`
                     : `공식 출처 ${result.sources.length}개를 묶어 후보를 만들었습니다.` +
                         (result.sourceFailures.length > 0
                             ? ` 선택 출처 ${result.sourceFailures.length}개는 실패했습니다.`
@@ -327,6 +349,13 @@ export function CardBenefitAdminClient() {
     };
 
     const review = async (candidate: Candidate, status: 'APPROVED' | 'REJECTED') => {
+        const highRiskRemovalCount = candidate.audit.changes.filter(change => (
+            change.kind === 'REMOVED' && change.risk === 'HIGH'
+        )).length;
+        if (status === 'APPROVED' && highRiskRemovalCount > 0 && !window.confirm(
+            `기존 계산 필드 또는 혜택 ${highRiskRemovalCount}건이 제거됩니다. ` +
+            '공식 원문과 변경 내역을 확인했다면 승인하세요.'
+        )) return;
         const key = `${status}:${candidate.id}`;
         setBusyKey(key);
         try {
@@ -391,17 +420,35 @@ export function CardBenefitAdminClient() {
                             </p>
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={collect}
-                        disabled={Boolean(busyKey)}
-                        className="flex items-center gap-2 rounded-xl bg-gray-950 px-4 py-2.5 text-xs font-black text-white disabled:opacity-50"
-                    >
-                        {busyKey === 'collect'
-                            ? <LoaderCircle className="h-4 w-4 animate-spin" />
-                            : <DatabaseZap className="h-4 w-4" />}
-                        SOL트래블 출처 수집
-                    </button>
+                    <div className="flex flex-wrap justify-end gap-2">
+                        {(data?.collectionTargets ?? []).map(target => (
+                            <div key={target.cardId} className="flex overflow-hidden rounded-xl">
+                                <button
+                                    type="button"
+                                    onClick={() => collect(target)}
+                                    disabled={Boolean(busyKey)}
+                                    className="flex items-center gap-2 bg-gray-950 px-4 py-2.5 text-xs font-black text-white disabled:opacity-50"
+                                >
+                                    {busyKey === `collect:${target.cardId}`
+                                        ? <LoaderCircle className="h-4 w-4 animate-spin" />
+                                        : <DatabaseZap className="h-4 w-4" />}
+                                    {target.cardName} 확인
+                                </button>
+                                <button
+                                    type="button"
+                                    title="같은 원문도 AI로 강제 재추출"
+                                    aria-label={`${target.cardName} AI 강제 재추출`}
+                                    onClick={() => collect(target, true)}
+                                    disabled={Boolean(busyKey)}
+                                    className="border-l border-white/20 bg-amber-600 px-3 text-white disabled:opacity-50"
+                                >
+                                    {busyKey === `force-collect:${target.cardId}`
+                                        ? <LoaderCircle className="h-4 w-4 animate-spin" />
+                                        : <RotateCcw className="h-4 w-4" />}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </header>
 
@@ -440,7 +487,7 @@ export function CardBenefitAdminClient() {
                     <section className="rounded-3xl border border-gray-200 bg-white p-10 text-center">
                         <DatabaseZap className="mx-auto h-8 w-8 text-gray-300" />
                         <p className="mt-3 text-sm font-black text-gray-800">수집된 카드 혜택 후보가 없습니다</p>
-                        <p className="mt-1 text-xs text-gray-400">SOL트래블 수집으로 첫 공식 문서를 보존하세요.</p>
+                        <p className="mt-1 text-xs text-gray-400">상단 카드 수집 버튼으로 공식 문서를 보존하세요.</p>
                     </section>
                 )}
 

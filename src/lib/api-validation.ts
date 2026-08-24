@@ -174,6 +174,16 @@ export function ruleConditionValue(input: Input): RuleCondition {
         '최소 결제 금액',
         MAX_MONEY_AMOUNT
     );
+    const maxSpend = optionalNonNegativeInteger(
+        value.maxSpend,
+        '최대 결제 금액',
+        MAX_MONEY_AMOUNT
+    );
+    const maxSpendExclusive = optionalNonNegativeInteger(
+        value.maxSpendExclusive,
+        '미만 결제 금액',
+        MAX_MONEY_AMOUNT
+    );
     const minPerformance = optionalNonNegativeInteger(
         value.minPerformance,
         '최소 실적',
@@ -198,6 +208,8 @@ export function ruleConditionValue(input: Input): RuleCondition {
     const manualCheckRequired = value.manualCheckRequired;
     const confirmationRequired = value.confirmationRequired;
     const requiredNote = value.requiredNote;
+    const itemSpecific = value.itemSpecific;
+    const eligibleItemSummary = value.eligibleItemSummary;
     const requiredCardNetwork = value.requiredCardNetwork;
     const performanceWaiver = value.performanceWaiver;
     const stackableWithRuleIds = value.stackableWithRuleIds;
@@ -215,6 +227,22 @@ export function ruleConditionValue(input: Input): RuleCondition {
     }
     if (requiredNote !== undefined && typeof requiredNote !== 'string') {
         invalid('확인 메모 형식이 올바르지 않습니다.');
+    }
+    if (itemSpecific !== undefined && typeof itemSpecific !== 'boolean') {
+        invalid('특정 상품 조건 값이 올바르지 않습니다.');
+    }
+    if (eligibleItemSummary !== undefined && typeof eligibleItemSummary !== 'string') {
+        invalid('혜택 대상 상품 설명이 올바르지 않습니다.');
+    }
+    if (itemSpecific === true && !String(eligibleItemSummary ?? '').trim()) {
+        invalid('특정 상품 혜택에는 대상 상품 설명이 필요합니다.');
+    }
+    if (minSpend !== undefined && maxSpend !== undefined && minSpend > maxSpend) {
+        invalid('최소 결제 금액은 최대 결제 금액보다 클 수 없습니다.');
+    }
+    if (minSpend !== undefined && maxSpendExclusive !== undefined &&
+        minSpend >= maxSpendExclusive) {
+        invalid('최소 결제 금액은 미만 결제 금액보다 작아야 합니다.');
     }
     if (requiredCardNetwork !== undefined && ![
         'DOMESTIC',
@@ -238,6 +266,8 @@ export function ruleConditionValue(input: Input): RuleCondition {
 
     return {
         ...(minSpend !== undefined && { minSpend }),
+        ...(maxSpend !== undefined && { maxSpend }),
+        ...(maxSpendExclusive !== undefined && { maxSpendExclusive }),
         ...(minPerformance !== undefined && { minPerformance }),
         ...(startsAt && { startsAt }),
         ...(endsAt && { endsAt }),
@@ -254,6 +284,10 @@ export function ruleConditionValue(input: Input): RuleCondition {
         ...(applicationOrder !== undefined && { applicationOrder }),
         ...(manualCheckRequired !== undefined && { manualCheckRequired }),
         ...(requiredNote && { requiredNote: requiredNote.slice(0, 500) }),
+        ...(itemSpecific !== undefined && { itemSpecific }),
+        ...(eligibleItemSummary && {
+            eligibleItemSummary: eligibleItemSummary.slice(0, 500),
+        }),
     };
 }
 

@@ -3,9 +3,11 @@ import { createHash } from 'node:crypto';
 import {
     assertTrustedOfficialSourceUrl,
     collectOfficialDocument,
+    createOfficialDocumentSemanticHash,
     createOfficialSourceBundleHash,
     discoverOfficialPdfSources,
     joinPdfPages,
+    positionedPdfText,
     splitPdfPages,
     type OfficialDocumentSourceDefinition,
 } from './official-document-source';
@@ -46,12 +48,22 @@ const noticeSource: OfficialDocumentSourceDefinition = {
 };
 
 describe('official document source adapter', () => {
+    it('preserves visual PDF lines even when PDF.js does not set hasEOL', () => {
+        expect(positionedPdfText([
+            { str: '카타르항공', hasEOL: false, transform: [1, 0, 0, 10, 10, 700], height: 10 },
+            { str: '15% 할인', hasEOL: false, transform: [1, 0, 0, 10, 80, 700], height: 10 },
+            { str: 'AVIS', hasEOL: false, transform: [1, 0, 0, 10, 10, 680], height: 10 },
+            { str: '10~20% 할인', hasEOL: true, transform: [1, 0, 0, 10, 80, 680], height: 10 },
+        ])).toBe('카타르항공 15% 할인\nAVIS 10~20% 할인\n');
+    });
+
     it('collects trusted HTML and discovers only same-owner PDF links', async () => {
         const html = `
             <html><body>
                 <h1>공식 카드 혜택 안내</h1>
                 <p>${'국내 편의점 5% 할인과 월 한도를 안내합니다. '.repeat(10)}</p>
                 <a href="/documents/guide.pdf?version=2">상품안내</a>
+                <a href="#" onclick="window.open('https://docs.card.example/guides/terms.pdf')">약관</a>
                 <a href="https://evil.example/guide.pdf">외부 문서</a>
             </body></html>
         `;
@@ -67,12 +79,24 @@ describe('official document source adapter', () => {
             extractionMethod: 'html-to-text',
         });
         expect(collected.extractedText).toContain('국내 편의점 5% 할인');
-        expect(discovered).toHaveLength(1);
+        expect(discovered).toHaveLength(2);
         expect(discovered[0]).toMatchObject({
             sourceUrl: 'https://www.card.example/documents/guide.pdf?version=2',
             format: 'pdf',
             candidateRole: 'SUPPORTING',
         });
+        expect(discovered[1]).toMatchObject({
+            sourceUrl: 'https://docs.card.example/guides/terms.pdf',
+            format: 'pdf',
+            candidateRole: 'SUPPORTING',
+        });
+    });
+
+    it('can disable PDF discovery for broad supporting notices', () => {
+        expect(discoverOfficialPdfSources(
+            '<a href="/documents/all-products.pdf">전체 상품 약관</a>',
+            { ...noticeSource, discoverLinkedPdfs: false },
+        )).toEqual([]);
     });
 
     it('stores PDF bytes as base64 and preserves page boundaries', async () => {
@@ -177,5 +201,18 @@ describe('official document source adapter', () => {
                 sources[0],
                 { ...sources[1], contentHash: 'changed' },
             ]));
+    });
+
+    it('ignores view-count and whitespace churn in HTML semantic hashes', () => {
+        expect(createOfficialDocumentSemanticHash(`
+            카드 혜택 변경 안내\n조회수 : 1,097\n시행일 2024.8.1
+        `)).toBe(createOfficialDocumentSemanticHash(
+            '카드 혜택 변경 안내 조회수: 1099 시행일 2024.8.1'
+        ));
+        expect(createOfficialDocumentSemanticHash(
+            '카드 혜택 변경 안내 조회수: 1099 시행일 2024.8.1'
+        )).not.toBe(createOfficialDocumentSemanticHash(
+            '카드 혜택 변경 안내 조회수: 1099 시행일 2024.9.1'
+        ));
     });
 });

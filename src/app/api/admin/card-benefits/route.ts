@@ -7,6 +7,7 @@ import {
 import {
     CardBenefitIngestionError,
     collectShinhanSolTravelBenefits,
+    collectSystemCardBenefits,
     getCardBenefitReviewData,
     reviewCardBenefitCandidate,
     rollbackCardBenefitRevision,
@@ -34,10 +35,15 @@ export async function POST(request: Request) {
     try {
         await requireAdmin(request);
         const input = await readJsonObject(request);
-        if (input.action !== 'collect-shinhan-sol') {
-            throw new HttpError(400, '지원하지 않는 카드 혜택 수집 작업입니다.');
+        if (input.action === 'collect-shinhan-sol') {
+            return Response.json(await collectShinhanSolTravelBenefits(), { status: 201 });
         }
-        return Response.json(await collectShinhanSolTravelBenefits(), { status: 201 });
+        if (input.action === 'collect-card' && typeof input.cardId === 'string') {
+            return Response.json(await collectSystemCardBenefits(input.cardId, {
+                forceExtraction: input.forceExtraction === true,
+            }), { status: 201 });
+        }
+        throw new HttpError(400, '지원하지 않는 카드 혜택 수집 작업입니다.');
     } catch (error) {
         return routeError(error);
     }

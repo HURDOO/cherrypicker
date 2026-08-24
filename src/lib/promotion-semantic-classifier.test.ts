@@ -4,10 +4,51 @@ import type { ParsedPromotion } from './promotion-parsers';
 import {
     applyPromotionSemanticAnalysis,
     classifyPromotionWithRules,
-    GeminiPromotionSemanticProvider,
+    OpenAIPromotionSemanticProvider,
     PromotionSemanticClassifier,
     type PromotionSemanticProvider,
 } from './promotion-semantic-classifier';
+
+const openAIResponse = (value: unknown) => ({
+    id: 'resp_test',
+    object: 'response',
+    created_at: 1,
+    status: 'completed',
+    error: null,
+    incomplete_details: null,
+    instructions: null,
+    max_output_tokens: 2_000,
+    model: 'gpt-5.6-luna',
+    output: [{
+        id: 'msg_test',
+        type: 'message',
+        status: 'completed',
+        role: 'assistant',
+        content: [{
+            type: 'output_text',
+            text: JSON.stringify(value),
+            annotations: [],
+            logprobs: [],
+        }],
+    }],
+    parallel_tool_calls: true,
+    previous_response_id: null,
+    reasoning: { effort: 'low', summary: null },
+    store: false,
+    temperature: 1,
+    text: { format: { type: 'json_schema' } },
+    tool_choice: 'auto',
+    tools: [],
+    top_p: 1,
+    truncation: 'disabled',
+    usage: {
+        input_tokens: 10,
+        output_tokens: 10,
+        total_tokens: 20,
+        input_tokens_details: { cached_tokens: 0 },
+        output_tokens_details: { reasoning_tokens: 0 },
+    },
+});
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -268,31 +309,26 @@ describe('promotion semantic classifier', () => {
         expect(first.inputHash).toMatch(/^[a-f0-9]{64}$/);
     });
 
-    it('uses the current GenerateContent enum for JSON structured output', async () => {
+    it('uses the Responses API JSON schema with server-side storage disabled', async () => {
         let requestBody: Record<string, unknown> | undefined;
         vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
             requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
-            const responseBody = {
-                candidates: [{
-                    content: {
-                        parts: [{
-                            text: JSON.stringify({
-                                scope: 'PRODUCT_SET',
-                                confidence: 0.98,
-                                evidenceQuotes: ['인기 맥주 번들 5종 결제 시'],
-                                requiredInputs: ['ELIGIBLE_ITEM_AMOUNT'],
-                                eligibleItemSummary: '인기 맥주 번들 5종',
-                                reasoningSummary: '특정 상품 행사입니다.',
-                            }),
-                        }],
-                    },
-                }],
-            };
-            return new Response(JSON.stringify(responseBody), { status: 200 });
+            const responseBody = openAIResponse({
+                scope: 'PRODUCT_SET',
+                confidence: 0.98,
+                evidenceQuotes: ['인기 맥주 번들 5종 결제 시'],
+                requiredInputs: ['ELIGIBLE_ITEM_AMOUNT'],
+                eligibleItemSummary: '인기 맥주 번들 5종',
+                reasoningSummary: '특정 상품 행사입니다.',
+            });
+            return new Response(JSON.stringify(responseBody), {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+            });
         }));
-        const provider = new GeminiPromotionSemanticProvider({
+        const provider = new OpenAIPromotionSemanticProvider({
             apiKey: 'test-key',
-            model: 'gemini-3.6-flash',
+            model: 'gpt-5.6-luna',
         });
 
         const analysis = await provider.classify({
@@ -305,13 +341,12 @@ describe('promotion semantic classifier', () => {
             requiresCoupon: false,
             requiresEnrollment: false,
         });
-        const generationConfig = requestBody?.generationConfig as Record<string, unknown>;
-        const thinkingConfig = generationConfig.thinkingConfig as Record<string, unknown>;
-        const responseFormat = generationConfig.responseFormat as Record<string, unknown>;
-        const textFormat = responseFormat.text as Record<string, unknown>;
-
-        expect(thinkingConfig.thinkingLevel).toBe('minimal');
-        expect(textFormat.mimeType).toBe('APPLICATION_JSON');
+        expect(requestBody).toMatchObject({
+            model: 'gpt-5.6-luna',
+            store: false,
+            reasoning: { effort: 'low' },
+            text: { format: { type: 'json_schema', strict: true } },
+        });
         expect(analysis.scope).toBe('PRODUCT_SET');
     });
 });

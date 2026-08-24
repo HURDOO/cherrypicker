@@ -49,15 +49,15 @@ export async function POST(request: Request) {
                 (value): value is string => typeof value === 'string'
             )
             : [];
+        const eligibleItemAmount = optionalInteger(
+            input,
+            'eligibleItemAmount',
+            '혜택 대상 상품 금액',
+            0,
+            amount,
+        );
 
         if (combinationId) {
-            const eligibleItemAmount = optionalInteger(
-                input,
-                'eligibleItemAmount',
-                '혜택 대상 상품 금액',
-                0,
-                amount,
-            );
             const recommendation = calculateRecommendationForUser(user.id, {
                 brandId,
                 amount,
@@ -172,7 +172,10 @@ export async function POST(request: Request) {
             historyRows.map(toTransaction),
             performanceRows.map(toPerformance),
             isOnline,
-            { confirmedConditionIds },
+            {
+                confirmedConditionIds,
+                ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
+            },
         ).find(card => card.id === cardId);
 
         if (!calculatedCard) {

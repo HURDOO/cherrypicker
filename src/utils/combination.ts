@@ -758,7 +758,7 @@ export function calculateBestCombinations(
     const isWholePurchaseConditional = (offer: PromotionOffer) =>
         offer.condition.calculationMode === 'CONDITIONAL' &&
         offer.condition.applicabilityScope === 'CUSTOMER_TARGETED';
-    const itemSpecificOffers = currentOffers
+    const promotionItemSpecificOffers = currentOffers
         .filter(offer => isItemScoped(offer) && !isInformationOnly(offer))
         .map(offer => ({
             id: offer.id,
@@ -782,6 +782,43 @@ export function calculateBestCombinations(
                 requiredNote: offer.condition.requiredNote,
             }),
         }));
+    const currentDate = now.toISOString().slice(0, 10);
+    const cardItemSpecificOffers = input.rules
+        .filter(rule => {
+            if (rule.condition.itemSpecific !== true) return false;
+            if ((rule.excludedBrands ?? []).includes(input.brand.id)) return false;
+            const includedBrands = rule.includedBrands ?? [];
+            const matches = includedBrands.includes(input.brand.id) ||
+                (includedBrands.length === 0 && rule.category === input.brand.categoryId);
+            if (!matches) return false;
+            if (rule.platformType === 'ONLINE' || rule.platformType === 'OFFICIAL_SITE') {
+                if (!input.isOnline) return false;
+            }
+            if (rule.platformType === 'OFFLINE' && input.isOnline) return false;
+            if (rule.condition.startsAt && rule.condition.startsAt > currentDate) return false;
+            if (rule.condition.endsAt && rule.condition.endsAt < currentDate) return false;
+            return input.cards.some(card => card.id === rule.cardId);
+        })
+        .map(rule => ({
+            id: rule.id,
+            title: rule.description,
+            providerName: input.cards.find(card => card.id === rule.cardId)?.name ?? rule.cardId,
+            scope: 'PRODUCT_SET' as const,
+            calculationEligible: true,
+            valueSemantics: 'EXACT' as const,
+            actionType: rule.action.type,
+            actionValue: rule.action.value,
+            ...(rule.condition.eligibleItemSummary && {
+                eligibleItemSummary: rule.condition.eligibleItemSummary,
+            }),
+            ...(rule.condition.requiredNote && {
+                requiredNote: rule.condition.requiredNote,
+            }),
+        }));
+    const itemSpecificOffers = [
+        ...promotionItemSpecificOffers,
+        ...cardItemSpecificOffers,
+    ];
     const informationalOffers = currentOffers
         .filter(isInformationOnly)
         .map(offer => ({
@@ -907,7 +944,12 @@ export function calculateBestCombinations(
                                 input.history,
                                 input.performances,
                                 input.isOnline,
-                                { confirmedConditionIds },
+                                {
+                                    confirmedConditionIds,
+                                    ...(input.eligibleItemAmount !== undefined && {
+                                        eligibleItemAmount: input.eligibleItemAmount,
+                                    }),
+                                },
                             )[0];
                             if (evaluatedCard) {
                                 const route = getRouteCertainty(input, card, payProviderId);

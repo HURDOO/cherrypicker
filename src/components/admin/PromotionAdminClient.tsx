@@ -1139,7 +1139,7 @@ function CandidateCard({
                 <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
                     <div className="flex flex-wrap items-center gap-2 text-[9px] font-black text-blue-800">
                         <Sparkles className="h-3.5 w-3.5" />
-                        {semanticAnalysis.provider === 'gemini' ? 'Gemini 분류' : '규칙 분류'}
+                        {semanticAnalysis.provider === 'openai' ? 'OpenAI 분류' : '규칙 분류'}
                         <span className="text-blue-600/70">
                             신뢰도 {Math.round(semanticAnalysis.confidence * 100)}%
                         </span>

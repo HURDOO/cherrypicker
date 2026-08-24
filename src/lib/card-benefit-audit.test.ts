@@ -43,7 +43,7 @@ describe('card benefit candidate audit', () => {
         expect(audit.coverage.length).toBeGreaterThan(30);
     });
 
-    it('blocks a required field removed from the published baseline', () => {
+    it('marks a removed published field as high risk for explicit review', () => {
         const candidate = extraction();
         const convenience = candidate.rules.find(rule => (
             rule.id === 'sol_domestic_convenience'
@@ -65,7 +65,7 @@ describe('card benefit candidate audit', () => {
                 risk: 'HIGH',
             }),
         ]));
-        expect(audit.blockingErrors).toEqual(expect.arrayContaining([
+        expect(audit.blockingErrors).not.toEqual(expect.arrayContaining([
             expect.stringContaining('condition.minPerformance'),
         ]));
     });
@@ -94,6 +94,158 @@ describe('card benefit candidate audit', () => {
         ]));
         expect(audit.blockingErrors).toEqual(expect.arrayContaining([
             expect.stringContaining('공항 라운지 무료 · condition.minPerformance'),
+        ]));
+    });
+
+    it('blocks a replacement benefit that changes an existing rule ID', () => {
+        const candidate = extraction();
+        const convenience = candidate.rules.find(rule => (
+            rule.id === 'sol_domestic_convenience'
+        ))!;
+        convenience.id = 'sol_domestic_convenience_recreated';
+        candidate.evidence = candidate.evidence.map(item => ({
+            ...item,
+            ruleIds: item.ruleIds.map(ruleId => (
+                ruleId === 'sol_domestic_convenience'
+                    ? convenience.id
+                    : ruleId
+            )),
+        }));
+
+        const audit = createCardBenefitCandidateAudit({
+            extraction: candidate,
+            baseline: baseline(),
+            baselineRevision: 2,
+        });
+
+        expect(audit.blockingErrors).toContain(
+            '동일 혜택의 기존 규칙 ID를 유지해야 합니다: sol_domestic_convenience → ' +
+            'sol_domestic_convenience_recreated',
+        );
+    });
+
+    it('blocks a shared limit group with inconsistent per-rule limits', () => {
+        const candidate = extraction();
+        const convenience = candidate.rules.find(rule => (
+            rule.id === 'sol_domestic_convenience'
+        ))!;
+        const lounge = candidate.rules.find(rule => rule.id === 'sol_lounge')!;
+        convenience.sharedGroupId = 'incorrect_integrated_group';
+        lounge.sharedGroupId = 'incorrect_integrated_group';
+
+        const audit = createCardBenefitCandidateAudit({
+            extraction: candidate,
+            baseline: baseline(),
+            baselineRevision: 2,
+        });
+
+        expect(audit.blockingErrors).toEqual(expect.arrayContaining([
+            expect.stringContaining('공유 한도 그룹 incorrect_integrated_group'),
+        ]));
+    });
+
+    it('allows rules to share a monthly limit while keeping a rule-specific daily limit', () => {
+        const candidate = extraction();
+        const [left, right] = candidate.rules;
+        left.sharedGroupId = 'partial_shared_monthly_group';
+        right.sharedGroupId = 'partial_shared_monthly_group';
+        left.usesCardLimit = false;
+        right.usesCardLimit = false;
+        left.limitConfig = { dailyAmount: 1_000, monthlyAmount: 100_000 };
+        right.limitConfig = { monthlyAmount: 100_000 };
+
+        const audit = createCardBenefitCandidateAudit({
+            extraction: candidate,
+            baseline: baseline(),
+            baselineRevision: 2,
+        });
+
+        expect(audit.blockingErrors.filter(error => (
+            error.includes('partial_shared_monthly_group')
+        ))).toEqual([]);
+    });
+
+    it('blocks inconsistent new-card waivers at the same performance threshold', () => {
+        const candidate = extraction();
+        candidate.card.limitTable = [{ threshold: 300_000, limit: 10_000 }];
+        delete candidate.rules.find(rule => (
+            rule.id === 'sol_domestic_convenience'
+        ))!.condition.performanceWaiver;
+
+        const audit = createCardBenefitCandidateAudit({
+            extraction: candidate,
+            baseline: baseline(),
+            baselineRevision: 2,
+        });
+
+        expect(audit.blockingErrors).toEqual(expect.arrayContaining([
+            expect.stringContaining('신규카드 유예가 서로 다릅니다'),
+        ]));
+    });
+
+    it('blocks a confirmed base rule that would hide its special-day alternative', () => {
+        const candidate = extraction();
+        const baseRule = candidate.rules.find(rule => (
+            rule.id === 'sol_domestic_convenience'
+        ))!;
+        const specialRule = candidate.rules.find(rule => rule.id === 'sol_cu_event')!;
+        baseRule.includedBrands = ['cu_event'];
+        delete baseRule.condition.manualCheckRequired;
+        specialRule.includedBrands = ['cu_event'];
+        specialRule.description = '국군의날·현충일 CU 30% 할인';
+        specialRule.condition.manualCheckRequired = true;
+
+        const audit = createCardBenefitCandidateAudit({
+            extraction: candidate,
+            baseline: baseline(),
+            baselineRevision: 2,
+        });
+
+        expect(audit.blockingErrors).toEqual(expect.arrayContaining([
+            expect.stringContaining('특별일 대체 혜택의 일반 규칙'),
+        ]));
+    });
+
+    it('blocks non-calculable services modeled as a free purchase with a transaction limit', () => {
+        const candidate = extraction();
+        const lounge = candidate.rules.find(rule => rule.id === 'sol_lounge')!;
+        lounge.description = '휴대폰 케어 수리비 보상';
+        lounge.action = { type: 'FIXED_PRICE', value: 0 };
+        lounge.condition = { manualCheckRequired: true };
+        lounge.limitConfig = { monthlyAmount: 100_000 };
+
+        const audit = createCardBenefitCandidateAudit({
+            extraction: candidate,
+            baseline: baseline(),
+            baselineRevision: 2,
+        });
+
+        expect(audit.blockingErrors).toEqual(expect.arrayContaining([
+            expect.stringContaining('특정 상품이 아닌 정보성 혜택을 0원 정가제로 계산할 수 없습니다'),
+            expect.stringContaining('계산 불가 정보성 혜택에 금액 한도가 설정됐습니다'),
+        ]));
+    });
+
+    it('blocks a free-item calculation that has no merchant mapping', () => {
+        const candidate = extraction();
+        const lounge = candidate.rules.find(rule => rule.id === 'sol_lounge')!;
+        lounge.description = '제휴 멤버십 7일권 무료';
+        lounge.includedBrands = [];
+        lounge.action = { type: 'FIXED_PRICE', value: 0 };
+        lounge.condition = {
+            itemSpecific: true,
+            eligibleItemSummary: '제휴 멤버십 7일권',
+            manualCheckRequired: true,
+        };
+
+        const audit = createCardBenefitCandidateAudit({
+            extraction: candidate,
+            baseline: baseline(),
+            baselineRevision: 2,
+        });
+
+        expect(audit.blockingErrors).toEqual(expect.arrayContaining([
+            expect.stringContaining('가맹점 매핑이 없는 무료 상품 혜택'),
         ]));
     });
 
@@ -138,6 +290,27 @@ describe('card benefit candidate audit', () => {
         });
         expect(invalidAudit.blockingErrors).toEqual(expect.arrayContaining([
             expect.stringContaining('공식 공지 시행일이 규칙 시작일과 다릅니다'),
+        ]));
+
+        const amendmentCandidate = extraction();
+        delete amendmentCandidate.rules.find(rule => (
+            rule.id === 'sol_cu_event'
+        ))!.condition.startsAt;
+        const amendmentAudit = createCardBenefitCandidateAudit({
+            extraction: amendmentCandidate,
+            baseline: baseline(),
+            baselineRevision: 2,
+            noticeDocuments: [{
+                sourceUrl: 'https://example.com/condition-amendment',
+                noticeDates: {
+                    ...noticeDocuments[0].noticeDates,
+                    affectedRuleIds: [...noticeDocuments[0].noticeDates.affectedRuleIds],
+                    applyAsRulePeriod: false,
+                },
+            }],
+        });
+        expect(amendmentAudit.blockingErrors).not.toEqual(expect.arrayContaining([
+            expect.stringContaining('규칙 시작일과 다릅니다'),
         ]));
     });
 

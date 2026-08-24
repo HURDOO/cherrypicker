@@ -15,7 +15,7 @@
     "BETTER_AUTH_SECRET"
   ],
   "optionalSecrets": [
-    "GEMINI_API_KEY"
+    "OPENAI_API_KEY"
   ],
   "resources": {
     "memoryMiB": 768,

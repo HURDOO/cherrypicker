@@ -11,7 +11,7 @@ type DateMatch = {
     raw: string;
 };
 
-const DATE_PATTERN = /((?:19|20)\d{2})\s*(?:년\s*|[./-])\s*(\d{1,2})\s*(?:월\s*|[./-])\s*(\d{1,2})\s*일?/g;
+const DATE_PATTERN = /(?<!\d)((?:(?:19|20)\d{2})|\d{2})\s*(?:년\s*|[./-])\s*(\d{1,2})\s*(?:월\s*|[./-])\s*(\d{1,2})\s*일?/g;
 const PUBLICATION_LABEL = /게시일|등록일|공지일|작성일|공시일/;
 const EFFECTIVE_LABEL = /시행\s*일자|시행일|적용\s*(?:시작)?일|효력\s*발생일/;
 const PERIOD_LABEL = /적용\s*기간|행사\s*기간|혜택\s*기간|유효\s*기간/;
@@ -28,7 +28,8 @@ const validDate = (year: number, month: number, day: number) => {
 
 const datesIn = (value: string): DateMatch[] => [...value.matchAll(DATE_PATTERN)]
     .flatMap(match => {
-        const date = validDate(Number(match[1]), Number(match[2]), Number(match[3]));
+        const year = match[1].length === 2 ? 2000 + Number(match[1]) : Number(match[1]);
+        const date = validDate(year, Number(match[2]), Number(match[3]));
         return date ? [{ date, raw: match[0].trim() }] : [];
     });
 

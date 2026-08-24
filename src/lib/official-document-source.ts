@@ -29,10 +29,12 @@ export interface OfficialDocumentSourceDefinition {
     allowedHosts: string[];
     required: boolean;
     candidateRole: 'PRIMARY' | 'SUPPORTING';
+    discoverLinkedPdfs?: boolean;
     noticeDatePolicy?: {
         affectedRuleIds: RuleId[];
         requirePublicationDate: boolean;
         requireEffectiveFrom: boolean;
+        applyAsRulePeriod?: boolean;
     };
 }
 
@@ -54,11 +56,62 @@ export interface PdfTextExtraction {
 
 const hashBytes = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 
+export const createOfficialDocumentSemanticHash = (extractedText: string) => createHash('sha256')
+    .update(extractedText
+        // View counters change without changing the official benefit or notice.
+        .replace(/조회수\s*:\s*[0-9,]+/g, '조회수: #')
+        .replace(/\s+/g, ' ')
+        .trim())
+    .digest('hex');
+
 const normalizePageText = (value: string) => value
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
+
+export const positionedPdfText = (items: unknown[]) => {
+    let text = '';
+    let previousY: number | undefined;
+    let previousHeight = 0;
+
+    items.forEach(item => {
+        if (!item || typeof item !== 'object' || !('str' in item) ||
+            typeof item.str !== 'string' || !item.str) return;
+        const transform = 'transform' in item && Array.isArray(item.transform)
+            ? item.transform
+            : undefined;
+        const y = typeof transform?.[5] === 'number' ? transform[5] : undefined;
+        const height = 'height' in item && typeof item.height === 'number'
+            ? Math.abs(item.height)
+            : typeof transform?.[3] === 'number'
+                ? Math.abs(transform[3])
+                : 0;
+        const lineThreshold = Math.max(
+            1.5,
+            Math.min(previousHeight || height, height || previousHeight) * 0.35,
+        );
+        const startsNewVisualLine = previousY !== undefined && y !== undefined &&
+            Math.abs(y - previousY) > lineThreshold;
+        if (startsNewVisualLine && text && !text.endsWith('\n')) {
+            text += '\n';
+        } else if (text && !/[\s]$/.test(text)) {
+            text += ' ';
+        }
+        text += item.str;
+        const hasEOL = 'hasEOL' in item && item.hasEOL === true;
+        if (hasEOL) {
+            text += '\n';
+            previousY = undefined;
+            previousHeight = 0;
+        } else {
+            previousY = y;
+            previousHeight = height;
+        }
+    });
+
+    return text;
+};
 
 const isAllowedHost = (hostname: string, allowedHosts: string[]) => allowedHosts.some(host => (
     hostname === host || hostname.endsWith(`.${host}`)
@@ -101,12 +154,7 @@ export async function extractPdfText(bytes: Uint8Array): Promise<PdfTextExtracti
         for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
             const page = await document.getPage(pageNumber);
             const content = await page.getTextContent();
-            let text = '';
-            content.items.forEach(item => {
-                if (!('str' in item) || !item.str) return;
-                text += item.str;
-                text += item.hasEOL ? '\n' : ' ';
-            });
+            const text = positionedPdfText(content.items);
             const normalized = normalizePageText(text);
             page.cleanup();
             extractedCharacters += normalized.length;
@@ -244,7 +292,7 @@ export async function collectOfficialDocument(
         mediaType: mediaType || 'text/html',
         rawContent,
         extractedText,
-        contentHash: hashBytes(bytes),
+        contentHash: createOfficialDocumentSemanticHash(extractedText),
         responseMetadata: {
             ...responseMetadata,
             rawEncoding: 'utf8',
@@ -263,30 +311,37 @@ export function discoverOfficialPdfSources(
     html: string,
     parent: OfficialDocumentSourceDefinition,
 ): OfficialDocumentSourceDefinition[] {
+    if (parent.discoverLinkedPdfs === false) return [];
     const discovered = new Map<string, OfficialDocumentSourceDefinition>();
-    for (const match of html.matchAll(/href\s*=\s*(["'])(.*?)\1/gi)) {
-        const href = match[2]
-            .replaceAll('&amp;', '&')
-            .trim();
-        let url: URL;
-        try {
-            url = new URL(href, parent.sourceUrl);
-            assertTrustedOfficialSourceUrl(url.toString(), parent.allowedHosts);
-        } catch {
-            continue;
+    const pdfLinkPatterns = [
+        /href\s*=\s*(["'])(.*?)\1/gi,
+        /window\.open\(\s*(["'])(.*?)\1/gi,
+    ];
+    for (const pattern of pdfLinkPatterns) {
+        for (const match of html.matchAll(pattern)) {
+            const href = match[2]
+                .replaceAll('&amp;', '&')
+                .trim();
+            let url: URL;
+            try {
+                url = new URL(href, parent.sourceUrl);
+                assertTrustedOfficialSourceUrl(url.toString(), parent.allowedHosts);
+            } catch {
+                continue;
+            }
+            if (!/\.pdf(?:$|[?#])/i.test(url.toString())) continue;
+            const sourceUrl = url.toString();
+            discovered.set(sourceUrl, {
+                id: `${parent.id}-pdf-${createHash('sha256').update(sourceUrl).digest('hex').slice(0, 10)}`,
+                label: `${parent.label} 첨부 PDF`,
+                sourceUrl,
+                sourceKind: 'PRODUCT_GUIDE_PDF',
+                format: 'pdf',
+                allowedHosts: parent.allowedHosts,
+                required: false,
+                candidateRole: 'SUPPORTING',
+            });
         }
-        if (!/\.pdf(?:$|[?#])/i.test(url.toString())) continue;
-        const sourceUrl = url.toString();
-        discovered.set(sourceUrl, {
-            id: `${parent.id}-pdf-${createHash('sha256').update(sourceUrl).digest('hex').slice(0, 10)}`,
-            label: `${parent.label} 첨부 PDF`,
-            sourceUrl,
-            sourceKind: 'PRODUCT_GUIDE_PDF',
-            format: 'pdf',
-            allowedHosts: parent.allowedHosts,
-            required: false,
-            candidateRole: 'SUPPORTING',
-        });
     }
     return [...discovered.values()];
 }

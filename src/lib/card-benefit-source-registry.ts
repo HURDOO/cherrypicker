@@ -5,6 +5,9 @@ export interface SystemCardBenefitSourceInventoryItem {
     sources: Array<{
         label: string;
         url: string;
+        sourceKind?: OfficialDocumentSourceDefinition['sourceKind'];
+        discoverLinkedPdfs?: boolean;
+        noticeDatePolicy?: OfficialDocumentSourceDefinition['noticeDatePolicy'];
     }>;
     caveats: string[];
     revisionReviewEnabled: boolean;
@@ -16,6 +19,8 @@ export const SHINHAN_SOL_TRAVEL_GUIDE_URL =
     'https://www.shinhancard.com/pconts/html/card/travel/travel_supersol.html';
 export const SHINHAN_SOL_TRAVEL_NOTICE_URL =
     'https://www.shinhancard.com/pconts/html/helpdesk/dataRoom/MOBFM164N/1227673_1119.html';
+export const HANA_NARA_SOURCE_URL =
+    'https://www.hanacard.co.kr/OPI41000000D.web?CARD_CDOE=15475&CD_PD_SEQ=18813&title=STEP0';
 
 const SHINHAN_CARD_HOSTS = ['shinhancard.com'];
 
@@ -27,26 +32,40 @@ const SYSTEM_CARD_BENEFIT_SOURCE_INVENTORY: SystemCardBenefitSourceInventoryItem
             url: 'https://www.shinhancard.com/pconts/html/card/apply/check/1188313_2206.html',
         }],
         caveats: [
-            '최다 이용 DREAM 영역 1.0% 적립과 택시 3·6·9번째 이용 조건은 현재 자동 계산에 정확히 반영되지 않습니다.',
+            '최다 이용 DREAM 영역과 택시 3·6·9번째 이용 여부는 누적 이용내역 확인이 필요해 조건부 혜택으로 표시합니다.',
         ],
-        revisionReviewEnabled: false,
+        revisionReviewEnabled: true,
     },
     {
         cardId: 'kb_nara',
         sources: [
             {
-                label: 'KB국민 나라사랑카드 출시 안내',
-                url: 'https://otalk.kbstar.com/quics?QSL=F&articleId=8720&bbsMode=view&page=C019391',
+                label: 'KB국민 나라사랑체크카드 상품 페이지',
+                url: 'https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04120',
+                discoverLinkedPdfs: false,
             },
             {
-                label: 'KB국민카드 상품설명서 개정 안내',
-                url: 'https://card.kbcard.com/CMN/DVIEW/HSEMCXCRSCTC0001?ARTICLE_SERIAL=11440&ROUTE_TYPE=VIEW',
+                label: 'KB국민 나라사랑카드 출시 안내',
+                url: 'https://otalk.kbstar.com/quics?QSL=F&articleId=8720&bbsMode=view&page=C019391',
+                discoverLinkedPdfs: false,
+            },
+            {
+                label: 'KB국민 나라사랑카드 대중교통 약관 개정 안내',
+                url: 'https://card.kbcard.com/CMN/DVIEW/HSEMCXCRSCTC0001?ARTICLE_SERIAL=11274&ROUTE_TYPE=VIEW',
+                sourceKind: 'NOTICE',
+                discoverLinkedPdfs: false,
+                noticeDatePolicy: {
+                    affectedRuleIds: ['kb_nara_transport'],
+                    requirePublicationDate: true,
+                    requireEffectiveFrom: true,
+                    applyAsRulePeriod: false,
+                },
             },
         ],
         caveats: [
-            '군마트 구간별 할인율과 일부 건별 조건은 현재 상품설명서 원문을 추가 대조해야 합니다.',
+            '군마트 금액 구간과 2024년 대중교통 제외 개정은 공식 상품 페이지와 개정 공지를 함께 적용합니다.',
         ],
-        revisionReviewEnabled: false,
+        revisionReviewEnabled: true,
     },
     {
         cardId: 'shinhan_heyoung',
@@ -55,9 +74,9 @@ const SYSTEM_CARD_BENEFIT_SOURCE_INVENTORY: SystemCardBenefitSourceInventoryItem
             url: 'https://www.shinhancard.com/pconts/html/card/apply/check/1233237_2206.html',
         }],
         caveats: [
-            '해외 가맹점 1.2%와 해외 ATM 건당 US $3 캐시백은 현재 규칙에 반영되지 않았습니다.',
+            '해외 ATM US $3와 VISA Platinum 제휴 혜택은 환율·예약 조건을 자동 판단하지 않고 수동 확인으로 표시합니다.',
         ],
-        revisionReviewEnabled: false,
+        revisionReviewEnabled: true,
     },
     {
         cardId: 'shinhan_sol',
@@ -72,37 +91,34 @@ const SYSTEM_CARD_BENEFIT_SOURCE_INVENTORY: SystemCardBenefitSourceInventoryItem
             url: 'https://www.shinhancard.com/pconts/html/card/apply/check/2013660_2206.html',
         }],
         caveats: [
-            '군마트 결제금액 구간과 광역교통 대상 범위는 현재 규칙을 공식 조건에 맞게 다시 나눠야 합니다.',
+            '군마트 3만원 경계의 공식 표 문구가 겹쳐 3만원 결제는 상위 구간으로 계산하고 검수 메모를 표시합니다.',
         ],
-        revisionReviewEnabled: false,
+        revisionReviewEnabled: true,
     },
     {
         cardId: 'kb_nori2_student',
         sources: [
             {
-                label: '노리2 체크카드 공통 혜택',
-                url: 'https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?cooperationcode=07964&mainCC=a',
-            },
-            {
-                label: '노리2 학생증 체크카드 약관 개정 안내',
-                url: 'https://card.kbcard.com/CMN/DVIEW/HSEMCXCRSCTC0001?ARTICLE_SERIAL=12208&ROUTE_TYPE=VIEW',
+                label: '노리2 학생증체크카드 상품 페이지',
+                url: 'https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?cooperationcode=07998&mainCC=a',
+                discoverLinkedPdfs: false,
             },
         ],
         caveats: [
-            '노리2 공통 일상 혜택은 대조했지만 학생증 상품 전용 설명서와의 최종 대조가 필요합니다.',
+            '최신 상품설명서 PDF가 이미지형이라 자동 텍스트 수집에서는 공식 학생증 상품 페이지 조건을 기준으로 구조화합니다.',
         ],
-        revisionReviewEnabled: false,
+        revisionReviewEnabled: true,
     },
     {
         cardId: 'hana_nara',
         sources: [{
             label: '하나 나라사랑카드 상품 페이지',
-            url: 'https://www.hanacard.co.kr/OPI41000000D.web?CARD_CDOE=15475&CD_PD_SEQ=18813&title=STEP0',
+            url: HANA_NARA_SOURCE_URL,
         }],
         caveats: [
-            '군마트 결제금액 구간·한도가 현재 규칙과 다르며 CGV 팝콘 혜택이 아직 반영되지 않았습니다.',
+            '급여이체 연동 혜택과 국군의날·현충일 혜택은 사용자 확인이 필요한 조건부 혜택으로 표시합니다.',
         ],
-        revisionReviewEnabled: false,
+        revisionReviewEnabled: true,
     },
     {
         cardId: 'hana_travelog_student',
@@ -117,9 +133,9 @@ const SYSTEM_CARD_BENEFIT_SOURCE_INVENTORY: SystemCardBenefitSourceInventoryItem
             },
         ],
         caveats: [
-            '학생증 상품 전용 설명서와 해외 결제 건당 US $0.5 수수료 면제 계산을 추가 확인해야 합니다.',
+            '달러 기준 해외 수수료와 엔화 누적 결제 프로모션은 원화 혜택으로 자동 환산하지 않고 수동 확인으로 표시합니다.',
         ],
-        revisionReviewEnabled: false,
+        revisionReviewEnabled: true,
     },
 ];
 
@@ -176,6 +192,38 @@ export function getShinhanSolTravelSources() {
             candidateRole: 'SUPPORTING' as const,
         }] : []),
     ];
+}
+
+export function getSystemCardBenefitSources(cardId: string): OfficialDocumentSourceDefinition[] {
+    if (cardId === 'shinhan_sol') return getShinhanSolTravelSources();
+    const item = SYSTEM_CARD_BENEFIT_SOURCE_INVENTORY.find(candidate => (
+        candidate.cardId === cardId && candidate.revisionReviewEnabled
+    ));
+    if (!item) return [];
+    return item.sources.map((source, index) => {
+        const parsed = new URL(source.url);
+        const hostParts = parsed.hostname.split('.');
+        const registrableHost = parsed.hostname.endsWith('.co.kr')
+            ? hostParts.slice(-3).join('.')
+            : hostParts.slice(-2).join('.');
+        const format = parsed.pathname.toLocaleLowerCase().endsWith('.pdf') ? 'pdf' : 'html';
+        return {
+            id: `${cardId}-official-source-${index + 1}`,
+            label: source.label,
+            sourceUrl: source.url,
+            sourceKind: source.sourceKind ?? (
+                format === 'pdf' ? 'PRODUCT_GUIDE_PDF' : 'PRODUCT_PAGE'
+            ),
+            format,
+            allowedHosts: [registrableHost],
+            required: index === 0,
+            candidateRole: index === 0 ? 'PRIMARY' : 'SUPPORTING',
+            ...(source.discoverLinkedPdfs !== undefined && {
+                discoverLinkedPdfs: source.discoverLinkedPdfs,
+            }),
+            ...(source.noticeDatePolicy && { noticeDatePolicy: source.noticeDatePolicy }),
+        };
+    });
 }
 
 export function getSystemCardBenefitSourceInventory() {

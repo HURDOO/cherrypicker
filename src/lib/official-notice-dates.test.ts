@@ -38,4 +38,16 @@ describe('official notice date extraction', () => {
         expect(extractOfficialNoticeDates(`공지일 2026.02.30\n시행일 2026.03.01`)
             .publicationDate).toBeUndefined();
     });
+
+    it('normalizes a two-digit year in a labeled official effective date', () => {
+        expect(extractOfficialNoticeDates(`
+            KB국민 나라사랑카드 약관 개정 안내
+            2024-06-24
+            시행일
+            24.8.1(목)
+        `)).toMatchObject({
+            publicationDate: '2024-06-24',
+            effectiveFrom: '2024-08-01',
+        });
+    });
 });

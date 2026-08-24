@@ -484,6 +484,41 @@ describe('calculateBestCombinations', () => {
         expect(result.combinations[0].steps.some(step => step.promotionId === 'cu-items')).toBe(false);
     });
 
+    it('lists card product benefits and calculates them from the eligible subtotal only', () => {
+        const itemRule: BenefitRule = {
+            ...cardRule,
+            id: 'card-item',
+            description: '팝콘 스몰세트 무료',
+            condition: {
+                itemSpecific: true,
+                eligibleItemSummary: '팝콘 스몰세트 가격',
+            },
+            action: { type: 'FIXED_PRICE', value: 0 },
+            limitConfig: { monthlyCount: 1 },
+        };
+        const withoutSubtotal = calculateBestCombinations(input([], { rules: [itemRule] }));
+        const withSubtotal = calculateBestCombinations(input([], {
+            rules: [itemRule],
+            eligibleItemAmount: 8_000,
+        }));
+
+        expect(withoutSubtotal.itemSpecificOffers).toEqual([{
+            id: 'card-item',
+            title: '팝콘 스몰세트 무료',
+            providerName: '테스트 카드',
+            scope: 'PRODUCT_SET',
+            calculationEligible: true,
+            valueSemantics: 'EXACT',
+            actionType: 'FIXED_PRICE',
+            actionValue: 0,
+            eligibleItemSummary: '팝콘 스몰세트 가격',
+        }]);
+        expect(withoutSubtotal.combinations.flatMap(item => item.steps)
+            .some(step => step.ruleId === 'card-item')).toBe(false);
+        expect(withSubtotal.combinations.flatMap(item => item.steps)
+            .find(step => step.ruleId === 'card-item')?.benefitAmount).toBe(8_000);
+    });
+
     it('shows an up-to item offer as information but never applies it to the maximum', () => {
         const result = calculateBestCombinations(input([
             offer('seveneleven-wine', {

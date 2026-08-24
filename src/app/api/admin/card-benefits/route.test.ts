@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => {
         HttpError,
         requireAdmin: vi.fn(),
         collect: vi.fn(),
+        collectSystem: vi.fn(),
         reviewData: vi.fn(),
         review: vi.fn(),
         rollback: vi.fn(),
@@ -31,6 +32,7 @@ vi.mock('@/lib/api-server', () => ({
 vi.mock('@/lib/card-benefit-ingestion', () => ({
     CardBenefitIngestionError: class CardBenefitIngestionError extends Error {},
     collectShinhanSolTravelBenefits: mocks.collect,
+    collectSystemCardBenefits: mocks.collectSystem,
     getCardBenefitReviewData: mocks.reviewData,
     reviewCardBenefitCandidate: mocks.review,
     rollbackCardBenefitRevision: mocks.rollback,
@@ -53,6 +55,7 @@ describe('admin card benefit route', () => {
         mocks.requireAdmin.mockResolvedValue({ id: 'admin-1' });
         mocks.reviewData.mockReturnValue({ candidates: [], revisions: [] });
         mocks.collect.mockResolvedValue({ status: 'created' });
+        mocks.collectSystem.mockResolvedValue({ status: 'created' });
         mocks.review.mockReturnValue({ revision: 2 });
         mocks.rollback.mockReturnValue({ revision: 3 });
     });
@@ -65,11 +68,28 @@ describe('admin card benefit route', () => {
         expect(mocks.requireAdmin).toHaveBeenCalledOnce();
     });
 
-    it('collects only the supported representative official source', async () => {
+    it('collects a supported system card and keeps the legacy SOL action compatible', async () => {
         const response = await POST(jsonRequest('POST', { action: 'collect-shinhan-sol' }));
+        const generic = await POST(jsonRequest('POST', {
+            action: 'collect-card',
+            cardId: 'hana_nara',
+        }));
 
         expect(response.status).toBe(201);
+        expect(generic.status).toBe(201);
         expect(mocks.collect).toHaveBeenCalledOnce();
+        expect(mocks.collectSystem).toHaveBeenCalledWith('hana_nara', {
+            forceExtraction: false,
+        });
+
+        await POST(jsonRequest('POST', {
+            action: 'collect-card',
+            cardId: 'hana_nara',
+            forceExtraction: true,
+        }));
+        expect(mocks.collectSystem).toHaveBeenLastCalledWith('hana_nara', {
+            forceExtraction: true,
+        });
 
         const unsupported = await POST(jsonRequest('POST', { action: 'collect-other' }));
         expect(unsupported.status).toBe(400);
