@@ -60,6 +60,7 @@ PROMOTION_AI_REASONING_EFFORT=low
 CARD_BENEFIT_AI_MODEL=gpt-5.6-luna
 CARD_BENEFIT_AI_REASONING_EFFORT=medium
 CARD_BENEFIT_AI_MAX_SOURCE_CHARS=240000
+CARD_BENEFIT_BATCH_MAX_AI_CARDS=2
 SHINHAN_SOL_TRAVEL_GUIDE_PDF_URL=
 PROMOTION_AI_MAX_CALLS=25
 ```
@@ -69,7 +70,7 @@ PROMOTION_AI_MAX_CALLS=25
 `ADMIN_EMAILS`는 `/admin/promotions`에 접근할 관리자 이메일을 쉼표로 구분합니다. 프로모션 수집, 원문 검수, 승인과 카드 승인 경로 검증은 이 계정만 수행할 수 있습니다.
 `ADMIN_ACCESS_MODE=FIRST_USER`는 단일 소유자 설치를 위한 명시적 대체 방식입니다. `ADMIN_EMAILS`가 비어 있고 회원가입이 닫힌 경우에만 가장 먼저 생성된 계정을 관리자로 인정합니다. 이메일 목록을 설정하면 목록이 항상 우선하며 첫 계정 대체 방식은 비활성화됩니다.
 `OPENAI_API_KEY`는 선택 사항입니다. 값이 없거나 호출이 실패하면 프로모션은 공식 문구를 보수적으로 판정하는 규칙 분류기로 계속 수집합니다. `OPENAI_MODEL`의 기본값은 `gpt-5.6-luna`이며 `PROMOTION_AI_MODEL`과 `CARD_BENEFIT_AI_MODEL`로 작업별 모델을 덮어쓸 수 있습니다. `PROMOTION_AI_MAX_CALLS`는 한 번의 수집에서 AI로 재확인할 모호한 혜택 수를 제한합니다. AI에는 공개된 혜택 문구만 보내며 사용자 카드·결제·계정 데이터는 보내지 않습니다.
-카드 혜택은 OpenAI Responses API의 구조화 출력으로 먼저 공식 문서의 혜택 섹션을 전수 목록화하고, 두 번째 호출에서 `BenefitRule[]`과 원문 근거로 연결합니다. 인벤토리 누락과 잘못된 인용은 검증 오류로 남아 승인이 차단됩니다. 게시본 대비 고위험 삭제는 diff에 강조하고 승인 직전 별도 확인을 요구하므로, 공식 원문에서 실제로 사라졌거나 기존 입력을 바로잡는 변경은 검수 후 게시할 수 있습니다. 키가 없거나 호출에 실패하면 SOL트래블만 기존 보수적 규칙 추출기로 전환하며, AI 우선 adapter 카드는 후보 생성을 중단합니다.
+카드 혜택은 OpenAI Responses API의 구조화 출력으로 먼저 공식 문서의 혜택 섹션을 전수 목록화하고, 두 번째 호출에서 `BenefitRule[]`과 원문 근거로 연결합니다. 인벤토리 누락과 잘못된 인용은 검증 오류로 남아 승인이 차단됩니다. 게시본 대비 고위험 삭제는 diff에 강조하고 승인 직전 별도 확인을 요구하므로, 공식 원문에서 실제로 사라졌거나 기존 입력을 바로잡는 변경은 검수 후 게시할 수 있습니다. 키가 없거나 호출에 실패하면 SOL트래블만 기존 보수적 규칙 추출기로 전환하며, AI 우선 adapter 카드는 후보 생성을 중단합니다. `CARD_BENEFIT_BATCH_MAX_AI_CARDS`는 전체 카드 재검증 한 번에 AI로 새로 구조화할 카드 수를 제한하며 기본값은 2입니다. 원문 의미 해시가 같은 카드는 이 한도를 쓰지 않고 기존 검증 결과를 재사용합니다.
 `SHINHAN_SOL_TRAVEL_GUIDE_PDF_URL`은 신한카드가 공개한 SOL트래블 체크 상품안내 PDF 주소를 확인했을 때만 설정하는 선택 값입니다. 수집기는 `shinhancard.com`의 HTTPS 문서만 허용하며 상품 페이지에서 같은 소유자의 PDF 링크가 발견되면 별도 설정 없이도 보조 출처로 수집합니다.
 
 ### 데이터베이스 준비와 실행
@@ -134,9 +135,12 @@ npm run db:migrate
 ```bash
 npm run promotions:collect
 npm run cards:collect
+npm run cards:verify
 ```
 
-출처별 신규·자동 게시·검수·실패 건수는 명령 출력과 관리자 수집 결과에서 확인할 수 있습니다. 각 실행 결과는 `promotion_collection_runs`에도 저장되어 공개 카탈로그의 마지막 전체 수집 성공 시각과 실패 출처 수를 계산합니다. 수집 대상 페이지의 정책과 제휴 조건을 운영 전에 확인하고, 선착순·개인별 대상 여부는 조건부 정보로 유지하세요.
+`cards:collect`는 기본 SOL트래블 또는 `--card=<카드 ID>` 한 장을 확인하고, `cards:verify`는 지원 카드 전체를 순차 확인합니다. 전체 확인은 원문 의미 해시가 같은 카드의 AI 호출을 생략하며, 변경 카드가 실행당 상한을 넘으면 나머지를 다음 실행으로 미룹니다. `--max-ai-cards=0`을 붙이면 비용 없이 원문 변경 여부만 확인할 수 있습니다.
+
+출처별 신규·자동 게시·검수·실패 건수는 명령 출력과 관리자 수집 결과에서 확인할 수 있습니다. 각 프로모션 실행 결과는 `promotion_collection_runs`에도 저장되어 공개 카탈로그의 마지막 전체 수집 성공 시각과 실패 출처 수를 계산합니다. 수집 대상 페이지의 정책과 제휴 조건을 운영 전에 확인하고, 선착순·개인별 대상 여부는 조건부 정보로 유지하세요.
 
 게시된 공용 데이터는 로그인 없이 `GET /api/catalog`에서 versioned snapshot으로 조회할 수 있습니다. 응답의 `ETag`를 다음 요청의 `If-None-Match`에 보내면 내용과 수집 상태가 바뀌지 않았을 때 `304 Not Modified`를 반환합니다. 계산 데이터와 공개 지원 정보가 같으면 `catalogVersion`은 유지되고, 새 수집 실행의 성공·실패 시각만 바뀌어도 새 ETag와 snapshot을 반환합니다. snapshot은 시스템 카테고리·브랜드·카드·규칙, 활성 제공자·구독 상품, 게시 프로모션과 승인 경로, 카드별 공식 검수 상태·지원 범위·공개 출처를 포함하며 사용자 데이터와 내부 후보·검수자 metadata는 포함하지 않습니다.
 

@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
         requireAdmin: vi.fn(),
         collect: vi.fn(),
         collectSystem: vi.fn(),
+        collectAll: vi.fn(),
         reviewData: vi.fn(),
         review: vi.fn(),
         rollback: vi.fn(),
@@ -38,6 +39,11 @@ vi.mock('@/lib/card-benefit-ingestion', () => ({
     rollbackCardBenefitRevision: mocks.rollback,
 }));
 
+vi.mock('@/lib/card-benefit-batch', () => ({
+    collectAllSystemCardBenefits: mocks.collectAll,
+    resolveCardBenefitBatchMaxAiCards: () => 2,
+}));
+
 import { GET, PATCH, POST } from './route';
 
 const jsonRequest = (method: string, body: Record<string, unknown>) => new Request(
@@ -56,6 +62,7 @@ describe('admin card benefit route', () => {
         mocks.reviewData.mockReturnValue({ candidates: [], revisions: [] });
         mocks.collect.mockResolvedValue({ status: 'created' });
         mocks.collectSystem.mockResolvedValue({ status: 'created' });
+        mocks.collectAll.mockResolvedValue({ totals: { targets: 8 } });
         mocks.review.mockReturnValue({ revision: 2 });
         mocks.rollback.mockReturnValue({ revision: 3 });
     });
@@ -64,7 +71,11 @@ describe('admin card benefit route', () => {
         const response = await GET(new Request('http://localhost/api/admin/card-benefits'));
 
         expect(response.status).toBe(200);
-        await expect(response.json()).resolves.toEqual({ candidates: [], revisions: [] });
+        await expect(response.json()).resolves.toEqual({
+            candidates: [],
+            revisions: [],
+            batchPolicy: { maxAiCards: 2 },
+        });
         expect(mocks.requireAdmin).toHaveBeenCalledOnce();
     });
 
@@ -93,6 +104,14 @@ describe('admin card benefit route', () => {
 
         const unsupported = await POST(jsonRequest('POST', { action: 'collect-other' }));
         expect(unsupported.status).toBe(400);
+    });
+
+    it('checks all supported cards through the budgeted batch collector', async () => {
+        const response = await POST(jsonRequest('POST', { action: 'collect-all-cards' }));
+
+        expect(response.status).toBe(200);
+        await expect(response.json()).resolves.toEqual({ totals: { targets: 8 } });
+        expect(mocks.collectAll).toHaveBeenCalledOnce();
     });
 
     it('reviews and rolls back card benefit revisions with the authenticated admin ID', async () => {

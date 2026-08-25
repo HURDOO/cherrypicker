@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
     ArrowLeft,
@@ -68,13 +68,38 @@ type Revision = {
 };
 
 type ReviewData = {
+    batchPolicy: {
+        maxAiCards: number;
+    };
     collectionTargets: Array<{
         cardId: string;
         cardName: string;
         sourceCount: number;
+        lastCheckedAt?: string;
+        activeRevision?: number;
     }>;
     candidates: Candidate[];
     revisions: Revision[];
+};
+
+type BatchResult = {
+    maxAiCards: number;
+    totals: {
+        targets: number;
+        created: number;
+        unchanged: number;
+        deferred: number;
+        failed: number;
+        cacheHits: number;
+        aiExtractions: number;
+        validationErrors: number;
+        sourceFailures: number;
+    };
+    items: Array<{
+        cardId: string;
+        status: 'created' | 'unchanged' | 'deferred' | 'failed';
+        error?: string;
+    }>;
 };
 
 const request = async <T,>(init?: RequestInit): Promise<T> => {
@@ -287,6 +312,7 @@ export function CardBenefitAdminClient() {
     const [data, setData] = useState<ReviewData>();
     const [isLoading, setIsLoading] = useState(true);
     const [busyKey, setBusyKey] = useState<string>();
+    const [lastBatch, setLastBatch] = useState<BatchResult>();
 
     const load = useCallback(async () => {
         setIsLoading(true);
@@ -348,6 +374,29 @@ export function CardBenefitAdminClient() {
         }
     };
 
+    const collectAll = async () => {
+        setBusyKey('collect:all');
+        try {
+            const result = await request<BatchResult>({
+                method: 'POST',
+                body: JSON.stringify({ action: 'collect-all-cards' }),
+            });
+            setLastBatch(result);
+            addToast(
+                `${result.totals.targets}장 확인 · 새 후보 ${result.totals.created} · ` +
+                `원문 동일 ${result.totals.unchanged} · AI 구조화 ${result.totals.aiExtractions}장` +
+                (result.totals.deferred > 0 ? ` · 다음 실행으로 미룸 ${result.totals.deferred}` : '') +
+                (result.totals.failed > 0 ? ` · 실패 ${result.totals.failed}` : ''),
+                result.totals.failed > 0 ? 'error' : result.totals.deferred > 0 ? 'info' : 'success',
+            );
+            await load();
+        } catch (error) {
+            addToast(getErrorMessage(error, '전체 카드 혜택을 확인하지 못했습니다.'), 'error');
+        } finally {
+            setBusyKey(undefined);
+        }
+    };
+
     const review = async (candidate: Candidate, status: 'APPROVED' | 'REJECTED') => {
         const highRiskRemovalCount = candidate.audit.changes.filter(change => (
             change.kind === 'REMOVED' && change.risk === 'HIGH'
@@ -400,10 +449,7 @@ export function CardBenefitAdminClient() {
     };
 
     const pendingCount = data?.candidates.filter(item => item.status === 'PENDING').length ?? 0;
-    const activeRevision = useMemo(
-        () => data?.revisions.find(item => item.isActive),
-        [data],
-    );
+    const checkedTargetCount = data?.collectionTargets.filter(target => target.lastCheckedAt).length ?? 0;
 
     return (
         <main className="min-h-screen bg-gray-50 pb-24">
@@ -421,6 +467,17 @@ export function CardBenefitAdminClient() {
                         </div>
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={collectAll}
+                            disabled={Boolean(busyKey)}
+                            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white disabled:opacity-50"
+                        >
+                            {busyKey === 'collect:all'
+                                ? <LoaderCircle className="h-4 w-4 animate-spin" />
+                                : <DatabaseZap className="h-4 w-4" />}
+                            전체 변경 확인
+                        </button>
                         {(data?.collectionTargets ?? []).map(target => (
                             <div key={target.cardId} className="flex overflow-hidden rounded-xl">
                                 <button
@@ -459,9 +516,9 @@ export function CardBenefitAdminClient() {
                         <p className="mt-1 text-2xl font-black text-amber-950">{pendingCount}</p>
                     </div>
                     <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-                        <p className="text-[10px] font-black text-blue-700">활성 revision</p>
+                        <p className="text-[10px] font-black text-blue-700">공식 원문 확인</p>
                         <p className="mt-1 text-2xl font-black text-blue-950">
-                            {activeRevision ? `r${activeRevision.revision}` : '-'}
+                            {checkedTargetCount}/{data?.collectionTargets.length ?? 0}
                         </p>
                     </div>
                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
@@ -473,8 +530,45 @@ export function CardBenefitAdminClient() {
                 </section>
 
                 <section className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-[11px] font-bold leading-relaxed text-violet-900">
-                    AI 또는 규칙 추출 결과는 자동 게시되지 않습니다. 상품 페이지·이용가이드·공지·PDF를 source bundle로 묶고, 원문 인용·PDF 페이지·참조 무결성·금액 범위 검증이 모두 통과한 후보만 승인할 수 있습니다.
+                    전체 변경 확인은 공식 원문이 같은 카드의 AI 호출을 생략합니다. 원문이 바뀐 카드는 한 번에 최대 {data?.batchPolicy.maxAiCards ?? 2}장까지만 AI로 구조화하고, 나머지는 다음 실행으로 미뤄 예상치 못한 비용 증가를 막습니다. 생성된 후보는 검증 후 게시됩니다.
                 </section>
+
+                {!isLoading && (data?.collectionTargets.length ?? 0) > 0 && (
+                    <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                        {data?.collectionTargets.map(target => (
+                            <div key={target.cardId} className="rounded-2xl border border-gray-200 bg-white px-3 py-3">
+                                <div className="flex items-start justify-between gap-2">
+                                    <p className="text-[10px] font-black text-gray-800">{target.cardName}</p>
+                                    <span className="shrink-0 text-[9px] font-black text-blue-600">
+                                        {target.activeRevision ? `r${target.activeRevision}` : '미게시'}
+                                    </span>
+                                </div>
+                                <p className="mt-1 text-[9px] font-bold text-gray-400">
+                                    출처 {target.sourceCount}개 · {target.lastCheckedAt
+                                        ? new Date(target.lastCheckedAt).toLocaleString('ko-KR')
+                                        : '아직 확인하지 않음'}
+                                </p>
+                            </div>
+                        ))}
+                    </section>
+                )}
+
+                {lastBatch && (
+                    <section className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-[10px] font-bold text-blue-900">
+                        <p className="font-black">
+                            마지막 전체 확인: 새 후보 {lastBatch.totals.created} · 원문 동일 {lastBatch.totals.unchanged} · AI 구조화 {lastBatch.totals.aiExtractions}/{lastBatch.maxAiCards}장 · 미룸 {lastBatch.totals.deferred} · 실패 {lastBatch.totals.failed}
+                        </p>
+                        {lastBatch.items.some(item => item.error) && (
+                            <ul className="mt-2 space-y-1 pl-4 text-rose-700">
+                                {lastBatch.items.filter(item => item.error).map(item => (
+                                    <li key={item.cardId} className="list-disc">
+                                        {data?.collectionTargets.find(target => target.cardId === item.cardId)?.cardName ?? item.cardId}: {item.error}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </section>
+                )}
 
                 {isLoading && (
                     <div className="flex items-center justify-center gap-2 py-20 text-sm font-bold text-gray-400">

@@ -20,6 +20,7 @@ import type {
 } from '@/types';
 import {
     CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION,
+    CardBenefitExtractionBudgetError,
     createCardBenefitExtractionProvider,
     evidenceRepresentsBenefitClaim,
     extractShinhanSolTravelWithRules,
@@ -162,6 +163,7 @@ const storeCollectedSource = (
             .set({
                 responseMetadata: collected.responseMetadata,
                 extractedText: collected.extractedText,
+                collectedAt: new Date(),
             })
             .where(eq(cardBenefitDocuments.id, existingDocument.id))
             .returning()
@@ -182,7 +184,10 @@ const storeCollectedSource = (
         ));
     if (semanticallyUnchangedDocument) {
         const document = db.update(cardBenefitDocuments)
-            .set({ responseMetadata: collected.responseMetadata })
+            .set({
+                responseMetadata: collected.responseMetadata,
+                collectedAt: new Date(),
+            })
             .where(eq(cardBenefitDocuments.id, semanticallyUnchangedDocument.id))
             .returning()
             .get();
@@ -640,6 +645,9 @@ export async function collectSystemCardBenefits(cardId: string, options: {
             ? await provider.extract(input)
             : extractShinhanSolTravelWithRules(input);
     } catch (error) {
+        if (error instanceof CardBenefitExtractionBudgetError) {
+            throw new CardBenefitIngestionError(429, error.message);
+        }
         if (card.id !== 'shinhan_sol') {
             throw new CardBenefitIngestionError(
                 502,
@@ -1129,6 +1137,17 @@ export function getCardBenefitReviewData() {
                     cardId: card.id,
                     cardName: card.name,
                     sourceCount: item.sources.length,
+                    lastCheckedAt: documents.find(document => (
+                        document.cardId === card.id
+                    ))?.collectedAt.toISOString(),
+                    activeRevision: db.select({
+                        revision: cardBenefitRevisions.revision,
+                    }).from(cardBenefitRevisions)
+                        .where(and(
+                            eq(cardBenefitRevisions.cardId, card.id),
+                            eq(cardBenefitRevisions.isActive, true),
+                        ))
+                        .get()?.revision,
                 } : undefined;
             })
             .filter((item): item is NonNullable<typeof item> => Boolean(item)),

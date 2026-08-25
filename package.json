@@ -16,7 +16,8 @@
     "db:studio": "drizzle-kit studio",
     "db:backup": "tsx scripts/backup-db.ts",
     "promotions:collect": "tsx scripts/collect-promotions.ts",
-    "cards:collect": "tsx scripts/collect-card-benefits.ts"
+    "cards:collect": "tsx scripts/collect-card-benefits.ts",
+    "cards:verify": "tsx scripts/collect-card-benefits.ts --all"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.23",

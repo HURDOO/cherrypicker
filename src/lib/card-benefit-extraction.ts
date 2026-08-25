@@ -73,6 +73,17 @@ export interface CardBenefitExtractionProvider {
     extract(input: CardBenefitExtractionInput): Promise<CardBenefitExtractionResult>;
 }
 
+export class CardBenefitExtractionBudgetError extends Error {
+    constructor(public readonly maxExtractions: number) {
+        super(
+            maxExtractions === 0
+                ? '이번 실행의 AI 카드 구조화가 비활성화되어 변경된 원문을 다음 실행으로 미룹니다.'
+                : `이번 실행의 AI 카드 구조화 상한 ${maxExtractions}장에 도달해 나머지 변경 원문을 다음 실행으로 미룹니다.`
+        );
+        this.name = 'CardBenefitExtractionBudgetError';
+    }
+}
+
 const normalizeText = (value: string) => value.replace(/\s+/g, ' ').trim();
 const normalizedSource = (value: string) => value
     .normalize('NFKC')

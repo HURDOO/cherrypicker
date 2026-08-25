@@ -12,6 +12,10 @@ import {
     reviewCardBenefitCandidate,
     rollbackCardBenefitRevision,
 } from '@/lib/card-benefit-ingestion';
+import {
+    collectAllSystemCardBenefits,
+    resolveCardBenefitBatchMaxAiCards,
+} from '@/lib/card-benefit-batch';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,7 +29,14 @@ const routeError = (error: unknown) => handleRouteError(
 export async function GET(request: Request) {
     try {
         await requireAdmin(request);
-        return Response.json(getCardBenefitReviewData());
+        return Response.json({
+            ...getCardBenefitReviewData(),
+            batchPolicy: {
+                maxAiCards: resolveCardBenefitBatchMaxAiCards(
+                    process.env.CARD_BENEFIT_BATCH_MAX_AI_CARDS,
+                ),
+            },
+        });
     } catch (error) {
         return routeError(error);
     }
@@ -42,6 +53,9 @@ export async function POST(request: Request) {
             return Response.json(await collectSystemCardBenefits(input.cardId, {
                 forceExtraction: input.forceExtraction === true,
             }), { status: 201 });
+        }
+        if (input.action === 'collect-all-cards') {
+            return Response.json(await collectAllSystemCardBenefits());
         }
         throw new HttpError(400, '지원하지 않는 카드 혜택 수집 작업입니다.');
     } catch (error) {
