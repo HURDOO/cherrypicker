@@ -297,8 +297,8 @@ interface SyncMetadata {
 
 ### Phase 0 — 기준선 고정과 계약 테스트
 
-- [ ] 현재 추천 결과를 대표 fixture로 고정한다.
-- [ ] 카드, 실적, 결제 기록과 프로모션 조합의 직렬화 계약 테스트를 추가한다.
+- [x] CU 멤버십·간편결제 조합, 투썸 구독 조합, 다이소 실적 우선 추천을 대표 fixture로 고정한다.
+- [x] catalog/workspace의 JSON 전송과 카드·실적·결제 기록·프로모션 조합 snapshot의 직렬화 계약 테스트를 추가한다.
 - [x] 현 서버 계산의 입력 크기, 계산 시간, 결과 수를 계측한다.
 - [ ] 운영 DB 변경 전 온라인 backup과 복구 절차를 재확인한다.
 - [x] 로컬 workspace와 catalog의 TypeScript 타입을 정의한다.
