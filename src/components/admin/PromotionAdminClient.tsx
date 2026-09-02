@@ -1662,7 +1662,11 @@ export function PromotionAdminClient() {
             <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-5 py-3 backdrop-blur">
                 <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
-                        <Link href="/" className="rounded-xl bg-gray-100 p-2 text-gray-600">
+                        <Link
+                            href="/admin"
+                            aria-label="관리자 콘솔로 돌아가기"
+                            className="rounded-xl bg-gray-100 p-2 text-gray-600"
+                        >
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
                         <div className="min-w-0">
