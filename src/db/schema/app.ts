@@ -30,6 +30,9 @@ import type {
     BenefitSubscription,
     CardBenefitCandidateAudit,
     CardBenefitCandidateStatus,
+    CardBenefitBatchItem,
+    CardBenefitCollectionRunStatus,
+    CardBenefitCollectionTrigger,
     CardBenefitDocumentMetadata,
     CardBenefitExtraction,
     CardBenefitRevisionSnapshot,
@@ -223,6 +226,31 @@ export const cardBenefitRevisions = sqliteTable('card_benefit_revisions', {
         table.revision,
     ),
     index('card_benefit_revisions_card_active_idx').on(table.cardId, table.isActive),
+]);
+
+export const cardBenefitCollectionRuns = sqliteTable('card_benefit_collection_runs', {
+    id: text('id').primaryKey(),
+    status: text('status').$type<CardBenefitCollectionRunStatus>().notNull(),
+    trigger: text('trigger').$type<CardBenefitCollectionTrigger>().notNull(),
+    startedAt: integer('started_at', { mode: 'timestamp_ms' }).notNull(),
+    finishedAt: integer('finished_at', { mode: 'timestamp_ms' }).notNull(),
+    maxAiCards: integer('max_ai_cards').notNull(),
+    targetCount: integer('target_count').notNull(),
+    createdCount: integer('created_count').notNull(),
+    unchangedCount: integer('unchanged_count').notNull(),
+    deferredCount: integer('deferred_count').notNull(),
+    failedCount: integer('failed_count').notNull(),
+    cacheHitCount: integer('cache_hit_count').notNull(),
+    aiExtractionCount: integer('ai_extraction_count').notNull(),
+    validationErrorCount: integer('validation_error_count').notNull(),
+    sourceFailureCount: integer('source_failure_count').notNull(),
+    items: text('items', { mode: 'json' }).$type<CardBenefitBatchItem[]>().notNull(),
+}, (table) => [
+    index('card_benefit_collection_runs_finished_idx').on(table.finishedAt),
+    index('card_benefit_collection_runs_status_finished_idx').on(
+        table.status,
+        table.finishedAt,
+    ),
 ]);
 
 export const promotionProviders = sqliteTable('promotion_providers', {

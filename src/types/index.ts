@@ -101,6 +101,46 @@ export interface BenefitRule {
 
 export type CardBenefitSourceKind = 'PRODUCT_PAGE' | 'PRODUCT_GUIDE_PDF' | 'NOTICE';
 export type CardBenefitCandidateStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type CardBenefitCollectionRunStatus = 'SUCCEEDED' | 'PARTIAL' | 'FAILED';
+export type CardBenefitCollectionTrigger = 'MANUAL' | 'CLI' | 'SCHEDULED';
+
+export interface CardBenefitBatchItem {
+    cardId: CardId;
+    status: 'created' | 'unchanged' | 'deferred' | 'failed';
+    durationMs: number;
+    aiExtraction: boolean;
+    cacheHit: boolean;
+    validationErrorCount: number;
+    sourceFailureCount: number;
+    candidateId?: string;
+    error?: string;
+}
+
+export interface CardBenefitBatchTotals {
+    targets: number;
+    created: number;
+    unchanged: number;
+    deferred: number;
+    failed: number;
+    cacheHits: number;
+    aiExtractions: number;
+    validationErrors: number;
+    sourceFailures: number;
+}
+
+export interface CardBenefitBatchResult {
+    startedAt: string;
+    finishedAt: string;
+    maxAiCards: number;
+    totals: CardBenefitBatchTotals;
+    items: CardBenefitBatchItem[];
+}
+
+export interface CardBenefitCollectionRun extends CardBenefitBatchResult {
+    id: string;
+    status: CardBenefitCollectionRunStatus;
+    trigger: CardBenefitCollectionTrigger;
+}
 
 export interface CardBenefitNoticeDates {
     affectedRuleIds: RuleId[];

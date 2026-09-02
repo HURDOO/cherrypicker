@@ -55,7 +55,7 @@ export async function POST(request: Request) {
             }), { status: 201 });
         }
         if (input.action === 'collect-all-cards') {
-            return Response.json(await collectAllSystemCardBenefits());
+            return Response.json(await collectAllSystemCardBenefits({ trigger: 'MANUAL' }));
         }
         throw new HttpError(400, '지원하지 않는 카드 혜택 수집 작업입니다.');
     } catch (error) {

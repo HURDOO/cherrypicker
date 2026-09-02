@@ -14,14 +14,20 @@ import {
 } from 'lucide-react';
 import type {
     BenefitRule,
+    CardBenefitBatchResult,
     CardBenefitCandidateAudit,
     CardBenefitCandidateStatus,
+    CardBenefitCollectionRun,
     CardBenefitEvidence,
     CardBenefitExtraction,
     CardBenefitNoticeDates,
     CardBenefitRevisionSnapshot,
 } from '@/types';
 import { getErrorMessage } from '@/lib/api-client';
+import {
+    cardBenefitProblemStreaks,
+    isCardBenefitBatchItemProblem,
+} from '@/lib/card-benefit-collection-run';
 import { useToastStore } from '@/store/useToastStore';
 
 type Candidate = {
@@ -78,28 +84,9 @@ type ReviewData = {
         lastCheckedAt?: string;
         activeRevision?: number;
     }>;
+    collectionRuns: CardBenefitCollectionRun[];
     candidates: Candidate[];
     revisions: Revision[];
-};
-
-type BatchResult = {
-    maxAiCards: number;
-    totals: {
-        targets: number;
-        created: number;
-        unchanged: number;
-        deferred: number;
-        failed: number;
-        cacheHits: number;
-        aiExtractions: number;
-        validationErrors: number;
-        sourceFailures: number;
-    };
-    items: Array<{
-        cardId: string;
-        status: 'created' | 'unchanged' | 'deferred' | 'failed';
-        error?: string;
-    }>;
 };
 
 const request = async <T,>(init?: RequestInit): Promise<T> => {
@@ -119,6 +106,31 @@ const statusLabel: Record<CardBenefitCandidateStatus, string> = {
     PENDING: '검수 대기',
     APPROVED: '게시 완료',
     REJECTED: '반려',
+};
+
+const runStatusLabel = {
+    SUCCEEDED: '정상',
+    PARTIAL: '일부 확인 필요',
+    FAILED: '실패',
+};
+
+const runStatusClass = {
+    SUCCEEDED: 'bg-emerald-100 text-emerald-700',
+    PARTIAL: 'bg-amber-100 text-amber-700',
+    FAILED: 'bg-rose-100 text-rose-700',
+};
+
+const runTriggerLabel = {
+    MANUAL: '관리자 실행',
+    CLI: 'CLI',
+    SCHEDULED: '정기 실행',
+};
+
+const batchItemStatusLabel = {
+    created: '새 후보',
+    unchanged: '원문 동일',
+    deferred: '다음 실행으로 미룸',
+    failed: '실패',
 };
 
 const extractorLabel = (extractor: string) => extractor.startsWith('openai:')
@@ -312,7 +324,6 @@ export function CardBenefitAdminClient() {
     const [data, setData] = useState<ReviewData>();
     const [isLoading, setIsLoading] = useState(true);
     const [busyKey, setBusyKey] = useState<string>();
-    const [lastBatch, setLastBatch] = useState<BatchResult>();
 
     const load = useCallback(async () => {
         setIsLoading(true);
@@ -377,11 +388,10 @@ export function CardBenefitAdminClient() {
     const collectAll = async () => {
         setBusyKey('collect:all');
         try {
-            const result = await request<BatchResult>({
+            const result = await request<CardBenefitBatchResult>({
                 method: 'POST',
                 body: JSON.stringify({ action: 'collect-all-cards' }),
             });
-            setLastBatch(result);
             addToast(
                 `${result.totals.targets}장 확인 · 새 후보 ${result.totals.created} · ` +
                 `원문 동일 ${result.totals.unchanged} · AI 구조화 ${result.totals.aiExtractions}장` +
@@ -450,6 +460,10 @@ export function CardBenefitAdminClient() {
 
     const pendingCount = data?.candidates.filter(item => item.status === 'PENDING').length ?? 0;
     const checkedTargetCount = data?.collectionTargets.filter(target => target.lastCheckedAt).length ?? 0;
+    const problemStreaks = cardBenefitProblemStreaks(data?.collectionRuns ?? []);
+    const cardName = (cardId: string) => data?.collectionTargets.find(target => (
+        target.cardId === cardId
+    ))?.cardName ?? cardId;
 
     return (
         <main className="min-h-screen bg-gray-50 pb-24">
@@ -553,20 +567,66 @@ export function CardBenefitAdminClient() {
                     </section>
                 )}
 
-                {lastBatch && (
-                    <section className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-[10px] font-bold text-blue-900">
-                        <p className="font-black">
-                            마지막 전체 확인: 새 후보 {lastBatch.totals.created} · 원문 동일 {lastBatch.totals.unchanged} · AI 구조화 {lastBatch.totals.aiExtractions}/{lastBatch.maxAiCards}장 · 미룸 {lastBatch.totals.deferred} · 실패 {lastBatch.totals.failed}
+                {problemStreaks.length > 0 && (
+                    <section className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
+                        <p className="flex items-center gap-1 text-[11px] font-black text-rose-800">
+                            <ShieldAlert className="h-3.5 w-3.5" /> 반복 확인 실패
                         </p>
-                        {lastBatch.items.some(item => item.error) && (
-                            <ul className="mt-2 space-y-1 pl-4 text-rose-700">
-                                {lastBatch.items.filter(item => item.error).map(item => (
-                                    <li key={item.cardId} className="list-disc">
-                                        {data?.collectionTargets.find(target => target.cardId === item.cardId)?.cardName ?? item.cardId}: {item.error}
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+                        <ul className="mt-2 space-y-1 pl-4 text-[10px] font-bold text-rose-700">
+                            {problemStreaks.map(warning => (
+                                <li key={warning.cardId} className="list-disc">
+                                    {cardName(warning.cardId)} · {warning.count}회 연속 · {batchItemStatusLabel[warning.latestStatus]}
+                                    {warning.latestError ? ` · ${warning.latestError}` : ''}
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                )}
+
+                {(data?.collectionRuns.length ?? 0) > 0 && (
+                    <section>
+                        <h2 className="mb-3 px-1 text-sm font-black text-gray-900">전체 확인 실행 이력</h2>
+                        <div className="space-y-2">
+                            {data?.collectionRuns.map(run => {
+                                const problems = run.items.filter(isCardBenefitBatchItemProblem);
+                                return (
+                                    <details key={run.id} className="rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                                        <summary className="cursor-pointer list-none">
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className={`rounded-full px-2 py-1 text-[9px] font-black ${runStatusClass[run.status]}`}>
+                                                        {runStatusLabel[run.status]}
+                                                    </span>
+                                                    <span className="text-[10px] font-black text-gray-700">
+                                                        {runTriggerLabel[run.trigger]} · {new Date(run.finishedAt).toLocaleString('ko-KR')}
+                                                    </span>
+                                                </div>
+                                                <span className="text-[9px] font-bold text-gray-400">
+                                                    새 후보 {run.totals.created} · 동일 {run.totals.unchanged} · AI {run.totals.aiExtractions}/{run.maxAiCards}장 · 문제 {problems.length}
+                                                </span>
+                                            </div>
+                                        </summary>
+                                        <div className="mt-3 border-t border-gray-100 pt-3 text-[9px] font-bold text-gray-500">
+                                            <p>
+                                                대상 {run.totals.targets}장 · 미룸 {run.totals.deferred} · 실패 {run.totals.failed} · 검증 오류 {run.totals.validationErrors} · 출처 실패 {run.totals.sourceFailures}
+                                            </p>
+                                            {problems.length > 0 && (
+                                                <ul className="mt-2 space-y-1 pl-4 text-rose-700">
+                                                    {problems.map(item => (
+                                                        <li key={item.cardId} className="list-disc">
+                                                            {cardName(item.cardId)} · {batchItemStatusLabel[item.status]}
+                                                            {item.validationErrorCount > 0 ? ` · 검증 오류 ${item.validationErrorCount}` : ''}
+                                                            {item.sourceFailureCount > 0 ? ` · 출처 실패 ${item.sourceFailureCount}` : ''}
+                                                            {item.error ? ` · ${item.error}` : ''}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    </details>
+                                );
+                            })}
+                        </div>
                     </section>
                 )}
 

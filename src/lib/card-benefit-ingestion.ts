@@ -6,6 +6,7 @@ import {
     brands,
     cardBenefitCandidates,
     cardBenefitCandidateDocuments,
+    cardBenefitCollectionRuns,
     cardBenefitDocuments,
     cardBenefitRevisions,
     cards,
@@ -1125,6 +1126,10 @@ export function getCardBenefitReviewData() {
         current.push({ documentId: relation.documentId, role: relation.role });
         candidateDocumentIds.set(relation.candidateId, current);
     });
+    const collectionRuns = db.select().from(cardBenefitCollectionRuns)
+        .orderBy(desc(cardBenefitCollectionRuns.finishedAt))
+        .limit(20)
+        .all();
     return {
         collectionTargets: getSystemCardBenefitSourceInventory()
             .filter(item => item.revisionReviewEnabled)
@@ -1151,6 +1156,26 @@ export function getCardBenefitReviewData() {
                 } : undefined;
             })
             .filter((item): item is NonNullable<typeof item> => Boolean(item)),
+        collectionRuns: collectionRuns.map(run => ({
+            id: run.id,
+            status: run.status,
+            trigger: run.trigger,
+            startedAt: run.startedAt.toISOString(),
+            finishedAt: run.finishedAt.toISOString(),
+            maxAiCards: run.maxAiCards,
+            totals: {
+                targets: run.targetCount,
+                created: run.createdCount,
+                unchanged: run.unchangedCount,
+                deferred: run.deferredCount,
+                failed: run.failedCount,
+                cacheHits: run.cacheHitCount,
+                aiExtractions: run.aiExtractionCount,
+                validationErrors: run.validationErrorCount,
+                sourceFailures: run.sourceFailureCount,
+            },
+            items: run.items,
+        })),
         candidates: db.select().from(cardBenefitCandidates)
             .orderBy(desc(cardBenefitCandidates.createdAt))
             .all()

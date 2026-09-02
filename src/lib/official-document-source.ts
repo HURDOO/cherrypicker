@@ -56,12 +56,30 @@ export interface PdfTextExtraction {
 
 const hashBytes = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 
-export const createOfficialDocumentSemanticHash = (extractedText: string) => createHash('sha256')
-    .update(extractedText
-        // View counters change without changing the official benefit or notice.
+const normalizeOfficialDocumentSemantics = (extractedText: string) => {
+    let normalized = extractedText.normalize('NFKC');
+    const shinhanBenefitStart = normalized.indexOf('혜택 안내');
+    if (shinhanBenefitStart >= 0 && /회사명:\s*신한카드\s+상품명:/.test(normalized)) {
+        normalized = normalized.slice(shinhanBenefitStart);
+        const cardDesignStart = normalized.indexOf('카드 디자인');
+        if (cardDesignStart >= 0) normalized = normalized.slice(0, cardDesignStart);
+    }
+    return normalized
+        // View counters and shared navigation/application chrome change independently of benefits.
         .replace(/조회수\s*:\s*[0-9,]+/g, '조회수: #')
+        .replace(/(?:온라인 신청하기\s*){2,}/g, '온라인 신청하기 ')
+        .replace(/(?:간편 신청\s*){2,}/g, '간편 신청 ')
+        .replace(/\b(?:BizPHAROS|NiceBizINFO)\b/g, 'KB_WORK_SERVICE')
+        .replace(
+            /라이프\s+생활·구독\s+(?:보험\s+)?구독\(유료\)서비스/g,
+            '라이프 생활·구독 구독(유료)서비스',
+        )
         .replace(/\s+/g, ' ')
-        .trim())
+        .trim();
+};
+
+export const createOfficialDocumentSemanticHash = (extractedText: string) => createHash('sha256')
+    .update(normalizeOfficialDocumentSemantics(extractedText))
     .digest('hex');
 
 const normalizePageText = (value: string) => value

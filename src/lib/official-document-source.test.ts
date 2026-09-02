@@ -215,4 +215,42 @@ describe('official document source adapter', () => {
             '카드 혜택 변경 안내 조회수: 1099 시행일 2024.9.1'
         ));
     });
+
+    it('ignores application, navigation, and design chrome while preserving benefit changes', () => {
+        const shinhanBefore = [
+            '회사명: 신한카드 상품명: 테스트 카드 온라인 신청하기',
+            '혜택 안내 커피 5% 캐시백 월 최대 3천원',
+            '카드 디자인 캐릭터형(이전) 1 / 10',
+        ].join(' ');
+        const shinhanAfter = [
+            '회사명: 신한카드 상품명: 테스트 카드 새 디자인 온라인 신청하기 온라인 신청하기',
+            '혜택 안내 커피 5% 캐시백 월 최대 3천원',
+            '카드 디자인 캐릭터형(신규) 1 / 10',
+        ].join(' ');
+        expect(createOfficialDocumentSemanticHash(shinhanBefore))
+            .toBe(createOfficialDocumentSemanticHash(shinhanAfter));
+        expect(createOfficialDocumentSemanticHash(shinhanBefore))
+            .not.toBe(createOfficialDocumentSemanticHash(
+                shinhanAfter.replace('커피 5%', '커피 10%')
+            ));
+
+        expect(createOfficialDocumentSemanticHash(
+            'TRIP 무료여행자보험 WORK BizPHAROS GLOBAL 카드 혜택 10%'
+        )).toBe(createOfficialDocumentSemanticHash(
+            'TRIP 무료여행자보험 WORK NiceBizINFO GLOBAL 카드 혜택 10%'
+        ));
+        expect(createOfficialDocumentSemanticHash(
+            '라이프 생활·구독 보험 구독(유료)서비스 카드 혜택 10%'
+        )).toBe(createOfficialDocumentSemanticHash(
+            '라이프 생활·구독 구독(유료)서비스 카드 혜택 10%'
+        ));
+    });
+
+    it('still detects an official event moving from ongoing to ended', () => {
+        expect(createOfficialDocumentSemanticHash(
+            '혜택>이벤트>진행중인 이벤트>상세 학생증 발급 이벤트'
+        )).not.toBe(createOfficialDocumentSemanticHash(
+            '혜택>이벤트>종료된 이벤트>상세 학생증 발급 이벤트'
+        ));
+    });
 });

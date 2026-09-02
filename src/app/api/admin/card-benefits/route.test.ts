@@ -111,7 +111,7 @@ describe('admin card benefit route', () => {
 
         expect(response.status).toBe(200);
         await expect(response.json()).resolves.toEqual({ totals: { targets: 8 } });
-        expect(mocks.collectAll).toHaveBeenCalledOnce();
+        expect(mocks.collectAll).toHaveBeenCalledWith({ trigger: 'MANUAL' });
     });
 
     it('reviews and rolls back card benefit revisions with the authenticated admin ID', async () => {

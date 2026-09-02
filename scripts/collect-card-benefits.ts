@@ -17,6 +17,7 @@ async function main() {
         const result = await collectAllSystemCardBenefits({
             forceExtraction: process.argv.includes('--force'),
             maxAiCards,
+            trigger: process.argv.includes('--scheduled') ? 'SCHEDULED' : 'CLI',
         });
         console.log(
             `Card benefit batch: ${result.totals.targets} targets, ` +

@@ -20,6 +20,8 @@ Phase 7의 첫 수직 흐름은 시스템 카드 `shinhan_sol`(신한 SOL트래�
 
 `card_benefit_documents`는 응답 원문, 사람이 읽을 수 있게 정리한 텍스트, URL, media type, SHA-256 content hash, 응답 ETag/Last-Modified, 수집 시각과 출처별 단조 증가 version을 보존한다. 같은 URL과 hash는 새 문서 version을 만들지 않는다. `card_benefit_candidate_documents`는 후보와 대표·보조 문서를 연결하고, 정렬한 URL·content hash 집합의 bundle hash로 같은 문서 묶음의 중복 후보 생성을 막는다. 공개 카탈로그 API에는 원문과 내부 후보를 포함하지 않는다.
 
+AI 재구조화 여부는 원문 bytes hash가 아니라 정리된 텍스트의 의미 hash로 판단한다. 조회수, 중복 신청 버튼, 카드사 공통 메뉴명과 신한 상품 페이지의 카드 디자인 영역처럼 혜택과 무관한 화면 장식 변화는 정규화한다. 할인율·금액·조건·한도와 이벤트의 진행·종료 상태처럼 계산 또는 유효성에 영향을 주는 문구는 정규화 대상에서 제외하며 회귀 테스트로 변경 감지를 고정한다. 원문 bytes와 문서 version은 의미 hash와 관계없이 그대로 보존한다.
+
 원문은 현재 SQLite에 저장한다. 단일 공개 HTML은 2 MiB, PDF는 8 MiB·200쪽·추출 텍스트 100만 자로 제한한다. HTML은 UTF-8 문자열로, PDF 원본 bytes는 base64로 보존한다. PDF.js가 추출한 텍스트에는 페이지 경계를 넣고 page count와 문서 제목을 metadata에 기록한다. 텍스트 층이 없는 스캔 PDF는 추측이나 자동 OCR 없이 수집 실패로 처리한다. 별도 object storage 전환은 실제 카드 수와 백업 크기를 측정한 뒤 결정한다.
 
 ## 구조화와 검증

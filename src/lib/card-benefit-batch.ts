@@ -1,3 +1,11 @@
+import { randomUUID } from 'node:crypto';
+import { db } from '@/db';
+import { cardBenefitCollectionRuns } from '@/db/schema';
+import type {
+    CardBenefitBatchItem,
+    CardBenefitBatchResult,
+    CardBenefitCollectionTrigger,
+} from '@/types';
 import {
     CardBenefitExtractionBudgetError,
     createCardBenefitExtractionProvider,
@@ -10,36 +18,9 @@ import {
     type CardBenefitCollectionResult,
 } from './card-benefit-ingestion';
 import { getSystemCardBenefitSourceInventory } from './card-benefit-source-registry';
+import { summarizeCardBenefitCollectionRun } from './card-benefit-collection-run';
 
-export type CardBenefitBatchItem = {
-    cardId: string;
-    status: 'created' | 'unchanged' | 'deferred' | 'failed';
-    durationMs: number;
-    aiExtraction: boolean;
-    cacheHit: boolean;
-    validationErrorCount: number;
-    sourceFailureCount: number;
-    candidateId?: string;
-    error?: string;
-};
-
-export type CardBenefitBatchResult = {
-    startedAt: string;
-    finishedAt: string;
-    maxAiCards: number;
-    totals: {
-        targets: number;
-        created: number;
-        unchanged: number;
-        deferred: number;
-        failed: number;
-        cacheHits: number;
-        aiExtractions: number;
-        validationErrors: number;
-        sourceFailures: number;
-    };
-    items: CardBenefitBatchItem[];
-};
+export type { CardBenefitBatchItem, CardBenefitBatchResult } from '@/types';
 
 type CardBenefitCollector = (
     cardId: string,
@@ -148,11 +129,12 @@ export async function runCardBenefitCollectionBatch(options: {
 export async function collectAllSystemCardBenefits(options: {
     forceExtraction?: boolean;
     maxAiCards?: number;
+    trigger?: CardBenefitCollectionTrigger;
 } = {}) {
     const cardIds = getSystemCardBenefitSourceInventory()
         .filter(item => item.revisionReviewEnabled)
         .map(item => item.cardId);
-    return runCardBenefitCollectionBatch({
+    const result = await runCardBenefitCollectionBatch({
         cardIds,
         maxAiCards: options.maxAiCards ?? resolveCardBenefitBatchMaxAiCards(
             process.env.CARD_BENEFIT_BATCH_MAX_AI_CARDS,
@@ -161,4 +143,31 @@ export async function collectAllSystemCardBenefits(options: {
         forceExtraction: options.forceExtraction,
         collect: collectSystemCardBenefits,
     });
+    const runId = randomUUID();
+    const runStatus = summarizeCardBenefitCollectionRun(result);
+    const trigger = options.trigger ?? 'MANUAL';
+    db.insert(cardBenefitCollectionRuns).values({
+        id: runId,
+        status: runStatus,
+        trigger,
+        startedAt: new Date(result.startedAt),
+        finishedAt: new Date(result.finishedAt),
+        maxAiCards: result.maxAiCards,
+        targetCount: result.totals.targets,
+        createdCount: result.totals.created,
+        unchangedCount: result.totals.unchanged,
+        deferredCount: result.totals.deferred,
+        failedCount: result.totals.failed,
+        cacheHitCount: result.totals.cacheHits,
+        aiExtractionCount: result.totals.aiExtractions,
+        validationErrorCount: result.totals.validationErrors,
+        sourceFailureCount: result.totals.sourceFailures,
+        items: result.items,
+    }).run();
+    return {
+        ...result,
+        runId,
+        runStatus,
+        trigger,
+    };
 }
