@@ -161,11 +161,14 @@ npm run db:backup
 
 # 원하는 파일 경로
 npm run db:backup -- /mnt/external-backup/cherrypicker.db
+
+# backup 무결성·참조·schema 호환성 확인
+npm run db:verify-backup -- /mnt/external-backup/cherrypicker.db
 ```
 
 스크립트는 `better-sqlite3`의 온라인 backup API를 사용하고, 임시 snapshot의 `PRAGMA quick_check`가 성공한 뒤 최종 파일명으로 옮깁니다. DB와 백업 파일은 mode `0600`으로 보호하며 기존 대상 파일은 덮어쓰지 않습니다. 실행 중인 WAL 데이터가 누락될 수 있으므로 애플리케이션이 켜진 상태에서 `.db` 파일만 `cp`하지 마세요.
 
-`backups/`는 Git에서 제외됩니다. 같은 라즈베리파이의 같은 디스크만 백업 대상으로 삼지 말고, 별도 장치나 원격 저장소로 복제하고 정기적으로 복구를 시험하세요. 유지보수 명령이 `drizzle-kit`과 `tsx`를 사용하므로 서버에서 `devDependencies`를 제거하지 마세요.
+`db:verify-backup`은 backup을 읽기 전용으로 열어 전체 무결성, 외래 키, 핵심 테이블, migration 호환성과 핵심 레코드 수를 검사합니다. `backups/`는 Git에서 제외됩니다. 같은 라즈베리파이의 같은 디스크만 백업 대상으로 삼지 말고, 별도 장치나 원격 저장소로 복제하고 정기적으로 복구를 시험하세요. 실제 복구 순서와 보호 범위는 [SQLite 백업·복구 런북](docs/database-backup-recovery.md)을 따릅니다. 유지보수 명령이 `drizzle-kit`과 `tsx`를 사용하므로 서버에서 `devDependencies`를 제거하지 마세요.
 
 ## 라즈베리파이 배포
 
