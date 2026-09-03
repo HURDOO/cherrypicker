@@ -15,6 +15,7 @@ import {
 import type { RecommendationRequest } from '@/types';
 import { calculateBestCombinations } from '@/utils/combination';
 import { HttpError } from './api-server';
+import { cardVisibleToUser } from './card-visibility';
 import { visibleToUser } from './data-access';
 import {
     toBenefitProfile,
@@ -49,7 +50,7 @@ export function calculateRecommendationForUser(
     if (!brand) throw new HttpError(404, '브랜드를 찾을 수 없습니다.');
 
     const cardRows = db.select().from(cards)
-        .where(or(isNull(cards.userId), eq(cards.userId, userId)))
+        .where(cardVisibleToUser(userId))
         .orderBy(asc(cards.name))
         .all();
     const ruleRows = db.select().from(benefitRules)

@@ -9,6 +9,7 @@ import {
     userCardPerformances,
 } from '@/db/schema';
 import { handleRouteError, HttpError, readJsonObject, requireUser } from '@/lib/api-server';
+import { cardVisibleToUser } from '@/lib/card-visibility';
 import {
     booleanValue,
     optionalInteger,
@@ -137,7 +138,7 @@ export async function POST(request: Request) {
         const card = db.select().from(cards)
             .where(and(
                 eq(cards.id, cardId),
-                visibleToUser(cards.userId, user.id)
+                cardVisibleToUser(user.id),
             ))
             .get();
         const ruleRows = db.select().from(benefitRules)

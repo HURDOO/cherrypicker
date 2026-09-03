@@ -1,8 +1,12 @@
+import { isIP } from 'node:net';
 import type {
     Card,
     CatalogCardBenefitSupport,
 } from '@/types';
-import { getSystemCardBenefitSourceInventory } from './card-benefit-source-registry';
+import {
+    getSystemCardBenefitSourceInventory,
+    type SystemCardBenefitSourceInventoryItem,
+} from './card-benefit-source-registry';
 
 export interface ActiveCardBenefitRevision {
     cardId: string;
@@ -20,27 +24,22 @@ interface CardBenefitSupportDefinition {
 const DEFAULT_CAVEAT =
     '초기 입력된 주요 혜택만 반영되어 있으며 공식 문서 전체 검수는 아직 완료되지 않았습니다.';
 
-const OFFICIAL_CARD_SOURCE_DOMAINS = [
-    'hanacard.co.kr',
-    'kbcard.com',
-    'kbstar.com',
-    'shinhancard.com',
-];
-
 const isPublicOfficialSource = (sourceUrl: string) => {
     try {
         const url = new URL(sourceUrl);
-        return url.protocol === 'https:' && OFFICIAL_CARD_SOURCE_DOMAINS.some(domain => (
-            url.hostname === domain || url.hostname.endsWith(`.${domain}`)
-        ));
+        const hostname = url.hostname.toLowerCase();
+        return url.protocol === 'https:' && !url.username && !url.password && !url.port &&
+            hostname.includes('.') && isIP(hostname) === 0 &&
+            hostname !== 'localhost' && !hostname.endsWith('.localhost') &&
+            !hostname.endsWith('.local') && !hostname.endsWith('.internal');
     } catch {
         return false;
     }
 };
 
-const getSupportDefinitions = () => {
+const getSupportDefinitions = (inventory: SystemCardBenefitSourceInventoryItem[]) => {
     return new Map<string, CardBenefitSupportDefinition>(
-        getSystemCardBenefitSourceInventory().map(item => [item.cardId, {
+        inventory.map(item => [item.cardId, {
             supportScope: 'FULL',
             sources: item.sources.filter(source => isPublicOfficialSource(source.url)).map(source => ({
                 label: source.label,
@@ -63,8 +62,9 @@ const toIsoString = (value: Date | string) => {
 export function buildCardBenefitSupports(
     cards: Card[],
     activeRevisions: ActiveCardBenefitRevision[],
+    inventory = getSystemCardBenefitSourceInventory(),
 ): CatalogCardBenefitSupport[] {
-    const definitions = getSupportDefinitions();
+    const definitions = getSupportDefinitions(inventory);
     const revisions = new Map(activeRevisions.map(revision => [revision.cardId, revision]));
 
     return cards

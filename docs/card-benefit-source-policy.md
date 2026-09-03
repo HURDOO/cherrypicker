@@ -4,6 +4,8 @@
 
 Phase 7의 첫 수직 흐름은 시스템 카드 `shinhan_sol`(신한 SOL트래블 체크카드)로 검증했다. 현재는 같은 source bundle·검증·검수·revision·rollback 계약을 유지하면서 `hana_nara`(하나 나라사랑카드)를 첫 범용 AI 우선 adapter 대상으로 추가했다. 카드사 페이지별 혜택 parser를 새로 만들지 않고 허용 출처와 문서 역할만 adapter에 선언한다.
 
+관리자는 `/admin/cards/new`에서 카드 기본정보와 1~8개의 공식 출처를 등록할 수 있다. 새 시스템 카드는 `DRAFT`로 저장되고 공개 카탈로그·추천·거래 입력에서 제외된다. 등록한 출처는 기존의 범용 AI 구조화 흐름으로 수집하며, 검증 후보를 관리자가 승인해 revision을 게시하는 시점에만 `PUBLISHED`로 전환한다. 코드에 선언된 기존 source adapter는 하위 호환용 기본값으로 유지하고, DB에 출처가 등록된 카드는 DB 설정을 우선한다.
+
 2026-08-24에 시스템 카드 8장·게시 규칙 88개의 공식 원문 대조를 시작해 카드별 공식 출처와 알려진 계산 차이를 인벤토리에 등록했다. 이 수동 대조는 source adapter의 승인 revision을 대신하지 않으며, 상세 결과와 다음 adapter 우선순위는 [시스템 카드 혜택 공식 원문 대조](./system-card-benefit-audit-2026-08-24.md)에 기록한다.
 
 - 대표 출처: `https://www.shinhancard.com/pconts/html/card/apply/check/1225714_2206.html`

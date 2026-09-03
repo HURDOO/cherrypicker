@@ -10,6 +10,7 @@ import {
     userCardPerformances,
 } from '@/db/schema';
 import { handleRouteError, requireUser } from '@/lib/api-server';
+import { cardVisibleToUser } from '@/lib/card-visibility';
 import {
     toBrand,
     toBenefitProfile,
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
             .orderBy(asc(brands.sortOrder), asc(brands.name))
             .all();
         const cardRows = db.select().from(cards)
-            .where(or(isNull(cards.userId), eq(cards.userId, user.id)))
+            .where(cardVisibleToUser(user.id))
             .orderBy(asc(cards.name))
             .all();
         const ruleRows = db.select().from(benefitRules)

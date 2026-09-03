@@ -11,6 +11,8 @@ export type CardNetwork =
     | 'AMEX'
     | 'UNIONPAY'
     | 'OTHER';
+export type SystemCardCatalogStatus = 'DRAFT' | 'PUBLISHED';
+export type SystemCardIssueStatus = 'ACTIVE' | 'DISCONTINUED';
 
 export interface Category {
     id: CategoryId;
@@ -100,6 +102,7 @@ export interface BenefitRule {
 }
 
 export type CardBenefitSourceKind = 'PRODUCT_PAGE' | 'PRODUCT_GUIDE_PDF' | 'NOTICE';
+export type CardBenefitSourceRole = 'PRIMARY' | 'SUPPORTING';
 export type CardBenefitCandidateStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type CardBenefitCollectionRunStatus = 'SUCCEEDED' | 'PARTIAL' | 'FAILED';
 export type CardBenefitCollectionTrigger = 'MANUAL' | 'CLI' | 'SCHEDULED';

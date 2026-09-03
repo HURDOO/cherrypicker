@@ -33,9 +33,9 @@ import {
 import { createCardBenefitCandidateAudit } from './card-benefit-audit';
 import { shouldReplacePendingCardBenefitCandidate } from './card-benefit-candidate-selection';
 import {
-    getSystemCardBenefitSourceInventory,
-    getSystemCardBenefitSources,
-} from './card-benefit-source-registry';
+    getManagedSystemCardBenefitSourceInventory,
+    getManagedSystemCardBenefitSources,
+} from './system-card-onboarding';
 import { toCard, toRule } from './db-mappers';
 import {
     collectOfficialDocument,
@@ -127,7 +127,7 @@ const collectSourceDefinitions = async (
 };
 
 const collectCardSourceBundle = async (cardId: string) => {
-    const configured = getSystemCardBenefitSources(cardId);
+    const configured = getManagedSystemCardBenefitSources(cardId);
     if (configured.length === 0) {
         throw new CardBenefitIngestionError(400, '아직 수집을 지원하지 않는 시스템 카드입니다.');
     }
@@ -1054,6 +1054,10 @@ export function reviewCardBenefitCandidate(
             .set({ status: 'APPROVED', reviewerId, reviewedAt: now })
             .where(eq(cardBenefitCandidates.id, candidate.id))
             .run();
+        tx.update(cards)
+            .set({ catalogStatus: 'PUBLISHED' })
+            .where(and(eq(cards.id, candidate.cardId), isNull(cards.userId)))
+            .run();
     });
     return db.select().from(cardBenefitRevisions)
         .where(and(
@@ -1131,7 +1135,7 @@ export function getCardBenefitReviewData() {
         .limit(20)
         .all();
     return {
-        collectionTargets: getSystemCardBenefitSourceInventory()
+        collectionTargets: getManagedSystemCardBenefitSourceInventory()
             .filter(item => item.revisionReviewEnabled)
             .map(item => {
                 const card = db.select({ id: cards.id, name: cards.name })

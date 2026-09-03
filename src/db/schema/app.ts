@@ -37,6 +37,9 @@ import type {
     CardBenefitExtraction,
     CardBenefitRevisionSnapshot,
     CardBenefitSourceKind,
+    CardBenefitSourceRole,
+    SystemCardCatalogStatus,
+    SystemCardIssueStatus,
     TelecomMembership,
 } from '@/types';
 import type { AccountWorkspaceExport } from '@/lib/account-workspace-export';
@@ -79,8 +82,57 @@ export const cards = sqliteTable('cards', {
         .$type<LimitTableItem[]>()
         .notNull(),
     network: text('network').$type<CardNetwork>(),
+    catalogStatus: text('catalog_status')
+        .$type<SystemCardCatalogStatus>()
+        .notNull()
+        .default('PUBLISHED'),
+    issueStatus: text('issue_status')
+        .$type<SystemCardIssueStatus>()
+        .notNull()
+        .default('ACTIVE'),
+    issuerProductCode: text('issuer_product_code'),
+    catalogCaveat: text('catalog_caveat'),
 }, (table) => [
     index('cards_user_id_idx').on(table.userId),
+    index('cards_catalog_status_idx').on(table.catalogStatus),
+]);
+
+export const cardBenefitSourceConfigs = sqliteTable('card_benefit_source_configs', {
+    id: text('id').primaryKey(),
+    cardId: text('card_id')
+        .notNull()
+        .references(() => cards.id, { onDelete: 'cascade' }),
+    label: text('label').notNull(),
+    sourceUrl: text('source_url').notNull(),
+    sourceKind: text('source_kind').$type<CardBenefitSourceKind>().notNull(),
+    format: text('format').$type<'html' | 'pdf'>().notNull(),
+    allowedHosts: text('allowed_hosts', { mode: 'json' }).$type<string[]>().notNull(),
+    required: integer('required', { mode: 'boolean' }).notNull().default(false),
+    candidateRole: text('candidate_role')
+        .$type<CardBenefitSourceRole>()
+        .notNull()
+        .default('SUPPORTING'),
+    discoverLinkedPdfs: integer('discover_linked_pdfs', { mode: 'boolean' })
+        .notNull()
+        .default(false),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+        .notNull()
+        .default(nowInMilliseconds),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+        .notNull()
+        .default(nowInMilliseconds),
+}, (table) => [
+    uniqueIndex('card_benefit_source_configs_card_url_unique').on(
+        table.cardId,
+        table.sourceUrl,
+    ),
+    index('card_benefit_source_configs_card_active_idx').on(
+        table.cardId,
+        table.isActive,
+        table.sortOrder,
+    ),
 ]);
 
 export const benefitRules = sqliteTable('benefit_rules', {

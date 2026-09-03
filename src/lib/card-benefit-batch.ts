@@ -17,7 +17,7 @@ import {
     collectSystemCardBenefits,
     type CardBenefitCollectionResult,
 } from './card-benefit-ingestion';
-import { getSystemCardBenefitSourceInventory } from './card-benefit-source-registry';
+import { getManagedSystemCardBenefitSourceInventory } from './system-card-onboarding';
 import { summarizeCardBenefitCollectionRun } from './card-benefit-collection-run';
 
 export type { CardBenefitBatchItem, CardBenefitBatchResult } from '@/types';
@@ -131,7 +131,7 @@ export async function collectAllSystemCardBenefits(options: {
     maxAiCards?: number;
     trigger?: CardBenefitCollectionTrigger;
 } = {}) {
-    const cardIds = getSystemCardBenefitSourceInventory()
+    const cardIds = getManagedSystemCardBenefitSourceInventory()
         .filter(item => item.revisionReviewEnabled)
         .map(item => item.cardId);
     const result = await runCardBenefitCollectionBatch({

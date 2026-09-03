@@ -8,6 +8,7 @@ import {
     DatabaseZap,
     ExternalLink,
     LoaderCircle,
+    Plus,
     RotateCcw,
     ShieldAlert,
     XCircle,
@@ -485,6 +486,13 @@ export function CardBenefitAdminClient() {
                         </div>
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
+                        <Link
+                            href="/admin/cards/new"
+                            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-black text-gray-700"
+                        >
+                            <Plus className="h-4 w-4" />
+                            카드 추가
+                        </Link>
                         <button
                             type="button"
                             onClick={collectAll}

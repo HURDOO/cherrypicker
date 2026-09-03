@@ -27,6 +27,8 @@ import {
 import type { BenefitCatalogFreshness, BenefitCatalogSnapshot } from '@/types';
 import { buildBenefitCatalogSnapshot } from './benefit-catalog';
 import { buildCardBenefitSupports } from './card-benefit-support';
+import { publishedSystemCard } from './card-visibility';
+import { getManagedSystemCardBenefitSourceInventory } from './system-card-onboarding';
 
 type CatalogServerGlobal = typeof globalThis & {
     cherryPickerBenefitCatalog?: BenefitCatalogSnapshot;
@@ -38,6 +40,7 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
     const cached = catalogServerGlobal.cherryPickerBenefitCatalog;
 
     try {
+        const cardBenefitSourceInventory = getManagedSystemCardBenefitSourceInventory();
         const source = db.transaction(tx => {
             const latestRun = tx.select().from(promotionCollectionRuns)
                 .orderBy(desc(promotionCollectionRuns.finishedAt))
@@ -66,7 +69,7 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
             };
 
             const systemCards = tx.select().from(cards)
-                .where(isNull(cards.userId))
+                .where(publishedSystemCard())
                 .orderBy(asc(cards.name), asc(cards.id))
                 .all()
                 .map(toCard);
@@ -131,6 +134,7 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
                 cardBenefitSupports: buildCardBenefitSupports(
                     systemCards,
                     activeCardBenefitRevisions,
+                    cardBenefitSourceInventory,
                 ),
                 freshness,
             };

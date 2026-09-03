@@ -6,6 +6,7 @@ import {
     ChevronRight,
     CreditCard,
     DatabaseZap,
+    ListPlus,
     ShieldCheck,
 } from 'lucide-react';
 import { auth } from '@/lib/auth';
@@ -21,6 +22,14 @@ const adminTools = [
         detail: '수집 · 검수 · 게시 · 출처 관리',
         icon: DatabaseZap,
         iconClass: 'bg-rose-100 text-rose-700',
+    },
+    {
+        href: '/admin/cards/new',
+        title: '신규 카드 온보딩',
+        description: '카드 기본정보와 공식 출처를 등록하고 AI 구조화 검수 후보를 생성합니다.',
+        detail: '작성 중 · 공식 출처 · 수집 시작',
+        icon: ListPlus,
+        iconClass: 'bg-violet-100 text-violet-700',
     },
     {
         href: '/admin/card-benefits',

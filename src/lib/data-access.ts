@@ -9,6 +9,7 @@ import {
     transactionHistory,
 } from '@/db/schema';
 import { HttpError } from './api-server';
+import { cardVisibleToUser } from './card-visibility';
 
 export function visibleToUser(
     column: AnySQLiteColumn,
@@ -66,7 +67,10 @@ export function assertCanCreateTransaction(userId: string) {
 export function assertVisibleCard(cardId: string, userId: string) {
     const row = db.select({ id: cards.id, userId: cards.userId })
         .from(cards)
-        .where(and(eq(cards.id, cardId), visibleToUser(cards.userId, userId)))
+        .where(and(
+            eq(cards.id, cardId),
+            cardVisibleToUser(userId),
+        ))
         .get();
 
     if (!row) throw new HttpError(404, '카드를 찾을 수 없습니다.');
