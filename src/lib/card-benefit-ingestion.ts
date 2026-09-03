@@ -294,7 +294,7 @@ const retainUnresolvedProviderErrors = (
         return !claim || !evidenceRepresentsBenefitClaim(extraction.evidence, claim);
     }
     if (providerInventoryErrorResolved(error, extraction)) return false;
-    if (/^(?:규칙 .* 근거가 없습니다\.|할인율 |최소 결제금액 |최대 결제금액 |배타적 최대 결제금액 |최소 실적 |일 금액 한도 |월 금액 한도 |건별 최대 혜택이 |필수 조건의 공식 근거가 없습니다:|계산 불가 정보성 혜택에 금액 한도가 설정됐습니다:|공식 공지 |공식 혜택 |특정 상품 혜택이 |동일한 최소 실적 |복수 한도 표의 열 제목이 근거 문장에 없습니다:)/
+    if (/^(?:규칙 .* 근거가 없습니다\.|할인율 |최소 결제금액 |최대 결제금액 |배타적 최대 결제금액 |최소 실적 |일 금액 한도 |월 금액 한도 |건별 최대 혜택이 |필수 조건의 공식 근거가 없습니다:|계산 불가 정보성 혜택에 금액 한도가 설정됐습니다:|공식 공지 |공식 혜택 |공식 거래 대상 브랜드가 |특정 상품 혜택이 |동일한 최소 실적 |복수 한도 표의 열 제목이 근거 문장에 없습니다:)/
         .test(error)) {
         return false;
     }

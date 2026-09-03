@@ -4,7 +4,9 @@ import {
     Brand,
     CalculatedCard,
     Card,
+    BenefitWeekday,
     LimitConfig,
+    LimitUsageField,
     RuleAction,
     TransactionHistory,
     UserCardPerformance,
@@ -23,7 +25,7 @@ type RuleUsage = {
     isMonthlyAmountLimitReached?: boolean;
 };
 
-type RuleUsageField = 'dailyCount' | 'dailyAmount' | 'monthlyCount' | 'yearlyCount' | 'monthlyAmount';
+type RuleUsageField = LimitUsageField;
 const ruleUsageFields: RuleUsageField[] = [
     'dailyCount',
     'dailyAmount',
@@ -47,6 +49,7 @@ interface CardCalculationOptions {
     confirmedConditionIds?: Iterable<string>;
     allowPerformanceWaiver?: boolean;
     eligibleItemAmount?: number;
+    now?: Date;
 }
 
 type CalculationContext = {
@@ -65,24 +68,28 @@ const getKstDateParts = (date: Date) => {
         year: kstDate.getUTCFullYear(),
         month: kstDate.getUTCMonth(),
         day: kstDate.getUTCDate(),
+        weekday: (['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const)[
+            kstDate.getUTCDay()
+        ],
+        minutes: kstDate.getUTCHours() * 60 + kstDate.getUTCMinutes(),
     };
 };
 
-const isToday = (dateStr: string) => {
+const isToday = (dateStr: string, referenceDate: Date) => {
     const date = getKstDateParts(new Date(dateStr));
-    const now = getKstDateParts(new Date());
+    const now = getKstDateParts(referenceDate);
     return date.year === now.year && date.month === now.month && date.day === now.day;
 };
 
-const isThisMonth = (dateStr: string) => {
+const isThisMonth = (dateStr: string, referenceDate: Date) => {
     const date = getKstDateParts(new Date(dateStr));
-    const now = getKstDateParts(new Date());
+    const now = getKstDateParts(referenceDate);
     return date.month === now.month && date.year === now.year;
 };
 
-const isThisYear = (dateStr: string) => {
+const isThisYear = (dateStr: string, referenceDate: Date) => {
     const date = getKstDateParts(new Date(dateStr));
-    const now = getKstDateParts(new Date());
+    const now = getKstDateParts(referenceDate);
     return date.year === now.year;
 };
 
@@ -107,8 +114,19 @@ const getSharedGroupId = (rule: BenefitRule) =>
 const getLimitConfig = (rule: BenefitRule): LimitConfig =>
     getSnakeOrCamel<LimitConfig>(rule, 'limitConfig', 'limit_config', {});
 
-const getLimitValue = (limitConfig: LimitConfig, camelKey: keyof LimitConfig, snakeKey: string) =>
+const getLimitValue = (limitConfig: LimitConfig, camelKey: RuleUsageField, snakeKey: string) =>
     getSnakeOrCamel<number | undefined>(limitConfig, camelKey, snakeKey, undefined);
+
+const getSharedLimitFields = (limitConfig: LimitConfig) =>
+    getSnakeOrCamel<LimitUsageField[]>(limitConfig, 'sharedFields', 'shared_fields', []);
+
+const getMonthlyAmountByPerformance = (limitConfig: LimitConfig) =>
+    getSnakeOrCamel<Card['limitTable']>(
+        limitConfig,
+        'monthlyAmountByPerformance',
+        'monthly_amount_by_performance',
+        [],
+    );
 
 const getAction = (rule: BenefitRule): RuleAction => rule.action || { type: 'FLAT', value: 0 };
 
@@ -137,6 +155,17 @@ const getConditionStartsAt = (rule: BenefitRule) =>
 
 const getConditionEndsAt = (rule: BenefitRule) =>
     getSnakeOrCamel<string | undefined>(rule.condition, 'endsAt', 'ends_at', undefined);
+
+const getConditionDaysOfWeek = (rule: BenefitRule) =>
+    getSnakeOrCamel<BenefitWeekday[]>(rule.condition, 'daysOfWeek', 'days_of_week', []);
+
+const getConditionTimeRanges = (rule: BenefitRule) =>
+    getSnakeOrCamel<NonNullable<BenefitRule['condition']['timeRanges']>>(
+        rule.condition,
+        'timeRanges',
+        'time_ranges',
+        [],
+    );
 
 const getConditionRequiredCardNetwork = (rule: BenefitRule) =>
     getSnakeOrCamel<BenefitRule['condition']['requiredCardNetwork']>(
@@ -243,7 +272,8 @@ const getHistoryRuleApplications = (transaction: TransactionHistory) => {
 
 const buildCalculationContext = (
     rules: BenefitRule[],
-    history: TransactionHistory[]
+    history: TransactionHistory[],
+    now: Date,
 ): CalculationContext => {
     const ruleById = new Map(rules.map(rule => [rule.id, rule]));
     const usageByCard = new Map<string, Map<string, RuleUsage>>();
@@ -258,7 +288,16 @@ const buildCalculationContext = (
     const sharedLimitFieldsByGroup = new Map<string, Set<RuleUsageField>>();
     groupedRules.forEach((members, groupId) => {
         const fields = new Set<RuleUsageField>();
+        const hasExplicitSharedFields = members.some(member => (
+            getSharedLimitFields(getLimitConfig(member)).length > 0
+        ));
         ruleUsageFields.forEach(field => {
+            if (hasExplicitSharedFields) {
+                if (members.every(member => (
+                    getSharedLimitFields(getLimitConfig(member)).includes(field)
+                ))) fields.add(field);
+                return;
+            }
             const values = members.map(member => getLimitValue(
                 getLimitConfig(member),
                 field,
@@ -273,9 +312,9 @@ const buildCalculationContext = (
 
     history.forEach((transaction) => {
         if (!transaction.cardId) return;
-        const isDaily = isToday(transaction.date);
-        const isMonthly = isThisMonth(transaction.date);
-        const isYearly = isThisYear(transaction.date);
+        const isDaily = isToday(transaction.date, now);
+        const isMonthly = isThisMonth(transaction.date, now);
+        const isYearly = isThisYear(transaction.date, now);
         const applications = getHistoryRuleApplications(transaction);
 
         if (isMonthly) {
@@ -390,6 +429,41 @@ const getNewCardWaiverMonthlyLimit = (card: Card) => {
     return firstBenefitTier?.limit ?? 0;
 };
 
+const getTieredMonthlyAmountLimit = (
+    limitConfig: LimitConfig,
+    myPerformance: number,
+    performanceWaiverApplied: boolean,
+) => {
+    const tiers = getMonthlyAmountByPerformance(limitConfig);
+    if (tiers.length === 0) return undefined;
+    const sorted = [...tiers].sort((left, right) => right.threshold - left.threshold);
+    const matched = sorted.find(tier => myPerformance >= tier.threshold);
+    if (matched) return matched.limit;
+    if (!performanceWaiverApplied) return 0;
+    return [...tiers]
+        .filter(tier => tier.limit > 0)
+        .sort((left, right) => left.threshold - right.threshold)[0]?.limit ?? 0;
+};
+
+const parseTimeMinutes = (value: string) => {
+    const match = value.match(/^(\d{2}):(\d{2})$/);
+    if (!match) return undefined;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (hours > 23 || minutes > 59) return undefined;
+    return hours * 60 + minutes;
+};
+
+const matchesTimeRange = (minutes: number, startTime: string, endTime: string) => {
+    const start = parseTimeMinutes(startTime);
+    const end = parseTimeMinutes(endTime);
+    if (start === undefined || end === undefined) return false;
+    if (start === end) return true;
+    return start < end
+        ? minutes >= start && minutes < end
+        : minutes >= start || minutes < end;
+};
+
 const getUsedIntegratedLimit = (
     card: Card,
     context: CalculationContext,
@@ -414,8 +488,8 @@ const calculateRuleDiscount = (amount: number, action: RuleAction) => {
     return 0;
 };
 
-const getCurrentKstDateString = () => {
-    const now = getKstDateParts(new Date());
+const getCurrentKstDateString = (date: Date) => {
+    const now = getKstDateParts(date);
     return `${now.year}-${String(now.month + 1).padStart(2, '0')}-${String(now.day).padStart(2, '0')}`;
 };
 
@@ -431,6 +505,7 @@ const evaluateRule = ({
     confirmedConditionIds,
     allowPerformanceWaiver,
     eligibleItemAmount,
+    now,
 }: {
     rule: BenefitRule;
     amount: number;
@@ -443,6 +518,7 @@ const evaluateRule = ({
     confirmedConditionIds: ReadonlySet<string>;
     allowPerformanceWaiver: boolean;
     eligibleItemAmount?: number;
+    now: Date;
 }): RuleEvaluation => {
     const usage = getUsageStat(rule, card, context);
     const result: RuleEvaluation = {
@@ -465,7 +541,7 @@ const evaluateRule = ({
         return result;
     }
 
-    const currentDate = getCurrentKstDateString();
+    const currentDate = getCurrentKstDateString(now);
     const startsAt = getConditionStartsAt(rule);
     if (startsAt && currentDate < startsAt) {
         result.reason = `혜택 시작 전(${startsAt})`;
@@ -474,6 +550,20 @@ const evaluateRule = ({
     const endsAt = getConditionEndsAt(rule);
     if (endsAt && currentDate > endsAt) {
         result.reason = `종료된 혜택(${endsAt})`;
+        return result;
+    }
+
+    const currentKst = getKstDateParts(now);
+    const daysOfWeek = getConditionDaysOfWeek(rule);
+    if (daysOfWeek.length > 0 && !daysOfWeek.includes(currentKst.weekday)) {
+        result.reason = '혜택 적용 요일 아님';
+        return result;
+    }
+    const timeRanges = getConditionTimeRanges(rule);
+    if (timeRanges.length > 0 && !timeRanges.some(range => (
+        matchesTimeRange(currentKst.minutes, range.startTime, range.endTime)
+    ))) {
+        result.reason = '혜택 적용 시간 아님';
         return result;
     }
 
@@ -511,11 +601,13 @@ const evaluateRule = ({
     }
 
     const minPerformance = getConditionMinPerformance(rule);
+    let performanceWaiverApplied = false;
     if (myPerformance < minPerformance) {
         if (
             allowPerformanceWaiver &&
             getConditionPerformanceWaiver(rule) === 'NEW_CARD_REGISTRATION_WINDOW'
         ) {
+            performanceWaiverApplied = true;
             result.requiredChecks.push('신규 발급 후 등록월의 다음 달 말 이내인지 확인');
         } else {
             result.reason = `실적 조건(${minPerformance.toLocaleString()}원) 부족`;
@@ -539,33 +631,37 @@ const evaluateRule = ({
     const dailyAmountLimit = getLimitValue(limitConfig, 'dailyAmount', 'daily_amount');
     const monthlyCountLimit = getLimitValue(limitConfig, 'monthlyCount', 'monthly_count');
     const yearlyCountLimit = getLimitValue(limitConfig, 'yearlyCount', 'yearly_count');
-    const monthlyAmountLimit = getLimitValue(limitConfig, 'monthlyAmount', 'monthly_amount');
+    const monthlyAmountLimit = getTieredMonthlyAmountLimit(
+        limitConfig,
+        myPerformance,
+        performanceWaiverApplied,
+    ) ?? getLimitValue(limitConfig, 'monthlyAmount', 'monthly_amount');
 
-    if (dailyCountLimit && usage.dailyCount >= dailyCountLimit) {
+    if (dailyCountLimit !== undefined && usage.dailyCount >= dailyCountLimit) {
         result.reason = '일 횟수 제한 초과';
         usage.isDailyLimitReached = true;
         return result;
     }
 
-    if (dailyAmountLimit && usage.dailyAmount >= dailyAmountLimit) {
+    if (dailyAmountLimit !== undefined && usage.dailyAmount >= dailyAmountLimit) {
         result.reason = '일 혜택 한도 소진';
         usage.isDailyAmountLimitReached = true;
         return result;
     }
 
-    if (monthlyCountLimit && usage.monthlyCount >= monthlyCountLimit) {
+    if (monthlyCountLimit !== undefined && usage.monthlyCount >= monthlyCountLimit) {
         result.reason = '월 횟수 제한 초과';
         usage.isMonthlyLimitReached = true;
         return result;
     }
 
-    if (yearlyCountLimit && usage.yearlyCount >= yearlyCountLimit) {
+    if (yearlyCountLimit !== undefined && usage.yearlyCount >= yearlyCountLimit) {
         result.reason = '연 횟수 제한 초과';
         usage.isYearlyLimitReached = true;
         return result;
     }
 
-    if (monthlyAmountLimit && usage.monthlyAmount >= monthlyAmountLimit) {
+    if (monthlyAmountLimit !== undefined && usage.monthlyAmount >= monthlyAmountLimit) {
         result.reason = '월 혜택 한도 소진';
         usage.isMonthlyAmountLimitReached = true;
         return result;
@@ -573,7 +669,7 @@ const evaluateRule = ({
 
     let discount = calculateRuleDiscount(basisAmount, getAction(rule));
 
-    if (dailyAmountLimit) {
+    if (dailyAmountLimit !== undefined) {
         const dailyRemaining = Math.max(0, dailyAmountLimit - usage.dailyAmount);
         if (discount > dailyRemaining) {
             discount = dailyRemaining;
@@ -581,7 +677,7 @@ const evaluateRule = ({
         }
     }
 
-    if (monthlyAmountLimit) {
+    if (monthlyAmountLimit !== undefined) {
         const ruleRemaining = Math.max(0, monthlyAmountLimit - usage.monthlyAmount);
         if (discount > ruleRemaining) {
             discount = ruleRemaining;
@@ -673,7 +769,8 @@ export function calculateBestCards(
     isOnline: boolean = false,
     options: CardCalculationOptions = {},
 ): CalculatedCard[] {
-    const context = buildCalculationContext(rules, history);
+    const now = options.now ?? new Date();
+    const context = buildCalculationContext(rules, history, now);
     const confirmedConditionIds = new Set(options.confirmedConditionIds ?? []);
     const allowPerformanceWaiver = options.allowPerformanceWaiver ?? true;
     const eligibleItemAmount = options.eligibleItemAmount === undefined
@@ -735,6 +832,7 @@ export function calculateBestCards(
                     confirmedConditionIds,
                     allowPerformanceWaiver,
                     eligibleItemAmount,
+                    now,
                 });
                 if (!evaluation.isApplicable || evaluation.discount <= 0) return undefined;
                 evaluation.discount = Math.min(remainingAmount, evaluation.discount);
@@ -771,6 +869,7 @@ export function calculateBestCards(
                     confirmedConditionIds,
                     allowPerformanceWaiver,
                     eligibleItemAmount,
+                    now,
                 })
                 : undefined
         );

@@ -67,6 +67,8 @@ export const INITIAL_BRANDS = [
     // Life / shopping
     { id: 'oliveyoung', name: '올리브영', category_id: 'life', icon_name: 'Gift' },
     { id: 'daiso', name: '다이소', category_id: 'life', icon_name: 'Gift' },
+    { id: 'medical', name: '병원/약국 업종', category_id: 'life', icon_name: 'Stethoscope' },
+    { id: 'laundry', name: '세탁소 업종', category_id: 'life', icon_name: 'Shirt' },
     { id: 'beauty_hair', name: '미용실/뷰티업종', category_id: 'life', icon_name: 'Scissors' },
     { id: 'sports_leisure', name: '스포츠/레저업종', category_id: 'life', icon_name: 'Dumbbell' },
     { id: 'coupang', name: '쿠팡', category_id: 'shopping', icon_name: 'ShoppingBag' },
@@ -79,6 +81,10 @@ export const INITIAL_BRANDS = [
     { id: 'gmarket', name: 'G마켓', category_id: 'shopping', icon_name: 'ShoppingBag' },
     { id: 'auction', name: '옥션', category_id: 'shopping', icon_name: 'ShoppingBag' },
     { id: 'elevenst', name: '11번가', category_id: 'shopping', icon_name: 'ShoppingBag' },
+    { id: 'ak_mall', name: 'AK몰', category_id: 'shopping', icon_name: 'ShoppingBag' },
+    { id: 'tmon', name: '티몬', category_id: 'shopping', icon_name: 'ShoppingBag' },
+    { id: 'lotte_home_shopping', name: '롯데홈쇼핑', category_id: 'shopping', icon_name: 'ShoppingBag' },
+    { id: 'intake', name: '인테이크몰', category_id: 'shopping', icon_name: 'ShoppingBag' },
     { id: 'gs_shop', name: 'GS SHOP', category_id: 'shopping', icon_name: 'ShoppingBag' },
     { id: 'cj_onstyle', name: 'CJ온스타일', category_id: 'shopping', icon_name: 'ShoppingBag' },
     { id: 'google_play', name: 'Google Play', category_id: 'shopping', icon_name: 'Gamepad2' },
@@ -103,6 +109,8 @@ export const INITIAL_BRANDS = [
     { id: 'taxi', name: '택시', category_id: 'transport', icon_name: 'CarTaxiFront' },
     { id: 'gas_station', name: '주유소', category_id: 'transport', icon_name: 'Fuel' },
     { id: 'telecom', name: '통신요금', category_id: 'transport', icon_name: 'Smartphone' },
+    { id: 'electric_utility', name: '전기요금', category_id: 'transport', icon_name: 'Zap' },
+    { id: 'city_gas', name: '도시가스요금', category_id: 'transport', icon_name: 'Flame' },
     { id: 'overseas_transport', name: '해외 대중교통', category_id: 'transport', icon_name: 'Plane' },
     { id: 'vietnam_grab', name: '베트남 Grab', category_id: 'transport', icon_name: 'CarTaxiFront' },
 

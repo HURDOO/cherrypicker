@@ -23,6 +23,8 @@ const conditionCoverageFields = [
     'minPerformance',
     'startsAt',
     'endsAt',
+    'daysOfWeek',
+    'timeRanges',
     'requiredCardNetwork',
     'performanceWaiver',
     'stackableWithRuleIds',
@@ -37,6 +39,8 @@ const limitCoverageFields = [
     'monthlyCount',
     'yearlyCount',
     'monthlyAmount',
+    'monthlyAmountByPerformance',
+    'sharedFields',
 ] as const;
 
 const highRiskRulePath = /^(rule$|category$|includedBrands$|excludedBrands$|platformType$|sharedGroupId$|usesCardLimit$|condition(?:\.|$)|action(?:\.|$)|limitConfig(?:\.|$))/;

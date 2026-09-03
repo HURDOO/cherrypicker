@@ -1,11 +1,21 @@
-import type { LimitConfig } from '@/types';
+import type { LimitConfig, LimitUsageField } from '@/types';
+
+type ReviewLimitConfig = {
+    dailyCount?: number | null;
+    dailyAmount?: number | null;
+    monthlyCount?: number | null;
+    yearlyCount?: number | null;
+    monthlyAmount?: number | null;
+    monthlyAmountByPerformance?: LimitConfig['monthlyAmountByPerformance'] | null;
+    sharedFields?: LimitUsageField[] | null;
+};
 
 type SharedLimitRule = {
     id: string;
     description: string;
     sharedGroupId?: string | null;
     usesCardLimit?: boolean;
-    limitConfig: Partial<Record<keyof LimitConfig, number | null | undefined>>;
+    limitConfig: ReviewLimitConfig;
 };
 
 type PerformanceWaiverRule = {
@@ -37,10 +47,10 @@ type InformationalRule = {
         type: string;
         value: number;
     };
-    limitConfig: Partial<Record<keyof LimitConfig, number | null | undefined>>;
+    limitConfig: ReviewLimitConfig;
 };
 
-const limitFields: Array<keyof LimitConfig> = [
+const limitFields: LimitUsageField[] = [
     'dailyCount',
     'dailyAmount',
     'monthlyCount',
@@ -64,19 +74,50 @@ export const analyzeSharedLimitGroups = (rules: SharedLimitRule[]) => {
         const labels = members.map(rule => rule.description).join(', ');
         const cardLimitModes = new Set(members.map(rule => rule.usesCardLimit ?? true));
         let hasActualSharedLimit = false;
-        limitFields.forEach(field => {
-            const values = members.map(rule => rule.limitConfig[field])
-                .filter((value): value is number => typeof value === 'number');
-            if (values.length < 2) return;
-            if (new Set(values).size === 1) {
-                hasActualSharedLimit = true;
-                return;
+        const explicitFields = members.map(rule => rule.limitConfig.sharedFields ?? []);
+        const usesExplicitFields = explicitFields.some(fields => fields.length > 0);
+        if (usesExplicitFields) {
+            const signatures = new Set(explicitFields.map(fields => JSON.stringify([...fields].sort())));
+            if (signatures.size > 1 || explicitFields.some(fields => fields.length === 0)) {
+                invalidGroupIds.add(groupId);
+                errors.push(`공유 한도 그룹 ${groupId}의 sharedFields가 서로 다릅니다: ${labels}`);
             }
-            invalidGroupIds.add(groupId);
-            errors.push(
-                `공유 한도 그룹 ${groupId}의 ${field} 값이 서로 다릅니다: ${labels}`
-            );
-        });
+            const fields = explicitFields[0] ?? [];
+            fields.forEach(field => {
+                if (field === 'monthlyAmount') {
+                    const tierSignatures = members.map(rule => (
+                        JSON.stringify(rule.limitConfig.monthlyAmountByPerformance ?? [])
+                    ));
+                    if (tierSignatures.every(signature => signature !== '[]') &&
+                        new Set(tierSignatures).size === 1) {
+                        hasActualSharedLimit = true;
+                        return;
+                    }
+                }
+                const values = members.map(rule => rule.limitConfig[field]);
+                if (values.every((value): value is number => typeof value === 'number') &&
+                    new Set(values).size === 1) {
+                    hasActualSharedLimit = true;
+                    return;
+                }
+                invalidGroupIds.add(groupId);
+                errors.push(`공유 한도 그룹 ${groupId}의 ${field} 값이 서로 다릅니다: ${labels}`);
+            });
+        } else {
+            limitFields.forEach(field => {
+                const values = members.map(rule => rule.limitConfig[field])
+                    .filter((value): value is number => typeof value === 'number');
+                if (values.length < 2) return;
+                if (new Set(values).size === 1) {
+                    hasActualSharedLimit = true;
+                    return;
+                }
+                invalidGroupIds.add(groupId);
+                errors.push(
+                    `공유 한도 그룹 ${groupId}의 ${field} 값이 서로 다릅니다: ${labels}`
+                );
+            });
+        }
         if (cardLimitModes.size > 1) {
             invalidGroupIds.add(groupId);
             errors.push(`공유 한도 그룹 ${groupId}에 통합한도 적용 여부가 다른 규칙이 섞였습니다: ${labels}`);

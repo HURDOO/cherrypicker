@@ -946,6 +946,7 @@ export function calculateBestCombinations(
                                 input.isOnline,
                                 {
                                     confirmedConditionIds,
+                                    now: input.now,
                                     ...(input.eligibleItemAmount !== undefined && {
                                         eligibleItemAmount: input.eligibleItemAmount,
                                     }),

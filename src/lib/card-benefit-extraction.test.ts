@@ -16,6 +16,7 @@ import {
     evidenceRepresentsBenefitClaim,
     extractShinhanSolTravelWithRules,
     normalizeInventoryBackedRuleSemantics,
+    normalizeEvidenceBackedRuleMechanics,
     normalizeEvidenceBackedCardBenefitExtraction,
     normalizeInventoryReferences,
     OpenAICardBenefitExtractionProvider,
@@ -124,6 +125,8 @@ const toOpenAIExtraction = (
             minPerformance: rule.condition.minPerformance ?? null,
             startsAt: rule.condition.startsAt ?? null,
             endsAt: rule.condition.endsAt ?? null,
+            daysOfWeek: rule.condition.daysOfWeek ?? null,
+            timeRanges: rule.condition.timeRanges ?? null,
             requiredCardNetwork: rule.condition.requiredCardNetwork ?? null,
             performanceWaiver: rule.condition.performanceWaiver ?? null,
             confirmationRequired: rule.condition.confirmationRequired ?? null,
@@ -145,6 +148,8 @@ const toOpenAIExtraction = (
             monthlyCount: rule.limitConfig.monthlyCount ?? null,
             yearlyCount: rule.limitConfig.yearlyCount ?? null,
             monthlyAmount: rule.limitConfig.monthlyAmount ?? null,
+            monthlyAmountByPerformance: rule.limitConfig.monthlyAmountByPerformance ?? null,
+            sharedFields: rule.limitConfig.sharedFields ?? null,
         },
         })),
     };
@@ -1585,6 +1590,8 @@ describe('card benefit extraction', () => {
                 monthlyCount: 1,
                 yearlyCount: null,
                 monthlyAmount: null,
+                monthlyAmountByPerformance: null,
+                sharedFields: null,
             },
         };
         const travel = {
@@ -1606,6 +1613,8 @@ describe('card benefit extraction', () => {
                 monthlyCount: null,
                 yearlyCount: null,
                 monthlyAmount: 100_000,
+                monthlyAmountByPerformance: null,
+                sharedFields: null,
             },
         };
         const inventory = cardBenefitOpenAIInventorySchema.parse({
@@ -1664,6 +1673,69 @@ describe('card benefit extraction', () => {
             },
         });
         expect(normalized.rules.map(rule => rule.sharedGroupId)).toEqual([null, null]);
+    });
+
+    it('does not copy sibling service brands from shared limit evidence', () => {
+        const baselineExtraction = extractShinhanSolTravelWithRules(input).extraction;
+        const openAIExtraction = cardBenefitOpenAIExtractionSchema.parse({
+            confidence: 0.9,
+            coverage: [],
+            extraction: toOpenAIExtraction(baselineExtraction),
+        }).extraction;
+        const convenience = {
+            ...openAIExtraction.rules[0],
+            id: 'time-convenience',
+            category: 'convenience',
+            includedBrands: [],
+            description: 'All Day 편의점 10% 할인',
+            condition: {
+                ...openAIExtraction.rules[0].condition,
+                eligibleItemSummary: '편의점 업종',
+            },
+        };
+        const medical = {
+            ...openAIExtraction.rules[1],
+            id: 'time-medical',
+            category: 'life',
+            includedBrands: [],
+            description: 'All Day 병원·약국 10% 할인',
+            condition: {
+                ...openAIExtraction.rules[1].condition,
+                eligibleItemSummary: '병원/약국 업종',
+            },
+        };
+        const inventory = cardBenefitOpenAIInventorySchema.parse({
+            confidence: 0.9,
+            sections: [{
+                id: 'shared-limit',
+                title: 'TIME 할인 통합한도',
+                summary: '편의점, 병원/약국, 세탁소가 월 한도를 공유',
+                kind: 'LIMIT',
+                appliesToSectionIds: [],
+                sourceUrl: 'https://example.com/card',
+                quote: '편의점 업종, 병원/약국 업종, 세탁소 업종 월 통합한도',
+                page: null,
+            }],
+            notes: [],
+        });
+
+        const normalized = normalizeInventoryBackedRuleSemantics(
+            { ...openAIExtraction, rules: [convenience, medical] },
+            inventory,
+            [{
+                sectionId: 'shared-limit',
+                ruleIds: [convenience.id, medical.id],
+            }],
+            [
+                { id: 'gs25', name: 'GS25', categoryId: 'convenience' },
+                { id: 'cu', name: 'CU', categoryId: 'convenience' },
+                { id: 'medical', name: '병원/약국 업종', categoryId: 'life' },
+                { id: 'laundry', name: '세탁소 업종', categoryId: 'life' },
+            ],
+        );
+
+        expect(normalized.rules[0].includedBrands).toEqual(['gs25', 'cu']);
+        expect(normalized.rules[1].includedBrands).toEqual(['medical']);
     });
 
     it('marks both sides of a special-day alternative for manual confirmation', () => {
@@ -2945,6 +3017,190 @@ describe('card benefit extraction', () => {
             confirmedDiscount: 2_000,
             conditionalDiscount: 0,
         });
+    });
+
+    it('normalizes payment caps, schedules, and shared performance-tier limits from evidence', () => {
+        const timeRules: BenefitRule[] = ['night-shopping', 'night-taxi'].map(id => ({
+            id,
+            cardId: 'mr-life',
+            includedBrands: [id],
+            excludedBrands: [],
+            platformType: 'ALL',
+            usesCardLimit: false,
+            description: `Night ${id} 10% 할인`,
+            detail: id === 'night-taxi'
+                ? '택시 할인입니다. 제외·유의: 쿠팡은 사이트 직접 접속 시에만 할인됩니다.'
+                : '쿠팡 온라인쇼핑 할인입니다.',
+            condition: {
+                maxSpend: 10_000,
+                minPerformance: 300_000,
+                eligibleItemSummary: id === 'night-taxi' ? '택시' : '쿠팡',
+            },
+            action: { type: 'PERCENT', value: 10 },
+            limitConfig: { dailyCount: 1, monthlyCount: 10 },
+        }));
+        const limitQuote = '전월 이용금액 할인한도 30만원 이상 50만원 미만 1만원 ' +
+            '50만원 이상 100만원 미만 2만원 100만원 이상 3만원';
+        const transactionQuote = '오후 9시~오전 9시, 1회 승인금액 1만원까지 할인 적용' +
+            '(1회 최대 1천원 할인)';
+        const extraction: CardBenefitExtraction = {
+            schemaVersion: 2,
+            completeness: 'FULL',
+            card: {
+                id: 'mr-life',
+                name: 'Mr.Life',
+                company: '신한카드',
+                limitTable: [],
+            },
+            rules: timeRules,
+            evidence: [
+                {
+                    id: 'time-benefit',
+                    ruleIds: timeRules.map(ruleRow => ruleRow.id),
+                    fields: ['description', 'condition', 'action'],
+                    quote: transactionQuote,
+                    sourceUrl: 'https://example.com/card',
+                },
+                {
+                    id: 'time-limit-all-day',
+                    ruleIds: [timeRules[0].id],
+                    fields: ['limitConfig'],
+                    quote: limitQuote,
+                    sourceUrl: 'https://example.com/card',
+                },
+                {
+                    id: 'time-limit-night',
+                    ruleIds: [timeRules[1].id],
+                    fields: ['limitConfig'],
+                    quote: limitQuote,
+                    sourceUrl: 'https://example.com/card',
+                },
+                {
+                    id: 'shopping-direct-access',
+                    ruleIds: timeRules.map(ruleRow => ruleRow.id),
+                    fields: ['condition'],
+                    quote: '쿠팡은 사이트 직접 접속 시에만 할인됩니다.',
+                    sourceUrl: 'https://example.com/card',
+                },
+            ],
+            notes: [],
+        };
+
+        const normalized = normalizeEvidenceBackedRuleMechanics(extraction, {
+            card: { ...card, id: 'mr-life', name: 'Mr.Life' },
+            sourceUrl: 'https://example.com/card',
+            sourceText: `${transactionQuote}\n${limitQuote}\n쿠팡은 사이트 직접 접속 시에만 할인됩니다.`,
+        });
+
+        normalized.rules.forEach(ruleRow => {
+            expect(ruleRow.condition.maxSpend).toBeUndefined();
+            expect(ruleRow.condition.timeRanges).toEqual([
+                { startTime: '21:00', endTime: '09:00' },
+            ]);
+            expect(ruleRow.action.maxDiscount).toBe(1_000);
+            expect(ruleRow.limitConfig.monthlyAmountByPerformance).toEqual([
+                { threshold: 300_000, limit: 10_000 },
+                { threshold: 500_000, limit: 20_000 },
+                { threshold: 1_000_000, limit: 30_000 },
+            ]);
+            expect(ruleRow.limitConfig.sharedFields).toEqual(['monthlyAmount']);
+        });
+        expect(normalized.rules[0].sharedGroupId).toBe(normalized.rules[1].sharedGroupId);
+        expect(normalized.evidence.find(item => item.id === 'shopping-direct-access')?.ruleIds)
+            .toEqual(['night-shopping']);
+        expect(normalized.rules[1].detail).not.toContain('쿠팡');
+    });
+
+    it('blocks a positive official-site benefit without a merchant mapping', () => {
+        const quote = '인테이크몰 직접 접속 결제 시 20% 할인';
+        const extraction: CardBenefitExtraction = {
+            schemaVersion: 2,
+            completeness: 'FULL',
+            card: {
+                id: 'mr-life',
+                name: 'Mr.Life',
+                company: '신한카드',
+                limitTable: [],
+            },
+            rules: [{
+                id: 'intake',
+                cardId: 'mr-life',
+                includedBrands: [],
+                excludedBrands: [],
+                platformType: 'OFFICIAL_SITE',
+                usesCardLimit: false,
+                description: '인테이크몰 20% 할인',
+                detail: '',
+                condition: {},
+                action: { type: 'PERCENT', value: 20 },
+                limitConfig: {},
+            }],
+            evidence: [{
+                id: 'intake-benefit',
+                ruleIds: ['intake'],
+                fields: ['description', 'action'],
+                quote,
+                sourceUrl: 'https://example.com/card',
+            }],
+            notes: [],
+        };
+
+        expect(validateCardBenefitExtraction(extraction, {
+            card: { ...card, id: 'mr-life', name: 'Mr.Life' },
+            sourceUrl: 'https://example.com/card',
+            sourceText: quote,
+        }).errors).toContain('공식 사이트 전용 혜택에 가맹점 매핑이 없습니다: 인테이크몰 20% 할인');
+    });
+
+    it('does not treat an excluded subtype as excluding its parent merchant group', () => {
+        const quote = '병원/약국 10% 할인서비스 대상에서 동물병원은 제외되며 치과, 한의원은 포함됩니다.';
+        const extraction: CardBenefitExtraction = {
+            schemaVersion: 2,
+            completeness: 'FULL',
+            card: {
+                id: 'mr-life',
+                name: 'Mr.Life',
+                company: '신한카드',
+                limitTable: [],
+            },
+            rules: [{
+                id: 'medical',
+                cardId: 'mr-life',
+                includedBrands: ['medical'],
+                excludedBrands: [],
+                platformType: 'ALL',
+                usesCardLimit: false,
+                description: '병원·약국 10% 할인',
+                detail: quote,
+                condition: {
+                    eligibleItemSummary: '병원/약국 업종',
+                    manualCheckRequired: true,
+                    requiredNote: '선택한 통합 브랜드에 공식 제외 대상(병원·약국)이 섞일 수 있어 실제 이용 대상을 확인해야 합니다.',
+                },
+                action: { type: 'PERCENT', value: 10 },
+                limitConfig: {},
+            }],
+            evidence: [{
+                id: 'medical-exclusion',
+                ruleIds: ['medical'],
+                fields: ['condition'],
+                quote,
+                sourceUrl: 'https://example.com/card',
+            }],
+            notes: [],
+        };
+
+        const normalized = normalizeEvidenceBackedCardBenefitExtraction(extraction, {
+            card: { ...card, id: 'mr-life', name: 'Mr.Life' },
+            sourceUrl: 'https://example.com/card',
+            sourceText: quote,
+            catalog: {
+                categories: [{ id: 'life', name: '생활' }],
+                brands: [{ id: 'medical', name: '병원/약국 업종', categoryId: 'life' }],
+            },
+        });
+
+        expect(normalized.rules[0].condition.requiredNote).toBeUndefined();
     });
 
     it('uses only the entered eligible-item amount for a product-specific card benefit', () => {

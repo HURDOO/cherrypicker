@@ -130,6 +130,15 @@ const cardNetworks = [
     'UNIONPAY',
     'OTHER',
 ] as const satisfies readonly CardNetwork[];
+const benefitWeekdays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
+const sharedLimitFields = [
+    'dailyCount',
+    'dailyAmount',
+    'monthlyCount',
+    'yearlyCount',
+    'monthlyAmount',
+] as const;
+const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 const conditionNumberFields: Array<keyof RuleCondition> = [
     'minSpend',
     'maxSpend',
@@ -144,6 +153,8 @@ const evidenceRequiredConditionFields: Array<keyof RuleCondition> = [
     'minPerformance',
     'startsAt',
     'endsAt',
+    'daysOfWeek',
+    'timeRanges',
     'requiredCardNetwork',
     'performanceWaiver',
     'stackableWithRuleIds',
@@ -199,6 +210,28 @@ const validateCondition = (value: unknown, label: string, errors: string[]) => {
     if (typeof value.startsAt === 'string' && typeof value.endsAt === 'string' &&
         value.startsAt > value.endsAt) {
         errors.push(`${label} 혜택 시작일이 종료일보다 늦습니다.`);
+    }
+    if (value.daysOfWeek !== undefined && (
+        !Array.isArray(value.daysOfWeek) ||
+        value.daysOfWeek.length === 0 ||
+        value.daysOfWeek.some(day => !benefitWeekdays.includes(
+            day as typeof benefitWeekdays[number]
+        ))
+    )) {
+        errors.push(`${label} daysOfWeek 값이 올바르지 않습니다.`);
+    }
+    if (value.timeRanges !== undefined && (
+        !Array.isArray(value.timeRanges) ||
+        value.timeRanges.length === 0 ||
+        value.timeRanges.some(range => (
+            !isRecord(range) ||
+            typeof range.startTime !== 'string' ||
+            typeof range.endTime !== 'string' ||
+            !timePattern.test(range.startTime) ||
+            !timePattern.test(range.endTime)
+        ))
+    )) {
+        errors.push(`${label} timeRanges 값이 올바르지 않습니다.`);
     }
     if (value.manualCheckRequired !== undefined && typeof value.manualCheckRequired !== 'boolean') {
         errors.push(`${label} manualCheckRequired 값이 올바르지 않습니다.`);
@@ -256,6 +289,34 @@ const validateLimitConfig = (value: unknown, label: string, errors: string[]) =>
             errors.push(`${label} ${field} 값이 올바르지 않습니다.`);
         }
     });
+    if (value.monthlyAmountByPerformance !== undefined) {
+        if (!Array.isArray(value.monthlyAmountByPerformance) ||
+            value.monthlyAmountByPerformance.length === 0) {
+            errors.push(`${label} monthlyAmountByPerformance 값이 올바르지 않습니다.`);
+        } else {
+            const thresholds = new Set<number>();
+            value.monthlyAmountByPerformance.forEach((tier, index) => {
+                if (!isRecord(tier) || !isNonNegativeInteger(tier.threshold) ||
+                    !isNonNegativeInteger(tier.limit)) {
+                    errors.push(`${label} 실적별 월 한도 ${index + 1}번이 올바르지 않습니다.`);
+                    return;
+                }
+                if (thresholds.has(tier.threshold as number)) {
+                    errors.push(`${label} 실적별 월 한도 기준이 중복되었습니다.`);
+                }
+                thresholds.add(tier.threshold as number);
+            });
+        }
+    }
+    if (value.sharedFields !== undefined && (
+        !Array.isArray(value.sharedFields) ||
+        value.sharedFields.length === 0 ||
+        value.sharedFields.some(field => !sharedLimitFields.includes(
+            field as typeof sharedLimitFields[number]
+        ))
+    )) {
+        errors.push(`${label} sharedFields 값이 올바르지 않습니다.`);
+    }
 };
 
 const moneyTokenSource = '(?:백만원|(?:[0-9][0-9,]*(?:\\.[0-9]+)?(?:억|만|천|백)?)+\\s*원)';
@@ -389,6 +450,15 @@ const validateRuleSemanticEvidence = (
             !/(?:연|연간)[^\n]{0,20}\d+\s*회/i.test(limitEvidence)) {
             errors.push(`연 횟수 한도의 공식 근거가 없습니다: ${label}`);
         }
+        const evidenceTiers = performanceLimitTiersIn(limitEvidence);
+        if (evidenceTiers.length >= 2 && JSON.stringify(
+            ruleRow.limitConfig.monthlyAmountByPerformance ?? []
+        ) !== JSON.stringify(evidenceTiers)) {
+            errors.push(`실적별 서비스 월 한도 표가 구조화되지 않았습니다: ${label}`);
+        }
+        if (ruleRow.limitConfig.sharedFields?.length && !ruleRow.sharedGroupId) {
+            errors.push(`공유 필드가 있지만 공유 한도 그룹이 없습니다: ${label}`);
+        }
         const actionEvidence = evidenceTextForRule(ruleRow.id, evidence);
         const actionFieldEvidence = evidenceTextForRule(ruleRow.id, evidence, 'action');
         const actionPercentages = percentageValuesIn(actionFieldEvidence);
@@ -401,10 +471,41 @@ const validateRuleSemanticEvidence = (
         if (ruleRow.action.maxDiscount !== undefined &&
             !new RegExp(
                 `(?:결제\\s*)?(?:건당|1\\s*회(?:\\s*당)?)\\s*` +
-                `(?:최대|한도)?\\s*${moneyTokenSource}(?:까지)?`,
+                `(?:최대|한도)?\\s*${moneyTokenSource}(?:까지)?(?:\\s*(?:할인|적립|캐시백))?`,
                 'i',
             ).test(actionEvidence)) {
             errors.push(`건별 최대 혜택이 일·월 한도에서 잘못 파생됐을 수 있습니다: ${label}`);
+        }
+        const paymentCapMatch = normalizeText(actionEvidence).match(new RegExp(
+            `1\\s*회\\s*승인\\s*금액\\s*(${moneyTokenSource})\\s*까지` +
+            `\\s*할인\\s*적용`,
+            'i',
+        ));
+        const paymentCap = paymentCapMatch ? parseKoreanMoney(paymentCapMatch[1]) : undefined;
+        if (paymentCap !== undefined && ruleRow.condition.maxSpend === paymentCap) {
+            errors.push(`할인 적용 결제액 상한을 거래 제외 maxSpend로 해석했습니다: ${label}`);
+        }
+        if (/(?:Night|나이트)/i.test(label) &&
+            /오후\s*9시[\s\S]{0,20}오전\s*9시/i.test(actionEvidence) &&
+            !ruleRow.condition.timeRanges?.some(range => (
+                range.startTime === '21:00' && range.endTime === '09:00'
+            ))) {
+            errors.push(`Night 혜택 승인 시간대가 구조화되지 않았습니다: ${label}`);
+        }
+        if (/주말/.test(label) &&
+            /토요일\s*(?:\/|·|및|과)\s*일요일/.test(actionEvidence) &&
+            !(['SAT', 'SUN'] as const).every(day => ruleRow.condition.daysOfWeek?.includes(day))) {
+            errors.push(`주말 혜택 적용 요일이 구조화되지 않았습니다: ${label}`);
+        }
+        const includedBrands = ruleRow.includedBrands ?? [];
+        if (ruleRow.action.value > 0 && ruleRow.platformType === 'OFFICIAL_SITE' &&
+            includedBrands.length === 0) {
+            errors.push(`공식 사이트 전용 혜택에 가맹점 매핑이 없습니다: ${label}`);
+        }
+        if (ruleRow.action.value > 0 && includedBrands.length === 0 && (
+            /편의점\s*업종|병원\s*\/\s*약국\s*업종|세탁소\s*업종/i.test(actionEvidence)
+        )) {
+            errors.push(`혼합 카테고리보다 좁은 업종 혜택에 가맹점 매핑이 없습니다: ${label}`);
         }
     });
 
@@ -1428,6 +1529,11 @@ const cardBenefitRuleOpenAISchema = z.object({
         minPerformance: nullableNonNegativeInteger,
         startsAt: nullableDate,
         endsAt: nullableDate,
+        daysOfWeek: z.array(z.enum(benefitWeekdays)).nullable(),
+        timeRanges: z.array(z.object({
+            startTime: z.string().regex(timePattern),
+            endTime: z.string().regex(timePattern),
+        }).strict()).nullable(),
         requiredCardNetwork: z.enum(cardNetworks).nullable(),
         performanceWaiver: z.literal('NEW_CARD_REGISTRATION_WINDOW').nullable(),
         confirmationRequired: z.boolean().nullable(),
@@ -1450,6 +1556,11 @@ const cardBenefitRuleOpenAISchema = z.object({
         monthlyCount: nullableNonNegativeInteger,
         yearlyCount: nullableNonNegativeInteger,
         monthlyAmount: nullableNonNegativeInteger,
+        monthlyAmountByPerformance: z.array(z.object({
+            threshold: z.number().int().nonnegative(),
+            limit: z.number().int().nonnegative(),
+        }).strict()).nullable(),
+        sharedFields: z.array(z.enum(sharedLimitFields)).nullable(),
     }).strict(),
 }).strict();
 
@@ -2072,6 +2183,36 @@ const explicitCatalogBrands = (
     });
 };
 
+const impliedCatalogBrandIds = (
+    text: string,
+    catalogBrands: NonNullable<CardBenefitExtractionInput['catalog']>['brands'],
+) => {
+    const normalized = normalizedSource(text);
+    const available = new Set(catalogBrands.map(brand => brand.id));
+    const ids = new Set<string>();
+    const add = (...values: string[]) => values.forEach(value => {
+        if (available.has(value)) ids.add(value);
+    });
+    if (/전기요금/.test(normalized)) add('electric_utility');
+    if (/도시가스/.test(normalized)) add('city_gas');
+    if (/통신요금|이동통신|집전화/.test(normalized)) add('telecom');
+    if (/편의점\s*업종/.test(normalized)) add('gs25', 'cu', 'emart24', 'seveneleven');
+    if (/병원\s*약국|병원약국/.test(normalized)) add('medical');
+    if (/세탁소\s*업종|세탁비/.test(normalized)) add('laundry');
+    if (/인테이크몰|shopintake/.test(normalized)) add('intake');
+    if (/ak몰/.test(normalized)) add('ak_mall');
+    if (/티켓몬스터|티몬/.test(normalized)) add('tmon');
+    if (/롯데홈쇼핑/.test(normalized)) add('lotte_home_shopping');
+    if (/식음료|커피전문점/.test(normalized)) {
+        catalogBrands.filter(brand => (
+            ['food', 'cafe'].includes(brand.categoryId) &&
+            !/^(?:official_|usa_|japan_|vietnam_|overseas_)/.test(brand.id)
+        ))
+            .forEach(brand => ids.add(brand.id));
+    }
+    return [...ids];
+};
+
 export const normalizeInventoryBackedRuleSemantics = (
     extraction: CardBenefitOpenAIExtraction['extraction'],
     inventory: CardBenefitInventory,
@@ -2081,12 +2222,15 @@ export const normalizeInventoryBackedRuleSemantics = (
     const channelTextByRule = inventoryTextByRule(inventory, coverage, section => (
         section.kind !== 'EXCLUSION'
     ));
-    const brandTextByRule = inventoryTextByRule(inventory, coverage, section => (
+    const brandTextByRule = inventoryTextByRule(
+        inventory,
+        coverage.filter(item => item.ruleIds.length === 1),
+        section => (
         section.kind === 'BENEFIT' ||
         section.kind === 'PROMOTION' ||
-        section.kind === 'LIMIT' ||
         section.id.startsWith('fallback_transaction_target_')
-    ));
+        ),
+    );
     const normalized = {
         ...extraction,
         rules: extraction.rules.map(ruleRow => {
@@ -2100,9 +2244,21 @@ export const normalizeInventoryBackedRuleSemantics = (
                 ruleRow.category,
                 catalogBrands,
             ).map(brand => brand.id);
+            const impliedBrands = impliedCatalogBrandIds(
+                [
+                    ruleRow.description,
+                    ruleRow.detail,
+                    ruleRow.condition.eligibleItemSummary ?? '',
+                ].join('\n'),
+                catalogBrands,
+            );
             return {
                 ...ruleRow,
-                includedBrands: unique([...ruleRow.includedBrands, ...explicitBrands]),
+                includedBrands: unique([
+                    ...ruleRow.includedBrands,
+                    ...explicitBrands,
+                    ...impliedBrands,
+                ]),
                 platformType: hasInPersonDiscount && !hasOnlineChannel
                     ? 'OFFLINE'
                     : ruleRow.platformType,
@@ -2122,6 +2278,7 @@ export const normalizeInventoryBackedRuleSemantics = (
                     type: 'FLAT' as const,
                 },
                 limitConfig: {
+                    ...ruleRow.limitConfig,
                     dailyCount: ruleRow.limitConfig.dailyCount,
                     dailyAmount: null,
                     monthlyCount: ruleRow.limitConfig.monthlyCount,
@@ -2173,9 +2330,159 @@ const stripNulls = (value: unknown): unknown => {
         .map(([key, item]) => [key, stripNulls(item)]));
 };
 
+const performanceLimitTiersIn = (value: string): Card['limitTable'] => {
+    const pattern = new RegExp(
+        `(${moneyTokenSource})\\s*이상(?:\\s*(${moneyTokenSource})\\s*미만)?` +
+        `\\s*(${moneyTokenSource})`,
+        'gi',
+    );
+    const tiers = [...normalizeText(value).matchAll(pattern)].flatMap(match => {
+        const threshold = parseKoreanMoney(match[1]);
+        const limit = parseKoreanMoney(match[3]);
+        if (threshold === undefined || limit === undefined || threshold <= 0 || limit > threshold) {
+            return [];
+        }
+        return [{ threshold, limit }];
+    });
+    const byThreshold = new Map(tiers.map(tier => [tier.threshold, tier]));
+    return byThreshold.size >= 2
+        ? [...byThreshold.values()].sort((left, right) => left.threshold - right.threshold)
+        : [];
+};
+
+export const normalizeEvidenceBackedRuleMechanics = (
+    extraction: CardBenefitExtraction,
+    input?: CardBenefitExtractionInput,
+) => {
+    extraction.rules.forEach(ruleRow => {
+        const sourceText = evidenceTextForRule(ruleRow.id, extraction.evidence);
+        const paymentCapMatch = normalizeText(sourceText).match(new RegExp(
+            `1\\s*회\\s*승인\\s*금액\\s*(${moneyTokenSource})\\s*까지` +
+            `\\s*할인\\s*적용`,
+            'i',
+        ));
+        const paymentCap = paymentCapMatch ? parseKoreanMoney(paymentCapMatch[1]) : undefined;
+        if (paymentCap !== undefined && ruleRow.condition.maxSpend === paymentCap) {
+            delete ruleRow.condition.maxSpend;
+        }
+        const maxDiscountMatch = normalizeText(sourceText).match(new RegExp(
+            `1\\s*회(?:\\s*당)?\\s*최대\\s*(${moneyTokenSource})\\s*(?:할인|캐시백|적립)`,
+            'i',
+        ));
+        const maxDiscount = maxDiscountMatch
+            ? parseKoreanMoney(maxDiscountMatch[1])
+            : undefined;
+        if (maxDiscount !== undefined && ruleRow.action.value > 0) {
+            ruleRow.action.maxDiscount = maxDiscount;
+        }
+        if (/주말/.test(ruleRow.description) &&
+            /토요일\s*(?:\/|·|및|과)\s*일요일/.test(sourceText)) {
+            ruleRow.condition.daysOfWeek = ['SAT', 'SUN'];
+        }
+        if (/(?:Night|나이트)/i.test(ruleRow.description) &&
+            /오후\s*9시[\s\S]{0,20}오전\s*9시/i.test(sourceText)) {
+            ruleRow.condition.timeRanges = [{ startTime: '21:00', endTime: '09:00' }];
+        }
+    });
+
+    extraction.evidence.filter(item => item.fields.includes('limitConfig')).forEach(item => {
+        const tiers = performanceLimitTiersIn(`${item.location ?? ''}\n${item.quote}`);
+        if (tiers.length < 2) return;
+        const rules = extraction.rules.filter(ruleRow => item.ruleIds.includes(ruleRow.id));
+        rules.forEach(ruleRow => {
+            ruleRow.limitConfig.monthlyAmountByPerformance = tiers;
+        });
+        if (rules.length < 2) return;
+        const groupId = `shared_${extraction.card.id}_${item.id}_monthly_amount`
+            .replace(/[^a-z0-9_-]+/gi, '_')
+            .slice(0, 100);
+        rules.forEach(ruleRow => {
+            ruleRow.sharedGroupId = groupId;
+            ruleRow.limitConfig.sharedFields = ['monthlyAmount'];
+        });
+    });
+    if (input) {
+        const sourceTextByUrl = new Map(extractionSources(input).map(source => (
+            [source.sourceUrl, normalizedSource(source.sourceText)] as const
+        )));
+        const evidenceGroups = new Map<string, CardBenefitEvidence[]>();
+        extraction.evidence.filter(item => (
+            item.fields.includes('limitConfig') && performanceLimitTiersIn(item.quote).length >= 2
+        )).forEach(item => {
+            const key = [
+                item.sourceUrl ?? input.sourceUrl,
+                item.page ?? '',
+                normalizedSource(item.quote),
+            ].join('\u0000');
+            const group = evidenceGroups.get(key) ?? [];
+            group.push(item);
+            evidenceGroups.set(key, group);
+        });
+        evidenceGroups.forEach(items => {
+            if (items.length < 2) return;
+            const sourceUrl = items[0].sourceUrl ?? input.sourceUrl;
+            const sourceText = sourceTextByUrl.get(sourceUrl) ?? '';
+            const quote = normalizedSource(items[0].quote);
+            if (!quote || sourceText.split(quote).length - 1 !== 1) return;
+            const ruleIds = unique(items.flatMap(item => item.ruleIds));
+            const rules = extraction.rules.filter(ruleRow => ruleIds.includes(ruleRow.id));
+            if (rules.length < 2) return;
+            const groupId = `shared_${extraction.card.id}_${items[0].id}_monthly_amount`
+                .replace(/[^a-z0-9_-]+/gi, '_')
+                .slice(0, 100);
+            rules.forEach(ruleRow => {
+                ruleRow.sharedGroupId = groupId;
+                ruleRow.limitConfig.sharedFields = ['monthlyAmount'];
+            });
+        });
+    }
+    extraction.evidence.filter(item => (
+        item.fields.includes('condition') &&
+        item.ruleIds.length > 1 &&
+        /제외|직접\s*접속|경우에만|에서만/i.test(`${item.location ?? ''}\n${item.quote}`)
+    )).forEach(item => {
+        const genericScopeTokens = new Set([
+            '할인', '할인서비스', '적용', '제공', '대상', '가맹점', '경우', '조건',
+            '제외', '포함', '서비스', '이용', '결제', '직접', '접속', '사이트', '통해',
+        ]);
+        const tokens = unique(semanticTitleTokens(`${item.location ?? ''}\n${item.quote}`)
+            .flatMap(token => {
+                const stem = token.replace(
+                    /(?:에서는|에서|에게|으로|에는|은|는|이|가|을|를|와|과|의|만)$/u,
+                    '',
+                );
+                return stem.length >= 2 ? [token, stem] : [token];
+            })).filter(token => !genericScopeTokens.has(token));
+        const matchingRuleIds = item.ruleIds.filter(ruleId => {
+            const ruleRow = extraction.rules.find(candidate => candidate.id === ruleId);
+            if (!ruleRow) return false;
+            const ruleScope = normalizedSource([
+                ruleRow.description,
+                ruleRow.condition.eligibleItemSummary ?? '',
+            ].join('\n'));
+            return tokens.some(token => ruleScope.includes(token));
+        });
+        if (matchingRuleIds.length === 0 || matchingRuleIds.length === item.ruleIds.length) return;
+        const unrelatedRuleIds = item.ruleIds.filter(ruleId => !matchingRuleIds.includes(ruleId));
+        item.ruleIds = matchingRuleIds;
+        extraction.rules.filter(ruleRow => unrelatedRuleIds.includes(ruleRow.id)).forEach(ruleRow => {
+            ruleRow.detail = ruleRow.detail.split(/(?=제외·유의\s*:)/)
+                .filter(segment => !(
+                    /^제외·유의\s*:/.test(segment) &&
+                    tokens.some(token => normalizedSource(segment).includes(token))
+                ))
+                .join(' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        });
+    });
+    return extraction;
+};
+
 const normalizeOpenAIExtraction = (
     value: CardBenefitOpenAIExtraction['extraction'],
     evidence: CardBenefitEvidence[],
+    input?: CardBenefitExtractionInput,
 ): CardBenefitExtraction => {
     const extraction = {
         ...(stripNulls(value) as Omit<CardBenefitExtraction, 'evidence'>),
@@ -2211,7 +2518,7 @@ const normalizeOpenAIExtraction = (
             delete ruleRow.condition.applicationOrder;
         }
     });
-    return extraction;
+    return normalizeEvidenceBackedRuleMechanics(extraction, input);
 };
 
 const appendRequiredNote = (current: string | undefined, note: string) => {
@@ -2428,7 +2735,7 @@ export const normalizeEvidenceBackedCardBenefitExtraction = (
     value: CardBenefitExtraction,
     input: CardBenefitExtractionInput,
 ): CardBenefitExtraction => {
-    const extraction = structuredClone(value);
+    const extraction = normalizeEvidenceBackedRuleMechanics(structuredClone(value), input);
     const sources = extractionSources(input);
     const stackingLines = extractionSources(input).flatMap(source => (
         source.sourceText.split(/\r?\n/)
@@ -3355,12 +3662,17 @@ export const normalizeEvidenceBackedCardBenefitExtraction = (
                 }
             }
         }
-        const sourceText = `${ruleRow.detail}\n${evidenceTextForRule(ruleRow.id, extraction.evidence, 'condition')}`;
+        const conditionEvidence = evidenceTextForRule(ruleRow.id, extraction.evidence, 'condition');
+        const sourceText = /제외/i.test(conditionEvidence)
+            ? conditionEvidence
+            : `${ruleRow.detail}\n${conditionEvidence}`;
         const exclusionContexts = sourceText.split(/[.\n]+/).flatMap(sentence => {
             const exclusionIndex = sentence.search(/제외/i);
             if (exclusionIndex < 0) return [];
             const before = sentence.slice(0, exclusionIndex);
-            const contrastMatches = [...before.matchAll(/(?:대상(?:이며|이고|이나|입니다)|다만|단,?|반면)/g)];
+            const contrastMatches = [...before.matchAll(
+                /(?:대상(?:에서|중|이며|이고|이나|입니다)|가맹점(?:에서|중)|다만|단,?|반면)/g
+            )];
             const contrastBoundary = contrastMatches.length > 0
                 ? contrastMatches.at(-1)!.index! + contrastMatches.at(-1)![0].length
                 : 0;
@@ -4130,12 +4442,15 @@ const validateInventoryMappingSemantics = (
     const channelTextByRule = inventoryTextByRule(inventory, result.coverage, section => (
         section.kind !== 'EXCLUSION'
     ));
-    const brandTextByRule = inventoryTextByRule(inventory, result.coverage, section => (
-        section.kind === 'BENEFIT' ||
-        section.kind === 'PROMOTION' ||
-        section.kind === 'LIMIT' ||
-        section.id.startsWith('fallback_transaction_target_')
-    ));
+    const brandTextByRule = inventoryTextByRule(
+        inventory,
+        result.coverage.filter(item => item.ruleIds.length === 1),
+        section => (
+            section.kind === 'BENEFIT' ||
+            section.kind === 'PROMOTION' ||
+            section.id.startsWith('fallback_transaction_target_')
+        ),
+    );
     result.extraction.rules.forEach(ruleRow => {
         const channelText = channelTextByRule.get(ruleRow.id) ?? '';
         const brandText = brandTextByRule.get(ruleRow.id) ?? '';
@@ -4325,7 +4640,7 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
             timeoutMs: 180_000,
         });
         this.model = this.client.model;
-        this.cacheKey = `${this.id}:${this.model}:inventory-v27`;
+        this.cacheKey = `${this.id}:${this.model}:inventory-v32`;
     }
 
     async extract(input: CardBenefitExtractionInput): Promise<CardBenefitExtractionResult> {
@@ -4403,13 +4718,14 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
                 'A 또는 B처럼 대체 가능한 조건을 AND로 바꾸지 마세요. 예를 들어 급여이체만 필요한 혜택에 다른 서비스의 전월 실적을 minPerformance로 추가하지 말고, 계산 모델로 OR를 표현할 수 없으면 manualCheckRequired와 requiredNote에 원문 조건 전체를 보존하세요.',
                 '이번 후보는 카드의 전체 혜택을 교체하므로 공식 페이지의 상시 혜택과 현재 유효한 프로모션을 모두 포함하세요.',
                 'Rule 필드는 id, cardId, category, includedBrands, excludedBrands, platformType, sharedGroupId, usesCardLimit, description, detail, condition, action, limitConfig를 사용하세요.',
-                'condition에는 minSpend, maxSpend, maxSpendExclusive, minPerformance, startsAt, endsAt, requiredCardNetwork, performanceWaiver, confirmationRequired, stackableWithRuleIds, applicationOrder, manualCheckRequired, requiredNote, itemSpecific, eligibleItemSummary를 사용할 수 있습니다.',
+                'condition에는 minSpend, maxSpend, maxSpendExclusive, minPerformance, startsAt, endsAt, daysOfWeek, timeRanges, requiredCardNetwork, performanceWaiver, confirmationRequired, stackableWithRuleIds, applicationOrder, manualCheckRequired, requiredNote, itemSpecific, eligibleItemSummary를 사용할 수 있습니다. daysOfWeek는 SUN~SAT, timeRanges는 한국시간 HH:mm의 startTime/endTime을 사용하며 자정을 넘길 수 있습니다.',
                 'action에는 type, value, maxDiscount, amountBasis를 사용할 수 있습니다.',
                 '“N원 미만” 구간은 maxSpendExclusive=N, “N원 이하” 구간은 maxSpend=N으로 표현하고 금액 구간별 규칙이 서로 겹치지 않게 하세요.',
                 '동일한 상한을 maxSpend와 maxSpendExclusive에 중복 기록하지 마세요.',
-                '일 한도·월 한도처럼 기간 누적 금액 한도는 각각 dailyAmount·monthlyAmount입니다. “일 N회”처럼 회수가 명시된 경우에만 dailyCount를 쓰고, 일 한도를 maxDiscount로 옮기지 마세요.',
+                '“1회 승인금액 N원까지 할인 적용”은 결제액이 N원을 넘으면 혜택 전체가 사라지는 maxSpend가 아닙니다. 함께 적힌 “1회 최대 X원 할인”을 action.maxDiscount=X로 넣고 maxSpend는 null로 두세요.',
+                '일 한도·월 한도처럼 기간 누적 금액 한도는 각각 dailyAmount·monthlyAmount입니다. “일 N회”처럼 회수가 명시된 경우에만 dailyCount를 쓰고, 일 한도를 maxDiscount로 옮기지 마세요. 실적 구간에 따라 서비스 월 한도가 달라지면 limitConfig.monthlyAmountByPerformance에 threshold/limit 전체 표를 넣으세요.',
                 '통합한도 usesCardLimit=true는 공식 통합한도 적용 대상 목록에 명시된 규칙에만 설정하세요. 목록 밖 혜택은 같은 서비스 묶음에 있어도 false입니다.',
-                'sharedGroupId는 여러 규칙이 하나 이상의 동일한 일·월·연 한도를 실제로 공유할 때 사용하세요. 공유하지 않는 한도 필드는 규칙마다 달라도 되지만, 같은 필드를 공유하는 규칙끼리는 값이 같아야 합니다. 카드의 실적별 월 통합한도는 usesCardLimit와 card.limitTable로 처리하므로 sharedGroupId를 만들지 마세요.',
+                'sharedGroupId는 여러 규칙이 하나 이상의 동일한 일·월·연 한도를 실제로 공유할 때 사용하고 limitConfig.sharedFields에 실제 공유 필드만 넣으세요. 예를 들어 구분별 일·월 횟수는 각각이지만 서비스 월 할인한도만 공유하면 모든 규칙에 같은 sharedGroupId와 sharedFields=["monthlyAmount"]를 넣습니다. 카드 전체 통합한도는 usesCardLimit와 card.limitTable로 처리하므로 sharedGroupId를 만들지 마세요.',
                 '행사품목·특정 세트처럼 매장 전체가 아닌 일부 상품 혜택은 itemSpecific=true와 eligibleItemSummary를 넣고, 대상 상품 금액만 계산되도록 하세요.',
                 '공식 문구가 “현장할인”이고 온라인·모바일·홈페이지 적용을 함께 명시하지 않으면 platformType=OFFLINE으로 설정하세요.',
                 '오프라인 전용 혜택에 특정 브랜드의 앱 주문 같은 온라인 예외가 있으면 같은 한도를 공유하는 별도 조건부 규칙으로 분리하세요.',
@@ -4424,7 +4740,7 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
                 '1차 인벤토리의 모든 section을 coverage에 정확히 한 번 넣고 실제로 표현한 ruleIds와 연결하세요. appliesToSectionIds가 있는 section의 ruleIds는 대상 section들이 연결한 ruleIds의 합집합과 정확히 같아야 합니다.',
                 'LIMIT·CONDITION·EXCLUSION section은 독립 규칙을 새로 만들지 말고 해당 조건이 반영된 실제 혜택 규칙과 연결하세요.',
                 'BENEFIT·PROMOTION section만 새로운 혜택 규칙의 근거가 될 수 있습니다.',
-                '선택 가능한 값이 없으면 category는 null, 브랜드 배열은 빈 배열을 사용하고 notes에 사람이 추가 매핑해야 함을 기록하세요.',
+                '가맹점·사이트 한정 혜택은 반드시 includedBrands로 범위를 제한하세요. category는 그 카테고리의 모든 브랜드에 실제 적용될 때만 단독으로 사용하세요. 선택 가능한 브랜드가 없으면 양수 혜택을 전역 규칙으로 만들지 말고 action.value=0과 manualCheckRequired=true로 보존하세요.',
                 '선택 필드가 원문상 적용되지 않으면 false, 0, 빈 문자열을 만들지 말고 null을 사용하세요.',
                 'applicationOrder는 원문에 중복 적용 순서가 명시된 경우에만 사용하고, 그 외에는 null로 두세요.',
                 'stackableWithRuleIds는 원문에 중복 또는 동시 적용이 명시된 경우에만 사용하세요. 날짜·결제금액 구간별로 서로 대체되는 할인율은 중복 혜택이 아닙니다.',
@@ -4475,6 +4791,7 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
             normalizeOpenAIExtraction(
                 enrichedExtraction,
                 buildInventoryEvidence(inventory, normalizedCoverage),
+                input,
             ),
             input,
         );

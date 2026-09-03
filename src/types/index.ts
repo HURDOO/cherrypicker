@@ -47,6 +47,14 @@ export interface Card {
 
 export type PlatformType = 'ALL' | 'ONLINE' | 'OFFLINE' | 'OFFICIAL_SITE';
 export type ActionType = 'PERCENT' | 'FLAT' | 'FIXED_PRICE';
+export type BenefitWeekday = 'SUN' | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT';
+export type LimitUsageField =
+    'dailyCount' | 'dailyAmount' | 'monthlyCount' | 'yearlyCount' | 'monthlyAmount';
+
+export interface BenefitTimeRange {
+    startTime: string; // Inclusive HH:mm in Korea Standard Time
+    endTime: string; // Exclusive HH:mm in Korea Standard Time; may cross midnight
+}
 
 export interface RuleCondition {
     minSpend?: number;
@@ -55,6 +63,8 @@ export interface RuleCondition {
     minPerformance?: number;
     startsAt?: string; // Inclusive YYYY-MM-DD validity boundary
     endsAt?: string; // Inclusive YYYY-MM-DD validity boundary
+    daysOfWeek?: BenefitWeekday[];
+    timeRanges?: BenefitTimeRange[];
     requiredCardNetwork?: CardNetwork;
     performanceWaiver?: 'NEW_CARD_REGISTRATION_WINDOW';
     confirmationRequired?: boolean;
@@ -79,6 +89,8 @@ export interface LimitConfig {
     monthlyCount?: number;
     yearlyCount?: number;
     monthlyAmount?: number; // Max discount amount for this rule/group
+    monthlyAmountByPerformance?: LimitTableItem[];
+    sharedFields?: LimitUsageField[];
 }
 
 export interface BenefitRule {

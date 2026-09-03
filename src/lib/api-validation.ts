@@ -218,6 +218,29 @@ export function ruleConditionValue(input: Input): RuleCondition {
         '혜택 적용 순서',
         1_000,
     );
+    const weekdays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
+    const daysOfWeek = value.daysOfWeek === undefined
+        ? undefined
+        : (() => {
+            if (!Array.isArray(value.daysOfWeek) || value.daysOfWeek.some(day => (
+                !weekdays.includes(day as typeof weekdays[number])
+            ))) invalid('혜택 적용 요일 값이 올바르지 않습니다.');
+            return [...new Set(value.daysOfWeek as RuleCondition['daysOfWeek'])];
+        })();
+    const timeRanges = value.timeRanges === undefined
+        ? undefined
+        : (() => {
+            if (!Array.isArray(value.timeRanges)) invalid('혜택 적용 시간 값이 올바르지 않습니다.');
+            return value.timeRanges.map((item, index) => {
+                const range = objectValue(item, `혜택 적용 시간 ${index + 1}`);
+                if (typeof range.startTime !== 'string' || typeof range.endTime !== 'string' ||
+                    !/^([01]\d|2[0-3]):[0-5]\d$/.test(range.startTime) ||
+                    !/^([01]\d|2[0-3]):[0-5]\d$/.test(range.endTime)) {
+                    invalid('혜택 적용 시간 값이 올바르지 않습니다.');
+                }
+                return { startTime: range.startTime, endTime: range.endTime };
+            });
+        })();
 
     if (manualCheckRequired !== undefined && typeof manualCheckRequired !== 'boolean') {
         invalid('수동 확인 조건 값이 올바르지 않습니다.');
@@ -271,6 +294,8 @@ export function ruleConditionValue(input: Input): RuleCondition {
         ...(minPerformance !== undefined && { minPerformance }),
         ...(startsAt && { startsAt }),
         ...(endsAt && { endsAt }),
+        ...(daysOfWeek && { daysOfWeek }),
+        ...(timeRanges && { timeRanges }),
         ...(requiredCardNetwork !== undefined && {
             requiredCardNetwork: requiredCardNetwork as RuleCondition['requiredCardNetwork'],
         }),
@@ -361,6 +386,24 @@ export function limitConfigValue(input: Input): LimitConfig {
         '월 할인 한도',
         MAX_MONEY_AMOUNT
     );
+    const monthlyAmountByPerformance = value.monthlyAmountByPerformance === undefined
+        ? undefined
+        : limitTableValue({ limitTable: value.monthlyAmountByPerformance });
+    const allowedSharedFields = [
+        'dailyCount',
+        'dailyAmount',
+        'monthlyCount',
+        'yearlyCount',
+        'monthlyAmount',
+    ] as const;
+    const sharedFields = value.sharedFields === undefined
+        ? undefined
+        : (() => {
+            if (!Array.isArray(value.sharedFields) || value.sharedFields.some(field => (
+                !allowedSharedFields.includes(field as typeof allowedSharedFields[number])
+            ))) invalid('공유 한도 필드 값이 올바르지 않습니다.');
+            return [...new Set(value.sharedFields as LimitConfig['sharedFields'])];
+        })();
 
     return {
         ...(dailyCount !== undefined && { dailyCount }),
@@ -368,5 +411,7 @@ export function limitConfigValue(input: Input): LimitConfig {
         ...(monthlyCount !== undefined && { monthlyCount }),
         ...(yearlyCount !== undefined && { yearlyCount }),
         ...(monthlyAmount !== undefined && { monthlyAmount }),
+        ...(monthlyAmountByPerformance && { monthlyAmountByPerformance }),
+        ...(sharedFields && { sharedFields }),
     };
 }

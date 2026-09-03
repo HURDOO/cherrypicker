@@ -341,6 +341,32 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
             throw new Error('혜택 적용 기간이 올바르지 않습니다.');
         }
     });
+    const allowedWeekdays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
+    const daysOfWeek = condition.daysOfWeek === undefined
+        ? undefined
+        : stringList(condition.daysOfWeek, '혜택 적용 요일', 7);
+    if (daysOfWeek?.some(day => !allowedWeekdays.includes(
+        day as typeof allowedWeekdays[number]
+    ))) {
+        throw new Error('혜택 적용 요일이 올바르지 않습니다.');
+    }
+    const timeRanges = condition.timeRanges === undefined
+        ? undefined
+        : (() => {
+            if (!Array.isArray(condition.timeRanges) || condition.timeRanges.length > 20) {
+                throw new Error('혜택 적용 시간 형식이 올바르지 않습니다.');
+            }
+            return condition.timeRanges.map((item, index) => {
+                const range = objectValue(item, `혜택 적용 시간 ${index + 1}`);
+                const startTime = requiredText(range.startTime, '혜택 시작 시간', 5);
+                const endTime = requiredText(range.endTime, '혜택 종료 시간', 5);
+                if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime) ||
+                    !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)) {
+                    throw new Error('혜택 적용 시간이 올바르지 않습니다.');
+                }
+                return { startTime, endTime };
+            });
+        })();
     const requiredCardNetwork = optionalText(
         condition.requiredCardNetwork,
         '혜택 필수 카드 브랜드',
@@ -399,6 +425,41 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
     const monthlyCount = parseLimit('monthlyCount', '월 사용 횟수', 1_000_000);
     const yearlyCount = parseLimit('yearlyCount', '연 사용 횟수', 1_000_000);
     const monthlyAmount = parseLimit('monthlyAmount', '월 할인 한도', MAX_MONEY_AMOUNT);
+    const monthlyAmountByPerformance = limitConfig.monthlyAmountByPerformance === undefined
+        ? undefined
+        : (() => {
+            if (!Array.isArray(limitConfig.monthlyAmountByPerformance) ||
+                limitConfig.monthlyAmountByPerformance.length > 50) {
+                throw new Error('실적별 월 할인 한도가 올바르지 않습니다.');
+            }
+            return limitConfig.monthlyAmountByPerformance.map((item, index) => {
+                const tier = objectValue(item, `실적별 월 할인 한도 ${index + 1}`);
+                return {
+                    threshold: safeInteger(
+                        tier.threshold,
+                        '실적 기준',
+                        0,
+                        MAX_MONEY_AMOUNT,
+                    ),
+                    limit: safeInteger(tier.limit, '월 할인 한도', 0, MAX_MONEY_AMOUNT),
+                };
+            });
+        })();
+    const allowedSharedFields = [
+        'dailyCount',
+        'dailyAmount',
+        'monthlyCount',
+        'yearlyCount',
+        'monthlyAmount',
+    ] as const;
+    const sharedFields = limitConfig.sharedFields === undefined
+        ? undefined
+        : stringList(limitConfig.sharedFields, '공유 한도 필드', 5);
+    if (sharedFields?.some(field => !allowedSharedFields.includes(
+        field as typeof allowedSharedFields[number]
+    ))) {
+        throw new Error('공유 한도 필드가 올바르지 않습니다.');
+    }
 
     return {
         id: requiredText(row.id, '혜택 ID', 200),
@@ -420,6 +481,8 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
             ...(minPerformance !== undefined && { minPerformance }),
             ...(startsAt && { startsAt }),
             ...(endsAt && { endsAt }),
+            ...(daysOfWeek && { daysOfWeek: daysOfWeek as BenefitRule['condition']['daysOfWeek'] }),
+            ...(timeRanges && { timeRanges }),
             ...(requiredCardNetwork && {
                 requiredCardNetwork: requiredCardNetwork as CardNetwork,
             }),
@@ -454,6 +517,10 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
             ...(monthlyCount !== undefined && { monthlyCount }),
             ...(yearlyCount !== undefined && { yearlyCount }),
             ...(monthlyAmount !== undefined && { monthlyAmount }),
+            ...(monthlyAmountByPerformance && { monthlyAmountByPerformance }),
+            ...(sharedFields && {
+                sharedFields: sharedFields as BenefitRule['limitConfig']['sharedFields'],
+            }),
         },
     };
 };
