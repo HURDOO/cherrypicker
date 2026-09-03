@@ -335,4 +335,24 @@ describe('card benefit candidate audit', () => {
             expect.stringContaining('공식 공지 게시일이 시행일보다 늦습니다'),
         ]));
     });
+
+    it('blocks a new card made only of non-calculable informational rules', () => {
+        const candidate = extraction();
+        candidate.rules = candidate.rules.slice(0, 2).map(rule => ({
+            ...rule,
+            action: { type: 'FLAT' as const, value: 0 },
+            condition: { manualCheckRequired: true },
+            limitConfig: {},
+        }));
+
+        const audit = createCardBenefitCandidateAudit({
+            extraction: candidate,
+            baseline: { card, rules: [] },
+            baselineRevision: 0,
+        });
+
+        expect(audit.blockingErrors).toEqual(expect.arrayContaining([
+            expect.stringContaining('자동 계산 가능한 혜택 금액이 없습니다'),
+        ]));
+    });
 });

@@ -277,6 +277,11 @@ export function createCardBenefitCandidateAudit(options: {
         findCoverage(rule, options.extraction.evidence)
     ));
     const blockingErrors = unique([
+        ...(options.baseline.rules.length === 0 &&
+            options.extraction.rules.length > 0 &&
+            options.extraction.rules.every(rule => rule.action.value === 0)
+            ? ['신규 카드 후보에 자동 계산 가능한 혜택 금액이 없습니다. 숫자 근거가 있는 공식 상세 출처를 확인해야 합니다.']
+            : []),
         ...coverage.flatMap(item => (
             item.status === 'MISSING_EVIDENCE'
                 ? [`필수 조건의 공식 근거가 없습니다: ${item.ruleLabel} · ${item.path}`]

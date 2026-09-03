@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import {
+    cardBenefitCandidates,
     cardBenefitDocuments,
     cardBenefitRevisions,
     cardBenefitSourceConfigs,
@@ -22,6 +23,7 @@ import {
 import type { OfficialDocumentSourceDefinition } from './official-document-source';
 
 const CARD_ID_PATTERN = /^[a-z][a-z0-9_]{2,63}$/;
+const MAX_ONBOARDING_BATCH_SIZE = 5;
 const CARD_NETWORKS = new Set<CardNetwork>([
     'DOMESTIC',
     'MASTERCARD',
@@ -80,6 +82,25 @@ export type SystemCardDraftInput = {
     catalogCaveat?: string;
     sources: SystemCardSourceInput[];
 };
+
+export function parseSystemCardDraftBatchInput(input: Record<string, unknown>) {
+    if (!Array.isArray(input.cards) || input.cards.length < 1 ||
+        input.cards.length > MAX_ONBOARDING_BATCH_SIZE) {
+        throw new SystemCardOnboardingError(
+            400,
+            `신규 카드는 한 번에 1장 이상 ${MAX_ONBOARDING_BATCH_SIZE}장 이하로 등록해주세요.`,
+        );
+    }
+    return input.cards.map((rawCard, index) => {
+        if (!rawCard || typeof rawCard !== 'object' || Array.isArray(rawCard)) {
+            throw new SystemCardOnboardingError(
+                400,
+                `신규 카드 ${index + 1}의 형식이 올바르지 않습니다.`,
+            );
+        }
+        return parseSystemCardDraftInput(rawCard as Record<string, unknown>);
+    });
+}
 
 const requiredText = (
     input: Record<string, unknown>,
@@ -308,11 +329,131 @@ export function getManagedSystemCardBenefitSourceInventory() {
     return [...inventory.values()];
 }
 
+export function createSystemCardDraftBatch(inputs: SystemCardDraftInput[]) {
+    if (inputs.length < 1 || inputs.length > MAX_ONBOARDING_BATCH_SIZE) {
+        throw new SystemCardOnboardingError(
+            400,
+            `신규 카드는 한 번에 1장 이상 ${MAX_ONBOARDING_BATCH_SIZE}장 이하로 등록해주세요.`,
+        );
+    }
+    const ids = new Set<string>();
+    const productKeys = new Set<string>();
+    inputs.forEach(input => {
+        if (ids.has(input.id)) {
+            throw new SystemCardOnboardingError(409, '배치에 같은 카드 ID가 중복되어 있습니다.');
+        }
+        ids.add(input.id);
+        if (!input.issuerProductCode) return;
+        const productKey = `${input.company}\u0000${input.issuerProductCode}`;
+        if (productKeys.has(productKey)) {
+            throw new SystemCardOnboardingError(
+                409,
+                '배치에 같은 카드사 상품 코드가 중복되어 있습니다.',
+            );
+        }
+        productKeys.add(productKey);
+    });
+
+    const existingIds = db.select({ id: cards.id }).from(cards).all();
+    const existingCards = db.select({
+        id: cards.id,
+        company: cards.company,
+        issuerProductCode: cards.issuerProductCode,
+    }).from(cards)
+        .where(isNull(cards.userId))
+        .all();
+    inputs.forEach(input => {
+        if (existingIds.some(card => card.id === input.id)) {
+            throw new SystemCardOnboardingError(409, '이미 같은 카드 ID가 존재합니다.');
+        }
+        if (input.issuerProductCode && existingCards.some(card => (
+            card.company === input.company &&
+            card.issuerProductCode === input.issuerProductCode
+        ))) {
+            throw new SystemCardOnboardingError(
+                409,
+                '같은 카드사 상품 코드로 등록된 시스템 카드가 있습니다.',
+            );
+        }
+    });
+
+    const now = new Date();
+    db.transaction(tx => {
+        inputs.forEach(input => {
+            tx.insert(cards).values({
+                id: input.id,
+                userId: null,
+                name: input.name,
+                company: input.company,
+                color: input.color,
+                limitTable: [],
+                network: input.network ?? null,
+                catalogStatus: 'DRAFT',
+                issueStatus: input.issueStatus,
+                issuerProductCode: input.issuerProductCode ?? null,
+                catalogCaveat: input.catalogCaveat ?? null,
+            }).run();
+            tx.insert(cardBenefitSourceConfigs).values(input.sources.map((source, index) => {
+                const { allowedHosts } = normalizePublicOfficialUrl(source.sourceUrl);
+                return {
+                    id: randomUUID(),
+                    cardId: input.id,
+                    ...source,
+                    format: source.sourceKind === 'PRODUCT_GUIDE_PDF' ? 'pdf' as const : 'html' as const,
+                    allowedHosts,
+                    isActive: true,
+                    sortOrder: index,
+                    createdAt: now,
+                    updatedAt: now,
+                };
+            })).run();
+        });
+    });
+    return inputs.flatMap(input => {
+        const card = getSystemCardOnboardingCard(input.id);
+        return card ? [card] : [];
+    });
+}
+
 export function createSystemCardDraft(input: SystemCardDraftInput) {
-    const existing = db.select({ id: cards.id }).from(cards)
-        .where(eq(cards.id, input.id))
+    const card = createSystemCardDraftBatch([input])[0];
+    if (!card) throw new SystemCardOnboardingError(500, '신규 카드 초안을 불러오지 못했습니다.');
+    return card;
+}
+
+export function updateSystemCardDraft(input: SystemCardDraftInput) {
+    const existing = db.select().from(cards)
+        .where(and(eq(cards.id, input.id), isNull(cards.userId)))
         .get();
-    if (existing) throw new SystemCardOnboardingError(409, '이미 같은 카드 ID가 존재합니다.');
+    if (!existing) throw new SystemCardOnboardingError(404, '수정할 시스템 카드 초안을 찾을 수 없습니다.');
+    if (existing.catalogStatus !== 'DRAFT') {
+        throw new SystemCardOnboardingError(409, '공개된 시스템 카드는 온보딩 화면에서 수정할 수 없습니다.');
+    }
+    const pendingCandidate = db.select({ id: cardBenefitCandidates.id })
+        .from(cardBenefitCandidates)
+        .where(and(
+            eq(cardBenefitCandidates.cardId, input.id),
+            eq(cardBenefitCandidates.status, 'PENDING'),
+        ))
+        .get();
+    const currentSources = getManagedSystemCardBenefitSources(input.id);
+    const sourceConfigurationChanged = currentSources.length !== input.sources.length ||
+        currentSources.some((source, index) => {
+            const next = input.sources[index];
+            return !next ||
+                source.label !== next.label ||
+                source.sourceUrl !== next.sourceUrl ||
+                source.sourceKind !== next.sourceKind ||
+                source.candidateRole !== next.candidateRole ||
+                source.required !== next.required ||
+                (source.discoverLinkedPdfs === true) !== next.discoverLinkedPdfs;
+        });
+    const extractionMetadataChanged = existing.name !== input.name ||
+        existing.company !== input.company ||
+        (existing.network ?? undefined) !== input.network;
+    if (pendingCandidate && (sourceConfigurationChanged || extractionMetadataChanged)) {
+        throw new SystemCardOnboardingError(409, '대기 중인 검수 후보를 처리한 뒤 카드 출처를 수정해주세요.');
+    }
     if (input.issuerProductCode) {
         const duplicateProduct = db.select({
             id: cards.id,
@@ -322,6 +463,7 @@ export function createSystemCardDraft(input: SystemCardDraftInput) {
             .where(isNull(cards.userId))
             .all()
             .find(card => (
+                card.id !== input.id &&
                 card.company === input.company &&
                 card.issuerProductCode === input.issuerProductCode
             ));
@@ -335,35 +477,51 @@ export function createSystemCardDraft(input: SystemCardDraftInput) {
 
     const now = new Date();
     db.transaction(tx => {
-        tx.insert(cards).values({
-            id: input.id,
-            userId: null,
+        tx.update(cards).set({
             name: input.name,
             company: input.company,
             color: input.color,
-            limitTable: [],
             network: input.network ?? null,
-            catalogStatus: 'DRAFT',
             issueStatus: input.issueStatus,
             issuerProductCode: input.issuerProductCode ?? null,
             catalogCaveat: input.catalogCaveat ?? null,
-        }).run();
-        tx.insert(cardBenefitSourceConfigs).values(input.sources.map((source, index) => {
+        }).where(eq(cards.id, input.id)).run();
+        tx.update(cardBenefitSourceConfigs).set({
+            isActive: false,
+            updatedAt: now,
+        }).where(eq(cardBenefitSourceConfigs.cardId, input.id)).run();
+        input.sources.forEach((source, index) => {
             const { allowedHosts } = normalizePublicOfficialUrl(source.sourceUrl);
-            return {
-                id: randomUUID(),
-                cardId: input.id,
-                ...source,
+            const values = {
+                label: source.label,
+                sourceKind: source.sourceKind,
                 format: source.sourceKind === 'PRODUCT_GUIDE_PDF' ? 'pdf' as const : 'html' as const,
                 allowedHosts,
+                required: source.required,
+                candidateRole: source.candidateRole,
+                discoverLinkedPdfs: source.discoverLinkedPdfs,
                 isActive: true,
                 sortOrder: index,
-                createdAt: now,
                 updatedAt: now,
             };
-        })).run();
+            tx.insert(cardBenefitSourceConfigs).values({
+                id: randomUUID(),
+                cardId: input.id,
+                sourceUrl: source.sourceUrl,
+                ...values,
+                createdAt: now,
+            }).onConflictDoUpdate({
+                target: [
+                    cardBenefitSourceConfigs.cardId,
+                    cardBenefitSourceConfigs.sourceUrl,
+                ],
+                set: values,
+            }).run();
+        });
     });
-    return getSystemCardOnboardingCard(input.id);
+    const card = getSystemCardOnboardingCard(input.id);
+    if (!card) throw new SystemCardOnboardingError(500, '수정한 카드 초안을 불러오지 못했습니다.');
+    return card;
 }
 
 const getSystemCardOnboardingCard = (cardId: string) => {

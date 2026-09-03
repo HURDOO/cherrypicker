@@ -31,7 +31,10 @@ import {
     validateCardBenefitExtraction,
 } from './card-benefit-extraction';
 import { createCardBenefitCandidateAudit } from './card-benefit-audit';
-import { shouldReplacePendingCardBenefitCandidate } from './card-benefit-candidate-selection';
+import {
+    isReusableCardBenefitCandidate,
+    shouldReplacePendingCardBenefitCandidate,
+} from './card-benefit-candidate-selection';
 import {
     getManagedSystemCardBenefitSourceInventory,
     getManagedSystemCardBenefitSources,
@@ -293,6 +296,13 @@ const retainUnresolvedProviderErrors = (
         const claim = error.split(':').slice(1).join(':').trim();
         return !claim || !evidenceRepresentsBenefitClaim(extraction.evidence, claim);
     }
+    if (error.startsWith('신규·최초 이용 조건이 혜택 인벤토리에서 누락됐습니다') &&
+        /연회비\s*반환|반환\s*금액|발행[·\s]*배송/.test(error)) {
+        return false;
+    }
+    if (/^규칙 \d+이 존재하지 않는 브랜드 .+를 참조합니다\.$/.test(error)) {
+        return false;
+    }
     if (providerInventoryErrorResolved(error, extraction)) return false;
     if (/^(?:규칙 .* 근거가 없습니다\.|할인율 |최소 결제금액 |최대 결제금액 |배타적 최대 결제금액 |최소 실적 |일 금액 한도 |월 금액 한도 |건별 최대 혜택이 |필수 조건의 공식 근거가 없습니다:|계산 불가 정보성 혜택에 금액 한도가 설정됐습니다:|공식 공지 |공식 혜택 |공식 거래 대상 브랜드가 |특정 상품 혜택이 |동일한 최소 실적 |복수 한도 표의 열 제목이 근거 문장에 없습니다:)/
         .test(error)) {
@@ -469,7 +479,11 @@ export async function collectSystemCardBenefits(cardId: string, options: {
             ? undefined
             : sameSourceCandidates.find(candidate => (
                 candidate.validationErrors.length === 0 &&
-                (candidate.status === 'APPROVED' || candidate.baseRevision === baseRevision)
+                isReusableCardBenefitCandidate(
+                    candidate.status,
+                    candidate.baseRevision,
+                    baseRevision,
+                )
             ));
         if (reusableCandidate) {
             const cachedExtraction = applyOfficialNoticeDates(
@@ -562,8 +576,8 @@ export async function collectSystemCardBenefits(cardId: string, options: {
                     `공식 보조 출처를 수집하지 못했습니다: ${failure.label} (${failure.message})`
                 )),
             ])];
-            if (repairedErrors.length === 0) {
-                const updatedCandidate = db.transaction(tx => {
+            const updatedCandidate = db.transaction(tx => {
+                if (repairedErrors.length === 0) {
                     tx.update(cardBenefitCandidates)
                         .set({ status: 'REJECTED', reviewedAt: new Date() })
                         .where(and(
@@ -572,58 +586,28 @@ export async function collectSystemCardBenefits(cardId: string, options: {
                             notInArray(cardBenefitCandidates.id, [repairCandidate.id]),
                         ))
                         .run();
-                    return tx.update(cardBenefitCandidates)
-                        .set({
-                            documentId: primaryStored.document.id,
-                            sourceBundleHash,
-                            extraction: repairedExtraction,
-                            audit: repairedAudit,
-                            validationErrors: repairedErrors,
-                        })
-                        .where(eq(cardBenefitCandidates.id, repairCandidate.id))
-                        .returning()
-                        .get();
-                });
-                db.transaction(tx => {
-                    tx.delete(cardBenefitCandidateDocuments)
-                        .where(eq(cardBenefitCandidateDocuments.candidateId, repairCandidate.id))
-                        .run();
-                    tx.insert(cardBenefitCandidateDocuments).values(storedSources.map(source => ({
-                        candidateId: repairCandidate.id,
-                        documentId: source.document.id,
-                        role: source.collected.definition.candidateRole,
-                    }))).run();
-                });
-                return toCollectionResult(
-                    'unchanged',
-                    storedSources,
-                    updatedCandidate,
-                    bundle.failures,
-                    { cacheHit: true, localRepair: true },
-                );
-            }
-            if (!provider) {
-                const updatedCandidate = db.transaction(tx => {
-                    tx.delete(cardBenefitCandidateDocuments)
-                        .where(eq(cardBenefitCandidateDocuments.candidateId, repairCandidate.id))
-                        .run();
-                    tx.insert(cardBenefitCandidateDocuments).values(storedSources.map(source => ({
-                        candidateId: repairCandidate.id,
-                        documentId: source.document.id,
-                        role: source.collected.definition.candidateRole,
-                    }))).run();
-                    return tx.update(cardBenefitCandidates)
-                        .set({
-                            documentId: primaryStored.document.id,
-                            sourceBundleHash,
-                            extraction: repairedExtraction,
-                            audit: repairedAudit,
-                            validationErrors: repairedErrors,
-                        })
-                        .where(eq(cardBenefitCandidates.id, repairCandidate.id))
-                        .returning()
-                        .get();
-                });
+                }
+                tx.delete(cardBenefitCandidateDocuments)
+                    .where(eq(cardBenefitCandidateDocuments.candidateId, repairCandidate.id))
+                    .run();
+                tx.insert(cardBenefitCandidateDocuments).values(storedSources.map(source => ({
+                    candidateId: repairCandidate.id,
+                    documentId: source.document.id,
+                    role: source.collected.definition.candidateRole,
+                }))).run();
+                return tx.update(cardBenefitCandidates)
+                    .set({
+                        documentId: primaryStored.document.id,
+                        sourceBundleHash,
+                        extraction: repairedExtraction,
+                        audit: repairedAudit,
+                        validationErrors: repairedErrors,
+                    })
+                    .where(eq(cardBenefitCandidates.id, repairCandidate.id))
+                    .returning()
+                    .get();
+            });
+            if (repairedErrors.length === 0 || !provider) {
                 return toCollectionResult(
                     'unchanged',
                     storedSources,

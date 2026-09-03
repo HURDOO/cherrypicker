@@ -1738,6 +1738,100 @@ describe('card benefit extraction', () => {
         expect(normalized.rules[1].includedBrands).toEqual(['medical']);
     });
 
+    it('turns unknown AI brand references into a manual condition instead of invalid IDs', () => {
+        const baselineExtraction = extractShinhanSolTravelWithRules(input).extraction;
+        const openAIExtraction = cardBenefitOpenAIExtractionSchema.parse({
+            confidence: 0.9,
+            coverage: [],
+            extraction: toOpenAIExtraction(baselineExtraction),
+        }).extraction;
+        const rule = {
+            ...openAIExtraction.rules[0],
+            id: 'generic_online_pay',
+            includedBrands: ['known_brand', 'NH페이'],
+            platformType: 'ONLINE' as const,
+            description: '대상 간편결제 온라인 할인',
+        };
+        const inventory = cardBenefitOpenAIInventorySchema.parse({
+            confidence: 0.9,
+            sections: [{
+                id: 'online-pay',
+                title: '대상 간편결제 온라인 할인',
+                summary: 'NH페이 온라인 결제 할인',
+                kind: 'BENEFIT',
+                appliesToSectionIds: [],
+                sourceUrl: 'https://example.com/card',
+                quote: 'NH페이에 등록한 카드로 국내 온라인 결제 시 할인',
+                page: null,
+            }],
+            notes: [],
+        });
+
+        const normalized = normalizeInventoryBackedRuleSemantics(
+            { ...openAIExtraction, rules: [rule] },
+            inventory,
+            [{ sectionId: 'online-pay', ruleIds: [rule.id] }],
+            [{ id: 'known_brand', name: '알려진 브랜드', categoryId: 'etc' }],
+        );
+
+        expect(normalized.rules[0].includedBrands).toEqual(['known_brand']);
+        expect(normalized.rules[0].condition).toMatchObject({
+            manualCheckRequired: true,
+        });
+        expect(normalized.rules[0].condition.requiredNote).toContain('NH페이');
+    });
+
+    it('repairs unknown cached brands without treating exclusions as included brands', () => {
+        const testCard = { ...card, id: 'generic-pay-card' };
+        const sourceUrl = 'https://example.com/card';
+        const extraction: CardBenefitExtraction = {
+            schemaVersion: 2,
+            completeness: 'FULL',
+            card: testCard,
+            rules: [{
+                id: 'online-pay',
+                cardId: testCard.id,
+                includedBrands: ['NH페이'],
+                excludedBrands: [],
+                platformType: 'ONLINE',
+                usesCardLimit: false,
+                description: '간편결제 온라인 1.7% 할인',
+                detail: '전기요금과 도시가스 이용금액은 제외됩니다. 제외·유의: 카드 이용 시 제공되는 추가적인 혜택 등 부가서비스 제공에 소요된 비용은 연회비 반환 금액에서 제외됩니다.',
+                condition: { requiredCardNetwork: 'DOMESTIC' },
+                action: { type: 'PERCENT', value: 1.7 },
+                limitConfig: {},
+            }],
+            evidence: [{
+                id: 'online-pay-evidence',
+                ruleIds: ['online-pay'],
+                fields: ['description', 'condition', 'action'],
+                quote: 'NH페이에 등록한 카드로 국내 온라인 결제 시 1.7% 할인',
+                sourceUrl,
+            }],
+            notes: [],
+        };
+
+        const normalized = normalizeEvidenceBackedCardBenefitExtraction(extraction, {
+            card: testCard,
+            sourceUrl,
+            sourceText: `${extraction.evidence[0].quote}\n전기요금과 도시가스 이용금액은 제외`,
+            catalog: {
+                categories: [],
+                brands: [
+                    { id: 'electric_utility', name: '전기요금', categoryId: 'etc' },
+                    { id: 'city_gas', name: '도시가스', categoryId: 'etc' },
+                ],
+            },
+        });
+
+        expect(normalized.rules[0].includedBrands).toEqual([]);
+        expect(normalized.rules[0].condition.requiredCardNetwork).toBeUndefined();
+        expect(normalized.rules[0].condition.manualCheckRequired).toBe(true);
+        expect(normalized.rules[0].condition.requiredNote).toContain('NH페이');
+        expect(normalized.rules[0].detail).toContain('전기요금과 도시가스');
+        expect(normalized.rules[0].detail).not.toContain('연회비 반환');
+    });
+
     it('marks both sides of a special-day alternative for manual confirmation', () => {
         const baselineExtraction = extractShinhanSolTravelWithRules(input).extraction;
         const openAIExtraction = cardBenefitOpenAIExtractionSchema.parse({

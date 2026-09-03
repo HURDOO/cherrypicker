@@ -2219,6 +2219,7 @@ export const normalizeInventoryBackedRuleSemantics = (
     coverage: CardBenefitOpenAIExtraction['coverage'],
     catalogBrands: NonNullable<CardBenefitExtractionInput['catalog']>['brands'],
 ): CardBenefitOpenAIExtraction['extraction'] => {
+    const catalogBrandIds = new Set(catalogBrands.map(brand => brand.id));
     const channelTextByRule = inventoryTextByRule(inventory, coverage, section => (
         section.kind !== 'EXCLUSION'
     ));
@@ -2247,18 +2248,35 @@ export const normalizeInventoryBackedRuleSemantics = (
             const impliedBrands = impliedCatalogBrandIds(
                 [
                     ruleRow.description,
-                    ruleRow.detail,
                     ruleRow.condition.eligibleItemSummary ?? '',
                 ].join('\n'),
                 catalogBrands,
             );
+            const unknownIncludedBrands = ruleRow.includedBrands.filter(
+                brandId => !catalogBrandIds.has(brandId) &&
+                    !/^[a-z0-9][a-z0-9_-]*$/i.test(brandId),
+            );
+            const unknownBrandNote = unknownIncludedBrands.length > 0
+                ? `공식 대상 ${unknownIncludedBrands.join(', ')}은(는) 현재 브랜드 카탈로그와 자동 매칭할 수 없어 실제 결제수단·가맹점 조건을 확인해야 합니다.`
+                : undefined;
             return {
                 ...ruleRow,
                 includedBrands: unique([
-                    ...ruleRow.includedBrands,
+                    ...ruleRow.includedBrands.filter(brandId => (
+                        catalogBrandIds.has(brandId) ||
+                        /^[a-z0-9][a-z0-9_-]*$/i.test(brandId)
+                    )),
                     ...explicitBrands,
                     ...impliedBrands,
                 ]),
+                condition: unknownBrandNote ? {
+                    ...ruleRow.condition,
+                    manualCheckRequired: true,
+                    requiredNote: appendRequiredNote(
+                        ruleRow.condition.requiredNote ?? undefined,
+                        unknownBrandNote,
+                    ),
+                } : ruleRow.condition,
                 platformType: hasInPersonDiscount && !hasOnlineChannel
                     ? 'OFFLINE'
                     : ruleRow.platformType,
@@ -3509,15 +3527,93 @@ export const normalizeEvidenceBackedCardBenefitExtraction = (
     ensureNavyMartLifeFallbackRule(extraction, input);
 
     const catalogBrands = input.catalog?.brands ?? [];
+    if (input.catalog) {
+        const catalogBrandIds = new Set(catalogBrands.map(brand => brand.id));
+        extraction.rules.forEach(ruleRow => {
+            const unknownIncludedBrands = (ruleRow.includedBrands ?? []).filter(
+                brandId => !catalogBrandIds.has(brandId) &&
+                    !/^[a-z0-9][a-z0-9_-]*$/i.test(brandId),
+            );
+            const unknownExcludedBrands = (ruleRow.excludedBrands ?? []).filter(
+                brandId => !catalogBrandIds.has(brandId) &&
+                    !/^[a-z0-9][a-z0-9_-]*$/i.test(brandId),
+            );
+            ruleRow.includedBrands = (ruleRow.includedBrands ?? []).filter(
+                brandId => catalogBrandIds.has(brandId) ||
+                    /^[a-z0-9][a-z0-9_-]*$/i.test(brandId),
+            );
+            ruleRow.excludedBrands = (ruleRow.excludedBrands ?? []).filter(
+                brandId => catalogBrandIds.has(brandId) ||
+                    /^[a-z0-9][a-z0-9_-]*$/i.test(brandId),
+            );
+            const unknownBrands = unique([
+                ...unknownIncludedBrands,
+                ...unknownExcludedBrands,
+            ]);
+            if (unknownBrands.length === 0) return;
+            ruleRow.condition.manualCheckRequired = true;
+            ruleRow.condition.requiredNote = appendRequiredNote(
+                ruleRow.condition.requiredNote,
+                `공식 대상 ${unknownBrands.join(', ')}은(는) 현재 브랜드 카탈로그와 ` +
+                '자동 매칭할 수 없어 실제 결제수단·가맹점 조건을 확인해야 합니다.',
+            );
+        });
+    }
     const allSourceText = extractionSources(input).map(source => source.sourceText).join('\n');
     extraction.rules.forEach(ruleRow => {
         const evidenceText = evidenceTextForRule(ruleRow.id, extraction.evidence);
+        const explicitRuleScope = normalizedSource([
+            ruleRow.description,
+            ruleRow.condition.eligibleItemSummary ?? '',
+        ].join('\n'));
+        const exclusionText = `${ruleRow.detail}\n${evidenceTextForRule(
+            ruleRow.id,
+            extraction.evidence,
+            'condition',
+        )}`;
+        ruleRow.includedBrands = (ruleRow.includedBrands ?? []).filter(brandId => {
+            const brand = catalogBrands.find(item => item.id === brandId);
+            if (!brand || explicitRuleScope.includes(normalizedSource(brand.name))) return true;
+            const escapedName = regexEscaped(brand.name);
+            const appearsOnlyAsExcluded = exclusionText.split(/[.\n]+/).some(sentence => (
+                new RegExp(
+                    `(?:${escapedName}[^.\\n]{0,50}제외|제외[^.\\n]{0,50}${escapedName})`,
+                    'iu',
+                ).test(sentence)
+            ));
+            return !appearsOnlyAsExcluded;
+        });
+        ruleRow.detail = ruleRow.detail.split(/(?=제외·유의\s*:)/)
+            .map(segment => {
+                if (/^제외·유의\s*:/i.test(segment) &&
+                    /연회비\s*반환|반환금액/i.test(segment)) return '';
+                return segment.replace(
+                    /(?:카드\s*이용\s*시\s*제공되는\s*)?(?:추가적인?\s*)?혜택\s*등\s*부가서비스\s*제공(?:에\s*소요된)?\s*비용은\s*연회비\s*반환\s*금액에서\s*제외(?:됩니다|한다)\.?/i,
+                    '',
+                );
+            })
+            .filter(Boolean)
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
         if ((ruleRow.includedBrands ?? []).length === 0 &&
             /간편결제/i.test(ruleRow.description) &&
             /간편결제[^\n]{0,80}국내\s*이용|국내\s*이용[^\n]{0,80}간편결제/i.test(
                 `${allSourceText}\n${evidenceText}`
             )) {
             delete ruleRow.category;
+        }
+        if (ruleRow.condition.requiredCardNetwork === 'DOMESTIC') {
+            const networkEvidence = evidenceTextForRule(
+                ruleRow.id,
+                extraction.evidence,
+                'condition',
+            );
+            const explicitlyDomesticOnly = /국내\s*전용(?:\s*(?:카드|상품))?\s*(?:만|에\s*한(?:해|하여)|한정)/i
+                .test(networkEvidence);
+            if (!explicitlyDomesticOnly) {
+                delete ruleRow.condition.requiredCardNetwork;
+            }
         }
     });
     catalogBrands.forEach(brand => {
@@ -4115,6 +4211,8 @@ const validateInventory = (
                 .map(normalizeText)
                 .filter(line => line.length >= 15 && line.length <= 1_000 &&
                     !/장기\s*무실적[^\n]{0,40}한도\s*하향[^\n]{0,40}제외\s*신청/i.test(line) &&
+                    !(spec.message === '신규·최초 이용 조건' &&
+                        /연회비\s*반환|반환\s*금액|발행[·\s]*배송/i.test(line)) &&
                     spec.pattern.test(line)))
                 .forEach(line => {
                     const normalizedLine = normalizedSource(line);

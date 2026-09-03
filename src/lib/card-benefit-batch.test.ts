@@ -6,6 +6,7 @@ import type {
 } from './card-benefit-extraction';
 import type { CardBenefitCollectionResult } from './card-benefit-ingestion';
 import {
+    collectSelectedSystemCardBenefits,
     resolveCardBenefitBatchMaxAiCards,
     runCardBenefitCollectionBatch,
 } from './card-benefit-batch';
@@ -106,5 +107,18 @@ describe('card benefit collection batch', () => {
         expect(resolveCardBenefitBatchMaxAiCards('3')).toBe(3);
         expect(() => resolveCardBenefitBatchMaxAiCards('-1')).toThrow(/0 이상의 정수/);
         expect(() => resolveCardBenefitBatchMaxAiCards('101')).toThrow(/100 이하/);
+    });
+
+    it('rejects empty, duplicate, and oversized selected batches before collection', async () => {
+        await expect(collectSelectedSystemCardBenefits([])).rejects.toThrow(/1장 이상 5장 이하/);
+        await expect(collectSelectedSystemCardBenefits(['same', 'same'])).rejects.toThrow(/중복 없이/);
+        await expect(collectSelectedSystemCardBenefits([
+            'card-1',
+            'card-2',
+            'card-3',
+            'card-4',
+            'card-5',
+            'card-6',
+        ])).rejects.toThrow(/1장 이상 5장 이하/);
     });
 });

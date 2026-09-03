@@ -22,7 +22,10 @@ const mocks = vi.hoisted(() => {
         SystemCardOnboardingError,
         requireAdmin: vi.fn(),
         parseInput: vi.fn(),
+        parseBatchInput: vi.fn(),
         createDraft: vi.fn(),
+        createDraftBatch: vi.fn(),
+        updateDraft: vi.fn(),
         getData: vi.fn(),
     };
 });
@@ -39,11 +42,14 @@ vi.mock('@/lib/api-server', () => ({
 vi.mock('@/lib/system-card-onboarding', () => ({
     SystemCardOnboardingError: mocks.SystemCardOnboardingError,
     parseSystemCardDraftInput: mocks.parseInput,
+    parseSystemCardDraftBatchInput: mocks.parseBatchInput,
     createSystemCardDraft: mocks.createDraft,
+    createSystemCardDraftBatch: mocks.createDraftBatch,
+    updateSystemCardDraft: mocks.updateDraft,
     getSystemCardOnboardingData: mocks.getData,
 }));
 
-import { GET, POST } from './route';
+import { GET, PATCH, POST } from './route';
 
 const postRequest = (body: Record<string, unknown>) => new Request(
     'http://localhost/api/admin/system-cards',
@@ -60,7 +66,13 @@ describe('admin system card onboarding route', () => {
         mocks.requireAdmin.mockResolvedValue({ id: 'admin-1' });
         mocks.getData.mockReturnValue({ cards: [] });
         mocks.parseInput.mockReturnValue({ id: 'new_card' });
+        mocks.parseBatchInput.mockReturnValue([{ id: 'new_card' }, { id: 'second_card' }]);
         mocks.createDraft.mockReturnValue({ id: 'new_card', catalogStatus: 'DRAFT' });
+        mocks.createDraftBatch.mockReturnValue([
+            { id: 'new_card', catalogStatus: 'DRAFT' },
+            { id: 'second_card', catalogStatus: 'DRAFT' },
+        ]);
+        mocks.updateDraft.mockReturnValue({ id: 'new_card', catalogStatus: 'DRAFT' });
     });
 
     it('returns cards and their managed sources after admin authentication', async () => {
@@ -82,6 +94,43 @@ describe('admin system card onboarding route', () => {
         });
         expect(mocks.parseInput).toHaveBeenCalledWith(requestBody);
         expect(mocks.createDraft).toHaveBeenCalledWith({ id: 'new_card' });
+    });
+
+    it('validates and creates a batch of private drafts atomically', async () => {
+        const requestBody = {
+            cards: [
+                { id: 'new_card', sources: [] },
+                { id: 'second_card', sources: [] },
+            ],
+        };
+        const response = await POST(postRequest(requestBody));
+
+        expect(response.status).toBe(201);
+        await expect(response.json()).resolves.toEqual({
+            cards: [
+                { id: 'new_card', catalogStatus: 'DRAFT' },
+                { id: 'second_card', catalogStatus: 'DRAFT' },
+            ],
+        });
+        expect(mocks.parseBatchInput).toHaveBeenCalledWith(requestBody);
+        expect(mocks.createDraftBatch).toHaveBeenCalledWith([
+            { id: 'new_card' },
+            { id: 'second_card' },
+        ]);
+        expect(mocks.parseInput).not.toHaveBeenCalled();
+    });
+
+    it('updates an existing private draft through the same validation contract', async () => {
+        const requestBody = { id: 'new_card', name: '수정 카드', sources: [] };
+        const response = await PATCH(postRequest(requestBody));
+
+        expect(response.status).toBe(200);
+        await expect(response.json()).resolves.toEqual({
+            id: 'new_card',
+            catalogStatus: 'DRAFT',
+        });
+        expect(mocks.parseInput).toHaveBeenCalledWith(requestBody);
+        expect(mocks.updateDraft).toHaveBeenCalledWith({ id: 'new_card' });
     });
 
     it('returns the onboarding validation error to the admin', async () => {

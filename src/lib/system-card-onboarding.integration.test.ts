@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as schema from '@/db/schema';
 import { publishedSystemCard } from './card-visibility';
@@ -184,6 +185,130 @@ describe('system card onboarding', () => {
         );
         expect(() => onboarding.createSystemCardDraft(duplicateProduct)).toThrow(
             '같은 카드사 상품 코드로 등록된 시스템 카드가 있습니다.',
+        );
+    });
+
+    it('creates up to five system card drafts as one batch', () => {
+        const batch = onboarding.parseSystemCardDraftBatchInput({
+            cards: [
+                {
+                    id: 'batch_card_a',
+                    name: '배치 카드 A',
+                    company: '배치카드',
+                    issuerProductCode: 'BATCH-A',
+                    color: 'bg-blue-500',
+                    sources: [{
+                        label: '공식 상품 페이지',
+                        sourceUrl: 'https://cards.example.com/batch-a',
+                        sourceKind: 'PRODUCT_PAGE',
+                        candidateRole: 'PRIMARY',
+                        required: true,
+                        discoverLinkedPdfs: true,
+                    }],
+                },
+                {
+                    id: 'batch_card_b',
+                    name: '배치 카드 B',
+                    company: '배치카드',
+                    issuerProductCode: 'BATCH-B',
+                    color: 'bg-emerald-500',
+                    sources: [{
+                        label: '공식 상품 페이지',
+                        sourceUrl: 'https://cards.example.com/batch-b',
+                        sourceKind: 'PRODUCT_PAGE',
+                        candidateRole: 'PRIMARY',
+                        required: true,
+                        discoverLinkedPdfs: false,
+                    }],
+                },
+            ],
+        });
+
+        const created = onboarding.createSystemCardDraftBatch(batch);
+
+        expect(created.map(card => card.id)).toEqual(['batch_card_a', 'batch_card_b']);
+        expect(created.every(card => card.catalogStatus === 'DRAFT')).toBe(true);
+        expect(integrationDb.select().from(schema.cards).all()
+            .filter(card => card.id.startsWith('batch_card_'))).toHaveLength(2);
+    });
+
+    it('rejects an invalid batch before writing any draft', () => {
+        const source = [{
+            label: '공식 상품 페이지',
+            sourceUrl: 'https://cards.example.com/atomic',
+            sourceKind: 'PRODUCT_PAGE' as const,
+            candidateRole: 'PRIMARY' as const,
+            required: true,
+            discoverLinkedPdfs: false,
+        }];
+        const first = onboarding.parseSystemCardDraftInput({
+            id: 'atomic_card_a',
+            name: '원자성 카드 A',
+            company: '원자성카드',
+            issuerProductCode: 'ATOMIC-DUPLICATE',
+            color: 'bg-blue-500',
+            sources: source,
+        });
+        const duplicateProduct = onboarding.parseSystemCardDraftInput({
+            id: 'atomic_card_b',
+            name: '원자성 카드 B',
+            company: '원자성카드',
+            issuerProductCode: 'ATOMIC-DUPLICATE',
+            color: 'bg-sky-500',
+            sources: [{ ...source[0], sourceUrl: 'https://cards.example.com/atomic-b' }],
+        });
+
+        expect(() => onboarding.createSystemCardDraftBatch([
+            first,
+            duplicateProduct,
+        ])).toThrow('배치에 같은 카드사 상품 코드가 중복되어 있습니다.');
+        expect(integrationDb.select().from(schema.cards).all()
+            .some(card => card.id.startsWith('atomic_card_'))).toBe(false);
+        expect(() => onboarding.parseSystemCardDraftBatchInput({ cards: [] })).toThrow(
+            '한 번에 1장 이상 5장 이하',
+        );
+    });
+
+    it('updates sources only while a system card remains a private draft', () => {
+        const input = onboarding.parseSystemCardDraftInput({
+            id: 'batch_card_a',
+            name: '배치 카드 A 수정',
+            company: '배치카드',
+            issuerProductCode: 'BATCH-A',
+            color: 'bg-violet-500',
+            sources: [{
+                label: '교체한 공식 상품 페이지',
+                sourceUrl: 'https://cards.example.com/batch-a-v2',
+                sourceKind: 'PRODUCT_PAGE',
+                candidateRole: 'PRIMARY',
+                required: true,
+                discoverLinkedPdfs: false,
+            }],
+        });
+
+        const updated = onboarding.updateSystemCardDraft(input);
+        const sourceRows = integrationDb.select().from(schema.cardBenefitSourceConfigs)
+            .all()
+            .filter(source => source.cardId === 'batch_card_a');
+
+        expect(updated).toMatchObject({
+            id: 'batch_card_a',
+            name: '배치 카드 A 수정',
+            color: 'bg-violet-500',
+            catalogStatus: 'DRAFT',
+        });
+        expect(sourceRows).toHaveLength(2);
+        expect(sourceRows.find(source => source.sourceUrl.endsWith('/batch-a'))?.isActive)
+            .toBe(false);
+        expect(sourceRows.find(source => source.sourceUrl.endsWith('/batch-a-v2'))?.isActive)
+            .toBe(true);
+
+        integrationDb.update(schema.cards)
+            .set({ catalogStatus: 'PUBLISHED' })
+            .where(eq(schema.cards.id, 'batch_card_a'))
+            .run();
+        expect(() => onboarding.updateSystemCardDraft(input)).toThrow(
+            '공개된 시스템 카드는 온보딩 화면에서 수정할 수 없습니다.',
         );
     });
 });

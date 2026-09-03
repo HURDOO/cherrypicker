@@ -14,6 +14,7 @@ import {
 } from '@/lib/card-benefit-ingestion';
 import {
     collectAllSystemCardBenefits,
+    collectSelectedSystemCardBenefits,
     resolveCardBenefitBatchMaxAiCards,
 } from '@/lib/card-benefit-batch';
 
@@ -56,6 +57,16 @@ export async function POST(request: Request) {
         }
         if (input.action === 'collect-all-cards') {
             return Response.json(await collectAllSystemCardBenefits({ trigger: 'MANUAL' }));
+        }
+        if (input.action === 'collect-cards') {
+            if (!Array.isArray(input.cardIds) ||
+                input.cardIds.some(cardId => typeof cardId !== 'string')) {
+                throw new HttpError(400, '수집할 카드 목록이 올바르지 않습니다.');
+            }
+            return Response.json(await collectSelectedSystemCardBenefits(input.cardIds, {
+                trigger: 'MANUAL',
+                forceExtraction: input.forceExtraction === true,
+            }));
         }
         throw new HttpError(400, '지원하지 않는 카드 혜택 수집 작업입니다.');
     } catch (error) {

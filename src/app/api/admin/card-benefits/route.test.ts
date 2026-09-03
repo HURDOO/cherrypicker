@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => {
         collect: vi.fn(),
         collectSystem: vi.fn(),
         collectAll: vi.fn(),
+        collectSelected: vi.fn(),
         reviewData: vi.fn(),
         review: vi.fn(),
         rollback: vi.fn(),
@@ -41,6 +42,7 @@ vi.mock('@/lib/card-benefit-ingestion', () => ({
 
 vi.mock('@/lib/card-benefit-batch', () => ({
     collectAllSystemCardBenefits: mocks.collectAll,
+    collectSelectedSystemCardBenefits: mocks.collectSelected,
     resolveCardBenefitBatchMaxAiCards: () => 2,
 }));
 
@@ -63,6 +65,7 @@ describe('admin card benefit route', () => {
         mocks.collect.mockResolvedValue({ status: 'created' });
         mocks.collectSystem.mockResolvedValue({ status: 'created' });
         mocks.collectAll.mockResolvedValue({ totals: { targets: 8 } });
+        mocks.collectSelected.mockResolvedValue({ totals: { targets: 3 } });
         mocks.review.mockReturnValue({ revision: 2 });
         mocks.rollback.mockReturnValue({ revision: 3 });
     });
@@ -112,6 +115,26 @@ describe('admin card benefit route', () => {
         expect(response.status).toBe(200);
         await expect(response.json()).resolves.toEqual({ totals: { targets: 8 } });
         expect(mocks.collectAll).toHaveBeenCalledWith({ trigger: 'MANUAL' });
+    });
+
+    it('collects only the selected onboarding cards through one budgeted batch', async () => {
+        const response = await POST(jsonRequest('POST', {
+            action: 'collect-cards',
+            cardIds: ['card-a', 'card-b', 'card-c'],
+        }));
+
+        expect(response.status).toBe(200);
+        await expect(response.json()).resolves.toEqual({ totals: { targets: 3 } });
+        expect(mocks.collectSelected).toHaveBeenCalledWith(
+            ['card-a', 'card-b', 'card-c'],
+            { trigger: 'MANUAL', forceExtraction: false },
+        );
+
+        const invalid = await POST(jsonRequest('POST', {
+            action: 'collect-cards',
+            cardIds: ['card-a', 2],
+        }));
+        expect(invalid.status).toBe(400);
     });
 
     it('reviews and rolls back card benefit revisions with the authenticated admin ID', async () => {

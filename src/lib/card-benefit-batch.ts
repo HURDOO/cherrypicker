@@ -31,6 +31,7 @@ type CardBenefitCollector = (
 ) => Promise<CardBenefitCollectionResult>;
 
 const DEFAULT_MAX_AI_CARDS = 2;
+const MAX_SELECTED_BATCH_SIZE = 5;
 
 export function resolveCardBenefitBatchMaxAiCards(configured?: string) {
     const value = configured?.trim();
@@ -126,14 +127,11 @@ export async function runCardBenefitCollectionBatch(options: {
     };
 }
 
-export async function collectAllSystemCardBenefits(options: {
+const collectSystemCardBenefitsByIds = async (cardIds: string[], options: {
     forceExtraction?: boolean;
     maxAiCards?: number;
     trigger?: CardBenefitCollectionTrigger;
-} = {}) {
-    const cardIds = getManagedSystemCardBenefitSourceInventory()
-        .filter(item => item.revisionReviewEnabled)
-        .map(item => item.cardId);
+} = {}) => {
     const result = await runCardBenefitCollectionBatch({
         cardIds,
         maxAiCards: options.maxAiCards ?? resolveCardBenefitBatchMaxAiCards(
@@ -170,4 +168,37 @@ export async function collectAllSystemCardBenefits(options: {
         runStatus,
         trigger,
     };
+};
+
+export async function collectSelectedSystemCardBenefits(cardIds: string[], options: {
+    forceExtraction?: boolean;
+    maxAiCards?: number;
+    trigger?: CardBenefitCollectionTrigger;
+} = {}) {
+    if (cardIds.length < 1 || cardIds.length > MAX_SELECTED_BATCH_SIZE ||
+        cardIds.some(cardId => typeof cardId !== 'string' || !cardId.trim()) ||
+        new Set(cardIds).size !== cardIds.length) {
+        throw new CardBenefitIngestionError(
+            400,
+            `수집할 카드는 중복 없이 1장 이상 ${MAX_SELECTED_BATCH_SIZE}장 이하로 선택해주세요.`,
+        );
+    }
+    const supportedCardIds = new Set(getManagedSystemCardBenefitSourceInventory()
+        .filter(item => item.revisionReviewEnabled)
+        .map(item => item.cardId));
+    if (cardIds.some(cardId => !supportedCardIds.has(cardId))) {
+        throw new CardBenefitIngestionError(400, '공식 출처가 등록되지 않은 카드가 포함되어 있습니다.');
+    }
+    return collectSystemCardBenefitsByIds(cardIds, options);
+}
+
+export async function collectAllSystemCardBenefits(options: {
+    forceExtraction?: boolean;
+    maxAiCards?: number;
+    trigger?: CardBenefitCollectionTrigger;
+} = {}) {
+    const cardIds = getManagedSystemCardBenefitSourceInventory()
+        .filter(item => item.revisionReviewEnabled)
+        .map(item => item.cardId);
+    return collectSystemCardBenefitsByIds(cardIds, options);
 }
