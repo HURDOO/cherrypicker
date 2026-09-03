@@ -86,6 +86,10 @@ describe('preserved official promotion response fixtures', () => {
         const electrolandBase = parsed.find(item => item.offer.title.startsWith('전자랜드'));
         expect(twosome).toBeDefined();
         expect(electrolandBase).toBeDefined();
+        expect(electrolandBase?.discoveredBrand).toMatchObject({
+            name: '전자랜드',
+            categoryId: 'shopping',
+        });
 
         const electroland = applyPromotionSemanticAnalysis(
             electrolandBase!,

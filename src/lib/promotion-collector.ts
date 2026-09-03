@@ -739,7 +739,13 @@ function persistParsedPromotion(
         ))
         .orderBy(desc(promotionCandidates.discoveredAt))
         .all();
-    previousCandidates
+    const pendingRemovalCandidates = db.select().from(promotionCandidates)
+        .where(and(
+            eq(promotionCandidates.providerId, parsed.offer.providerId),
+            eq(promotionCandidates.status, 'PENDING'),
+        ))
+        .all();
+    pendingRemovalCandidates
         .filter(candidate => removalCandidateMatchesObservedPromotion(candidate, {
             providerId: parsed.offer.providerId,
             promotionId,

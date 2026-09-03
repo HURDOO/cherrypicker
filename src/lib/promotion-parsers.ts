@@ -181,7 +181,7 @@ const inferBrandCategory = (name: string, hint = '') => {
     if (/편의점|마트|프레시|GS25|CU|이마24|세븐일레븐/.test(text)) return 'convenience';
     if (/치킨|피자|버거|레스토랑|식당|외식|요리|갈비|닭갈비|면소|빕수/.test(text)) return 'food';
     if (/배달|요기요|컬리|오아시스마켓|식봄/.test(text)) return 'delivery';
-    if (/영화|시네|월드|랜드|아쿠아|리조트|스파|미술관|박물관|티켓|공연|전시|문화|여가/.test(text)) return 'movie';
+    if (/영화|시네|롯데월드|에버랜드|서울랜드|레고랜드|테마파크|놀이공원|아쿠아|리조트|스파|미술관|박물관|티켓|공연|전시|문화|여가/.test(text)) return 'movie';
     if (/항공|트립|호텔|렌터카|렌트카|카셰어링|여행|면세점/.test(text)) return 'transport';
     if (/뮤직|웹툰|멤버십|오피스|영상|구독/.test(text)) return 'subscription';
     if (/피부|네일|안경|헬스|휘트니스|펫|반려|병원|클리닉|의원|뷰티|화장품|이니스프리|생활/.test(text)) return 'life';
