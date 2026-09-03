@@ -352,6 +352,13 @@ const parsePurchaseCap = (text: string) => {
     return undefined;
 };
 
+const parseMonthlyPurchaseCap = (text: string) => {
+    const match = text.match(
+        /월\s*(?:결제|이용|구매|주문)\s*금액[^\n]{0,30}?최대\s*([\d,]+(?:\.\d+)?\s*(?:만|천)?\s*원)/
+    );
+    return match ? parseKoreanAmount(match[1]) : undefined;
+};
+
 const telecomSourceKey = (brandId: string, tiers: string[], variant = 0) =>
     `brand:${brandId}:discount:${tiers.map(normalizeTier).sort().join('-') || 'ALL'}${
         variant ? `:${variant}` : ''
@@ -551,6 +558,7 @@ export function parseTousLesJoursHtml(html: string, sourceUrl: string): ParsedPr
         const limitsText = htmlToText(match[3]);
         const dailyLimit = parseLimitConfig(limitsText);
         const purchaseCap = parsePurchaseCap(limitsText);
+        const monthlyPurchaseCap = parseMonthlyPurchaseCap(limitsText);
         const lines = detailHtml.split(/<br\s*\/?\s*>/gi)
             .map(line => htmlToText(line))
             .filter(Boolean)
@@ -577,7 +585,14 @@ export function parseTousLesJoursHtml(html: string, sourceUrl: string): ParsedPr
                 ...(purchaseCap && parsed.action.type === 'PERCENT' && {
                     maxBenefit: Math.floor(purchaseCap * (parsed.action.value / 100)),
                 }),
-                limitConfig: dailyLimit,
+                limitConfig: {
+                    ...dailyLimit,
+                    ...(monthlyPurchaseCap && parsed.action.type === 'PERCENT' && {
+                        monthlyAmount: Math.floor(
+                            monthlyPurchaseCap * (parsed.action.value / 100)
+                        ),
+                    }),
+                },
                 autoPublish: !parsed.ambiguous,
                 manualCheckRequired: parsed.ambiguous,
             });

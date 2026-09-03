@@ -7,9 +7,18 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as schema from '@/db/schema';
 import {
     officialNaverPayRows,
+    officialParisKtHtmlExcerpt,
+    officialParisSktHtmlExcerpt,
+    officialTousLesJoursHtmlExcerpt,
+    officialTUniverseBigGuideHtmlExcerpt,
+    officialTUniverseDailyPassHtmlExcerpt,
+    officialTUniverseOliveStarbucksHtmlExcerpt,
     promotionOfficialFixtureMetadata,
 } from '@/test/fixtures/promotion-official-sources';
-import { parseNaverPayPromotions } from './promotion-parsers';
+import {
+    parseNaverPayPromotions,
+    parseParisMembershipHtml,
+} from './promotion-parsers';
 
 interface MigrationJournal {
     entries: Array<{ tag: string }>;
@@ -18,6 +27,7 @@ interface MigrationJournal {
 const sqlite = new Database(':memory:');
 const integrationDb = drizzle(sqlite, { schema });
 let currentNaverPayRows = [...officialNaverPayRows];
+let currentParisKtHtml = officialParisKtHtmlExcerpt;
 let originalOpenAiApiKey: string | undefined;
 let collectPromotionCandidates: (
     typeof import('./promotion-collector')
@@ -46,6 +56,11 @@ const jsonResponse = (value: unknown) => new Response(JSON.stringify(value), {
     headers: { 'content-type': 'application/json' },
 });
 
+const htmlResponse = (value: string) => new Response(value, {
+    status: 200,
+    headers: { 'content-type': 'text/html; charset=UTF-8' },
+});
+
 const fetchOfficialFixture = vi.fn(async (input: string | URL | Request) => {
     const url = typeof input === 'string'
         ? input
@@ -64,6 +79,30 @@ const fetchOfficialFixture = vi.fn(async (input: string | URL | Request) => {
         });
     }
 
+    if (url === promotionOfficialFixtureMetadata.sources.tUniverseBig) {
+        return htmlResponse(officialTUniverseBigGuideHtmlExcerpt);
+    }
+
+    if (url === promotionOfficialFixtureMetadata.sources.tUniverseDaily) {
+        return htmlResponse(officialTUniverseDailyPassHtmlExcerpt);
+    }
+
+    if (url === promotionOfficialFixtureMetadata.sources.tUniverseOliveStarbucks) {
+        return htmlResponse(officialTUniverseOliveStarbucksHtmlExcerpt);
+    }
+
+    if (url === promotionOfficialFixtureMetadata.sources.parisKt) {
+        return htmlResponse(currentParisKtHtml);
+    }
+
+    if (url === promotionOfficialFixtureMetadata.sources.parisSkt) {
+        return htmlResponse(officialParisSktHtmlExcerpt);
+    }
+
+    if (url === promotionOfficialFixtureMetadata.sources.tousLesJours) {
+        return htmlResponse(officialTousLesJoursHtmlExcerpt);
+    }
+
     return new Response('fixture에서 지원하지 않는 공식 출처', { status: 503 });
 });
 
@@ -71,22 +110,60 @@ beforeAll(async () => {
     applyMigrations();
     integrationDb.insert(schema.categories).values([
         { id: 'cafe', name: '카페', sortOrder: 0 },
-        { id: 'shopping', name: '쇼핑', sortOrder: 1 },
+        { id: 'convenience', name: '편의점', sortOrder: 1 },
+        { id: 'shopping', name: '쇼핑', sortOrder: 2 },
     ]).run();
-    integrationDb.insert(schema.brands).values({
-        id: 'twosome',
-        name: '투썸플레이스',
-        categoryId: 'cafe',
-        sortOrder: 0,
-    }).run();
-    integrationDb.insert(schema.promotionProviders).values({
-        id: 'naverpay',
-        name: 'Npay',
-        kind: 'PAY',
-        sourceUrl: promotionOfficialFixtureMetadata.sources.naverpay,
-        isActive: true,
-        sortOrder: 0,
-    }).run();
+    integrationDb.insert(schema.brands).values([
+        { id: 'twosome', name: '투썸플레이스', categoryId: 'cafe', sortOrder: 0 },
+        { id: 'starbucks', name: '스타벅스', categoryId: 'cafe', sortOrder: 1 },
+        { id: 'paris_baguette', name: '파리바게뜨', categoryId: 'cafe', sortOrder: 2 },
+        { id: 'tous_les_jours', name: '뚜레쥬르', categoryId: 'cafe', sortOrder: 3 },
+        { id: 'cu', name: 'CU', categoryId: 'convenience', sortOrder: 0 },
+        { id: 'seveneleven', name: '세븐일레븐', categoryId: 'convenience', sortOrder: 1 },
+        { id: 'emart24', name: '이마트24', categoryId: 'convenience', sortOrder: 2 },
+    ]).run();
+    integrationDb.insert(schema.promotionProviders).values([
+        {
+            id: 'naverpay',
+            name: 'Npay',
+            kind: 'PAY',
+            sourceUrl: promotionOfficialFixtureMetadata.sources.naverpay,
+            isActive: true,
+            sortOrder: 0,
+        },
+        {
+            id: 't-universe',
+            name: 'T우주',
+            kind: 'SUBSCRIPTION',
+            sourceUrl: promotionOfficialFixtureMetadata.sources.tUniverseBig,
+            isActive: true,
+            sortOrder: 1,
+        },
+        {
+            id: 'skt',
+            name: 'T멤버십',
+            kind: 'TELECOM',
+            sourceUrl: promotionOfficialFixtureMetadata.sources.parisSkt,
+            isActive: true,
+            sortOrder: 2,
+        },
+        {
+            id: 'kt',
+            name: 'KT멤버십',
+            kind: 'TELECOM',
+            sourceUrl: promotionOfficialFixtureMetadata.sources.parisKt,
+            isActive: true,
+            sortOrder: 3,
+        },
+        {
+            id: 'lguplus',
+            name: 'U+멤버십',
+            kind: 'TELECOM',
+            sourceUrl: promotionOfficialFixtureMetadata.sources.tousLesJours,
+            isActive: true,
+            sortOrder: 4,
+        },
+    ]).run();
 
     originalOpenAiApiKey = process.env.OPENAI_API_KEY;
     delete process.env.OPENAI_API_KEY;
@@ -114,7 +191,7 @@ afterAll(() => {
 });
 
 describe('official promotion collection lifecycle', () => {
-    it('persists evidence, rejects a missing pending row, and queues a published removal', async () => {
+    it('covers composite HTML, evidence, pending loss, removal, and reappearance', async () => {
         const parsed = parseNaverPayPromotions(
             officialNaverPayRows,
             'DOMESTIC_INSTORE',
@@ -125,6 +202,20 @@ describe('official promotion collection lifecycle', () => {
         const twosomePromotionId = autoPromotionId('naverpay', twosome.sourceKey);
 
         const firstResults = await collectPromotionCandidates();
+        expect(firstResults.find(result => result.sourceId === 't-universe-products'))
+            .toMatchObject({
+                status: 'created',
+                discovered: 6,
+                published: 6,
+                reviewRequired: 0,
+                products: 8,
+            });
+        expect(firstResults.find(result => result.sourceId === 'paris-kt'))
+            .toMatchObject({ discovered: 2, published: 2, reviewRequired: 0 });
+        expect(firstResults.find(result => result.sourceId === 'paris-skt'))
+            .toMatchObject({ discovered: 2, published: 2, reviewRequired: 0 });
+        expect(firstResults.find(result => result.sourceId === 'tlj-membership'))
+            .toMatchObject({ discovered: 7, published: 7, reviewRequired: 0 });
         const firstNaverPayResult = firstResults.find(
             result => result.sourceId === 'naverpay-benefits',
         );
@@ -151,6 +242,35 @@ describe('official promotion collection lifecycle', () => {
         const firstCandidates = integrationDb.select()
             .from(schema.promotionCandidates)
             .all();
+        const tUniverseCandidate = firstCandidates.find(candidate => (
+            candidate.diff.collectionSourceId === 't-universe-products'
+            && (candidate.parsedOffer.brandIds as string[]).includes('starbucks')
+        ));
+        const tUniverseBundle = integrationDb.select()
+            .from(schema.promotionSourceBundles)
+            .all()
+            .find(bundle => bundle.collectionSourceId === 't-universe-products');
+        const tUniverseBundleDocuments = integrationDb.select()
+            .from(schema.promotionSourceBundleDocuments)
+            .all()
+            .filter(row => row.bundleId === tUniverseBundle?.id);
+        expect(tUniverseBundleDocuments).toHaveLength(3);
+        expect(tUniverseCandidate).toMatchObject({
+            status: 'APPROVED',
+            sourceBundleHash: tUniverseBundle?.sourceBundleHash,
+            audit: { blockingErrors: [] },
+        });
+        expect(tUniverseCandidate?.audit?.coverage.every(
+            item => item.evidence.length > 0,
+        )).toBe(true);
+        expect(firstCandidates.filter(candidate => (
+            ['paris-kt', 'paris-skt', 'tlj-membership']
+                .includes(candidate.diff.collectionSourceId as string)
+        )).every(candidate => (
+            candidate.status === 'APPROVED'
+            && candidate.audit?.blockingErrors.length === 0
+            && candidate.audit.coverage.every(item => item.evidence.length > 0)
+        ))).toBe(true);
         const twosomeCandidate = firstCandidates.find(
             candidate => candidate.diff.sourceKey === twosome.sourceKey,
         );
@@ -223,5 +343,54 @@ describe('official promotion collection lifecycle', () => {
         });
         expect(integrationDb.select().from(schema.promotionOffers).all()
             .find(offer => offer.id === twosomePromotionId)?.status).toBe('PUBLISHED');
+
+        const parisKtOffers = parseParisMembershipHtml(
+            officialParisKtHtmlExcerpt,
+            'kt',
+            promotionOfficialFixtureMetadata.sources.parisKt,
+        );
+        const parisSilver = parisKtOffers.find(item => (
+            item.offer.condition.telecomTiers?.includes('SILVER')
+        ))!;
+        const parisSilverPromotionId = autoPromotionId('kt', parisSilver.sourceKey);
+        const silverBlock = /<div class="elementor-widget-container"><h2[^>]*>SILVER[\s\S]*?<\/h3><\/div>\s*/;
+        currentParisKtHtml = officialParisKtHtmlExcerpt.replace(silverBlock, '');
+
+        const parisRemovalResults = await collectPromotionCandidates();
+        expect(parisRemovalResults.find(result => result.sourceId === 'paris-kt'))
+            .toMatchObject({
+                status: 'created',
+                discovered: 0,
+                published: 0,
+                unchanged: 1,
+                reviewRequired: 1,
+            });
+        const parisRemovalCandidate = integrationDb.select()
+            .from(schema.promotionCandidates)
+            .all()
+            .find(candidate => (
+                candidate.linkedPromotionId === parisSilverPromotionId
+                && candidate.diff.removedFromSource === true
+                && candidate.status === 'PENDING'
+            ));
+        expect(parisRemovalCandidate).toMatchObject({
+            providerId: 'kt',
+            sourceUrl: promotionOfficialFixtureMetadata.sources.parisKt,
+            sourceBundleHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        });
+
+        currentParisKtHtml = officialParisKtHtmlExcerpt;
+        await collectPromotionCandidates();
+
+        expect(integrationDb.select().from(schema.promotionCandidates).all()
+            .find(candidate => candidate.id === parisRemovalCandidate?.id))
+            .toMatchObject({
+                status: 'REJECTED',
+                diff: { resolution: 'REAPPEARED_IN_SOURCE' },
+            });
+        expect(integrationDb.select().from(schema.promotionOffers).all()
+            .find(offer => offer.id === parisSilverPromotionId)?.status).toBe('PUBLISHED');
+        expect(integrationDb.select().from(schema.subscriptionProducts).all())
+            .toHaveLength(8);
     });
 });

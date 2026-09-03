@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
     officialLguplusRows,
     officialNaverPayRows,
+    officialParisKtHtmlExcerpt,
+    officialParisSktHtmlExcerpt,
     officialSktCuHtmlExcerpt,
+    officialTousLesJoursHtmlExcerpt,
     promotionOfficialFixtureMetadata,
 } from '@/test/fixtures/promotion-official-sources';
 import { createPromotionCandidateAudit } from './promotion-candidate-audit';
@@ -10,6 +13,9 @@ import {
     parseLguplusBenefits,
     parseNaverPayPromotions,
     parseSktMembershipHtml,
+    parseParisMembershipHtml,
+    parseTousLesJoursHtml,
+    htmlToText,
 } from './promotion-parsers';
 import {
     applyPromotionSemanticAnalysis,
@@ -36,6 +42,97 @@ describe('preserved official promotion response fixtures', () => {
             { tiers: ['SILVER'], value: 5 },
         ]);
         expect(offers.every(offer => offer.autoPublish)).toBe(true);
+    });
+
+    it('keeps both official Paris Baguette membership pages calculable', () => {
+        const ktOffers = parseParisMembershipHtml(
+            officialParisKtHtmlExcerpt,
+            'kt',
+            promotionOfficialFixtureMetadata.sources.parisKt,
+        );
+        const sktOffers = parseParisMembershipHtml(
+            officialParisSktHtmlExcerpt,
+            'skt',
+            promotionOfficialFixtureMetadata.sources.parisSkt,
+        );
+
+        expect(ktOffers.map(item => ({
+            tiers: item.offer.condition.telecomTiers,
+            value: item.offer.action.value,
+        }))).toEqual([
+            { tiers: ['VVIP', 'VIP', 'GOLD'], value: 10 },
+            { tiers: ['SILVER', 'WHITE', '일반'], value: 5 },
+        ]);
+        expect(sktOffers.map(item => ({
+            tiers: item.offer.condition.telecomTiers,
+            value: item.offer.action.value,
+        }))).toEqual([
+            { tiers: ['VIP', 'GOLD'], value: 10 },
+            { tiers: ['SILVER'], value: 5 },
+        ]);
+        expect([...ktOffers, ...sktOffers].every(item => (
+            item.offer.action.maxBenefit === item.offer.action.value * 2_000
+            && item.offer.limitConfig.dailyCount === 1
+            && item.autoPublish
+        ))).toBe(true);
+    });
+
+    it('keeps all seven official Tous Les Jours telecom tiers and evidence', () => {
+        const offers = parseTousLesJoursHtml(
+            officialTousLesJoursHtmlExcerpt,
+            promotionOfficialFixtureMetadata.sources.tousLesJours,
+        );
+        const ktVip = offers.find(item => (
+            item.offer.providerId === 'kt'
+            && item.offer.condition.telecomTiers?.includes('VIP')
+        ))!;
+        const lguplusVvip = offers.find(item => (
+            item.offer.providerId === 'lguplus'
+            && item.offer.condition.telecomTiers?.includes('VVIP')
+        ))!;
+        const classified = applyPromotionSemanticAnalysis(
+            ktVip,
+            classifyPromotionWithRules(ktVip),
+        );
+        const audit = createPromotionCandidateAudit({
+            candidate: classified.offer as unknown as Record<string, unknown>,
+            baseline: classified.offer as unknown as Record<string, unknown>,
+            evidenceTexts: [classified.evidence],
+            documents: [{
+                id: 'official-tous-les-jours-membership',
+                sourceUrl: promotionOfficialFixtureMetadata.sources.tousLesJours,
+                extractedText: htmlToText(officialTousLesJoursHtmlExcerpt),
+            }],
+        });
+
+        expect(offers).toHaveLength(7);
+        expect(offers.map(item => [
+            item.offer.providerId,
+            item.offer.condition.telecomTiers,
+            item.offer.action.value,
+        ])).toEqual([
+            ['skt', ['VIP', 'GOLD'], 15],
+            ['skt', ['SILVER'], 5],
+            ['kt', ['VIP', 'GOLD'], 15],
+            ['kt', ['SILVER', 'WHITE', '일반'], 10],
+            ['lguplus', ['VVIP'], 15],
+            ['lguplus', ['VIP'], 10],
+            ['lguplus', ['우수'], 5],
+        ]);
+        expect(lguplusVvip.offer).toMatchObject({
+            action: { maxBenefit: 3_000 },
+            limitConfig: { dailyCount: 1, monthlyAmount: 15_000 },
+        });
+        expect(offers.filter(item => item.offer.providerId === 'lguplus').map(item => ({
+            maxBenefit: item.offer.action.maxBenefit,
+            monthlyAmount: item.offer.limitConfig.monthlyAmount,
+        }))).toEqual([
+            { maxBenefit: 3_000, monthlyAmount: 15_000 },
+            { maxBenefit: 2_000, monthlyAmount: 10_000 },
+            { maxBenefit: 1_000, monthlyAmount: 5_000 },
+        ]);
+        expect(audit.summary.missingFields).toBe(0);
+        expect(audit.blockingErrors).toEqual([]);
     });
 
     it('links a parsed U+ GS25 discount to its preserved official evidence', () => {
