@@ -1417,6 +1417,182 @@ describe('card benefit extraction', () => {
         ].join('\n'));
     });
 
+    it('repairs a malformed model source URL only when its quote uniquely matches', () => {
+        const officialUrl = 'https://card.example/guide.pdf';
+        const malformedUrl = 'https://card.example/가이드북.pdf';
+        const quote = '실적 및 한도 제한 없이 국내외 가맹점 이용 금액의 0.8% 청구 할인';
+        const testCard = { ...card, id: 'generic-card' };
+        const source = {
+            sourceUrl: officialUrl,
+            sourceText: quote,
+            mediaType: 'application/pdf',
+            pageTexts: [quote],
+        };
+        const inventory = cardBenefitOpenAIInventorySchema.parse({
+            confidence: 0.9,
+            sections: [{
+                id: 'basic-discount',
+                title: '기본 할인',
+                summary: '국내외 0.8% 할인',
+                kind: 'BENEFIT',
+                appliesToSectionIds: [],
+                sourceUrl: malformedUrl,
+                quote,
+                page: 1,
+            }],
+            notes: [],
+        });
+
+        expect(repairInventoryQuotes(inventory, {
+            card: testCard,
+            sourceUrl: officialUrl,
+            sourceText: quote,
+            sources: [source],
+        }).sections[0].sourceUrl).toBe(officialUrl);
+
+        const extraction: CardBenefitExtraction = {
+            schemaVersion: 2,
+            completeness: 'FULL',
+            card: testCard,
+            rules: [{
+                id: 'basic-discount',
+                cardId: testCard.id,
+                includedBrands: [],
+                excludedBrands: [],
+                platformType: 'ALL',
+                usesCardLimit: false,
+                description: '국내외 가맹점 0.8% 청구 할인',
+                detail: '',
+                condition: {},
+                action: { type: 'PERCENT', value: 0.8 },
+                limitConfig: {},
+            }],
+            evidence: [{
+                id: 'valid-benefit',
+                ruleIds: ['basic-discount'],
+                fields: ['description', 'action'],
+                quote,
+                sourceUrl: malformedUrl,
+                page: 1,
+            }, {
+                id: 'card-metadata',
+                ruleIds: ['_none'],
+                fields: ['condition'],
+                quote,
+                sourceUrl: malformedUrl,
+                page: 1,
+            }],
+            notes: [],
+        };
+        const normalized = normalizeEvidenceBackedCardBenefitExtraction(extraction, {
+            card: testCard,
+            sourceUrl: officialUrl,
+            sourceText: quote,
+            sources: [source],
+        });
+
+        expect(normalized.evidence).toEqual([
+            expect.objectContaining({
+                id: 'valid-benefit',
+                sourceUrl: officialUrl,
+                ruleIds: ['basic-discount'],
+            }),
+        ]);
+    });
+
+    it('normalizes Samsung iD ON merchant scopes and overseas fallback without global discounts', () => {
+        const testCard = { ...card, id: 'samsung_id_on', name: '삼성 iD ON 카드' };
+        const rule = (
+            id: string,
+            description: string,
+            action: BenefitRule['action'],
+            overrides: Partial<BenefitRule> = {},
+        ): BenefitRule => ({
+            id,
+            cardId: testCard.id,
+            includedBrands: [],
+            excludedBrands: [],
+            platformType: 'ALL',
+            usesCardLimit: false,
+            description,
+            detail: '',
+            condition: {},
+            action,
+            limitConfig: {},
+            ...overrides,
+        });
+        const extraction: CardBenefitExtraction = {
+            schemaVersion: 2,
+            completeness: 'FULL',
+            card: testCard,
+            rules: [
+                rule('samsung_id_on_b1_coffee', '커피전문점 월 이용금액이 가장 큰 영역에 30% 결제일할인', { type: 'PERCENT', value: 30 }, {
+                    includedBrands: ['ediya', 'mega'],
+                    limitConfig: { monthlyAmount: 10_000, sharedFields: ['monthlyAmount'] },
+                }),
+                rule('samsung_id_on_b1_delivery', '배달앱 월 이용금액이 가장 큰 영역에 30% 결제일할인', { type: 'PERCENT', value: 30 }, {
+                    limitConfig: { monthlyAmount: 10_000, sharedFields: ['monthlyAmount'] },
+                }),
+                rule('samsung_id_on_b1_deli', '델리 월 이용금액이 가장 큰 영역에 30% 결제일할인', { type: 'PERCENT', value: 30 }, {
+                    limitConfig: { monthlyAmount: 10_000, sharedFields: ['monthlyAmount'] },
+                }),
+                rule('samsung_id_on_b1_starbucks_siren', '스타벅스 사이렌오더 결제에 30% 결제일할인', { type: 'PERCENT', value: 30 }, {
+                    limitConfig: { monthlyAmount: 10_000, sharedFields: ['monthlyAmount'] },
+                }),
+                rule('samsung_id_on_b3_low', '전월 이용금액 30만원 미만 또는 한도 초과 후 1% 할인', { type: 'PERCENT', value: 1 }),
+                rule('samsung_id_on_b3_standard', '전월 이용금액 30만원 이상 온라인 간편결제·해외 3% 할인', { type: 'PERCENT', value: 3 }, {
+                    condition: { minPerformance: 300_000 },
+                }),
+                rule('samsung_id_on_b3_overlimit', '3% 할인 월 한도 초과 후 1% 할인', { type: 'PERCENT', value: 1 }),
+                rule('samsung_id_on_b3_overseas', '해외 가맹점 3%·1% 할인', { type: 'PERCENT', value: 3 }),
+                rule('samsung_id_on_b3_online_unmapped', '온라인 간편결제 할인 대상', { type: 'FLAT', value: 0 }),
+            ],
+            evidence: [],
+            notes: [],
+        };
+        const catalogBrands = [
+            ['starbucks', '스타벅스', 'cafe'],
+            ['ediya', '이디야', 'cafe'],
+            ['coffeebean', '커피빈', 'cafe'],
+            ['twosome', '투썸플레이스', 'cafe'],
+            ['baemin', '배달의민족', 'delivery'],
+            ['yogiyo', '요기요', 'delivery'],
+            ['subway', '써브웨이', 'food'],
+            ['paris_baguette', '파리바게뜨', 'cafe'],
+            ['baskin_robbins', '배스킨라빈스', 'cafe'],
+            ['dunkin', '던킨', 'cafe'],
+            ['overseas_payment', '해외 가맹점', 'etc'],
+        ].map(([id, name, categoryId]) => ({ id, name, categoryId }));
+
+        const normalized = normalizeEvidenceBackedCardBenefitExtraction(extraction, {
+            card: testCard,
+            sourceUrl: 'https://static11.samsungcard.com/wcms/svc/card.html',
+            sourceText: '삼성 iD ON 카드 공식 혜택 상세',
+            catalog: { categories: [], brands: catalogBrands },
+        });
+        const byId = new Map(normalized.rules.map(ruleRow => [ruleRow.id, ruleRow]));
+
+        expect(byId.get('samsung_id_on_b1_coffee')?.includedBrands).toEqual([
+            'starbucks', 'ediya', 'coffeebean', 'twosome',
+        ]);
+        expect(byId.get('samsung_id_on_b1_delivery')).toMatchObject({
+            includedBrands: ['baemin', 'yogiyo'],
+            platformType: 'OFFICIAL_SITE',
+            sharedGroupId: 'samsung_id_on_b1_monthly',
+        });
+        expect(byId.get('samsung_id_on_b3_low')?.includedBrands)
+            .toEqual(['overseas_payment']);
+        expect(byId.get('samsung_id_on_b3_standard')?.includedBrands)
+            .toEqual(['overseas_payment']);
+        expect(byId.has('samsung_id_on_b3_overlimit')).toBe(false);
+        expect(byId.has('samsung_id_on_b3_overseas')).toBe(false);
+        expect(normalized.rules.filter(ruleRow => (
+            ruleRow.action.value > 0 &&
+            !ruleRow.category &&
+            (ruleRow.includedBrands?.length ?? 0) === 0
+        ))).toEqual([]);
+    });
+
     it('repairs a uniquely abbreviated coverage rule ID', () => {
         const baselineExtraction = extractShinhanSolTravelWithRules(input).extraction;
         const candidate = cardBenefitOpenAIExtractionSchema.parse({

@@ -319,7 +319,7 @@ const validateLimitConfig = (value: unknown, label: string, errors: string[]) =>
     }
 };
 
-const moneyTokenSource = '(?:백만원|(?:[0-9][0-9,]*(?:\\.[0-9]+)?(?:억|만|천|백)?)+\\s*원)';
+const moneyTokenSource = '(?:백만원|(?:[0-9][0-9,]*(?:\\.[0-9]+)?\\s*(?:억|만|천|백)?\\s*)+원)';
 
 const parseKoreanMoney = (value: string) => {
     const normalized = value.replace(/[\s,]+/g, '');
@@ -414,7 +414,8 @@ const validateRuleSemanticEvidence = (
                 errors.push(`${fieldLabel} ${amount.toLocaleString()}원의 공식 숫자 근거가 없습니다: ${label}`);
             }
         });
-        if (/미만/.test(label) && ruleRow.condition.maxSpendExclusive === undefined) {
+        if (/미만/.test(label) && !/전월\s*이용금액/.test(label) &&
+            ruleRow.condition.maxSpendExclusive === undefined) {
             errors.push(`결제금액 미만 구간에 배타적 상한이 없습니다: ${label}`);
         }
         if (/이하/.test(label) && ruleRow.condition.maxSpend === undefined) {
@@ -1798,12 +1799,28 @@ export const repairInventoryQuotes = (
     inventory: CardBenefitInventory,
     input: CardBenefitExtractionInput,
 ): CardBenefitInventory => {
-    const sourceByUrl = new Map(extractionSources(input).map(source => [source.sourceUrl, source]));
+    const sources = extractionSources(input);
+    const sourceByUrl = new Map(sources.map(source => [source.sourceUrl, source]));
     return {
         ...inventory,
         sections: inventory.sections.map(section => {
-            const source = sourceByUrl.get(section.sourceUrl);
-            if (!source || sourceContainsQuote(source.sourceText, section.quote)) return section;
+            const configuredSource = sourceByUrl.get(section.sourceUrl);
+            const quoteMatchingSources = configuredSource ? [] : sources.filter(source => {
+                if (!sourceContainsQuote(source.sourceText, section.quote)) return false;
+                if (section.page === null) return true;
+                return source.pageTexts?.[section.page - 1]
+                    ? sourceContainsQuote(source.pageTexts[section.page - 1], section.quote)
+                    : false;
+            });
+            const source = configuredSource ?? (quoteMatchingSources.length === 1
+                ? quoteMatchingSources[0]
+                : undefined);
+            if (!source) return section;
+            if (sourceContainsQuote(source.sourceText, section.quote)) {
+                return source.sourceUrl === section.sourceUrl
+                    ? section
+                    : { ...section, sourceUrl: source.sourceUrl };
+            }
             const sourceLines = source.sourceText.split(/\r?\n/)
                 .map(normalizeText)
                 .filter(Boolean);
@@ -1827,7 +1844,7 @@ export const repairInventoryQuotes = (
             }
             const repairedQuote = repairedLines.join('\n');
             return sourceContainsQuote(source.sourceText, repairedQuote)
-                ? { ...section, quote: repairedQuote }
+                ? { ...section, sourceUrl: source.sourceUrl, quote: repairedQuote }
                 : section;
         }),
     };
@@ -2203,7 +2220,7 @@ const impliedCatalogBrandIds = (
     if (/ak몰/.test(normalized)) add('ak_mall');
     if (/티켓몬스터|티몬/.test(normalized)) add('tmon');
     if (/롯데홈쇼핑/.test(normalized)) add('lotte_home_shopping');
-    if (/식음료|커피전문점/.test(normalized)) {
+    if (/(?:식음료|커피전문점)\s*업종/.test(normalized)) {
         catalogBrands.filter(brand => (
             ['food', 'cafe'].includes(brand.categoryId) &&
             !/^(?:official_|usa_|japan_|vietnam_|overseas_)/.test(brand.id)
@@ -2405,19 +2422,44 @@ export const normalizeEvidenceBackedRuleMechanics = (
 
     extraction.evidence.filter(item => item.fields.includes('limitConfig')).forEach(item => {
         const tiers = performanceLimitTiersIn(`${item.location ?? ''}\n${item.quote}`);
-        if (tiers.length < 2) return;
         const rules = extraction.rules.filter(ruleRow => item.ruleIds.includes(ruleRow.id));
-        rules.forEach(ruleRow => {
-            ruleRow.limitConfig.monthlyAmountByPerformance = tiers;
-        });
-        if (rules.length < 2) return;
+        if (tiers.length >= 2) {
+            rules.forEach(ruleRow => {
+                ruleRow.limitConfig.monthlyAmountByPerformance = tiers;
+            });
+        }
+        const monthlyLimitRules = rules.filter(ruleRow => (
+            typeof ruleRow.limitConfig.monthlyAmount === 'number' || tiers.length >= 2
+        ));
+        const fixedMonthlyAmounts = unique(monthlyLimitRules.flatMap(ruleRow => (
+            typeof ruleRow.limitConfig.monthlyAmount === 'number'
+                ? [ruleRow.limitConfig.monthlyAmount]
+                : []
+        )));
+        const hasSharedFixedMonthlyAmount = monthlyLimitRules.length >= 2 &&
+            fixedMonthlyAmounts.length === 1 &&
+            koreanMoneyValuesIn(`${item.location ?? ''}\n${item.quote}`)
+                .includes(fixedMonthlyAmounts[0]);
+        if (monthlyLimitRules.length < 2 ||
+            (tiers.length < 2 && !hasSharedFixedMonthlyAmount)) return;
         const groupId = `shared_${extraction.card.id}_${item.id}_monthly_amount`
             .replace(/[^a-z0-9_-]+/gi, '_')
             .slice(0, 100);
-        rules.forEach(ruleRow => {
+        monthlyLimitRules.forEach(ruleRow => {
             ruleRow.sharedGroupId = groupId;
             ruleRow.limitConfig.sharedFields = ['monthlyAmount'];
         });
+    });
+    extraction.rules.forEach(ruleRow => {
+        const sharedFields = ruleRow.limitConfig.sharedFields?.filter(field => (
+            field === 'monthlyAmount' && (
+                typeof ruleRow.limitConfig.monthlyAmount === 'number' ||
+                (ruleRow.limitConfig.monthlyAmountByPerformance?.length ?? 0) > 0
+            ) || field !== 'monthlyAmount' &&
+                typeof ruleRow.limitConfig[field] === 'number'
+        ));
+        if (sharedFields?.length) ruleRow.limitConfig.sharedFields = sharedFields;
+        else delete ruleRow.limitConfig.sharedFields;
     });
     if (input) {
         const sourceTextByUrl = new Map(extractionSources(input).map(source => (
@@ -2749,11 +2791,110 @@ const ensureNavyMartLifeFallbackRule = (
     }
 };
 
+const normalizeSamsungIdOnRules = (
+    extraction: CardBenefitExtraction,
+    input: CardBenefitExtractionInput,
+) => {
+    if (extraction.card.id !== 'samsung_id_on') return;
+    const availableBrandIds = new Set(input.catalog?.brands.map(brand => brand.id) ?? []);
+    const supportedBrands = (brandIds: string[]) => brandIds.filter(brandId => (
+        availableBrandIds.has(brandId)
+    ));
+    const findRule = (idSuffix: string, description: RegExp) => extraction.rules.find(ruleRow => (
+        ruleRow.id.endsWith(idSuffix) || description.test(ruleRow.description)
+    ));
+    const coffeeRule = findRule('_b1_coffee', /커피전문점.*30\s*%/i);
+    const deliveryRule = findRule('_b1_delivery', /배달앱.*30\s*%/i);
+    const deliRule = findRule('_b1_deli', /델리.*30\s*%/i);
+    const sirenRule = findRule('_b1_starbucks_siren', /스타벅스.*사이렌오더.*30\s*%/i);
+    const mostUsedRules = [coffeeRule, deliveryRule, deliRule, sirenRule]
+        .filter((ruleRow): ruleRow is BenefitRule => Boolean(ruleRow));
+    if (coffeeRule) {
+        coffeeRule.includedBrands = supportedBrands([
+            'starbucks', 'ediya', 'coffeebean', 'twosome',
+        ]);
+        coffeeRule.platformType = 'OFFLINE';
+    }
+    if (deliveryRule) {
+        deliveryRule.includedBrands = supportedBrands(['baemin', 'yogiyo']);
+        deliveryRule.platformType = 'OFFICIAL_SITE';
+    }
+    if (deliRule) {
+        deliRule.includedBrands = supportedBrands([
+            'subway', 'paris_baguette', 'baskin_robbins', 'dunkin',
+        ]);
+        deliRule.platformType = 'OFFLINE';
+    }
+    if (sirenRule) {
+        sirenRule.includedBrands = supportedBrands(['starbucks']);
+        sirenRule.platformType = 'OFFICIAL_SITE';
+    }
+    if (mostUsedRules.length >= 2) {
+        mostUsedRules.forEach(ruleRow => {
+            ruleRow.sharedGroupId = 'samsung_id_on_b1_monthly';
+            ruleRow.limitConfig.monthlyAmount = 10_000;
+            ruleRow.limitConfig.sharedFields = ['monthlyAmount'];
+        });
+    }
+    extraction.rules.filter(ruleRow => (
+        /많이 쓰는 영역.*미매핑/i.test(ruleRow.description) && ruleRow.action.value === 0
+    )).forEach(ruleRow => {
+        delete ruleRow.sharedGroupId;
+        delete ruleRow.limitConfig.sharedFields;
+    });
+
+    const mobileRule = findRule('_b2_mobile', /이동통신요금.*10\s*%/i);
+    const streamingRule = findRule('_b2_streaming', /스트리밍.*10\s*%|넷플릭스.*10\s*%/i);
+    if (mobileRule) mobileRule.platformType = 'ALL';
+    if (streamingRule) streamingRule.platformType = 'ALL';
+
+    const basicOverseasRule = findRule('_b3_low', /30만원\s*미만.*1\s*%/i);
+    const enhancedOverseasRule = findRule('_b3_standard', /30만원\s*이상.*3\s*%/i);
+    const onlineInformationRule = findRule('_b3_online_unmapped', /온라인\s*간편결제.*대상/i);
+    if (basicOverseasRule && enhancedOverseasRule) {
+        basicOverseasRule.description = '해외 가맹점·해외 직접구매 기본 1% 결제일할인';
+        basicOverseasRule.includedBrands = supportedBrands(['overseas_payment']);
+        basicOverseasRule.platformType = 'ALL';
+        basicOverseasRule.condition.manualCheckRequired = true;
+        basicOverseasRule.condition.requiredNote = '해외겸용 카드인지 확인해야 합니다. 전월 이용금액 30만원 이상에서 3% 월 한도를 모두 사용한 뒤에도 1%가 적용됩니다.';
+        delete basicOverseasRule.sharedGroupId;
+        delete basicOverseasRule.limitConfig.sharedFields;
+
+        enhancedOverseasRule.description = '전월 이용금액 30만원 이상 해외 3% 결제일할인';
+        enhancedOverseasRule.includedBrands = supportedBrands(['overseas_payment']);
+        enhancedOverseasRule.platformType = 'ALL';
+        enhancedOverseasRule.condition.manualCheckRequired = true;
+        enhancedOverseasRule.condition.requiredNote = '해외겸용 카드인지 확인해야 합니다. 발급월+1개월까지는 전월 이용금액 30만원 미만이어도 30만원 이상 구간을 적용합니다.';
+        delete enhancedOverseasRule.sharedGroupId;
+        delete enhancedOverseasRule.limitConfig.sharedFields;
+
+        const redundantIds = new Set(extraction.rules.filter(ruleRow => (
+            ruleRow.id !== basicOverseasRule.id &&
+            ruleRow.id !== enhancedOverseasRule.id && (
+                /3\s*%\s*할인\s*월\s*한도\s*초과.*1\s*%/i.test(ruleRow.description) ||
+                /해외\s*가맹점.*3\s*%.*1\s*%/i.test(ruleRow.description)
+            )
+        )).map(ruleRow => ruleRow.id));
+        extraction.rules = extraction.rules.filter(ruleRow => !redundantIds.has(ruleRow.id));
+    }
+    if (onlineInformationRule) {
+        onlineInformationRule.description = '온라인 간편결제 3%·1% 결제일할인 (조건 확인 필요)';
+        onlineInformationRule.includedBrands = [];
+        onlineInformationRule.platformType = 'ONLINE';
+        onlineInformationRule.condition.manualCheckRequired = true;
+        onlineInformationRule.condition.requiredNote = '삼성페이·네이버페이·카카오페이·PAYCO·스마일페이·coupay·SSGPAY·L.PAY를 통한 국내 온라인 결제인지 확인해야 하며, 현재 자동 계산에서는 제외됩니다.';
+        onlineInformationRule.action = { type: 'FLAT', value: 0 };
+        onlineInformationRule.limitConfig = {};
+        delete onlineInformationRule.sharedGroupId;
+    }
+};
+
 export const normalizeEvidenceBackedCardBenefitExtraction = (
     value: CardBenefitExtraction,
     input: CardBenefitExtractionInput,
 ): CardBenefitExtraction => {
     const extraction = normalizeEvidenceBackedRuleMechanics(structuredClone(value), input);
+    normalizeSamsungIdOnRules(extraction, input);
     const sources = extractionSources(input);
     const stackingLines = extractionSources(input).flatMap(source => (
         source.sourceText.split(/\r?\n/)
@@ -2763,6 +2904,23 @@ export const normalizeEvidenceBackedCardBenefitExtraction = (
             .map(line => ({ source, line }))
     ));
     const ruleById = new Map(extraction.rules.map(ruleRow => [ruleRow.id, ruleRow]));
+    const sourceByUrl = new Map(sources.map(source => [source.sourceUrl, source]));
+    extraction.evidence = extraction.evidence.flatMap(item => {
+        const ruleIds = item.ruleIds.filter(ruleId => ruleById.has(ruleId));
+        if (ruleIds.length === 0) return [];
+        if (item.sourceUrl && sourceByUrl.has(item.sourceUrl)) {
+            return [{ ...item, ruleIds }];
+        }
+        const quoteMatchingSources = sources.filter(source => {
+            if (!sourceContainsQuote(source.sourceText, item.quote)) return false;
+            if (item.page === undefined) return true;
+            const pageText = source.pageTexts?.[item.page - 1];
+            return pageText ? sourceContainsQuote(pageText, item.quote) : false;
+        });
+        return quoteMatchingSources.length === 1
+            ? [{ ...item, ruleIds, sourceUrl: quoteMatchingSources[0].sourceUrl }]
+            : [{ ...item, ruleIds }];
+    });
     const appendSourceEvidence = (options: {
         source: CardBenefitExtractionSource;
         quote: string;
@@ -4050,6 +4208,10 @@ export const normalizeEvidenceBackedCardBenefitExtraction = (
             ]);
         }
     }
+
+    // Re-apply exact card scope after generic ambiguity guards have removed
+    // overlapping channel variants such as Starbucks offline/Siren Order.
+    normalizeSamsungIdOnRules(extraction, input);
 
     // Solo-limit evidence is processed late above. Re-apply the safety rule so
     // informational (0-value) rows cannot accidentally regain monetary caps.

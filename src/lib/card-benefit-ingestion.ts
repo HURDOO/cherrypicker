@@ -303,6 +303,14 @@ const retainUnresolvedProviderErrors = (
     if (/^규칙 \d+이 존재하지 않는 브랜드 .+를 참조합니다\.$/.test(error)) {
         return false;
     }
+    if (/^(?:혜택 인벤토리|근거) \d+이 수집되지 않은 공식 원문을 참조합니다\.$/.test(error) ||
+        /^혜택 인벤토리 .+가 없는 규칙 .+를 참조합니다\.$/.test(error) ||
+        /^근거 \d+이 알 수 없는 규칙 .+를 참조합니다\.$/.test(error)) {
+        return false;
+    }
+    if (/^(?:공유 필드가 있지만 공유 한도 그룹이 없습니다|공식 사이트 전용 혜택에 가맹점 매핑이 없습니다|결제금액 미만 구간에 배타적 상한이 없습니다):/.test(error)) {
+        return false;
+    }
     if (providerInventoryErrorResolved(error, extraction)) return false;
     if (/^(?:규칙 .* 근거가 없습니다\.|할인율 |최소 결제금액 |최대 결제금액 |배타적 최대 결제금액 |최소 실적 |일 금액 한도 |월 금액 한도 |건별 최대 혜택이 |필수 조건의 공식 근거가 없습니다:|계산 불가 정보성 혜택에 금액 한도가 설정됐습니다:|공식 공지 |공식 혜택 |공식 거래 대상 브랜드가 |특정 상품 혜택이 |동일한 최소 실적 |복수 한도 표의 열 제목이 근거 문장에 없습니다:)/
         .test(error)) {

@@ -8,6 +8,7 @@ import {
     discoverOfficialPdfSources,
     joinPdfPages,
     positionedPdfText,
+    shouldUseHyundaiCardLegacyTlsFallback,
     splitPdfPages,
     type OfficialDocumentSourceDefinition,
 } from './official-document-source';
@@ -48,6 +49,24 @@ const noticeSource: OfficialDocumentSourceDefinition = {
 };
 
 describe('official document source adapter', () => {
+    it('limits the legacy TLS fallback to the exact Hyundai Card failure and owner domain', () => {
+        const legacyTlsError = {
+            cause: { code: 'ERR_SSL_UNSAFE_LEGACY_RENEGOTIATION_DISABLED' },
+        };
+        expect(shouldUseHyundaiCardLegacyTlsFallback(
+            legacyTlsError,
+            'https://www.hyundaicard.com/upload/card/guide.pdf',
+        )).toBe(true);
+        expect(shouldUseHyundaiCardLegacyTlsFallback(
+            legacyTlsError,
+            'https://hyundaicard.com.evil.test/guide.pdf',
+        )).toBe(false);
+        expect(shouldUseHyundaiCardLegacyTlsFallback(
+            { cause: { code: 'CERT_HAS_EXPIRED' } },
+            'https://www.hyundaicard.com/upload/card/guide.pdf',
+        )).toBe(false);
+    });
+
     it('preserves visual PDF lines even when PDF.js does not set hasEOL', () => {
         expect(positionedPdfText([
             { str: '카타르항공', hasEOL: false, transform: [1, 0, 0, 10, 10, 700], height: 10 },

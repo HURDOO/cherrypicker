@@ -1,4 +1,5 @@
-import { createHash } from 'node:crypto';
+import { constants as cryptoConstants, createHash } from 'node:crypto';
+import { request as httpsRequest } from 'node:https';
 import { join, sep } from 'node:path';
 import type {
     CardBenefitDocumentMetadata,
@@ -19,6 +20,9 @@ const requestHeaders = {
     'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/140.0 Safari/537.36',
     'accept-language': 'ko-KR,ko;q=0.9,en;q=0.8',
 };
+
+const HYUNDAI_CARD_HOST = 'hyundaicard.com';
+const LEGACY_TLS_ERROR_CODE = 'ERR_SSL_UNSAFE_LEGACY_RENEGOTIATION_DISABLED';
 
 export interface OfficialDocumentSourceDefinition {
     id: string;
@@ -151,6 +155,79 @@ export function assertTrustedOfficialSourceUrl(sourceUrl: string, allowedHosts: 
     return parsed;
 }
 
+const errorCode = (error: unknown) => {
+    if (!error || typeof error !== 'object') return undefined;
+    if ('code' in error && typeof error.code === 'string') return error.code;
+    if ('cause' in error && error.cause && typeof error.cause === 'object' &&
+        'code' in error.cause && typeof error.cause.code === 'string') {
+        return error.cause.code;
+    }
+    return undefined;
+};
+
+export function shouldUseHyundaiCardLegacyTlsFallback(error: unknown, sourceUrl: string) {
+    let hostname: string;
+    try {
+        hostname = new URL(sourceUrl).hostname.toLowerCase();
+    } catch {
+        return false;
+    }
+    return errorCode(error) === LEGACY_TLS_ERROR_CODE &&
+        (hostname === HYUNDAI_CARD_HOST || hostname.endsWith(`.${HYUNDAI_CARD_HOST}`));
+}
+
+const fetchHyundaiCardWithLegacyTls = (
+    sourceUrl: string,
+    headers: Record<string, string>,
+    maximumBytes: number,
+    signal: AbortSignal,
+) => new Promise<Response>((resolve, reject) => {
+    const request = httpsRequest(sourceUrl, {
+        method: 'GET',
+        headers,
+        signal,
+        rejectUnauthorized: true,
+        // Hyundai Card's current official-document host still requires the legacy
+        // server-connect handshake. Certificate and hostname verification stay enabled.
+        secureOptions: cryptoConstants.SSL_OP_LEGACY_SERVER_CONNECT,
+    }, response => {
+        const declaredLength = Number(response.headers['content-length']);
+        if (Number.isFinite(declaredLength) && declaredLength > maximumBytes) {
+            response.resume();
+            reject(new Error('공식 문서가 허용 크기를 초과했습니다.'));
+            return;
+        }
+        const chunks: Buffer[] = [];
+        let receivedBytes = 0;
+        response.on('data', (chunk: Buffer) => {
+            receivedBytes += chunk.length;
+            if (receivedBytes > maximumBytes) {
+                response.destroy(new Error('공식 문서가 허용 크기를 초과했습니다.'));
+                return;
+            }
+            chunks.push(chunk);
+        });
+        response.on('error', reject);
+        response.on('end', () => {
+            const responseHeaders = new Headers();
+            Object.entries(response.headers).forEach(([name, value]) => {
+                if (Array.isArray(value)) {
+                    value.forEach(item => responseHeaders.append(name, item));
+                } else if (value !== undefined) {
+                    responseHeaders.set(name, value);
+                }
+            });
+            resolve(new Response(new Uint8Array(Buffer.concat(chunks)), {
+                status: response.statusCode,
+                statusText: response.statusMessage,
+                headers: responseHeaders,
+            }));
+        });
+    });
+    request.on('error', reject);
+    request.end();
+});
+
 export async function extractPdfText(bytes: Uint8Array): Promise<PdfTextExtraction> {
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
     const pdfAssetDirectory = join(process.cwd(), 'node_modules', 'pdfjs-dist');
@@ -217,22 +294,38 @@ export async function collectOfficialDocument(
     } = {},
 ): Promise<CollectedOfficialDocument> {
     assertTrustedOfficialSourceUrl(definition.sourceUrl, definition.allowedHosts);
-    const response = await (options.fetcher ?? fetch)(definition.sourceUrl, {
-        headers: {
-            ...requestHeaders,
-            accept: definition.format === 'pdf'
-                ? 'application/pdf,application/octet-stream;q=0.8'
-                : 'text/html,application/xhtml+xml',
-        },
-        cache: 'no-store',
-        redirect: 'follow',
-        signal: AbortSignal.timeout(30_000),
-    });
+    const headers = {
+        ...requestHeaders,
+        accept: definition.format === 'pdf'
+            ? 'application/pdf,application/octet-stream;q=0.8'
+            : 'text/html,application/xhtml+xml',
+    };
+    const signal = AbortSignal.timeout(30_000);
+    const maximumBytes = definition.format === 'pdf' ? PDF_MAX_BYTES : HTML_MAX_BYTES;
+    let response: Response;
+    try {
+        response = await (options.fetcher ?? fetch)(definition.sourceUrl, {
+            headers,
+            cache: 'no-store',
+            redirect: 'follow',
+            signal,
+        });
+    } catch (error) {
+        if (options.fetcher ||
+            !shouldUseHyundaiCardLegacyTlsFallback(error, definition.sourceUrl)) {
+            throw error;
+        }
+        response = await fetchHyundaiCardWithLegacyTls(
+            definition.sourceUrl,
+            headers,
+            maximumBytes,
+            signal,
+        );
+    }
     if (!response.ok) throw new Error(`공식 문서 HTTP ${response.status}`);
     const finalUrl = response.url || definition.sourceUrl;
     assertTrustedOfficialSourceUrl(finalUrl, definition.allowedHosts);
 
-    const maximumBytes = definition.format === 'pdf' ? PDF_MAX_BYTES : HTML_MAX_BYTES;
     const declaredLengthHeader = response.headers.get('content-length');
     const declaredLength = declaredLengthHeader ? Number(declaredLengthHeader) : undefined;
     if (declaredLength !== undefined && Number.isFinite(declaredLength) &&
