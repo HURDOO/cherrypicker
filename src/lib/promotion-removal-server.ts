@@ -8,11 +8,20 @@ import {
 import { HttpError } from './http-error';
 import {
     PROMOTION_CANDIDATE_RESOLUTION,
+    PROMOTION_REMOVAL_AUTO_ACTOR,
+    type PromotionRemovalObservation,
     promotionRemovalConfirmationError,
     withPromotionCandidateResolution,
 } from './promotion-removal-policy';
 
-export function confirmPromotionRemoval(candidateId: string, reviewerId: string) {
+export function confirmPromotionRemoval(
+    candidateId: string,
+    reviewerId: string | null,
+    options: {
+        now?: Date;
+        automaticObservation?: PromotionRemovalObservation;
+    } = {},
+) {
     const candidate = db.select().from(promotionCandidates)
         .where(eq(promotionCandidates.id, candidateId))
         .get();
@@ -37,7 +46,18 @@ export function confirmPromotionRemoval(candidateId: string, reviewerId: string)
         .get();
     if (!promotion) throw new HttpError(409, '삭제할 게시 혜택이 더 이상 존재하지 않습니다.');
 
-    const now = new Date();
+    const now = options.now ?? new Date();
+    const resolution = options.automaticObservation
+        ? PROMOTION_CANDIDATE_RESOLUTION.REMOVAL_AUTO_CONFIRMED
+        : PROMOTION_CANDIDATE_RESOLUTION.REMOVAL_CONFIRMED;
+    const resolvedDiff = withPromotionCandidateResolution(
+        candidate.diff,
+        resolution,
+        {
+            resolvedAt: now,
+            sourceBundleHash: candidate.sourceBundleHash,
+        },
+    );
     db.transaction(tx => {
         tx.update(promotionOffers)
             .set({
@@ -50,14 +70,19 @@ export function confirmPromotionRemoval(candidateId: string, reviewerId: string)
         tx.update(promotionCandidates)
             .set({
                 status: 'APPROVED',
-                diff: withPromotionCandidateResolution(
-                    candidate.diff,
-                    PROMOTION_CANDIDATE_RESOLUTION.REMOVAL_CONFIRMED,
-                    {
-                        resolvedAt: now,
-                        sourceBundleHash: candidate.sourceBundleHash,
-                    },
-                ),
+                diff: options.automaticObservation
+                    ? {
+                        ...resolvedDiff,
+                        automaticApproval: {
+                            actor: PROMOTION_REMOVAL_AUTO_ACTOR,
+                            policy: options.automaticObservation.policy,
+                            observationCount: options.automaticObservation.count,
+                            firstObservedAt: options.automaticObservation.firstObservedAt,
+                            lastObservedAt: options.automaticObservation.lastObservedAt,
+                            observations: options.automaticObservation.observations,
+                        },
+                    }
+                    : resolvedDiff,
                 reviewerId,
                 reviewedAt: now,
             })

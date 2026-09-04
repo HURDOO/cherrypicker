@@ -128,6 +128,8 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 - 게시 혜택: `promotion_offers`
 - 원문 bundle: `promotion_source_documents`, `promotion_source_bundles`, 연결 테이블
 - 후보·실행: `promotion_candidates`, `promotion_collection_runs`
+- 구조화 안전장치: 출처별 parser가 반복 확인된 표시 금액, 항목별 U+ 혜택, 상품·카테고리·고객 범위와 복합 정보용 혜택을 구조화한다. 공식 API 필드와 표시 문구의 충돌이 단일 원문 안에서 해소되지 않으면 `autoPublish`를 차단하고 후보로 남긴다.
+- 자동 삭제: `promotion_candidates.diff.removalObservation`에 완전 수집별 출처 bundle과 시각을 누적한다. 첫 누락 5분 뒤 자동 재수집에서도 사라진 경우만 `REMOVAL_AUTO_CONFIRMED`로 승인하고, 자동 처리 주체·정책·관측 목록을 같은 diff에 보존한다. CLI는 두 번째 수집까지 프로세스를 유지하고, 관리자 수동 수집은 단일 앱 프로세스의 중복 방지 타이머로 재확인한다. 재시작으로 타이머가 사라져도 후보가 DB에 남아 다음 완전 수집에서 다시 판정된다.
 
 ### 5.4 계정·거래
 

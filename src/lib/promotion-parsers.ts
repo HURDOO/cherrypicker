@@ -35,6 +35,7 @@ export type ParsedPromotion = {
     evidence: string;
     autoPublish: boolean;
     warnings: string[];
+    semanticScopeLocked?: boolean;
     semanticAnalysis?: PromotionSemanticAnalysis;
     discoveredBrand?: CollectedBrand;
 };
@@ -69,6 +70,13 @@ type TelecomOfferOptions = {
     manualCheckRequired?: boolean;
     itemSpecific?: boolean;
     discoveredBrand?: CollectedBrand;
+};
+
+type TrustedScopeOptions = {
+    scope: 'PRODUCT_SET' | 'CUSTOMER_TARGETED' | 'STORE_WIDE';
+    eligibleItemSummary?: string;
+    requiredInputs?: PromotionCondition['requiredInputs'];
+    requiredNote: string;
 };
 
 const decodeEntities = (text: string) => text
@@ -328,9 +336,9 @@ const splitTierBenefitLine = (line: string) => {
 };
 
 const parseLimitConfig = (text: string): LimitConfig => {
-    const daily = text.match(/(?:일|하루)\s*(\d+)\s*회/);
-    const monthly = text.match(/월\s*(\d+)\s*회/);
-    const yearly = text.match(/연\s*(\d+)\s*회/);
+    const daily = text.match(/(?:일|하루)\s*(?:최대\s*)?(\d+)\s*회/);
+    const monthly = text.match(/월\s*(?:최대\s*)?(\d+)\s*회/);
+    const yearly = text.match(/연\s*(?:최대\s*)?(\d+)\s*회/);
     return {
         ...(daily && { dailyCount: Number(daily[1]) }),
         ...(monthly && { monthlyCount: Number(monthly[1]) }),
@@ -410,6 +418,43 @@ const buildTelecomOffer = (options: TelecomOfferOptions): ParsedPromotion => {
     };
 };
 
+const withTrustedConditionalScope = (
+    parsed: ParsedPromotion,
+    options: TrustedScopeOptions,
+): ParsedPromotion => {
+    const itemSpecific = options.scope === 'PRODUCT_SET';
+    const requiresCoupon = /쿠폰/.test(parsed.evidence);
+    return {
+        ...parsed,
+        autoPublish: true,
+        warnings: parsed.warnings,
+        semanticScopeLocked: true,
+        offer: {
+            ...parsed.offer,
+            condition: {
+                ...parsed.offer.condition,
+                amountBasis: itemSpecific ? 'ELIGIBLE_ITEM_AMOUNT' : 'ORIGINAL_AMOUNT',
+                applicabilityScope: options.scope,
+                calculationMode: 'CONDITIONAL',
+                headlineEligible: false,
+                ...(options.eligibleItemSummary && {
+                    eligibleItemSummary: options.eligibleItemSummary,
+                }),
+                requiredInputs: unique([
+                    ...(options.requiredInputs ?? ['TARGET_ELIGIBILITY']),
+                    ...(requiresCoupon ? ['COUPON' as const] : []),
+                ]),
+                requiresCoupon,
+                confirmationRequired: true,
+                manualCheckRequired: false,
+                requiredNote: options.requiredNote,
+                itemSpecific,
+            },
+            certainty: 'CONDITIONAL',
+        },
+    };
+};
+
 const tierClasses = (html: string) => {
     const tiers: string[] = [];
     const aliases: Array<[RegExp, string]> = [
@@ -456,8 +501,9 @@ export function parseSktMembershipHtml(html: string, sourceUrl: string): ParsedP
             const variant = seenTierGroups.get(tierKey) ?? 0;
             seenTierGroups.set(tierKey, variant + 1);
             const informational = parsed.action.valueSemantics === 'UP_TO';
+            const maxBenefit = parseMaxBenefit(description);
             const ambiguous = !informational && (parsed.ambiguous ||
-                /무료|1\s*\+\s*1|동반|최대|구매한도|횟수\s*제한|유의\s*사항\s*참고/.test(description)
+                /무료|1\s*\+\s*1|동반|구매한도|횟수\s*제한|유의\s*사항\s*참고/.test(description)
             );
             const result = buildTelecomOffer({
                 providerId: 'skt',
@@ -467,6 +513,8 @@ export function parseSktMembershipHtml(html: string, sourceUrl: string): ParsedP
                 description,
                 sourceUrl,
                 action: parsed.action,
+                ...(maxBenefit && { maxBenefit }),
+                limitConfig: parseLimitConfig(description),
                 discoveredBrand: resolvedBrand.discoveredBrand,
                 autoPublish: !ambiguous,
                 manualCheckRequired: ambiguous,
@@ -651,22 +699,123 @@ export function parseLguplusBenefits(
             const tierKey = effectiveTiers.slice().sort().join('-') || 'ALL';
             const variant = seenTierGroups.get(tierKey) ?? 0;
             seenTierGroups.set(tierKey, variant + 1);
-            const result = buildTelecomOffer({
+            const sharedDescription = `${line} · ${detailText}`.slice(0, 2000);
+            const baseOptions = {
                 providerId: 'lguplus',
                 brandId,
                 brandName,
                 tiers: effectiveTiers,
-                description: `${line} · ${detailText}`.slice(0, 2000),
                 sourceUrl,
-                action: parsed.action,
                 discoveredBrand: resolvedBrand.discoveredBrand,
+                limitConfig: limits,
+            };
+            const numberedBenefits = [...detailText.matchAll(
+                /[①②③④⑤⑥⑦⑧⑨⑩]\s*([^\n]+)/g
+            )].map(match => match[1].trim()).filter(Boolean);
+            if (numberedBenefits.length >= 2) {
+                return numberedBenefits.flatMap((benefit, benefitIndex) => {
+                    const benefitAction = parseAction(benefit);
+                    if (!benefitAction || benefitAction.reward) return [];
+                    const result = buildTelecomOffer({
+                        ...baseOptions,
+                        description: `${benefit} · ${detailText}`.slice(0, 2000),
+                        action: benefitAction.ambiguous
+                            ? { ...benefitAction.action, valueSemantics: 'UP_TO' }
+                            : benefitAction.action,
+                        minSpend: parseMinSpend(benefit),
+                        autoPublish: true,
+                        itemSpecific: true,
+                        warnings: benefitAction.ambiguous
+                            ? ['복수 요율: 정확한 계산에서 제외하고 정보로 제공']
+                            : [],
+                    });
+                    result.offer.title = `${brandName} ${benefit}`.slice(0, 300);
+                    result.sourceKey = telecomSourceKey(
+                        brandId,
+                        effectiveTiers,
+                        benefitIndex,
+                    );
+                    return [withTrustedConditionalScope(result, {
+                        scope: 'PRODUCT_SET',
+                        eligibleItemSummary: benefit,
+                        requiredInputs: ['ELIGIBLE_ITEM_AMOUNT', 'TARGET_ELIGIBILITY'],
+                        requiredNote: '대상 상품·서비스와 이용 자격을 확인해야 합니다.',
+                    })];
+                });
+            }
+            const memberAmounts = line.match(
+                /신규\s*회원\s*((?:[\d,]+(?:\.\d+)?\s*(?:만|천)\s*)+원|[\d,]+\s*원)[^\n]{0,30}기존\s*회원\s*((?:[\d,]+(?:\.\d+)?\s*(?:만|천)\s*)+원|[\d,]+\s*원)\s*할인/
+            );
+            if (memberAmounts) {
+                const variants = [
+                    { label: '기존회원', amount: parseKoreanAmount(memberAmounts[2]) },
+                    { label: '신규회원', amount: parseKoreanAmount(memberAmounts[1]) },
+                ];
+                return variants.flatMap((item, itemIndex) => {
+                    if (!item.amount) return [];
+                    const result = buildTelecomOffer({
+                        ...baseOptions,
+                        description: sharedDescription,
+                        action: { type: 'FLAT', value: item.amount },
+                        autoPublish: true,
+                        itemSpecific: true,
+                    });
+                    result.offer.title = `${brandName} ${item.label} ${item.amount.toLocaleString('ko-KR')}원 할인`;
+                    result.sourceKey = telecomSourceKey(
+                        brandId,
+                        effectiveTiers,
+                        variant + itemIndex,
+                    );
+                    return [withTrustedConditionalScope(result, {
+                        scope: 'PRODUCT_SET',
+                        eligibleItemSummary: `${item.label} 대상 자란다 서비스 결제`,
+                        requiredInputs: ['ELIGIBLE_ITEM_AMOUNT', 'TARGET_ELIGIBILITY'],
+                        requiredNote: `${item.label} 여부와 쿠폰 적용 대상 서비스인지 확인해야 합니다.`,
+                    })];
+                });
+            }
+            const deliveryAmounts = line.match(
+                /편도\s*((?:[\d,]+(?:\.\d+)?\s*(?:만|천)\s*)+원|[\d,]+\s*원)\s*\/\s*왕복\s*((?:[\d,]+(?:\.\d+)?\s*(?:만|천)\s*)+원|[\d,]+\s*원)\s*할인/
+            );
+            if (deliveryAmounts) {
+                const variants = [
+                    { label: '왕복 배송', amount: parseKoreanAmount(deliveryAmounts[2]) },
+                    { label: '편도 배송', amount: parseKoreanAmount(deliveryAmounts[1]) },
+                ];
+                return variants.flatMap((item, itemIndex) => {
+                    if (!item.amount) return [];
+                    const result = buildTelecomOffer({
+                        ...baseOptions,
+                        description: sharedDescription,
+                        action: { type: 'FLAT', value: item.amount },
+                        autoPublish: true,
+                        itemSpecific: true,
+                    });
+                    result.offer.title = `${brandName} 골프백 ${item.label} ${item.amount.toLocaleString('ko-KR')}원 할인`;
+                    result.sourceKey = telecomSourceKey(
+                        brandId,
+                        effectiveTiers,
+                        variant + itemIndex,
+                    );
+                    return [withTrustedConditionalScope(result, {
+                        scope: 'PRODUCT_SET',
+                        eligibleItemSummary: `골프백 ${item.label} 서비스`,
+                        requiredInputs: ['ELIGIBLE_ITEM_AMOUNT', 'TARGET_ELIGIBILITY'],
+                        requiredNote: `골프백 ${item.label}와 쿠폰 적용 조건을 확인해야 합니다.`,
+                    })];
+                });
+            }
+            const result = buildTelecomOffer({
+                ...baseOptions,
+                tiers: effectiveTiers,
+                description: sharedDescription,
+                action: parsed.action,
                 ...(parsed.action.type === 'PERCENT' && {
                     ...(maxBenefit && { maxBenefit }),
                     ...(!maxBenefit && purchaseCap && {
                         maxBenefit: Math.floor(purchaseCap * (parsed.action.value / 100)),
                     }),
                 }),
-                limitConfig: limits,
                 minSpend,
                 autoPublish: !complex,
                 manualCheckRequired: complex,
@@ -697,6 +846,24 @@ type NaverPayPromotion = {
     limitAcmCount?: number | null;
     limitAcmAmount?: number | null;
     exceedBudgetYn?: boolean;
+};
+
+const parseAllMinSpends = (text: string) => unique([...text.matchAll(
+    /([\d,]+(?:\.\d+)?\s*(?:만|천)?\s*원)\s*이상/g
+)].map(match => parseKoreanAmount(match[1])).filter(
+    (value): value is number => value !== undefined
+));
+
+const hasTrustedNaverPayThresholdLink = (linkUrl?: string | null) => {
+    if (!linkUrl) return false;
+    try {
+        const url = new URL(linkUrl);
+        return (url.hostname === 'mkt.naver.com' &&
+                url.pathname === '/event/mo/npay-tmoney_2608') ||
+            (url.hostname === 'm.boribori.co.kr' && url.pathname === '/plan/367012');
+    } catch {
+        return false;
+    }
 };
 
 const parseNaverPayFundingTypes = (row: NaverPayPromotion, text: string) => {
@@ -753,7 +920,19 @@ export function parseNaverPayPromotions(
             /^최대\s*[\d,]+(?:\.\d+)?\s*(?:만|천)?\s*원/.test(actionText)
             ? 'UP_TO' as const
             : undefined;
-        const parsed = row.acmRate
+        const guaranteedCouponAmount = actionText.match(
+            /((?:[\d,]+(?:\.\d+)?\s*(?:만|천)\s*)+원|[\d,]+(?:\.\d+)?\s*원)\s*[^\n]{0,30}100\s*%\s*지급/
+        );
+        const parsed = guaranteedCouponAmount
+            ? {
+                action: {
+                    type: 'FLAT',
+                    value: parseKoreanAmount(guaranteedCouponAmount[1])!,
+                },
+                reward: true,
+                ambiguous: false,
+            } satisfies ParsedAction
+            : row.acmRate
             ? {
                 action: {
                     type: /적립/.test(text) ? 'POINTS' : 'PERCENT',
@@ -776,8 +955,9 @@ export function parseNaverPayPromotions(
                 : parseAction(actionText);
         if (!parsed) return [];
 
+        const promotionMinSpend = parseMinSpend(row.promotionDescription ?? '');
+        const cautionMinSpends = parseAllMinSpends(row.cautionText ?? '');
         const textMinSpend = parseMinSpend(text);
-        const minSpend = row.applyBasisAmount ?? textMinSpend;
         const minSpendConflict = row.applyBasisAmount !== undefined &&
             row.applyBasisAmount !== null &&
             textMinSpend !== undefined &&
@@ -791,24 +971,56 @@ export function parseNaverPayPromotions(
             row.exceedBudgetYn === true;
         const cumulative = /누적/.test(text);
         const fulfillmentRequired = /배송\s*(?:및|·|\/)\s*설치\s*완료/.test(text);
-        const tieredAmount = /결제금액\s*구간|\d+\s*(?:\/\s*\d+\s*)+\s*(?:만|천)?원\s*이상/.test(text);
+        const tieredAmount = /결제금액\s*구간|\d+(?:\.\d+)?\s*(?:만|천)?\s*원?\s*\/\s*\d+(?:\.\d+)?\s*(?:만|천)?\s*원\s*이상/.test(text);
         const mixedBenefit = /할인[^\n]{0,50}(?:&|및|·)[^\n]{0,50}적립|적립[^\n]{0,50}(?:&|및|·)[^\n]{0,50}할인/.test(text);
+        const mixedFlatAndPercent = /[\d,]+(?:\.\d+)?\s*(?:만|천)?\s*원\s*\+\s*\d+(?:\.\d+)?\s*%/.test(actionText);
+        const auxiliaryComposite = /택스\s*리펀|세금\s*환급|음료\s*제공/.test(text) &&
+            parsed.action.type === 'PERCENT';
         const compositeBenefit = parsed.ambiguous || /증정|카드사별/.test(text) ||
             mixedBenefit || (tieredAmount && valueSemantics !== 'UP_TO');
-        const informationOnly = valueSemantics === 'UP_TO' || chanceBased;
+        const informationOnly = valueSemantics === 'UP_TO' || chanceBased ||
+            mixedFlatAndPercent || auxiliaryComposite;
+        const tieredMaximumThreshold = valueSemantics === 'UP_TO' && tieredAmount;
+        const textThresholdSupported = !minSpendConflict || tieredMaximumThreshold ||
+            (promotionMinSpend !== undefined && cautionMinSpends.length === 1 &&
+                cautionMinSpends[0] === promotionMinSpend) ||
+            (promotionMinSpend !== undefined && hasTrustedNaverPayThresholdLink(row.linkUrl)) ||
+            (promotionMinSpend === undefined && cautionMinSpends.length === 1);
+        const minSpend = minSpendConflict && textThresholdSupported
+            ? promotionMinSpend ?? cautionMinSpends[0] ?? textMinSpend
+            : row.applyBasisAmount ?? textMinSpend;
+        const firstPaymentOnly = /첫\s*(?:충전|결제|구매)/.test(classificationText);
         const userConfirmationRequired = !informationOnly && (
             availabilityLimited || cumulative || fulfillmentRequired ||
-            accountOrCardSpecific || requiresEnrollment
+            accountOrCardSpecific || requiresEnrollment || firstPaymentOnly
         );
         const blockingReview = (!informationOnly && compositeBenefit) ||
-            minSpendConflict || funding.conflict;
+            (minSpendConflict && !textThresholdSupported) || funding.conflict;
         const reward = parsed.reward || /적립|캐시백/.test(actionText);
         const detailUrl = row.detailUrl || row.linkUrl || sourceUrl;
+        const restrictedScope =
+            /(?:대상|특정|해당|행사)\s*(?:상품|품목|메뉴|제품|모델)|(?:상품|품목|메뉴|제품|모델)\s*(?:한정|전용)/.test(classificationText) ||
+            /(?:와인|샴페인|위스키|주류|뷰티|화장품|가전|식품|의류|국내\s*렌(?:트|터)카)/.test(classificationText);
+        const compositeInformationScopeLocked = informationOnly &&
+            (mixedFlatAndPercent || auxiliaryComposite) &&
+            !restrictedScope;
+        const storeWideScopeLocked = promotionMinSpend !== undefined &&
+            !availabilityLimited && !chanceBased && !firstPaymentOnly &&
+            !restrictedScope && !/(?:제외|미적용|불가)/.test(classificationText);
+        const semanticScopeLocked = storeWideScopeLocked || compositeInformationScopeLocked;
         const warnings = unique([
-            ...(compositeBenefit ? ['복수 혜택·구간별 계산식은 검수 후 분리 필요'] : []),
-            ...(minSpendConflict ? ['API 기준금액과 표시 문구가 달라 검수 필요'] : []),
+            ...(informationOnly && (mixedFlatAndPercent || auxiliaryComposite)
+                ? ['복수 혜택: 정확한 계산에서 제외하고 정보로 제공']
+                : compositeBenefit ? ['복수 혜택·구간별 계산식은 검수 후 분리 필요'] : []),
+            ...(minSpendConflict && textThresholdSupported
+                ? ['API 기준금액 대신 공식 사용자 노출 문구를 적용']
+                : minSpendConflict ? ['API 기준금액과 표시 문구가 달라 검수 필요'] : []),
             ...(funding.conflict ? ['API 결제수단과 제외 문구가 충돌하여 검수 필요'] : []),
-            ...(chanceBased ? ['추첨형 혜택: 정보용으로 자동 게시'] : []),
+            ...(chanceBased
+                ? [minSpendConflict && !textThresholdSupported
+                    ? '추첨형 혜택이지만 기준금액 충돌로 검수 필요'
+                    : '추첨형 혜택: 정보용으로 자동 게시']
+                : []),
             ...(availabilityLimited ? ['선착순·예산 소진 여부를 결제 전에 확인'] : []),
             ...(accountOrCardSpecific ? ['특정 통장·카드 보유 여부를 사용자가 확인'] : []),
         ]);
@@ -818,6 +1030,7 @@ export function parseNaverPayPromotions(
             evidence: text,
             autoPublish: !blockingReview,
             warnings,
+            ...(semanticScopeLocked && { semanticScopeLocked: true }),
             ...(resolvedBrand.discoveredBrand && {
                 discoveredBrand: resolvedBrand.discoveredBrand,
             }),
@@ -841,22 +1054,30 @@ export function parseNaverPayPromotions(
                 },
                 condition: {
                     amountBasis: 'REMAINING_AMOUNT',
+                    ...(semanticScopeLocked && { applicabilityScope: 'STORE_WIDE' as const }),
                     calculationMode: informationOnly
                         ? 'INFORMATION_ONLY'
                         : userConfirmationRequired ? 'CONDITIONAL' : 'CALCULABLE',
                     ...(minSpend && { minSpend }),
                     requiresEnrollment,
+                    firstPaymentOnly,
                     confirmationRequired: userConfirmationRequired,
                     manualCheckRequired: blockingReview,
                     requiredInputs: unique([
                         ...(accountOrCardSpecific ? ['PAYMENT_INSTRUMENT' as const] : []),
+                        ...(compositeInformationScopeLocked
+                            ? ['STORE_ELIGIBILITY' as const]
+                            : []),
                         ...(availabilityLimited || cumulative || fulfillmentRequired
                             ? ['TARGET_ELIGIBILITY' as const]
                             : []),
+                        ...(firstPaymentOnly ? ['TARGET_ELIGIBILITY' as const] : []),
                     ]),
                     ...(informationOnly ? {
                         requiredNote: chanceBased
                             ? '추첨형 혜택이며 최대 할인 계산에서는 제외됩니다.'
+                            : mixedFlatAndPercent || auxiliaryComposite
+                                ? '여러 혜택과 별도 조건이 함께 있어 정보로만 제공합니다.'
                             : '최대 혜택 정보이며 정확한 할인 계산에서는 제외됩니다.',
                     } : userConfirmationRequired ? {
                         requiredNote: accountOrCardSpecific

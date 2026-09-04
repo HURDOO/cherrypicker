@@ -6,6 +6,10 @@ import {
     parseSktMembershipHtml,
     parseTousLesJoursHtml,
 } from './promotion-parsers';
+import {
+    applyPromotionSemanticAnalysis,
+    classifyPromotionWithRules,
+} from './promotion-semantic-classifier';
 
 describe('promotion source parsers', () => {
     it('splits an SKT brand into tier-specific structured discounts', () => {
@@ -37,6 +41,37 @@ describe('promotion source parsers', () => {
         expect(offers.map(item => item.offer.action.value)).toEqual([10, 5]);
         expect(offers[0].offer.brandIds).toEqual(['cu']);
         expect(offers[0].offer.condition.telecomTiers).toEqual(['VIP', 'GOLD']);
+        expect(offers.every(item => item.autoPublish)).toBe(true);
+    });
+
+    it('parses SKT daily benefit caps and maximum monthly uses without review', () => {
+        const html = `
+            <a class="benefit-box">
+                <span class="brand">아웃백 스테이크하우스</span>
+                <dl>
+                    <dt>할인형</dt>
+                    <dd>
+                        <div class="info">
+                            <i class="badge-circle vip"></i><i class="badge-circle gold"></i>
+                            15% 할인 (1일 1회, 일 최대 20,000원 / 월 최대 4회 이용 가능)
+                        </div>
+                        <div class="info">
+                            <i class="badge-circle silver"></i>
+                            5% 할인 (1일 1회, 일 최대 10,000원 / 월 최대 4회 이용 가능)
+                        </div>
+                    </dd>
+                </dl>
+            </a>
+        `;
+
+        const offers = parseSktMembershipHtml(html, 'https://example.com/skt');
+
+        expect(offers).toHaveLength(2);
+        expect(offers.map(item => item.offer.action.maxBenefit)).toEqual([20_000, 10_000]);
+        expect(offers.map(item => item.offer.limitConfig)).toEqual([
+            { dailyCount: 1, monthlyCount: 4 },
+            { dailyCount: 1, monthlyCount: 4 },
+        ]);
         expect(offers.every(item => item.autoPublish)).toBe(true);
     });
 
@@ -163,6 +198,99 @@ describe('promotion source parsers', () => {
             name: '매드포갈릭',
             categoryId: 'food',
         });
+    });
+
+    it('splits deterministic U+ service variants into conditional product offers', () => {
+        const offers = parseLguplusBenefits([{
+            urcMbspJncoNm: '스피드메이트',
+            jncoBnftThumCntn: '엔진오일 2만원 할인 외 정비 혜택 4종',
+            jncoBnftDetlCntn: '3개월 1회',
+            urcBnftTadvMthdCntn: [
+                '①엔진오일 2만원 할인',
+                '②에어컨필터 10% 할인',
+                '③에어컨 가스 완충 10% 할인',
+                '④부동액 10% 할인',
+                '⑤공임 10% 할인',
+            ].join('<br />'),
+            jncoTadvGrdDetlDscr: 'VVIP/VIP/우수',
+        }, {
+            urcMbspJncoNm: '자란다',
+            jncoBnftThumCntn: '돌봄, 배움 1회 방문 서비스 할인<br/>(신규회원 5천원, 기존회원 2천원 할인)',
+            jncoBnftDetlCntn: '월 1회',
+            jncoTadvGrdDetlDscr: 'VVIP/VIP/우수',
+        }, {
+            urcMbspJncoNm: '아이콘골프',
+            jncoBnftThumCntn: '골프백 배송 편도 2천원 / 왕복 1천원 할인',
+            jncoBnftDetlCntn: '월 1회',
+            jncoTadvGrdDetlDscr: 'VVIP/VIP/우수',
+        }], 'https://example.com/uplus');
+
+        const speedmate = offers.filter(item => item.offer.title.startsWith('스피드메이트'));
+        const jaranda = offers.filter(item => item.offer.title.startsWith('자란다'));
+        const iconGolf = offers.filter(item => item.offer.title.startsWith('아이콘골프'));
+
+        expect(speedmate).toHaveLength(5);
+        expect(speedmate.map(item => item.offer.action.value)).toEqual([20_000, 10, 10, 10, 10]);
+        expect(jaranda.map(item => item.offer.action.value)).toEqual([2_000, 5_000]);
+        expect(iconGolf.map(item => item.offer.action.value)).toEqual([1_000, 2_000]);
+        expect(offers.every(item => item.autoPublish)).toBe(true);
+        expect(offers.every(item => item.semanticScopeLocked)).toBe(true);
+        expect(offers.every(item => (
+            item.offer.condition.applicabilityScope === 'PRODUCT_SET' &&
+            item.offer.condition.calculationMode === 'CONDITIONAL' &&
+            item.offer.condition.manualCheckRequired === false
+        ))).toBe(true);
+    });
+
+    it('keeps each numbered U+ benefit threshold on its split offer', () => {
+        const offers = parseLguplusBenefits([{
+            urcMbspJncoNm: '베베쿡',
+            jncoBnftThumCntn: '할인 혜택 3종, VIP이상 5천원 할인',
+            jncoBnftDetlCntn: '월 1회',
+            urcBnftTadvMthdCntn: [
+                '①5천원 할인(5만원 이상 구매 시)',
+                '②유아식품 5천원 할인(4만원 이상 구매 시)',
+                '③이유식/영양식 첫 주문 20% 할인',
+            ].join('<br />'),
+            jncoTadvGrdDetlDscr: 'VIP',
+        }], 'https://example.com/uplus');
+
+        expect(offers.map(item => item.offer.condition.minSpend)).toEqual([
+            50_000,
+            40_000,
+            undefined,
+        ]);
+        expect(offers.every(item => item.autoPublish)).toBe(true);
+    });
+
+    it('keeps a multi-tier U+ numbered benefit informational instead of overcalculating it', () => {
+        const parsed = parseLguplusBenefits([{
+            urcMbspJncoNm: 'QED',
+            jncoBnftThumCntn: '판교 백야드 숏게임 이용권 VIP이상 30%, 우수 20% 할인',
+            jncoBnftDetlCntn: '월 1회',
+            urcBnftTadvMthdCntn: [
+                '①판교 백야드 숏게임 이용권 VIP이상 30%, 우수 20% 할인',
+                '②QED골프아카데미 판교 5호점 3만원 할인',
+            ].join('<br />'),
+            jncoTadvGrdDetlDscr: 'VVIP/VIP/우수',
+        }], 'https://example.com/uplus')[0];
+        const classified = applyPromotionSemanticAnalysis(
+            parsed,
+            classifyPromotionWithRules(parsed),
+        );
+
+        expect(classified.autoPublish).toBe(true);
+        expect(classified.offer.action).toMatchObject({
+            type: 'PERCENT',
+            value: 30,
+            valueSemantics: 'UP_TO',
+        });
+        expect(classified.offer.condition).toMatchObject({
+            applicabilityScope: 'PRODUCT_SET',
+            calculationMode: 'INFORMATION_ONLY',
+            headlineEligible: false,
+        });
+        expect(classified.warnings.join(' ')).toContain('복수 요율');
     });
 
     it('parses exact Npay rewards and marks maximum benefits as informational', () => {
@@ -306,5 +434,167 @@ describe('promotion source parsers', () => {
             calculationMode: 'CONDITIONAL',
             confirmationRequired: true,
         });
+    });
+
+    it('resolves corroborated Npay thresholds but preserves unsupported conflicts', () => {
+        const resolved = parseNaverPayPromotions([{
+            promotionSeq: 31,
+            promotionName: '교보문고',
+            promotionDescription: '4.5만원 이상 결제 시',
+            exposeTitle: '2천원 적립',
+            applyBasisAmount: 40_000,
+            cautionText: '해당 이벤트는 4.5만원 이상 결제 시 포인트 2천원 적립 행사입니다.',
+        }, {
+            promotionSeq: 32,
+            promotionName: '보리보리',
+            promotionDescription: '9만원 이상 결제 시',
+            exposeTitle: '3,500원 적립',
+            applyBasisAmount: 100_000,
+            linkUrl: 'https://m.boribori.co.kr/plan/367012',
+        }, {
+            promotionSeq: 33,
+            promotionName: '삼성전자',
+            promotionDescription: '갤럭시 북6 Basic 모델 구매 시',
+            exposeTitle: '1.5만원 적립',
+            applyBasisAmount: 100_000,
+            cautionText: '최종 100만원 이상 결제 시 1.5만P 지급되며 대상 모델에만 적용됩니다.',
+        }, {
+            promotionSeq: 34,
+            promotionName: '카시나',
+            promotionDescription: '5만원 이상 결제 시',
+            exposeTitle: '최대 5천원 적립',
+            applyBasisAmount: 100_000,
+            cautionText: 'Npay로 5만원/ 20만원 이상 결제 시 1천원/ 5천원 추가적립 행사입니다.',
+        }], 'ONLINE', 'https://pay.naver.com/benefit/payment/list');
+        const unresolved = parseNaverPayPromotions([{
+            promotionSeq: 41,
+            promotionName: 'W컨셉',
+            promotionDescription: '12만원 이상 결제 시',
+            exposeTitle: '3천원 즉시할인',
+            applyBasisAmount: 100_000,
+            linkUrl: 'https://display.wconcept.co.kr/',
+        }, {
+            promotionSeq: 42,
+            promotionName: '식봄',
+            promotionDescription: '5만원 이상 결제 시 (추첨 3천명)',
+            exposeTitle: '5천원 적립',
+            applyBasisAmount: 100_000,
+            linkUrl: 'https://www.foodspring.co.kr/',
+        }, {
+            promotionSeq: 43,
+            promotionName: '오늘의집',
+            promotionDescription: '9만원 이상 결제 시',
+            exposeTitle: '1,500원 적립',
+            applyBasisAmount: 100_000,
+            linkUrl: 'https://store.ohou.se/ranks?type=best',
+        }, {
+            promotionSeq: 44,
+            promotionName: '예스24 티켓',
+            promotionDescription: '9만원 이상 결제 시 (선착순 1만 5천명)',
+            exposeTitle: '2천원 적립',
+            applyBasisAmount: 50_000,
+            cautionText: 'Npay로 9만원 이상 결제 시 2천원 적립. 1건의 결제가 7만원 이상이어야 합니다.',
+            linkUrl: 'https://m.ticket.yes24.com/event/PromotionInfo.aspx?id=3986',
+        }], 'ONLINE', 'https://pay.naver.com/benefit/payment/list');
+
+        expect(resolved.every(item => item.autoPublish)).toBe(true);
+        expect(resolved.map(item => item.offer.condition.minSpend)).toEqual([
+            45_000,
+            90_000,
+            1_000_000,
+            50_000,
+        ]);
+        expect(resolved[3].offer.condition.calculationMode).toBe('INFORMATION_ONLY');
+        expect(unresolved).toHaveLength(4);
+        expect(unresolved.every(item => !item.autoPublish)).toBe(true);
+        expect(unresolved.every(item => item.offer.condition.manualCheckRequired)).toBe(true);
+    });
+
+    it('publishes composite Npay descriptions as information and keeps a first charge conditional', () => {
+        const offers = parseNaverPayPromotions([{
+            promotionSeq: 51,
+            promotionName: '서울 맛동여지도',
+            promotionDescription: 'N예약하고 커넥트로 결제하면',
+            exposeTitle: '2천원 + 20% 추가적립',
+            cautionText: '서울 맛동여지도 홍대.마포',
+        }, {
+            promotionSeq: 52,
+            promotionName: '쁘렝땅 오스만',
+            promotionDescription: '188유로 이상 결제 시',
+            exposeTitle: '음료 제공 및 5%할인 & 12%택스리펀',
+        }, {
+            promotionSeq: 53,
+            promotionName: '모바일티머니',
+            promotionDescription: 'Npay 머니로 1만원 이상 첫 충전 시',
+            exposeTitle: '1천원 충전쿠폰 100% 지급',
+            applyBasisAmount: 100_000,
+            linkUrl: 'https://mkt.naver.com/event/mo/npay-tmoney_2608',
+            cautionText: '모바일티머니 1천원 충전쿠폰은 네이버페이로 첫 충전 다음날 지급됩니다.',
+        }, {
+            promotionSeq: 54,
+            promotionName: '이니스프리',
+            promotionDescription: '2만원 이상 결제 시',
+            exposeTitle: '5천원 적립',
+            cautionText: '기간 내 1회 적립 가능합니다.',
+        }], 'DOMESTIC_INSTORE', 'https://pay.naver.com/benefit/payment/list');
+
+        expect(offers.every(item => item.autoPublish)).toBe(true);
+        expect(offers.slice(0, 2).every(item => (
+            item.offer.condition.calculationMode === 'INFORMATION_ONLY'
+        ))).toBe(true);
+        expect(offers.slice(0, 2).map(item => (
+            applyPromotionSemanticAnalysis(item, classifyPromotionWithRules(item)).autoPublish
+        ))).toEqual([true, true]);
+        expect(offers[2].offer).toMatchObject({
+            action: { type: 'FLAT', value: 1_000 },
+            condition: {
+                minSpend: 10_000,
+                firstPaymentOnly: true,
+                calculationMode: 'CONDITIONAL',
+            },
+        });
+        expect(offers[3]).toMatchObject({
+            semanticScopeLocked: true,
+            offer: {
+                condition: {
+                    minSpend: 20_000,
+                    applicabilityScope: 'STORE_WIDE',
+                },
+            },
+        });
+    });
+
+    it('keeps Npay store and category exclusions out of unrestricted calculations', () => {
+        const offers = parseNaverPayPromotions([{
+            promotionSeq: 61,
+            promotionName: '경기광주휴게소',
+            promotionDescription: '포인트·머니 1만원 이상 결제 시',
+            exposeTitle: '50% 적립',
+            acmRate: 50,
+            cautionText: '일부 브랜드 매장에서는 혜택 적용 불가\n편의점 내 담배 결제 시 혜택 적용 불가',
+        }, {
+            promotionSeq: 62,
+            promotionName: '찜카',
+            promotionDescription: '국내렌트카 5만원 이상 결제 시',
+            exposeTitle: '최대 5천원 즉시할인',
+        }], 'DOMESTIC_INSTORE', 'https://pay.naver.com/benefit/payment/list');
+        const classified = offers.map(item => applyPromotionSemanticAnalysis(
+            item,
+            classifyPromotionWithRules(item),
+        ));
+
+        expect(classified[0].offer.condition).toMatchObject({
+            applicabilityScope: 'PRODUCT_SET',
+            eligibleItemSummary: '편의점 내 담배 결제 시 혜택 적용 불가',
+        });
+        expect(classified[0].offer.condition.requiredInputs).toEqual(
+            expect.arrayContaining(['ELIGIBLE_ITEM_AMOUNT', 'STORE_ELIGIBILITY']),
+        );
+        expect(classified[1].offer.condition).toMatchObject({
+            applicabilityScope: 'CATEGORY',
+            calculationMode: 'INFORMATION_ONLY',
+            headlineEligible: false,
+        });
+        expect(classified.every(item => item.autoPublish)).toBe(true);
     });
 });

@@ -37,6 +37,10 @@ import {
     formatPromotionAuditError,
     unresolvedPromotionAuditErrors,
 } from '@/lib/promotion-candidate-audit';
+import {
+    getPromotionRemovalObservation,
+    PROMOTION_REMOVAL_AUTO_POLICY,
+} from '@/lib/promotion-removal-policy';
 import { useToastStore } from '@/store/useToastStore';
 
 type Candidate = {
@@ -236,6 +240,7 @@ const candidateResolutionMessages: Record<string, string> = {
     MISSING_FROM_LATEST_SOURCE: '승인 전에 최신 공식 목록에서 사라져 자동 반려되었습니다. 이 후보는 게시되지 않았습니다.',
     REAPPEARED_IN_SOURCE: '삭제 의심 후 최신 공식 목록에 다시 나타나 삭제 후보가 자동 반려되었습니다.',
     REMOVAL_CONFIRMED: '공식 목록에서 사라진 사실을 확인해 연결된 게시 혜택을 만료했습니다.',
+    REMOVAL_AUTO_CONFIRMED: '완전한 공식 출처 수집에서 5분 이상 간격으로 두 번 사라진 것이 확인되어 게시 혜택을 자동 만료했습니다.',
 };
 
 const candidateFieldChanges = (candidate: Candidate): StructuredFieldChange[] => {
@@ -721,6 +726,7 @@ function CandidateCard({
     const semanticAnalysis = candidateSemanticAnalysis(candidate);
     const storedBlockingErrors = candidateBlockingErrors(candidate);
     const removalCandidate = candidate.diff.removedFromSource === true;
+    const removalObservation = getPromotionRemovalObservation(candidate);
     const resolution = typeof candidate.diff.resolution === 'string'
         ? candidate.diff.resolution
         : undefined;
@@ -1023,7 +1029,21 @@ function CandidateCard({
 
             {removalCandidate && candidate.status === 'PENDING' && (
                 <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-bold leading-relaxed text-rose-800">
-                    기존 게시 혜택은 아직 유지 중입니다. 공식 원문에서 실제로 사라진 것을 확인했다면 만료하고, 수집 누락이면 오탐으로 처리하세요.
+                    <p>
+                        기존 게시 혜택은 아직 유지 중입니다. 공식 원문에서 실제로 사라진 것을 확인했다면 만료하고, 수집 누락이면 오탐으로 처리하세요.
+                    </p>
+                    {removalObservation && (
+                        <p className="mt-1 text-rose-700">
+                            자동 확인 {Math.min(
+                                removalObservation.count,
+                                PROMOTION_REMOVAL_AUTO_POLICY.requiredObservationCount,
+                            )}/{PROMOTION_REMOVAL_AUTO_POLICY.requiredObservationCount}
+                            {' · '}첫 누락 {new Date(
+                                removalObservation.firstObservedAt
+                            ).toLocaleString('ko-KR')}
+                            {' · '}5분 뒤 자동 재수집에서도 없으면 자동 만료
+                        </p>
+                    )}
                 </div>
             )}
 

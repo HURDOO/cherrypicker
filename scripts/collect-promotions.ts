@@ -1,8 +1,9 @@
 import './load-env';
+import { setTimeout as wait } from 'node:timers/promises';
 import { collectPromotionCandidates } from '../src/lib/promotion-collector';
+import { getPromotionRemovalRecheckDelayMs } from '../src/lib/promotion-removal-recheck';
 
-async function main() {
-    const results = await collectPromotionCandidates();
+function printResults(results: Awaited<ReturnType<typeof collectPromotionCandidates>>) {
     const discovered = results.reduce((sum, result) => sum + result.discovered, 0);
     const published = results.reduce((sum, result) => sum + result.published, 0);
     const reviewRequired = results.reduce((sum, result) => sum + result.reviewRequired, 0);
@@ -32,6 +33,18 @@ async function main() {
     });
 
     if (failed.length > 0 && discovered === 0 && unchanged === 0) process.exitCode = 1;
+}
+
+async function main() {
+    const results = await collectPromotionCandidates();
+    printResults(results);
+    const recheckDelayMs = getPromotionRemovalRecheckDelayMs(results);
+    if (recheckDelayMs === undefined) return;
+
+    console.log(`Promotion removal recheck scheduled in ${Math.ceil(recheckDelayMs / 1_000)} seconds.`);
+    await wait(recheckDelayMs);
+    console.log('Promotion removal recheck started.');
+    printResults(await collectPromotionCandidates());
 }
 
 void main();

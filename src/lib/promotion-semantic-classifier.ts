@@ -89,7 +89,8 @@ const baseRequiredInputs = (input: PromotionSemanticInput) => unique([
 export function classifyPromotionWithRules(parsed: ParsedPromotion): PromotionSemanticAnalysis {
     const input = inputFromParsed(parsed);
     const structuredScope = parsed.offer.condition.applicabilityScope;
-    if (input.providerId === 't-universe' && structuredScope && structuredScope !== 'UNKNOWN') {
+    if ((input.providerId === 't-universe' || parsed.semanticScopeLocked) &&
+        structuredScope && structuredScope !== 'UNKNOWN') {
         const itemScoped = structuredScope === 'CATEGORY' || structuredScope === 'PRODUCT_SET';
         return {
             scope: structuredScope,
@@ -102,7 +103,7 @@ export function classifyPromotionWithRules(parsed: ParsedPromotion): PromotionSe
             ...(parsed.offer.condition.eligibleItemSummary && {
                 eligibleItemSummary: parsed.offer.condition.eligibleItemSummary,
             }),
-            reasoningSummary: '공식 구조화 파서가 상품 범위와 구독 상품 조건을 함께 확인했습니다.',
+            reasoningSummary: '공식 구조화 파서가 적용 범위와 추가 확인 조건을 함께 확인했습니다.',
             provider: 'rules',
         };
     }
@@ -115,12 +116,12 @@ export function classifyPromotionWithRules(parsed: ParsedPromotion): PromotionSe
     );
     const categoryEvidence = findEvidence(
         input,
-        /(?:카테고리|주류|맥주|와인|샴페인|위스키|뷰티|화장품|가전|식품|의류)(?:\s*(?:\/|·|,|및)\s*(?:주류|맥주|와인|샴페인|위스키|뷰티|화장품|가전|식품|의류))*\s*(?:상품|제품|품목)?\s*(?:구매|결제|할인|적립|대상)/,
+        /(?:카테고리|주류|맥주|와인|샴페인|위스키|뷰티|화장품|가전|식품|의류)(?:\s*(?:\/|·|,|및)\s*(?:주류|맥주|와인|샴페인|위스키|뷰티|화장품|가전|식품|의류))*\s*(?:상품|제품|품목)?\s*(?:구매|결제|할인|적립|대상)|(?:국내\s*)?렌(?:트|터)카[^\n]{0,30}(?:구매|결제|할인|적립|대상)/,
         /(?:제외|미적용|불가)/,
     );
     const targetEvidence = findEvidence(
         input,
-        /(?:선착순|추첨|응모|랜덤|첫\s*(?:결제|구매)|신규\s*(?:회원|고객)|대상\s*(?:고객|회원)|일부\s*(?:고객|회원)|(?:10대|청소년|대학생|임직원|군인)\s*(?:대상|한정)|(?:회원|고객)\s*한정|개인별|초대\s*(?:대상|받은\s*(?:회원|고객)))/,
+        /(?:선착순|추첨|응모|랜덤|첫\s*(?:충전|결제|구매)|신규\s*(?:회원|고객)|대상\s*(?:고객|회원)|일부\s*(?:고객|회원)|(?:10대|청소년|대학생|임직원|군인)\s*(?:대상|한정)|(?:회원|고객)\s*한정|개인별|초대\s*(?:대상|받은\s*(?:회원|고객)))/,
     );
     const productExclusionEvidence = findEvidence(
         input,

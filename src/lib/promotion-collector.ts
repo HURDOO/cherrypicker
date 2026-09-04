@@ -38,12 +38,17 @@ import {
     type PersistedPromotionSourceBundle,
 } from './promotion-source-bundle';
 import {
+    addPromotionRemovalObservation,
+    canAutomaticallyConfirmPromotionRemoval,
+    createPromotionRemovalObservation,
     isPromotionRemovalCandidate,
     PROMOTION_CANDIDATE_RESOLUTION,
+    PROMOTION_REMOVAL_AUTO_POLICY,
     removalCandidateMatchesObservedPromotion,
     shouldRejectPendingCandidateMissingFromSource,
     withPromotionCandidateResolution,
 } from './promotion-removal-policy';
+import { confirmPromotionRemoval } from './promotion-removal-server';
 import {
     canAutomaticallyPublishPromotionCandidate,
     shouldPreserveReviewedPromotionCandidate,
@@ -70,6 +75,7 @@ export type PromotionCollectionResult = {
     reviewRequired: number;
     unchanged: number;
     expired: number;
+    removalVerificationAt?: string;
     products?: number;
     message?: string;
 };
@@ -520,13 +526,41 @@ function queueMissingAutoPromotions(
     sourceBundles: Map<string, PersistedPromotionSourceBundle>,
     now: Date,
 ) {
-    const queuedBySource = new Map<string, number>();
+    const resultBySource = new Map<string, {
+        queued: number;
+        autoExpired: number;
+        removalVerificationAt?: string;
+    }>();
+    const incrementResult = (
+        sourceId: string,
+        field: 'queued' | 'autoExpired',
+    ) => {
+        const current = resultBySource.get(sourceId) ?? { queued: 0, autoExpired: 0 };
+        resultBySource.set(sourceId, { ...current, [field]: current[field] + 1 });
+    };
+    const scheduleVerification = (
+        sourceId: string,
+        observation: ReturnType<typeof createPromotionRemovalObservation>,
+    ) => {
+        const current = resultBySource.get(sourceId) ?? { queued: 0, autoExpired: 0 };
+        const dueAt = new Date(
+            new Date(observation.firstObservedAt).getTime() +
+            PROMOTION_REMOVAL_AUTO_POLICY.minimumObservationWindowMs
+        ).toISOString();
+        resultBySource.set(sourceId, {
+            ...current,
+            removalVerificationAt: !current.removalVerificationAt ||
+                dueAt < current.removalVerificationAt
+                ? dueAt
+                : current.removalVerificationAt,
+        });
+    };
     const coveredProviders = new Set(
         Object.entries(providerSourceCoverage)
             .filter(([, sourceIds]) => sourceIds.every(id => successfulSourceIds.has(id)))
             .map(([providerId]) => providerId)
     );
-    if (coveredProviders.size === 0) return queuedBySource;
+    if (coveredProviders.size === 0) return resultBySource;
 
     db.select().from(promotionOffers).all()
         .filter(offer =>
@@ -550,23 +584,74 @@ function queueMissingAutoPromotions(
             const sourceBundle = sourceBundles.get(collectionSourceId);
             const source = promotionSources.find(item => item.id === collectionSourceId);
             if (!sourceBundle || !source) return;
+            const requiredSourceIds = providerSourceCoverage[offer.providerId] ?? [];
+            const coverageSourceBundleHashes = Object.fromEntries(requiredSourceIds.flatMap(
+                sourceId => {
+                    const bundle = sourceBundles.get(sourceId);
+                    return bundle ? [[sourceId, bundle.sourceBundleHash]] : [];
+                }
+            ));
+            if (Object.keys(coverageSourceBundleHashes).length !== requiredSourceIds.length) return;
             const sourceKey = typeof previous?.diff.sourceKey === 'string'
                 ? previous.diff.sourceKey
                 : offer.id;
-            const sourceHash = hashValue({
+            const baseSourceHash = hashValue({
                 kind: 'missing-published-promotion',
                 promotionId: offer.id,
                 sourceBundleHash: sourceBundle.sourceBundleHash,
             });
+            const observationInput = {
+                observedAt: now,
+                sourceBundleHash: sourceBundle.sourceBundleHash,
+                coverageSourceBundleHashes,
+            };
+            const pendingRemovalCandidate = previousCandidates.find(candidate => (
+                candidate.status === 'PENDING' &&
+                candidate.linkedPromotionId === offer.id &&
+                candidate.diff.removedFromSource === true
+            ));
+            if (pendingRemovalCandidate) {
+                const removalObservation = addPromotionRemovalObservation(
+                    pendingRemovalCandidate,
+                    observationInput,
+                );
+                db.update(promotionCandidates)
+                    .set({
+                        sourceBundleHash: sourceBundle.sourceBundleHash,
+                        diff: {
+                            ...pendingRemovalCandidate.diff,
+                            removalObservation,
+                        },
+                    })
+                    .where(eq(promotionCandidates.id, pendingRemovalCandidate.id))
+                    .run();
+                if (canAutomaticallyConfirmPromotionRemoval(removalObservation)) {
+                    confirmPromotionRemoval(pendingRemovalCandidate.id, null, {
+                        now,
+                        automaticObservation: removalObservation,
+                    });
+                    incrementResult(collectionSourceId, 'autoExpired');
+                } else {
+                    scheduleVerification(collectionSourceId, removalObservation);
+                }
+                return;
+            }
             const existing = db.select({ id: promotionCandidates.id })
                 .from(promotionCandidates)
                 .where(and(
                     eq(promotionCandidates.providerId, offer.providerId),
                     eq(promotionCandidates.sourceUrl, source.url),
-                    eq(promotionCandidates.sourceHash, sourceHash),
+                    eq(promotionCandidates.sourceHash, baseSourceHash),
                 ))
                 .get();
-            if (existing) return;
+            const sourceHash = existing
+                ? hashValue({
+                    kind: 'missing-published-promotion',
+                    promotionId: offer.id,
+                    sourceBundleHash: sourceBundle.sourceBundleHash,
+                    episodeStartedAt: now.toISOString(),
+                })
+                : baseSourceHash;
             const blockingError =
                 `기존 게시 혜택이 최신 공식 source bundle에서 사라졌습니다: ${offer.title}`;
             const audit: PromotionCandidateAudit = {
@@ -589,19 +674,8 @@ function queueMissingAutoPromotions(
                 blockingErrors: [blockingError],
             };
 
+            const removalObservation = createPromotionRemovalObservation(observationInput);
             db.transaction(() => {
-                previousCandidates
-                    .filter(candidate => (
-                        candidate.status === 'PENDING' &&
-                        candidate.linkedPromotionId === offer.id &&
-                        candidate.diff.removedFromSource === true
-                    ))
-                    .forEach(candidate => {
-                        db.update(promotionCandidates)
-                            .set({ status: 'REJECTED', reviewedAt: now })
-                            .where(eq(promotionCandidates.id, candidate.id))
-                            .run();
-                    });
                 db.insert(promotionCandidates).values({
                     id: randomUUID(),
                     providerId: offer.providerId,
@@ -621,6 +695,7 @@ function queueMissingAutoPromotions(
                         fieldChanges: audit.changes,
                         auditSummary: audit.summary,
                         blockingErrors: audit.blockingErrors,
+                        removalObservation,
                     },
                     sourceBundleHash: sourceBundle.sourceBundleHash,
                     audit,
@@ -629,13 +704,11 @@ function queueMissingAutoPromotions(
                     discoveredAt: now,
                 }).run();
             });
-            queuedBySource.set(
-                collectionSourceId,
-                (queuedBySource.get(collectionSourceId) ?? 0) + 1,
-            );
+            incrementResult(collectionSourceId, 'queued');
+            scheduleVerification(collectionSourceId, removalObservation);
         });
 
-    return queuedBySource;
+    return resultBySource;
 }
 
 const isLegacyPlaceholder = (candidate: typeof promotionCandidates.$inferSelect) => {
@@ -872,7 +945,11 @@ function persistParsedPromotion(
                 .where(eq(promotionCandidates.id, existing.id))
                 .run();
         });
-        if (canAutoPublish && (!existingOffer || existingOffer.sourceHash !== sourceHash)) {
+        if (canAutoPublish && (
+            !existingOffer ||
+            existingOffer.sourceHash !== sourceHash ||
+            existingOffer.status === 'EXPIRED'
+        )) {
             db.transaction(() => {
                 upsertAutoPromotion(
                     parsed,
@@ -996,8 +1073,11 @@ function rejectMissingPendingCandidates(
         });
 }
 
-export async function collectPromotionCandidates() {
-    const startedAt = new Date();
+export async function collectPromotionCandidates(
+    options: { now?: Date } = {},
+) {
+    const currentTime = () => options.now ? new Date(options.now) : new Date();
+    const startedAt = currentTime();
     const results: PromotionCollectionResult[] = [];
     const claimedAutoPromotionIds = new Set<string>();
     const observedAutoPromotionIds = new Set<string>();
@@ -1016,7 +1096,7 @@ export async function collectPromotionCandidates() {
 
     for (const source of promotionSources) {
         if (source.kind === 'unsupported') {
-            rejectLegacyPlaceholders(source, new Date());
+            rejectLegacyPlaceholders(source, currentTime());
             results.push({
                 sourceId: source.id,
                 sourceUrl: source.url,
@@ -1041,7 +1121,7 @@ export async function collectPromotionCandidates() {
             if (sourceBytes > PROMOTION_BUNDLE_MAX_BYTES) {
                 throw new Error('프로모션 source bundle이 허용 크기를 초과했습니다.');
             }
-            const now = new Date();
+            const now = currentTime();
             const sourceBundle = persistPromotionSourceBundle(
                 source.id,
                 sourceData.documents,
@@ -1145,24 +1225,36 @@ export async function collectPromotionCandidates() {
         }
     }
 
-    const queuedBySource = queueMissingAutoPromotions(
+    const removalResultsBySource = queueMissingAutoPromotions(
         successfulSourceIds,
         observedAutoPromotionIds,
         sourceBundles,
-        new Date(),
+        currentTime(),
     );
-    queuedBySource.forEach((queued, sourceId) => {
+    removalResultsBySource.forEach(({
+        queued,
+        autoExpired,
+        removalVerificationAt,
+    }, sourceId) => {
         const result = results.find(item => item.sourceId === sourceId);
         if (!result) return;
         result.reviewRequired += queued;
-        if (result.status === 'unchanged') result.status = 'created';
+        result.expired += autoExpired;
+        result.removalVerificationAt = removalVerificationAt;
+        if (result.status === 'unchanged' && (queued > 0 || autoExpired > 0)) {
+            result.status = 'created';
+        }
         result.message = [
             result.message,
-            `삭제 의심 ${queued}건 검수 대기`,
+            queued > 0 ? `삭제 의심 ${queued}건 검수 대기` : undefined,
+            autoExpired > 0 ? `삭제 확정 ${autoExpired}건 자동 만료` : undefined,
+            removalVerificationAt
+                ? `삭제 여부 ${new Date(removalVerificationAt).toLocaleString('ko-KR')} 자동 재확인`
+                : undefined,
         ].filter(Boolean).join(' · ');
     });
 
-    const finishedAt = new Date();
+    const finishedAt = currentTime();
     const summary = summarizePromotionCollectionRun(results);
     db.insert(promotionCollectionRuns).values({
         id: randomUUID(),

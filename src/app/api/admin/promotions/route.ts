@@ -19,6 +19,7 @@ import {
     requireAdmin,
 } from '@/lib/api-server';
 import { autoPromotionId, collectPromotionCandidates } from '@/lib/promotion-collector';
+import { promotionRemovalRecheckScheduler } from '@/lib/promotion-removal-recheck';
 import { normalizePromotionDraft } from '@/lib/promotion-input';
 import {
     canAcknowledgePromotionAuditErrors,
@@ -264,6 +265,8 @@ export async function POST(request: Request) {
 
         if (action === 'collect') {
             const results = await collectPromotionCandidates();
+            const recheck = async () => collectPromotionCandidates();
+            promotionRemovalRecheckScheduler.schedule(results, recheck);
             return Response.json({ results });
         }
 

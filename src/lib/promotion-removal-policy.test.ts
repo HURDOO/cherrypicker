@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { PromotionCandidateAudit } from '@/types';
 import {
+    addPromotionRemovalObservation,
+    canAutomaticallyConfirmPromotionRemoval,
+    createPromotionRemovalObservation,
+    getPromotionRemovalObservation,
     isPromotionRemovalCandidate,
     PROMOTION_CANDIDATE_RESOLUTION,
     promotionRemovalConfirmationError,
@@ -40,6 +44,59 @@ const removalCandidate = () => ({
 });
 
 describe('promotion removal policy', () => {
+    it('auto-confirms only after two complete observations at least 5 minutes apart', () => {
+        const first = createPromotionRemovalObservation({
+            observedAt: new Date('2026-09-02T00:00:00.000Z'),
+            sourceBundleHash: 'bundle-1',
+            coverageSourceBundleHashes: { 'naverpay-benefits': 'bundle-1' },
+        });
+        const tooSoon = addPromotionRemovalObservation({
+            ...removalCandidate(),
+            discoveredAt: first.firstObservedAt,
+            diff: { ...removalCandidate().diff, removalObservation: first },
+        }, {
+            observedAt: new Date('2026-09-02T00:04:59.999Z'),
+            sourceBundleHash: 'bundle-1',
+            coverageSourceBundleHashes: { 'naverpay-benefits': 'bundle-1' },
+        });
+        const confirmed = addPromotionRemovalObservation({
+            ...removalCandidate(),
+            discoveredAt: first.firstObservedAt,
+            diff: { ...removalCandidate().diff, removalObservation: first },
+        }, {
+            observedAt: new Date('2026-09-02T00:05:00.000Z'),
+            sourceBundleHash: 'bundle-1',
+            coverageSourceBundleHashes: { 'naverpay-benefits': 'bundle-1' },
+        });
+
+        expect(tooSoon.count).toBe(2);
+        expect(canAutomaticallyConfirmPromotionRemoval(tooSoon)).toBe(false);
+        expect(canAutomaticallyConfirmPromotionRemoval(confirmed)).toBe(true);
+    });
+
+    it('continues the observation count for a legacy pending removal candidate', () => {
+        const legacy = {
+            ...removalCandidate(),
+            discoveredAt: new Date('2026-09-02T00:00:00.000Z'),
+        };
+        const restored = getPromotionRemovalObservation(legacy);
+        const next = addPromotionRemovalObservation(legacy, {
+            observedAt: new Date('2026-09-02T00:05:00.000Z'),
+            sourceBundleHash: 'bundle-still-missing',
+            coverageSourceBundleHashes: {
+                'naverpay-benefits': 'bundle-still-missing',
+            },
+        });
+
+        expect(restored).toMatchObject({ count: 1 });
+        expect(next).toMatchObject({
+            count: 2,
+            firstObservedAt: '2026-09-02T00:00:00.000Z',
+            lastObservedAt: '2026-09-02T00:05:00.000Z',
+        });
+        expect(canAutomaticallyConfirmPromotionRemoval(next)).toBe(true);
+    });
+
     it('accepts only a preserved pending removal candidate for confirmation', () => {
         const candidate = removalCandidate();
 

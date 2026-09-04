@@ -355,8 +355,11 @@ describe('official promotion collection lifecycle', () => {
         const parisSilverPromotionId = autoPromotionId('kt', parisSilver.sourceKey);
         const silverBlock = /<div class="elementor-widget-container"><h2[^>]*>SILVER[\s\S]*?<\/h3><\/div>\s*/;
         currentParisKtHtml = officialParisKtHtmlExcerpt.replace(silverBlock, '');
+        const parisFirstMissingAt = new Date(Date.now() + 60 * 60 * 1_000);
 
-        const parisRemovalResults = await collectPromotionCandidates();
+        const parisRemovalResults = await collectPromotionCandidates({
+            now: parisFirstMissingAt,
+        });
         expect(parisRemovalResults.find(result => result.sourceId === 'paris-kt'))
             .toMatchObject({
                 status: 'created',
@@ -377,16 +380,54 @@ describe('official promotion collection lifecycle', () => {
             providerId: 'kt',
             sourceUrl: promotionOfficialFixtureMetadata.sources.parisKt,
             sourceBundleHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+            diff: {
+                removalObservation: {
+                    count: 1,
+                    observations: [expect.objectContaining({
+                        coverageSourceBundleHashes: expect.objectContaining({
+                            'paris-kt': expect.any(String),
+                            'tlj-membership': expect.any(String),
+                        }),
+                    })],
+                },
+            },
         });
 
+        const autoRemovalResults = await collectPromotionCandidates({
+            now: new Date(parisFirstMissingAt.getTime() + 6 * 60 * 1_000),
+        });
+        expect(autoRemovalResults.find(result => result.sourceId === 'paris-kt'))
+            .toMatchObject({
+                status: 'created',
+                expired: 1,
+                message: expect.stringContaining('삭제 확정 1건 자동 만료'),
+            });
+        expect(integrationDb.select().from(schema.promotionCandidates).all()
+            .find(candidate => candidate.id === parisRemovalCandidate?.id))
+            .toMatchObject({
+                status: 'APPROVED',
+                reviewerId: null,
+                diff: {
+                    resolution: 'REMOVAL_AUTO_CONFIRMED',
+                    automaticApproval: {
+                        actor: 'PROMOTION_COLLECTOR',
+                        observationCount: 2,
+                    },
+                },
+            });
+        expect(integrationDb.select().from(schema.promotionOffers).all()
+            .find(offer => offer.id === parisSilverPromotionId)?.status).toBe('EXPIRED');
+
         currentParisKtHtml = officialParisKtHtmlExcerpt;
-        await collectPromotionCandidates();
+        await collectPromotionCandidates({
+            now: new Date(parisFirstMissingAt.getTime() + 7 * 60 * 1_000),
+        });
 
         expect(integrationDb.select().from(schema.promotionCandidates).all()
             .find(candidate => candidate.id === parisRemovalCandidate?.id))
             .toMatchObject({
-                status: 'REJECTED',
-                diff: { resolution: 'REAPPEARED_IN_SOURCE' },
+                status: 'APPROVED',
+                diff: { resolution: 'REMOVAL_AUTO_CONFIRMED' },
             });
         expect(integrationDb.select().from(schema.promotionOffers).all()
             .find(offer => offer.id === parisSilverPromotionId)?.status).toBe('PUBLISHED');
