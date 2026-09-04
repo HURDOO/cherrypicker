@@ -141,4 +141,82 @@ describe('structured card benefit conditions', () => {
             reason: '월 혜택 한도 소진',
         });
     });
+
+    it('uses the first qualifying tier limit during a new-card performance waiver', () => {
+        const waived = rule({
+            condition: {
+                minPerformance: 500_000,
+                performanceWaiver: 'NEW_CARD_REGISTRATION_WINDOW',
+            },
+            limitConfig: {
+                monthlyAmountByPerformance: [
+                    { threshold: 0, limit: 1_000 },
+                    { threshold: 500_000, limit: 2_000 },
+                ],
+            },
+            action: { type: 'PERCENT', value: 10 },
+        });
+
+        expect(calculate(30_000, [waived], 0)).toMatchObject({
+            calculatedDiscount: 2_000,
+            isApplicable: true,
+        });
+    });
+
+    it('starts a fallback only after the earlier capped rule was exhausted by a prior purchase', () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-09-05T13:00:00.000Z'));
+        const special = rule({
+            id: 'special',
+            action: { type: 'PERCENT', value: 10 },
+            limitConfig: { monthlyAmount: 1_000 },
+        });
+        const fallback = rule({
+            id: 'fallback',
+            includedBrands: [],
+            condition: {
+                fallbackAfterRuleIds: [special.id],
+            },
+            action: { type: 'PERCENT', value: 5 },
+        });
+        const history = (discountAmount: number): TransactionHistory[] => [{
+            id: `past-${discountAmount}`,
+            date: '2026-09-02T03:00:00.000Z',
+            brandId: brand.id,
+            cardId: card.id,
+            ruleId: special.id,
+            amount: discountAmount * 10,
+            discountAmount,
+        }];
+
+        const crossingPurchase = calculate(10_000, [special, fallback], 300_000, history(800));
+        expect(crossingPurchase).toMatchObject({
+            calculatedDiscount: 200,
+            matchedBenefits: [{ rule: { id: special.id }, discount: 200 }],
+        });
+
+        const laterPurchase = calculate(10_000, [special, fallback], 300_000, history(1_000));
+        expect(laterPurchase).toMatchObject({
+            calculatedDiscount: 500,
+            matchedBenefits: [{ rule: { id: fallback.id }, discount: 500 }],
+        });
+    });
+
+    it('prefers the highest qualified performance tier when capped benefits tie', () => {
+        const lowTier = rule({
+            id: 'tier-low',
+            condition: {},
+            action: { type: 'PERCENT', value: 1, maxDiscount: 100 },
+        });
+        const highTier = rule({
+            id: 'tier-high',
+            condition: { minPerformance: 1_500_000 },
+            action: { type: 'PERCENT', value: 5, maxDiscount: 100 },
+        });
+
+        expect(calculate(10_000, [lowTier, highTier], 1_500_000)).toMatchObject({
+            calculatedDiscount: 100,
+            matchedBenefits: [{ rule: { id: highTier.id } }],
+        });
+    });
 });

@@ -158,6 +158,7 @@ const evidenceRequiredConditionFields: Array<keyof RuleCondition> = [
     'requiredCardNetwork',
     'performanceWaiver',
     'stackableWithRuleIds',
+    'fallbackAfterRuleIds',
     'itemSpecific',
     'eligibleItemSummary',
 ];
@@ -252,6 +253,13 @@ const validateCondition = (value: unknown, label: string, errors: string[]) => {
         value.stackableWithRuleIds.some(item => typeof item !== 'string')
     )) {
         errors.push(`${label} stackableWithRuleIds 값이 올바르지 않습니다.`);
+    }
+    if (value.fallbackAfterRuleIds !== undefined && (
+        !Array.isArray(value.fallbackAfterRuleIds) ||
+        value.fallbackAfterRuleIds.length === 0 ||
+        value.fallbackAfterRuleIds.some(item => typeof item !== 'string' || !item.trim())
+    )) {
+        errors.push(`${label} fallbackAfterRuleIds 값이 올바르지 않습니다.`);
     }
     if (value.applicationOrder !== undefined && !isNonNegativeInteger(value.applicationOrder)) {
         errors.push(`${label} applicationOrder 값이 올바르지 않습니다.`);
@@ -715,10 +723,17 @@ export function validateCardBenefitExtraction(
         value.rules.forEach((rule, index) => {
             if (!isRecord(rule) || !isRecord(rule.condition)) return;
             const stackableIds = rule.condition.stackableWithRuleIds;
-            if (!Array.isArray(stackableIds)) return;
-            stackableIds.forEach(ruleId => {
+            if (Array.isArray(stackableIds)) stackableIds.forEach(ruleId => {
                 if (typeof ruleId === 'string' && !ruleIds.has(ruleId)) {
                     errors.push(`규칙 ${index + 1}이 알 수 없는 중복 혜택 ${ruleId}를 참조합니다.`);
+                }
+            });
+            const fallbackIds = rule.condition.fallbackAfterRuleIds;
+            if (Array.isArray(fallbackIds)) fallbackIds.forEach(ruleId => {
+                if (ruleId === rule.id) {
+                    errors.push(`규칙 ${index + 1}이 자기 자신을 후순위 혜택의 선행 규칙으로 참조합니다.`);
+                } else if (typeof ruleId === 'string' && !ruleIds.has(ruleId)) {
+                    errors.push(`규칙 ${index + 1}이 알 수 없는 선행 혜택 ${ruleId}를 참조합니다.`);
                 }
             });
         });
@@ -1152,6 +1167,9 @@ const normalizedRuleSignature = (value: Partial<BenefitRule>) => JSON.stringify(
         }),
         ...(value.condition?.stackableWithRuleIds !== undefined && {
             stackableWithRuleIds: [...value.condition.stackableWithRuleIds].sort(),
+        }),
+        ...(value.condition?.fallbackAfterRuleIds !== undefined && {
+            fallbackAfterRuleIds: [...value.condition.fallbackAfterRuleIds].sort(),
         }),
         ...(value.condition?.applicationOrder !== undefined && {
             applicationOrder: value.condition.applicationOrder,
@@ -1774,11 +1792,23 @@ const quoteSetRepresentsBenefitClaim = (quotes: string[], claim: string) => {
     if (sourceContainsQuote(combined, claim)) return true;
     const claimPercentages = percentageValuesIn(claim);
     const claimAmounts = koreanMoneyValuesIn(claim);
-    return quotes.some(quote => (
+    if (quotes.some(quote => (
         tokenSimilarity(quote, claim) >= 0.5 &&
         claimPercentages.every(value => percentageValuesIn(quote).includes(value)) &&
         claimAmounts.every(value => koreanMoneyValuesIn(quote).includes(value))
-    ));
+    ))) return true;
+
+    // Product pages often repeat one compact headline as multiple detailed rows
+    // (for example, one row per fuel brand). Treat the split rows as coverage when
+    // every meaningful headline token and numeric value is still present.
+    const compactCombined = normalizedSource(combined).replaceAll(' ', '');
+    const claimTokens = semanticTitleTokens(claim)
+        .map(token => normalizedSource(token).replaceAll(' ', ''))
+        .filter(Boolean);
+    return claimTokens.length >= 2 &&
+        claimTokens.every(token => compactCombined.includes(token)) &&
+        claimPercentages.every(value => percentageValuesIn(combined).includes(value)) &&
+        claimAmounts.every(value => koreanMoneyValuesIn(combined).includes(value));
 };
 
 export const evidenceRepresentsBenefitClaim = (
@@ -2887,6 +2917,258 @@ const normalizeSamsungIdOnRules = (
         onlineInformationRule.limitConfig = {};
         delete onlineInformationRule.sharedGroupId;
     }
+};
+
+const normalizeShinhanHiPointRules = (
+    extraction: CardBenefitExtraction,
+    input: CardBenefitExtractionInput,
+) => {
+    if (extraction.card.id !== 'shinhan_hi_point') return;
+    const availableBrandIds = new Set(input.catalog?.brands.map(brand => brand.id) ?? []);
+    const supportedBrands = (ids: string[]) => ids.filter(id => availableBrandIds.has(id));
+    const rateLimitTiers = [
+        { threshold: 0, limit: 1_000 },
+        { threshold: 500_000, limit: 2_000 },
+        { threshold: 1_000_000, limit: 3_500 },
+        { threshold: 1_500_000, limit: 5_000 },
+    ];
+    const setTierWaiver = (ruleRow: BenefitRule) => {
+        if (ruleRow.condition.minPerformance === 500_000) {
+            ruleRow.condition.performanceWaiver = 'NEW_CARD_REGISTRATION_WINDOW';
+        } else {
+            delete ruleRow.condition.performanceWaiver;
+        }
+    };
+    const shoppingRulePrefix = 'shinhan_hi_point_favorite_shopping_';
+    const cjRulePrefix = 'shinhan_hi_point_favorite_cj_onstyle_';
+    const previousCjRuleIds = new Set(extraction.rules
+        .filter(ruleRow => ruleRow.id.startsWith(cjRulePrefix))
+        .map(ruleRow => ruleRow.id));
+    extraction.rules = extraction.rules.filter(ruleRow => !previousCjRuleIds.has(ruleRow.id));
+    extraction.evidence.forEach(item => {
+        item.ruleIds = item.ruleIds.filter(ruleId => !previousCjRuleIds.has(ruleId));
+    });
+
+    const shoppingRules = extraction.rules.filter(ruleRow => (
+        ruleRow.id.startsWith(shoppingRulePrefix)
+    ));
+    shoppingRules.forEach(ruleRow => {
+        delete ruleRow.category;
+        ruleRow.includedBrands = supportedBrands([
+            'lotte_department',
+            'hyundai_department',
+            'lotte_mart',
+            'emart',
+            'homeplus',
+            'toysrus',
+        ]);
+        ruleRow.platformType = 'OFFLINE';
+        ruleRow.usesCardLimit = true;
+        ruleRow.limitConfig = {};
+        setTierWaiver(ruleRow);
+        ruleRow.condition.manualCheckRequired = true;
+        ruleRow.condition.requiredNote = appendRequiredNote(
+            undefined,
+            '백화점·할인점 문화센터 등 비쇼핑 항목, 온라인 매장과 할인점 계열 SSM은 특별 적립에서 제외됩니다.',
+        );
+        ruleRow.detail = '롯데·현대백화점, 롯데마트·이마트·홈플러스, 토이저러스 오프라인 쇼핑 대상입니다. 문화센터 등 비쇼핑 항목과 온라인 매장, 할인점 계열 SSM은 제외됩니다.';
+
+        const cjRule = structuredClone(ruleRow);
+        cjRule.id = ruleRow.id.replace(shoppingRulePrefix, cjRulePrefix);
+        cjRule.includedBrands = supportedBrands(['cj_onstyle']);
+        cjRule.platformType = 'ONLINE';
+        cjRule.description = ruleRow.description.replace('잘 가는 곳 쇼핑', 'CJ온스타일');
+        cjRule.detail = 'CJ온스타일 이용금액 대상이며 상품권 구매건은 특별 적립에서 제외됩니다.';
+        cjRule.condition.requiredNote = 'CJ온스타일 상품권 구매건은 일반 적립률이 적용됩니다.';
+        extraction.rules.push(cjRule);
+        addDerivedRuleToEvidence(extraction.evidence, ruleRow.id, cjRule.id);
+    });
+
+    const telecomRules = extraction.rules.filter(ruleRow => (
+        ruleRow.id.startsWith('shinhan_hi_point_favorite_telecom_')
+    ));
+    telecomRules.forEach(ruleRow => {
+        delete ruleRow.category;
+        ruleRow.includedBrands = supportedBrands(['telecom']);
+        ruleRow.platformType = 'ALL';
+        ruleRow.sharedGroupId = 'shinhan_hi_point_telecom_monthly';
+        ruleRow.usesCardLimit = true;
+        ruleRow.limitConfig = {
+            monthlyAmountByPerformance: structuredClone(rateLimitTiers),
+            sharedFields: ['monthlyAmount'],
+        };
+        setTierWaiver(ruleRow);
+        ruleRow.condition.manualCheckRequired = true;
+        ruleRow.condition.requiredNote = 'SKT·KT·LG U+ 순수 이동통신요금 자동이체인지 확인해야 합니다. 특별 적립 대상 결제금액은 월 10만원까지입니다.';
+        ruleRow.detail = 'SKT·KT·LG U+ 이동통신요금 자동이체 결제금액 월 10만원까지 특별 적립률이 적용됩니다. 초과 결제건 이후의 추가 결제는 일반 적립률이 적용되며 약정금액 대납과 지점 월납은 제외됩니다.';
+    });
+
+    const overseasRules = extraction.rules.filter(ruleRow => (
+        ruleRow.id.startsWith('shinhan_hi_point_favorite_overseas_')
+    ));
+    overseasRules.forEach(ruleRow => {
+        setTierWaiver(ruleRow);
+        ruleRow.detail = '해외 가맹점 이용금액을 매입일자 기준으로 적립합니다. 해외 일시불을 국내에서 할부로 전환하면 일반 적립률이 적용됩니다.';
+    });
+
+    const generalRules = extraction.rules.filter(ruleRow => (
+        ruleRow.id.startsWith('shinhan_hi_point_general_')
+    ));
+    const telecomRuleIds = telecomRules.map(ruleRow => ruleRow.id);
+    generalRules.forEach(ruleRow => {
+        setTierWaiver(ruleRow);
+        ruleRow.condition.fallbackAfterRuleIds = telecomRuleIds;
+        ruleRow.detail = '국내외 가맹점 일시불·할부 이용금액 대상이며 잘 가는 곳·주유 적립과 중복되지 않습니다. 무이자할부, 지방세, 수도요금, 포인트 사용, 선불카드 충전 및 신한카드 할인서비스 이용금액 등은 적립에서 제외됩니다.';
+    });
+    extraction.evidence.filter(item => (
+        /10\s*만원\s*초과[\s\S]{0,80}(?:이후|추가\s*결제)[\s\S]{0,80}0\.2\s*~\s*2(?:\.0)?\s*%/i
+            .test(item.quote)
+    )).forEach(item => {
+        item.ruleIds = unique([...item.ruleIds, ...telecomRuleIds, ...generalRules.map(rule => rule.id)]);
+        item.fields = unique([...item.fields, 'condition', 'limitConfig']);
+    });
+
+    const fuelRepairs = [
+        { pattern: /fuel_soil$|S-OIL/i, brandId: 's_oil' },
+        { pattern: /fuel_hd$|현대오일뱅크/i, brandId: 'hd_hyundai_oilbank' },
+    ];
+    fuelRepairs.forEach(({ pattern, brandId }) => {
+        const ruleRow = extraction.rules.find(rule => (
+            pattern.test(rule.id) || pattern.test(rule.description)
+        ));
+        if (!ruleRow) return;
+        delete ruleRow.category;
+        ruleRow.includedBrands = supportedBrands([brandId]);
+        ruleRow.platformType = 'OFFLINE';
+        ruleRow.action = { type: 'FLAT', value: 0 };
+        delete ruleRow.condition.performanceWaiver;
+        ruleRow.condition.manualCheckRequired = true;
+        ruleRow.condition.requiredNote = '리터 수와 정유사가 통보한 휘발유 기준유가가 필요해 예상 적립액은 정보로만 표시합니다. 정유사별 월 2회·주유금액 20만원까지 특별 적립되며, 한도 초과 후 다음 결제 건부터 일반 적립률이 적용됩니다.';
+        ruleRow.detail = `${brandId === 's_oil' ? 'S-OIL' : 'HD현대오일뱅크'}에서 리터당 60원을 적립합니다. LPG는 제외되고 경유·등유는 정유사가 통보한 휘발유가를 기준으로 계산합니다.`;
+        ruleRow.limitConfig = { monthlyCount: 2 };
+    });
+
+    generalRules.forEach(ruleRow => {
+        ruleRow.excludedBrands = supportedBrands(['s_oil', 'hd_hyundai_oilbank']);
+    });
+
+    const interestFreeRule = extraction.rules.find(ruleRow => (
+        ruleRow.id === 'shinhan_hi_point_interest_free'
+    ));
+    if (interestFreeRule) {
+        delete interestFreeRule.category;
+        interestFreeRule.includedBrands = supportedBrands([
+            'lotte_department',
+            'hyundai_department',
+            'shinsegae_department',
+            'galleria_department',
+            'lotte_mart',
+            'emart',
+            'homeplus',
+        ]);
+        interestFreeRule.platformType = 'OFFLINE';
+        interestFreeRule.usesCardLimit = false;
+        interestFreeRule.action = { type: 'FLAT', value: 0 };
+        interestFreeRule.condition.manualCheckRequired = true;
+        interestFreeRule.condition.requiredNote = '문화센터 등 비쇼핑 항목, 온라인 매장과 할인점 계열 SSM은 제외되며 무이자할부 이용금액은 포인트가 적립되지 않습니다.';
+        interestFreeRule.detail = '롯데·현대·신세계·갤러리아 백화점과 롯데마트·이마트·홈플러스 오프라인 매장에서 2~3개월 무이자할부를 제공합니다.';
+        interestFreeRule.limitConfig = {};
+    }
+
+    extraction.rules.filter(ruleRow => [
+        'shinhan_hi_point_cma',
+        'shinhan_hi_point_partner_extra',
+        'shinhan_hi_point_monthly_cap',
+    ].includes(ruleRow.id)).forEach(ruleRow => {
+        delete ruleRow.condition.performanceWaiver;
+    });
+
+    const monthlyCapRule = extraction.rules.find(ruleRow => (
+        ruleRow.id === 'shinhan_hi_point_monthly_cap'
+    ));
+    if (monthlyCapRule) {
+        monthlyCapRule.action = { type: 'FLAT', value: 0 };
+        monthlyCapRule.usesCardLimit = false;
+        monthlyCapRule.condition.manualCheckRequired = true;
+        monthlyCapRule.condition.requiredNote = '월 5만 포인트 통합한도는 카드 계산에 반영됩니다. 실제 한도 적용월은 전표 매입 지연, 할부 청구, 중도상환·선입금 시점에 따라 달라질 수 있습니다.';
+        monthlyCapRule.detail = 'Hi-Point의 마이신한포인트는 해당 월 총 청구금액 기준 월 최대 5만 포인트까지 적립되며 가족카드와 복수카드에 통합 적용됩니다. CMA 및 마이신한포인트 가맹점 추가 적립은 이 한도에서 제외됩니다.';
+        monthlyCapRule.limitConfig = {};
+    }
+
+    const cmaRule = extraction.rules.find(ruleRow => (
+        ruleRow.id === 'shinhan_hi_point_cma'
+    ));
+    const pointAccrualRules = extraction.rules.filter(ruleRow => (
+        ruleRow.id.startsWith('shinhan_hi_point_favorite_shopping_') ||
+        ruleRow.id.startsWith('shinhan_hi_point_favorite_cj_onstyle_') ||
+        ruleRow.id.startsWith('shinhan_hi_point_favorite_telecom_') ||
+        ruleRow.id.startsWith('shinhan_hi_point_favorite_overseas_') ||
+        ruleRow.id.startsWith('shinhan_hi_point_general_')
+    ));
+    if (cmaRule) {
+        const pointRuleIds = pointAccrualRules.map(ruleRow => ruleRow.id);
+        cmaRule.condition.stackableWithRuleIds = pointRuleIds;
+        pointAccrualRules.forEach(ruleRow => {
+            ruleRow.condition.stackableWithRuleIds = [cmaRule.id];
+        });
+        extraction.evidence.filter(item => (
+            /CMA[\s\S]{0,80}0\.2\s*%[\s\S]{0,40}추가\s*적립/i.test(item.quote)
+        )).forEach(item => {
+            item.ruleIds = unique([...item.ruleIds, ...pointRuleIds]);
+            item.fields = unique([...item.fields, 'condition', 'action']);
+        });
+    }
+
+    const pointRecreditRule = extraction.rules.find(ruleRow => (
+        ruleRow.id === 'shinhan_hi_point_lotteworld_recredit'
+    ));
+    if (pointRecreditRule) {
+        pointRecreditRule.action = { type: 'FLAT', value: 0 };
+        pointRecreditRule.condition.manualCheckRequired = true;
+        pointRecreditRule.condition.requiredNote = '입장권 결제금액이 아니라 실제 사용한 포인트의 60%가 재적립되므로 정보로만 표시합니다.';
+        delete pointRecreditRule.condition.itemSpecific;
+        delete pointRecreditRule.condition.eligibleItemSummary;
+        pointRecreditRule.limitConfig = {};
+    }
+
+    const removedMovieRuleIds = new Set(extraction.rules.filter(ruleRow => (
+        ruleRow.id === 'shinhan_hi_point_movie_offline'
+    )).map(ruleRow => ruleRow.id));
+    extraction.rules = extraction.rules.filter(ruleRow => !removedMovieRuleIds.has(ruleRow.id));
+    extraction.evidence.forEach(item => {
+        item.ruleIds = item.ruleIds.filter(ruleId => !removedMovieRuleIds.has(ruleId));
+    });
+    extraction.rules.filter(ruleRow => (
+        ruleRow.id === 'shinhan_hi_point_movie_online_1500' ||
+        ruleRow.id === 'shinhan_hi_point_movie_online_3000'
+    )).forEach(ruleRow => {
+        delete ruleRow.category;
+        ruleRow.includedBrands = supportedBrands(['cgv', 'megabox']);
+        ruleRow.platformType = 'OFFICIAL_SITE';
+        ruleRow.sharedGroupId = 'shinhan_hi_point_movie_limits';
+        ruleRow.usesCardLimit = false;
+        ruleRow.condition.minPerformance = 300_000;
+        ruleRow.condition.performanceWaiver = 'NEW_CARD_REGISTRATION_WINDOW';
+        delete ruleRow.condition.itemSpecific;
+        delete ruleRow.condition.eligibleItemSummary;
+        ruleRow.limitConfig = {
+            dailyCount: 2,
+            monthlyCount: 6,
+            yearlyCount: 15,
+            sharedFields: ['dailyCount', 'monthlyCount', 'yearlyCount'],
+        };
+    });
+
+    extraction.rules.filter(ruleRow => (
+        ruleRow.id === 'shinhan_hi_point_theme_park_50' ||
+        ruleRow.id === 'shinhan_hi_point_caribbean'
+    )).forEach(ruleRow => {
+        delete ruleRow.sharedGroupId;
+        delete ruleRow.limitConfig.sharedFields;
+    });
+
+    extraction.evidence = extraction.evidence.filter(item => item.ruleIds.length > 0);
+    extraction.card.limitTable = [{ threshold: 0, limit: 50_000 }];
 };
 
 export const normalizeEvidenceBackedCardBenefitExtraction = (
@@ -4212,6 +4494,7 @@ export const normalizeEvidenceBackedCardBenefitExtraction = (
     // Re-apply exact card scope after generic ambiguity guards have removed
     // overlapping channel variants such as Starbucks offline/Siren Order.
     normalizeSamsungIdOnRules(extraction, input);
+    normalizeShinhanHiPointRules(extraction, input);
 
     // Solo-limit evidence is processed late above. Re-apply the safety rule so
     // informational (0-value) rows cannot accidentally regain monetary caps.
@@ -4900,7 +5183,7 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
             timeoutMs: 180_000,
         });
         this.model = this.client.model;
-        this.cacheKey = `${this.id}:${this.model}:inventory-v32`;
+        this.cacheKey = `${this.id}:${this.model}:inventory-v33`;
     }
 
     async extract(input: CardBenefitExtractionInput): Promise<CardBenefitExtractionResult> {
@@ -4974,7 +5257,7 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
                 '보험 보장액·수리비 보상액처럼 결제 할인 한도가 아닌 금액은 limitConfig에 넣지 말고 detail과 requiredNote에 문장으로 보존하세요.',
                 '금액으로 환산하기 어려운 한도나 부가 서비스도 생략하지 말고 manualCheckRequired와 requiredNote로 보존하세요.',
                 '사용자가 확인하면 금액 계산이 가능한 급여이체·가입·대상 여부 조건은 계산식을 유지하고 manualCheckRequired=true로 표시하세요. 이 규칙은 조건부 혜택으로 계산됩니다.',
-                '같은 서비스 그룹의 신규카드 실적 유예는 카드 통합한도 적용 여부와 관계없이 해당 그룹의 모든 minPerformance 규칙에 performanceWaiver로 반영하세요.',
+                '같은 할인·적립률을 쓰는 서비스 그룹의 신규카드 실적 유예는 카드 통합한도 적용 여부와 관계없이 해당 그룹의 모든 minPerformance 규칙에 performanceWaiver로 반영하세요.',
                 'A 또는 B처럼 대체 가능한 조건을 AND로 바꾸지 마세요. 예를 들어 급여이체만 필요한 혜택에 다른 서비스의 전월 실적을 minPerformance로 추가하지 말고, 계산 모델로 OR를 표현할 수 없으면 manualCheckRequired와 requiredNote에 원문 조건 전체를 보존하세요.',
                 '이번 후보는 카드의 전체 혜택을 교체하므로 공식 페이지의 상시 혜택과 현재 유효한 프로모션을 모두 포함하세요.',
                 'Rule 필드는 id, cardId, category, includedBrands, excludedBrands, platformType, sharedGroupId, usesCardLimit, description, detail, condition, action, limitConfig를 사용하세요.',
@@ -4983,6 +5266,9 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
                 '“N원 미만” 구간은 maxSpendExclusive=N, “N원 이하” 구간은 maxSpend=N으로 표현하고 금액 구간별 규칙이 서로 겹치지 않게 하세요.',
                 '동일한 상한을 maxSpend와 maxSpendExclusive에 중복 기록하지 마세요.',
                 '“1회 승인금액 N원까지 할인 적용”은 결제액이 N원을 넘으면 혜택 전체가 사라지는 maxSpend가 아닙니다. 함께 적힌 “1회 최대 X원 할인”을 action.maxDiscount=X로 넣고 maxSpend는 null로 두세요.',
+                '전월 실적 구간에 따라 할인율·적립률 자체가 달라지는 표는 금액 한도가 아닙니다. 각 구간을 같은 대상의 별도 비중복 규칙으로 만들고 action.value에 해당 비율, condition.minPerformance에 구간 하한을 넣으세요. card.limitTable이나 monthlyAmountByPerformance에는 원 단위 혜택 한도만 넣고 비율 숫자를 넣지 마세요.',
+                '전월 실적은 condition.minPerformance이고 이번 결제의 최소 금액은 condition.minSpend입니다. “전월 이용금액 N원 이상”을 minSpend로 옮기지 마세요.',
+                '실적 구간별 할인·적립률 카드의 신규 회원에게 특정 구간 적립률만 제공한다고 명시되면 그 구간 규칙에만 performanceWaiver를 넣고, 더 높은 구간 규칙에는 넣지 마세요.',
                 '일 한도·월 한도처럼 기간 누적 금액 한도는 각각 dailyAmount·monthlyAmount입니다. “일 N회”처럼 회수가 명시된 경우에만 dailyCount를 쓰고, 일 한도를 maxDiscount로 옮기지 마세요. 실적 구간에 따라 서비스 월 한도가 달라지면 limitConfig.monthlyAmountByPerformance에 threshold/limit 전체 표를 넣으세요.',
                 '통합한도 usesCardLimit=true는 공식 통합한도 적용 대상 목록에 명시된 규칙에만 설정하세요. 목록 밖 혜택은 같은 서비스 묶음에 있어도 false입니다.',
                 'sharedGroupId는 여러 규칙이 하나 이상의 동일한 일·월·연 한도를 실제로 공유할 때 사용하고 limitConfig.sharedFields에 실제 공유 필드만 넣으세요. 예를 들어 구분별 일·월 횟수는 각각이지만 서비스 월 할인한도만 공유하면 모든 규칙에 같은 sharedGroupId와 sharedFields=["monthlyAmount"]를 넣습니다. 카드 전체 통합한도는 usesCardLimit와 card.limitTable로 처리하므로 sharedGroupId를 만들지 마세요.',

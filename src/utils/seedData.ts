@@ -59,6 +59,11 @@ export const INITIAL_BRANDS = [
     { id: 'emart', name: '이마트', category_id: 'convenience', icon_name: 'ShoppingCart' },
     { id: 'homeplus', name: '홈플러스', category_id: 'convenience', icon_name: 'ShoppingCart' },
     { id: 'lotte_mart', name: '롯데마트', category_id: 'convenience', icon_name: 'ShoppingCart' },
+    { id: 'lotte_department', name: '롯데백화점', category_id: 'shopping', icon_name: 'ShoppingBag' },
+    { id: 'hyundai_department', name: '현대백화점', category_id: 'shopping', icon_name: 'ShoppingBag' },
+    { id: 'shinsegae_department', name: '신세계백화점', category_id: 'shopping', icon_name: 'ShoppingBag' },
+    { id: 'galleria_department', name: '갤러리아백화점', category_id: 'shopping', icon_name: 'ShoppingBag' },
+    { id: 'toysrus', name: '토이저러스', category_id: 'shopping', icon_name: 'ShoppingBag' },
     { id: 'vietnam_lottemart', name: '베트남 롯데마트', category_id: 'convenience', icon_name: 'ShoppingCart' },
     { id: 'hanaro_mart', name: '농협 하나로마트', category_id: 'convenience', icon_name: 'ShoppingCart' },
     { id: 'emart_traders', name: '이마트 트레이더스', category_id: 'convenience', icon_name: 'ShoppingCart' },
@@ -108,6 +113,8 @@ export const INITIAL_BRANDS = [
     { id: 'kakaot', name: '카카오T', category_id: 'transport', icon_name: 'CarTaxiFront' },
     { id: 'taxi', name: '택시', category_id: 'transport', icon_name: 'CarTaxiFront' },
     { id: 'gas_station', name: '주유소', category_id: 'transport', icon_name: 'Fuel' },
+    { id: 's_oil', name: 'S-OIL', category_id: 'transport', icon_name: 'Fuel' },
+    { id: 'hd_hyundai_oilbank', name: 'HD현대오일뱅크', category_id: 'transport', icon_name: 'Fuel' },
     { id: 'telecom', name: '통신요금', category_id: 'transport', icon_name: 'Smartphone' },
     { id: 'electric_utility', name: '전기요금', category_id: 'transport', icon_name: 'Zap' },
     { id: 'city_gas', name: '도시가스요금', category_id: 'transport', icon_name: 'Flame' },
@@ -116,6 +123,7 @@ export const INITIAL_BRANDS = [
 
     // Movie / entertainment
     { id: 'cgv', name: 'CGV', category_id: 'movie', icon_name: 'Film' },
+    { id: 'megabox', name: '메가박스', category_id: 'movie', icon_name: 'Film' },
     { id: 'lotte_cinema', name: '롯데시네마', category_id: 'movie', icon_name: 'Film' },
     { id: 'lotte_world', name: '롯데월드', category_id: 'movie', icon_name: 'RollerCoaster' },
     { id: 'everland', name: '에버랜드', category_id: 'movie', icon_name: 'RollerCoaster' },

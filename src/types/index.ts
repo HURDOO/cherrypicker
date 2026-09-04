@@ -69,6 +69,13 @@ export interface RuleCondition {
     performanceWaiver?: 'NEW_CARD_REGISTRATION_WINDOW';
     confirmationRequired?: boolean;
     stackableWithRuleIds?: RuleId[];
+    /**
+     * This rule is a fallback for the referenced rules. It may start only when
+     * every referenced rule that matches the current purchase was already
+     * unavailable before the purchase began (for example, after a monthly
+     * special-accrual limit was exhausted by an earlier transaction).
+     */
+    fallbackAfterRuleIds?: RuleId[];
     applicationOrder?: number;
     manualCheckRequired?: boolean;
     requiredNote?: string;

@@ -28,6 +28,7 @@ const conditionCoverageFields = [
     'requiredCardNetwork',
     'performanceWaiver',
     'stackableWithRuleIds',
+    'fallbackAfterRuleIds',
     'itemSpecific',
     'eligibleItemSummary',
 ] as const;

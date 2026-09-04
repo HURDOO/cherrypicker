@@ -251,6 +251,39 @@ describe('card benefit extraction', () => {
             evidence,
             '공항 의전 할인 서비스 - yQ Meet&Assist\n• 플래티늄 등급 : 15%',
         )).toBe(true);
+
+        const splitFuelEvidence: CardBenefitEvidence[] = [
+            {
+                id: 'soil',
+                ruleIds: ['soil'],
+                fields: ['description', 'action'],
+                quote: 'S-OIL 리터 당 60원 적립',
+                sourceUrl: 'https://example.com/card',
+            },
+            {
+                id: 'oilbank',
+                ruleIds: ['oilbank'],
+                fields: ['description', 'action'],
+                quote: '에이치디현대오일뱅크 리터 당 60원 적립',
+                sourceUrl: 'https://example.com/card',
+            },
+            {
+                id: 'fuel-limit',
+                ruleIds: ['soil', 'oilbank'],
+                fields: ['limitConfig'],
+                quote: 'S-OIL 정유사별 월 2회, 주유금액 20만원까지 적립\n' +
+                    '에이치디현대오일뱅크 정유사별 월 2회, 주유금액 20만원까지 적립',
+                sourceUrl: 'https://example.com/card',
+            },
+        ];
+        expect(evidenceRepresentsBenefitClaim(
+            splitFuelEvidence,
+            'S-Oil, 에이치디현대오일뱅크 리터당 60원 적립',
+        )).toBe(true);
+        expect(evidenceRepresentsBenefitClaim(
+            splitFuelEvidence,
+            '주유사별 월 2회, 주유금액 20만원까지 적립',
+        )).toBe(true);
     });
 
     it('adds source-backed VISA scope evidence and promotes a split rate to action evidence', () => {
@@ -894,6 +927,189 @@ describe('card benefit extraction', () => {
             'overseas_atm',
             'japan_convenience',
         ]));
+
+        const hiPoint = normalize('shinhan_hi_point', [
+            makeRule('shinhan_hi_point', {
+                id: 'shinhan_hi_point_favorite_shopping_2',
+                category: 'shopping',
+                description: '잘 가는 곳 쇼핑 이용금액 2.0% 적립',
+                condition: { minPerformance: 500_000 },
+                action: { type: 'PERCENT', value: 2 },
+            }),
+            makeRule('shinhan_hi_point', {
+                id: 'shinhan_hi_point_favorite_telecom_2',
+                category: 'transport',
+                includedBrands: ['wrong-telecom'],
+                description: 'SKT·KT·LG U+ 이동통신요금 자동이체 2.0% 적립',
+                condition: { minPerformance: 500_000 },
+                action: { type: 'PERCENT', value: 2 },
+                limitConfig: { monthlyAmount: 100_000 },
+            }),
+            makeRule('shinhan_hi_point', {
+                id: 'shinhan_hi_point_general_2',
+                description: '국내외 가맹점 일시불·할부 0.8% 적립',
+                condition: { minPerformance: 500_000 },
+                action: { type: 'PERCENT', value: 0.8 },
+            }),
+            makeRule('shinhan_hi_point', {
+                id: 'shinhan_hi_point_cma',
+                description: '신한투자증권 CMA 결제계좌 지정 시 0.2% 추가 적립',
+                condition: { manualCheckRequired: true },
+                action: { type: 'PERCENT', value: 0.2 },
+            }),
+            makeRule('shinhan_hi_point', {
+                id: 'shinhan_hi_point_fuel_soil',
+                category: 'transport',
+                includedBrands: ['sk_energy'],
+                description: 'S-OIL 리터당 60원 적립',
+                action: { type: 'FLAT', value: 0 },
+            }),
+            makeRule('shinhan_hi_point', {
+                id: 'shinhan_hi_point_lotteworld_recredit',
+                includedBrands: ['lotte_world'],
+                description: '롯데월드 포인트 사용분 60% 재적립',
+                condition: { itemSpecific: true, eligibleItemSummary: '롯데월드 입장권' },
+                action: { type: 'PERCENT', value: 60 },
+            }),
+            makeRule('shinhan_hi_point', {
+                id: 'shinhan_hi_point_movie_offline',
+                includedBrands: ['cgv'],
+                platformType: 'OFFLINE',
+                description: '영화 1,500원 할인',
+                action: { type: 'FLAT', value: 1_500 },
+            }),
+            makeRule('shinhan_hi_point', {
+                id: 'shinhan_hi_point_movie_online_1500',
+                includedBrands: ['cgv'],
+                platformType: 'OFFICIAL_SITE',
+                description: '온라인 영화 1,500원 할인',
+                action: { type: 'FLAT', value: 1_500 },
+            }),
+            makeRule('shinhan_hi_point', {
+                id: 'shinhan_hi_point_interest_free',
+                includedBrands: ['lotte_mart'],
+                description: '4대 백화점·3대 할인점 2~3개월 무이자할부',
+                action: { type: 'FLAT', value: 0 },
+            }),
+            makeRule('shinhan_hi_point', {
+                id: 'shinhan_hi_point_monthly_cap',
+                description: '마이신한포인트 월 최대 5만원 적립',
+                condition: { manualCheckRequired: true },
+                action: { type: 'FLAT', value: 0 },
+            }),
+            makeRule('shinhan_hi_point', {
+                id: 'shinhan_hi_point_theme_park_50',
+                includedBrands: ['lotte_world'],
+                sharedGroupId: 'theme-limits',
+                description: '테마파크 자유이용권 50% 할인',
+                action: { type: 'PERCENT', value: 50 },
+                limitConfig: {
+                    dailyCount: 1,
+                    yearlyCount: 3,
+                    sharedFields: ['dailyCount', 'yearlyCount'],
+                },
+            }),
+            makeRule('shinhan_hi_point', {
+                id: 'shinhan_hi_point_caribbean',
+                includedBrands: ['caribbean'],
+                sharedGroupId: 'theme-limits',
+                description: '캐리비안베이 입장권 30% 할인',
+                action: { type: 'PERCENT', value: 30 },
+                limitConfig: {
+                    dailyCount: 1,
+                    yearlyCount: 3,
+                    sharedFields: ['dailyCount', 'yearlyCount'],
+                },
+            }),
+        ], [
+            { id: 'lotte_department', name: '롯데백화점', categoryId: 'shopping' },
+            { id: 'hyundai_department', name: '현대백화점', categoryId: 'shopping' },
+            { id: 'shinsegae_department', name: '신세계백화점', categoryId: 'shopping' },
+            { id: 'galleria_department', name: '갤러리아백화점', categoryId: 'shopping' },
+            { id: 'lotte_mart', name: '롯데마트', categoryId: 'convenience' },
+            { id: 'emart', name: '이마트', categoryId: 'convenience' },
+            { id: 'homeplus', name: '홈플러스', categoryId: 'convenience' },
+            { id: 'toysrus', name: '토이저러스', categoryId: 'shopping' },
+            { id: 'cj_onstyle', name: 'CJ온스타일', categoryId: 'shopping' },
+            { id: 'telecom', name: '통신요금', categoryId: 'transport' },
+            { id: 's_oil', name: 'S-OIL', categoryId: 'transport' },
+            { id: 'cgv', name: 'CGV', categoryId: 'movie' },
+            { id: 'megabox', name: '메가박스', categoryId: 'movie' },
+            { id: 'lotte_world', name: '롯데월드', categoryId: 'movie' },
+            { id: 'caribbean', name: '캐리비안베이', categoryId: 'movie' },
+        ]);
+        const hiPointById = new Map(hiPoint.rules.map(ruleRow => [ruleRow.id, ruleRow]));
+        expect(hiPointById.get('shinhan_hi_point_favorite_shopping_2')).toMatchObject({
+            includedBrands: expect.arrayContaining(['lotte_mart', 'emart', 'homeplus']),
+            platformType: 'OFFLINE',
+            condition: { performanceWaiver: 'NEW_CARD_REGISTRATION_WINDOW' },
+        });
+        expect(hiPointById.get('shinhan_hi_point_favorite_cj_onstyle_2')).toMatchObject({
+            includedBrands: ['cj_onstyle'],
+            platformType: 'ONLINE',
+        });
+        expect(hiPointById.get('shinhan_hi_point_favorite_telecom_2')).toMatchObject({
+            includedBrands: ['telecom'],
+            sharedGroupId: 'shinhan_hi_point_telecom_monthly',
+            limitConfig: {
+                monthlyAmountByPerformance: [
+                    { threshold: 0, limit: 1_000 },
+                    { threshold: 500_000, limit: 2_000 },
+                    { threshold: 1_000_000, limit: 3_500 },
+                    { threshold: 1_500_000, limit: 5_000 },
+                ],
+            },
+        });
+        expect(hiPointById.get('shinhan_hi_point_general_2')?.condition.performanceWaiver)
+            .toBe('NEW_CARD_REGISTRATION_WINDOW');
+        expect(hiPointById.get('shinhan_hi_point_general_2')).toMatchObject({
+            excludedBrands: ['s_oil'],
+            condition: {
+                stackableWithRuleIds: ['shinhan_hi_point_cma'],
+                fallbackAfterRuleIds: ['shinhan_hi_point_favorite_telecom_2'],
+            },
+        });
+        expect(hiPointById.get('shinhan_hi_point_cma')?.condition.stackableWithRuleIds)
+            .toEqual(expect.arrayContaining([
+                'shinhan_hi_point_favorite_shopping_2',
+                'shinhan_hi_point_favorite_cj_onstyle_2',
+                'shinhan_hi_point_favorite_telecom_2',
+                'shinhan_hi_point_general_2',
+            ]));
+        expect(hiPointById.get('shinhan_hi_point_fuel_soil')).toMatchObject({
+            includedBrands: ['s_oil'],
+            action: { type: 'FLAT', value: 0 },
+        });
+        expect(hiPointById.get('shinhan_hi_point_fuel_soil')?.condition.requiredNote)
+            .toContain('주유금액 20만원');
+        expect(hiPointById.get('shinhan_hi_point_lotteworld_recredit')).toMatchObject({
+            action: { type: 'FLAT', value: 0 },
+            condition: { manualCheckRequired: true },
+        });
+        expect(hiPointById.has('shinhan_hi_point_movie_offline')).toBe(false);
+        expect(hiPointById.get('shinhan_hi_point_movie_online_1500')).toMatchObject({
+            includedBrands: ['cgv', 'megabox'],
+            platformType: 'OFFICIAL_SITE',
+        });
+        expect(hiPointById.get('shinhan_hi_point_interest_free')).toMatchObject({
+            includedBrands: [
+                'lotte_department',
+                'hyundai_department',
+                'shinsegae_department',
+                'galleria_department',
+                'lotte_mart',
+                'emart',
+                'homeplus',
+            ],
+            platformType: 'OFFLINE',
+            action: { type: 'FLAT', value: 0 },
+        });
+        expect(hiPointById.get('shinhan_hi_point_monthly_cap')?.condition.requiredNote)
+            .toContain('카드 계산에 반영');
+        expect(hiPointById.get('shinhan_hi_point_theme_park_50')?.sharedGroupId)
+            .toBeUndefined();
+        expect(hiPointById.get('shinhan_hi_point_caribbean')?.sharedGroupId)
+            .toBeUndefined();
     });
 
     it('creates a fully evidenced representative SOL Travel candidate', () => {
@@ -2758,6 +2974,12 @@ describe('card benefit extraction', () => {
             .toHaveProperty('extraction');
         expect(extractionRequest.text.format.schema.properties)
             .not.toHaveProperty('extractionJson');
+        expect(extractionRequest.instructions).toContain(
+            '전월 실적 구간에 따라 할인율·적립률 자체가 달라지는 표는 금액 한도가 아닙니다.',
+        );
+        expect(extractionRequest.instructions).toContain(
+            '“전월 이용금액 N원 이상”을 minSpend로 옮기지 마세요.',
+        );
         expect(result.extraction.rules).toHaveLength(13);
         expect(result.confidence).toBe(0.91);
         expect(fetchMock).toHaveBeenCalledTimes(2);

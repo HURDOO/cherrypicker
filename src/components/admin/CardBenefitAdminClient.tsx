@@ -155,6 +155,9 @@ const ruleConditionLabels = (rule: BenefitRule) => [
     ...((rule.condition.stackableWithRuleIds?.length ?? 0) > 0
         ? [`중복 적용 ${rule.condition.stackableWithRuleIds!.length}개`]
         : []),
+    ...((rule.condition.fallbackAfterRuleIds?.length ?? 0) > 0
+        ? [`선행 혜택 소진 후 적용`]
+        : []),
     ...(rule.action.amountBasis === 'REMAINING_AMOUNT' ? ['잔액 기준 계산'] : []),
 ];
 
@@ -195,6 +198,7 @@ const auditFieldLabels: Record<string, string> = {
     'condition.performanceWaiver': '신규회원 실적 면제',
     'condition.confirmationRequired': '사용자 조건 확인',
     'condition.stackableWithRuleIds': '중복 적용 규칙',
+    'condition.fallbackAfterRuleIds': '먼저 소진할 규칙',
     'condition.applicationOrder': '적용 순서',
     'condition.manualCheckRequired': '수동 확인',
     'condition.requiredNote': '필수 확인 문구',

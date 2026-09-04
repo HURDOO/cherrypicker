@@ -213,6 +213,7 @@ export function ruleConditionValue(input: Input): RuleCondition {
     const requiredCardNetwork = value.requiredCardNetwork;
     const performanceWaiver = value.performanceWaiver;
     const stackableWithRuleIds = value.stackableWithRuleIds;
+    const fallbackAfterRuleIds = value.fallbackAfterRuleIds;
     const applicationOrder = optionalNonNegativeInteger(
         value.applicationOrder,
         '혜택 적용 순서',
@@ -286,6 +287,12 @@ export function ruleConditionValue(input: Input): RuleCondition {
     )) {
         invalid('중복 적용 혜택 목록이 올바르지 않습니다.');
     }
+    if (fallbackAfterRuleIds !== undefined && (
+        !Array.isArray(fallbackAfterRuleIds) ||
+        fallbackAfterRuleIds.some(item => typeof item !== 'string' || !item.trim())
+    )) {
+        invalid('후순위 대체 혜택 목록이 올바르지 않습니다.');
+    }
 
     return {
         ...(minSpend !== undefined && { minSpend }),
@@ -305,6 +312,9 @@ export function ruleConditionValue(input: Input): RuleCondition {
         ...(confirmationRequired !== undefined && { confirmationRequired }),
         ...(stackableWithRuleIds !== undefined && {
             stackableWithRuleIds: [...new Set(stackableWithRuleIds as string[])],
+        }),
+        ...(fallbackAfterRuleIds !== undefined && {
+            fallbackAfterRuleIds: [...new Set(fallbackAfterRuleIds as string[])],
         }),
         ...(applicationOrder !== undefined && { applicationOrder }),
         ...(manualCheckRequired !== undefined && { manualCheckRequired }),

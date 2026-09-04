@@ -386,6 +386,9 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
     const stackableWithRuleIds = condition.stackableWithRuleIds === undefined
         ? undefined
         : stringList(condition.stackableWithRuleIds, '중복 적용 혜택 ID', 100);
+    const fallbackAfterRuleIds = condition.fallbackAfterRuleIds === undefined
+        ? undefined
+        : stringList(condition.fallbackAfterRuleIds, '후순위 대체 혜택 ID', 100);
     const applicationOrder = condition.applicationOrder === undefined
         ? undefined
         : safeInteger(condition.applicationOrder, '혜택 적용 순서', 0, 1_000);
@@ -493,6 +496,7 @@ const parseRule = (value: unknown): WithoutOwner<BenefitRule> => {
                 confirmationRequired: condition.confirmationRequired,
             }),
             ...(stackableWithRuleIds && { stackableWithRuleIds }),
+            ...(fallbackAfterRuleIds && { fallbackAfterRuleIds }),
             ...(applicationOrder !== undefined && { applicationOrder }),
             ...(condition.manualCheckRequired !== undefined && {
                 manualCheckRequired: condition.manualCheckRequired,

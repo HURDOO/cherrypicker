@@ -194,6 +194,14 @@ const getConditionStackableRuleIds = (rule: BenefitRule) =>
         [],
     );
 
+const getConditionFallbackAfterRuleIds = (rule: BenefitRule) =>
+    getSnakeOrCamel<string[]>(
+        rule.condition,
+        'fallbackAfterRuleIds',
+        'fallback_after_rule_ids',
+        [],
+    );
+
 const getConditionApplicationOrder = (rule: BenefitRule) =>
     getSnakeOrCamel<number>(rule.condition, 'applicationOrder', 'application_order', 0);
 
@@ -436,13 +444,15 @@ const getTieredMonthlyAmountLimit = (
 ) => {
     const tiers = getMonthlyAmountByPerformance(limitConfig);
     if (tiers.length === 0) return undefined;
+    if (performanceWaiverApplied) {
+        return [...tiers]
+            .filter(tier => tier.threshold > 0 && tier.limit > 0)
+            .sort((left, right) => left.threshold - right.threshold)[0]?.limit ?? 0;
+    }
     const sorted = [...tiers].sort((left, right) => right.threshold - left.threshold);
     const matched = sorted.find(tier => myPerformance >= tier.threshold);
     if (matched) return matched.limit;
-    if (!performanceWaiverApplied) return 0;
-    return [...tiers]
-        .filter(tier => tier.limit > 0)
-        .sort((left, right) => left.threshold - right.threshold)[0]?.limit ?? 0;
+    return 0;
 };
 
 const parseTimeMinutes = (value: string) => {
@@ -752,8 +762,13 @@ const compareEvaluationSets = (left: RuleEvaluation[], right: RuleEvaluation[]) 
         .reduce((total, evaluation) => total + evaluation.discount, 0);
     const total = (evaluations: RuleEvaluation[]) => evaluations
         .reduce((sum, evaluation) => sum + evaluation.discount, 0);
+    const performanceTier = (evaluations: RuleEvaluation[]) => Math.max(
+        0,
+        ...evaluations.map(evaluation => getConditionMinPerformance(evaluation.rule)),
+    );
     return confirmed(right) - confirmed(left) ||
         total(right) - total(left) ||
+        performanceTier(right) - performanceTier(left) ||
         right.length - left.length ||
         left.map(evaluation => evaluation.rule.id).join('\u0000')
             .localeCompare(right.map(evaluation => evaluation.rule.id).join('\u0000'));
@@ -805,6 +820,35 @@ export function calculateBestCards(
         const usedDiscount = getUsedIntegratedLimit(card, context);
         const remainingLimit = Math.max(0, monthlyMaxLimit - usedDiscount);
 
+        const deferredFallbackRuleIds = new Set(candidateRules.flatMap(fallbackRule => {
+            const prerequisiteIds = new Set(getConditionFallbackAfterRuleIds(fallbackRule));
+            if (prerequisiteIds.size === 0) return [];
+            const prerequisiteStillApplies = candidateRules.some(prerequisiteRule => {
+                if (!prerequisiteIds.has(prerequisiteRule.id)) return false;
+                const basisAmount = getConditionItemSpecific(prerequisiteRule)
+                    ? Math.min(amount, eligibleItemAmount ?? 0)
+                    : amount;
+                return evaluateRule({
+                    rule: prerequisiteRule,
+                    amount,
+                    basisAmount,
+                    card,
+                    context,
+                    myPerformance,
+                    isOnline,
+                    remainingLimit,
+                    confirmedConditionIds,
+                    allowPerformanceWaiver,
+                    eligibleItemAmount,
+                    now,
+                }).isApplicable;
+            });
+            return prerequisiteStillApplies ? [fallbackRule.id] : [];
+        }));
+        const applicableCandidateRules = candidateRules.filter(
+            rule => !deferredFallbackRuleIds.has(rule.id),
+        );
+
         const evaluateSet = (ruleSet: BenefitRule[]) => {
             let remainingAmount = amount;
             let integratedRemainingLimit = remainingLimit;
@@ -848,17 +892,17 @@ export function calculateBestCards(
             }
             return evaluations;
         };
-        const evaluationSets = getCandidateRuleSets(candidateRules)
+        const evaluationSets = getCandidateRuleSets(applicableCandidateRules)
             .map(evaluateSet)
             .filter((value): value is RuleEvaluation[] => Boolean(value))
             .sort(compareEvaluationSets);
         const bestEvaluations = evaluationSets[0] ?? [];
         const fallbackEvaluation = bestEvaluations[0] ?? (
-            candidateRules[0]
+            applicableCandidateRules[0]
                 ? evaluateRule({
-                    rule: candidateRules[0],
+                    rule: applicableCandidateRules[0],
                     amount,
-                    basisAmount: getConditionItemSpecific(candidateRules[0])
+                    basisAmount: getConditionItemSpecific(applicableCandidateRules[0])
                         ? Math.min(amount, eligibleItemAmount ?? 0)
                         : amount,
                     card,
