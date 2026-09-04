@@ -2,9 +2,20 @@
 
 Cherrypicker는 결제처와 금액에 맞는 신용카드 혜택을 비교하고, 카드 실적과 결제 기록을 관리하는 Next.js 애플리케이션입니다. 공용 혜택 정보는 서버의 SQLite에서 관리하고 개인 데이터는 기본적으로 브라우저의 IndexedDB에 저장합니다.
 
+> 현재 상태: 추천·기록, 공용 카탈로그, 선택적 계정 동기화와 관리자 수집·검수 기반이 구현되어 있으며 비공개 실사용 베타를 준비하고 있습니다. 현재 다음 작업은 `docs/TASKS.md`의 `[>]` 항목입니다.
+
 추천기는 통신사·매장 할인, Npay·카카오페이·굿딜, 카드·머니·포인트를 독립된 단계로 계산합니다. 확정 혜택으로 기본 순위를 정하고 쿠폰·응모 같은 조건부 혜택과 승인 가맹점이 검증되지 않은 예상 카드 혜택을 별도로 표시합니다.
 
-홈·설정·히스토리는 로그인 없이 사용할 수 있습니다. 브라우저는 공용 카탈로그와 개인 workspace를 서로 분리해 저장하고 추천을 기기에서 계산합니다. 로그인해도 현재 로컬 workspace를 계속 사용하며, 설정에서 빈 계정으로 snapshot을 백업하거나 빈 기기로 계정 snapshot을 복원할 수 있습니다. 같은 원본 기기는 revision을 확인한 뒤 수동으로 백업을 갱신할 수 있고, 서로 다른 데이터가 양쪽에 있으면 항목별 병합 화면에서 원본을 선택할 수 있습니다. 자동 양방향 동기화는 아직 구현 전입니다. 세부 진행 상황은 [Local-first 추천 및 선택적 계정 동기화 전환 계획](docs/local-first-optional-sync-plan.md)에 정리되어 있습니다.
+홈·설정·히스토리는 로그인 없이 사용할 수 있습니다. 브라우저는 공용 카탈로그와 개인 workspace를 서로 분리해 저장하고 추천을 기기에서 계산합니다. 로그인해도 현재 로컬 workspace를 계속 사용하며, 설정에서 빈 계정으로 snapshot을 백업하거나 빈 기기로 계정 snapshot을 복원할 수 있습니다. 서로 다른 데이터가 양쪽에 있으면 항목별 병합 화면에서 원본을 선택합니다. 최초 백업·복원 또는 병합으로 연결을 확정한 뒤에는 IndexedDB outbox와 revision cursor를 사용한 자동 증분 동기화를 선택해 사용할 수 있습니다. 세부 이력은 [Local-first 추천 및 선택적 계정 동기화 전환 계획](docs/local-first-optional-sync-plan.md)에 정리되어 있습니다.
+
+## 문서 지도
+
+- [`PROJECT_BRIEF.md`](PROJECT_BRIEF.md): 제품 의도, 범위와 실사용 기준
+- [`docs/SPEC.md`](docs/SPEC.md): 현재 제품 요구사항과 완료 조건
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): 현재 기술 경계와 데이터 흐름
+- [`docs/TASKS.md`](docs/TASKS.md): 실사용까지 남은 사용자 흐름형 작업과 단 하나의 다음 작업
+- [`docs/DECISIONS.md`](docs/DECISIONS.md): 제품 전반에 영향을 주는 승인된 결정과 제안
+- [`docs/card-benefit-source-policy.md`](docs/card-benefit-source-policy.md), [`docs/promotion-source-policy.md`](docs/promotion-source-policy.md): 수집·근거·검수 정책
 
 ## 기술 구성
 
@@ -67,7 +78,7 @@ PROMOTION_AI_MAX_CALLS=25
 
 `DATABASE_PATH`의 상대 경로는 명령을 실행한 현재 디렉터리를 기준으로 합니다. 운영 환경에서는 절대 경로를 권장합니다. `BETTER_AUTH_URL`은 사용자가 실제로 접속하는 origin과 정확히 같아야 하며 운영 환경에서는 공개 HTTPS 주소를 사용합니다.
 `ALLOW_SIGN_UP`은 정확히 `true`일 때만 가입을 엽니다. 공개 서버에서는 필요한 계정을 만든 뒤 `false`로 바꾸고 서버를 재시작해 신규 가입 API와 가입 화면을 닫으세요.
-`ADMIN_EMAILS`는 `/admin/promotions`에 접근할 관리자 이메일을 쉼표로 구분합니다. 프로모션 수집, 원문 검수, 승인과 카드 승인 경로 검증은 이 계정만 수행할 수 있습니다.
+`ADMIN_EMAILS`는 `/admin`과 하위 관리자 화면에 접근할 관리자 이메일을 쉼표로 구분합니다. 프로모션·카드 수집, 원문 검수, 승인·반려·rollback은 관리자만 수행할 수 있습니다.
 `ADMIN_ACCESS_MODE=FIRST_USER`는 단일 소유자 설치를 위한 명시적 대체 방식입니다. `ADMIN_EMAILS`가 비어 있고 회원가입이 닫힌 경우에만 가장 먼저 생성된 계정을 관리자로 인정합니다. 이메일 목록을 설정하면 목록이 항상 우선하며 첫 계정 대체 방식은 비활성화됩니다.
 `OPENAI_API_KEY`는 선택 사항입니다. 값이 없거나 호출이 실패하면 프로모션은 공식 문구를 보수적으로 판정하는 규칙 분류기로 계속 수집합니다. `OPENAI_MODEL`의 기본값은 `gpt-5.6-luna`이며 `PROMOTION_AI_MODEL`과 `CARD_BENEFIT_AI_MODEL`로 작업별 모델을 덮어쓸 수 있습니다. `PROMOTION_AI_MAX_CALLS`는 한 번의 수집에서 AI로 재확인할 모호한 혜택 수를 제한합니다. AI에는 공개된 혜택 문구만 보내며 사용자 카드·결제·계정 데이터는 보내지 않습니다.
 카드 혜택은 OpenAI Responses API의 구조화 출력으로 먼저 공식 문서의 혜택 섹션을 전수 목록화하고, 두 번째 호출에서 `BenefitRule[]`과 원문 근거로 연결합니다. 인벤토리 누락과 잘못된 인용은 검증 오류로 남아 승인이 차단됩니다. 게시본 대비 고위험 삭제는 diff에 강조하고 승인 직전 별도 확인을 요구하므로, 공식 원문에서 실제로 사라졌거나 기존 입력을 바로잡는 변경은 검수 후 게시할 수 있습니다. 키가 없거나 호출에 실패하면 SOL트래블만 기존 보수적 규칙 추출기로 전환하며, AI 우선 adapter 카드는 후보 생성을 중단합니다. `CARD_BENEFIT_BATCH_MAX_AI_CARDS`는 전체 카드 재검증 한 번에 AI로 새로 구조화할 카드 수를 제한하며 기본값은 2입니다. 원문 의미 해시가 같은 카드는 이 한도를 쓰지 않고 기존 검증 결과를 재사용합니다.
@@ -85,6 +96,7 @@ npm run dev
 
 ```bash
 npm run lint
+npm test
 npm run build
 npm run start
 ```
@@ -128,7 +140,7 @@ npm run db:migrate
 
 프로모션의 원문 보존, 감사, 승인 차단과 삭제 감지 기준은 [프로모션 원문 수집·검수 정책](docs/promotion-source-policy.md)을 따릅니다.
 
-`/admin/card-benefits`에서는 신한 SOL트래블 체크카드의 공식 상품 페이지·이용가이드·공지와 발견된 상품안내 PDF를 하나의 source bundle로 수집합니다. HTML 원문과 PDF 원본 bytes, hash, 출처별 version, PDF 페이지를 보존하고, 공식 공지의 게시일·시행일을 영향 규칙의 적용 기간과 교차 검증합니다. AI 또는 규칙 추출 결과의 필드별 출처·페이지 근거와 검증 오류를 확인한 뒤 카드 혜택 revision을 게시하거나 과거 revision으로 rollback할 수 있습니다. 보조 출처 수집 실패나 날짜 불일치도 검증 오류로 남아 불완전한 후보의 게시를 차단합니다. 세부 출처·검증·보존 정책은 [카드 혜택 원문 수집·구조화 정책](docs/card-benefit-source-policy.md)을 따릅니다.
+`/admin/card-benefits`에서는 등록된 시스템 카드별 공식 상품 페이지·이용가이드·공지·PDF를 source bundle로 수집합니다. HTML 원문과 PDF 원본 bytes, hash, 출처별 version, PDF 페이지를 보존하고, AI 또는 보수적 규칙 추출 결과의 필드별 출처·페이지 근거와 검증 오류를 확인합니다. 공식 공지의 게시일·시행일이 중요한 카드는 영향 규칙의 적용 기간과 교차 검증합니다. 검수를 통과한 후보만 카드 혜택 revision으로 게시하며 과거 revision으로 rollback할 수 있습니다. 세부 출처·검증·보존 정책은 [카드 혜택 원문 수집·구조화 정책](docs/card-benefit-source-policy.md)을 따릅니다.
 
 카카오페이 앱처럼 로그인이나 앱 내부에서만 제공되는 목록은 자동 수집하지 않습니다. 공식 출처에서 계산 조건이 명확한 혜택만 자동 게시하며, 상품·카테고리 한정 혜택은 대표 최대 혜택에서 분리하고 대상 상품 금액을 입력했을 때만 계산합니다. 범위 미확정 혜택은 관리자가 범위를 선택하기 전에는 게시할 수 없습니다. 사용자가 일시 정지한 자동 혜택은 다음 수집에서도 일시 정지 상태를 유지합니다. 수동 실행 명령은 다음과 같습니다.
 
