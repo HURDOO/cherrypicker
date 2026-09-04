@@ -9,13 +9,21 @@ import { useAppStore } from '@/store/useAppStore';
 
 export default function BottomNav() {
     const pathname = usePathname();
-    const { setSelectedBrandId } = useAppStore();
+    const { setSelectedBrandId, workspacePreferences } = useAppStore();
 
     if (
         pathname === '/login' ||
         pathname === '/signup' ||
+        pathname.startsWith('/setup') ||
         pathname.startsWith('/design-lab') ||
-        pathname.startsWith('/admin')
+        pathname.startsWith('/admin') ||
+        (
+            pathname === '/' &&
+            (
+                workspacePreferences.firstSetup.status === 'NOT_STARTED' ||
+                workspacePreferences.firstSetup.status === 'IN_PROGRESS'
+            )
+        )
     ) {
         return null;
     }

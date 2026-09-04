@@ -163,6 +163,7 @@ describe('account workspace merge', () => {
             createDefaultAccountWorkspaceMergeChoices(plan),
         ).workspace.categories).toEqual([]);
         expect(resolveAccountWorkspaceMerge(local, account, {
+            ...createDefaultAccountWorkspaceMergeChoices(plan),
             'categories:shared': 'account',
         }).workspace.categories).toHaveLength(1);
     });

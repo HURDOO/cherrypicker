@@ -71,6 +71,15 @@ export const POPULAR_BRAND_IDS = [
     'cgv',
 ] as const;
 
+export const DEFAULT_FAVORITE_BRAND_IDS = [
+    'cu',
+    'gs25',
+    'daiso',
+    'oliveyoung',
+    'starbucks',
+    'mcdonalds',
+] as const;
+
 const BRAND_SEARCH_ALIASES: Record<string, string[]> = {
     cu: ['씨유', '시유'],
     cu_event: ['씨유행사', '씨유행사상품'],
@@ -265,7 +274,7 @@ export interface BrandDiscoveryPreferences {
 }
 
 export const EMPTY_BRAND_DISCOVERY_PREFERENCES: BrandDiscoveryPreferences = {
-    favoriteBrandIds: [],
+    favoriteBrandIds: [...DEFAULT_FAVORITE_BRAND_IDS],
     locationVisits: [],
     defaultViewMode: 'default',
 };
@@ -474,7 +483,7 @@ export function parseBrandDiscoveryPreferences(value: string | null): BrandDisco
         const parsed = JSON.parse(value) as Partial<BrandDiscoveryPreferences>;
         const favoriteBrandIds = Array.isArray(parsed.favoriteBrandIds)
             ? parsed.favoriteBrandIds.filter(item => typeof item === 'string')
-            : [];
+            : [...DEFAULT_FAVORITE_BRAND_IDS];
         const locationVisits = Array.isArray(parsed.locationVisits)
             ? parsed.locationVisits.filter((item): item is BrandLocationVisit => (
                 typeof item === 'object' && item !== null &&

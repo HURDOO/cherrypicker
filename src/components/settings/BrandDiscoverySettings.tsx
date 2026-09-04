@@ -2,8 +2,10 @@
 
 import clsx from 'clsx';
 import { Check, LayoutGrid, Search, Sparkles } from 'lucide-react';
+import { FavoriteBrandSelector } from '@/components/brand/FavoriteBrandSelector';
 import { useBrandDiscoveryPreferences } from '@/hooks/useBrandDiscoveryPreferences';
 import type { BrandDiscoveryViewMode } from '@/utils/brandDiscovery';
+import type { Brand } from '@/types';
 
 const VIEW_MODE_OPTIONS: Array<{
     id: BrandDiscoveryViewMode;
@@ -31,13 +33,21 @@ const VIEW_MODE_OPTIONS: Array<{
     },
 ];
 
-export function BrandDiscoverySettings({ userId }: { userId: string }) {
+export function BrandDiscoverySettings({
+    userId,
+    brands,
+}: {
+    userId: string;
+    brands: Brand[];
+}) {
     const {
         defaultViewMode,
+        favoriteBrandIds,
         isPreferencesLoaded,
+        preferencesError,
         setDefaultViewMode,
+        toggleFavorite,
     } = useBrandDiscoveryPreferences(userId);
-
     return (
         <section>
             <div className="mb-4 flex items-center gap-2 px-1">
@@ -101,6 +111,26 @@ export function BrandDiscoverySettings({ userId }: { userId: string }) {
             <p className="mt-2 px-2 text-[9px] font-medium text-gray-400">
                 선택한 값은 현재 브라우저에 자동 저장됩니다.
             </p>
+            {preferencesError && (
+                <p role="alert" className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700">
+                    {preferencesError} 브라우저 저장 공간과 권한을 확인해주세요.
+                </p>
+            )}
+
+            <div className="mt-4 rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+                <div className="mb-3">
+                    <h3 className="text-xs font-black text-gray-900">즐겨찾기 관리</h3>
+                    <p className="mt-0.5 text-[10px] text-gray-500">
+                        인기순·카테고리·검색으로 원하는 브랜드를 추가할 수 있습니다.
+                    </p>
+                </div>
+                <FavoriteBrandSelector
+                    brands={brands}
+                    selectedBrandIds={favoriteBrandIds}
+                    disabled={!isPreferencesLoaded}
+                    onToggle={toggleFavorite}
+                />
+            </div>
         </section>
     );
 }

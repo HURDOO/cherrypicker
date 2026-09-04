@@ -109,9 +109,122 @@ describe('local workspace', () => {
             rules: [],
             performances: [],
             history: [],
+            workspacePreferences: {
+                selectedSystemCardIds: [],
+                firstSetup: {
+                    status: 'NOT_STARTED',
+                    step: 'WELCOME',
+                },
+            },
         });
         expect(first.recordMetadata.profile.id).toBe('profile-id');
         expect(memory.storage.write).toHaveBeenCalledOnce();
+    });
+
+    it('normalizes a legacy empty workspace into a resumable first setup', () => {
+        const workspace = createEmptyLocalWorkspace();
+        const legacy = structuredClone(workspace) as unknown as Record<string, unknown>;
+        delete legacy.workspacePreferences;
+        delete (legacy.recordMetadata as Record<string, unknown>).workspacePreferences;
+
+        expect(parseLocalWorkspaceSnapshot(legacy).workspacePreferences).toEqual({
+            selectedSystemCardIds: [],
+            firstSetup: {
+                status: 'NOT_STARTED',
+                step: 'WELCOME',
+            },
+        });
+    });
+
+    it('moves an untouched pre-landing workspace to the welcome step', () => {
+        const workspace = createEmptyLocalWorkspace();
+        workspace.workspacePreferences.firstSetup.step = 'CARDS';
+
+        expect(parseLocalWorkspaceSnapshot(workspace).workspacePreferences.firstSetup).toEqual({
+            status: 'NOT_STARTED',
+            step: 'WELCOME',
+        });
+    });
+
+    it('persists selected system cards and first-setup progress', async () => {
+        const memory = createMemoryStorage();
+        const client = createLocalWorkspaceClient(memory.storage);
+
+        await client.updateWorkspacePreferences({
+            selectedSystemCardIds: ['system-card'],
+            firstSetup: {
+                status: 'IN_PROGRESS',
+                step: 'PERFORMANCE',
+            },
+        });
+
+        await expect(client.read()).resolves.toMatchObject({
+            workspacePreferences: {
+                selectedSystemCardIds: ['system-card'],
+                firstSetup: {
+                    status: 'IN_PROGRESS',
+                    step: 'PERFORMANCE',
+                },
+            },
+        });
+        await expect(client.exportAccountWorkspace()).resolves.toMatchObject({
+            workspacePreferences: {
+                selectedSystemCardIds: ['system-card'],
+                firstSetup: {
+                    status: 'IN_PROGRESS',
+                    step: 'PERFORMANCE',
+                },
+            },
+        });
+        expect(memory.getCurrent()?.recordMetadata.workspacePreferences.updatedAt).toBeTruthy();
+    });
+
+    it('resumes after skipped optional steps and keeps the completed state', async () => {
+        const memory = createMemoryStorage();
+        const client = createLocalWorkspaceClient(memory.storage);
+
+        await client.updateWorkspacePreferences({
+            selectedSystemCardIds: ['system-card'],
+            firstSetup: {
+                status: 'IN_PROGRESS',
+                step: 'FAVORITES',
+            },
+        });
+        const resumedClient = createLocalWorkspaceClient(memory.storage);
+        await expect(resumedClient.read()).resolves.toMatchObject({
+            workspacePreferences: {
+                firstSetup: {
+                    status: 'IN_PROGRESS',
+                    step: 'FAVORITES',
+                },
+            },
+        });
+
+        await resumedClient.updateWorkspacePreferences({
+            selectedSystemCardIds: ['system-card'],
+            firstSetup: {
+                status: 'AWAITING_RECOMMENDATION',
+                step: 'RECOMMENDATION',
+            },
+        });
+        await resumedClient.updateWorkspacePreferences({
+            selectedSystemCardIds: ['system-card'],
+            firstSetup: {
+                status: 'COMPLETED',
+                step: 'RECOMMENDATION',
+                completedAt: '2026-09-04T10:00:00.000Z',
+            },
+        });
+
+        await expect(createLocalWorkspaceClient(memory.storage).read()).resolves.toMatchObject({
+            workspacePreferences: {
+                selectedSystemCardIds: ['system-card'],
+                firstSetup: {
+                    status: 'COMPLETED',
+                    completedAt: '2026-09-04T10:00:00.000Z',
+                },
+            },
+        });
     });
 
     it('defaults legacy workspace small-benefit settings to 100 won', () => {
@@ -176,7 +289,8 @@ describe('local workspace', () => {
                 history: 1,
                 deletedRecords: 0,
                 hasProfile: true,
-                totalRecords: 5,
+                hasWorkspacePreferences: true,
+                totalRecords: 6,
             },
         });
 
@@ -320,6 +434,7 @@ describe('local workspace', () => {
                 history: 0,
                 deletedRecords: 0,
                 hasProfile: false,
+                hasWorkspacePreferences: false,
                 totalRecords: 0,
             },
             revision: 0,
@@ -336,7 +451,8 @@ describe('local workspace', () => {
                 history: 0,
                 deletedRecords: 0,
                 hasProfile: true,
-                totalRecords: 1,
+                hasWorkspacePreferences: true,
+                totalRecords: 2,
             },
             revision: 1,
             source: 'snapshot',
@@ -352,7 +468,8 @@ describe('local workspace', () => {
                 history: 0,
                 deletedRecords: 0,
                 hasProfile: true,
-                totalRecords: 1,
+                hasWorkspacePreferences: true,
+                totalRecords: 2,
             },
             revision: 1,
             source: 'snapshot',
@@ -371,7 +488,8 @@ describe('local workspace', () => {
                 history: 0,
                 deletedRecords: 0,
                 hasProfile: false,
-                totalRecords: 0,
+                hasWorkspacePreferences: true,
+                totalRecords: 1,
             },
             revision: 1,
             source: 'snapshot',
@@ -388,7 +506,8 @@ describe('local workspace', () => {
                 history: 0,
                 deletedRecords: 0,
                 hasProfile: false,
-                totalRecords: 0,
+                hasWorkspacePreferences: true,
+                totalRecords: 1,
             },
             revision: 1,
             source: 'snapshot',

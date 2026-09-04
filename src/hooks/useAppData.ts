@@ -44,12 +44,13 @@ async function loadLocalAppData() {
         performances: workspace.performances,
         history: workspace.history,
         benefitProfile: workspace.benefitProfile,
+        workspacePreferences: workspace.workspacePreferences,
     };
 }
 
 export function useAppData() {
     const pathname = usePathname();
-    const { resetData, setInitialData, setLoading } = useAppStore();
+    const { resetData, setAppDataError, setInitialData, setLoading } = useAppStore();
     const addToast = useToastStore(state => state.addToast);
     const isLoaded = useRef(false);
     const requestVersion = useRef(0);
@@ -77,12 +78,21 @@ export function useAppData() {
                 if (requestVersion.current !== currentVersion) return;
                 isLoaded.current = false;
                 resetData();
+                setAppDataError({
+                    kind: typeof window.indexedDB === 'undefined'
+                        ? 'INDEXED_DB_UNAVAILABLE'
+                        : 'LOAD_FAILED',
+                    message: getErrorMessage(
+                        error,
+                        '기기 저장 데이터를 불러오지 못했습니다.'
+                    ),
+                });
                 addToast(
                     getErrorMessage(error, '기기 저장 데이터를 불러오지 못했습니다.'),
                     'error'
                 );
             });
-    }, [addToast, pathname, resetData, setInitialData, setLoading]);
+    }, [addToast, pathname, resetData, setAppDataError, setInitialData, setLoading]);
 
     useEffect(() => {
         if (isAuthPath(pathname)) return;

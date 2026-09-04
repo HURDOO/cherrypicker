@@ -16,6 +16,7 @@ import { useBenefitCatalog } from '@/hooks/useBenefitCatalog';
 import { localWorkspaceClient } from '@/lib/local-workspace';
 import { useAppStore } from '@/store/useAppStore';
 import { useToastStore } from '@/store/useToastStore';
+import { LocalDataPrivacyNotice } from '@/components/settings/LocalDataPrivacyNotice';
 import type {
     PromotionProvider,
     SubscriptionProduct,
@@ -252,6 +253,7 @@ export function BenefitProfileSettings() {
             </div>
 
             <div className="space-y-6 rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+                <LocalDataPrivacyNotice isAccountStorage={storageMode === 'account'} />
                 <div>
                     <label className="text-xs font-black text-gray-700">통신사 멤버십</label>
                     <div className="mt-3 grid grid-cols-2 gap-2">

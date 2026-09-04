@@ -25,27 +25,40 @@ export function useBrandDiscoveryPreferences(userId: string) {
     const [loadedUserId, setLoadedUserId] = useState('');
     const [currentLocation, setCurrentLocation] = useState<CoarseLocation>();
     const [isLocating, setIsLocating] = useState(false);
+    const [preferencesError, setPreferencesError] = useState<string>();
 
     useEffect(() => {
         if (!userId) {
             setPreferences(EMPTY_BRAND_DISCOVERY_PREFERENCES);
             setLoadedUserId('');
             setCurrentLocation(undefined);
+            setPreferencesError(undefined);
             return;
         }
 
-        const stored = window.localStorage.getItem(`${STORAGE_PREFIX}:${userId}`);
-        setPreferences(parseBrandDiscoveryPreferences(stored));
+        try {
+            const stored = window.localStorage.getItem(`${STORAGE_PREFIX}:${userId}`);
+            setPreferences(parseBrandDiscoveryPreferences(stored));
+            setPreferencesError(undefined);
+        } catch {
+            setPreferences(EMPTY_BRAND_DISCOVERY_PREFERENCES);
+            setPreferencesError('즐겨찾기 설정을 이 브라우저에서 불러오지 못했습니다.');
+        }
         setLoadedUserId(userId);
         setCurrentLocation(undefined);
     }, [userId]);
 
     useEffect(() => {
         if (!userId || loadedUserId !== userId) return;
-        window.localStorage.setItem(
-            `${STORAGE_PREFIX}:${userId}`,
-            JSON.stringify(preferences)
-        );
+        try {
+            window.localStorage.setItem(
+                `${STORAGE_PREFIX}:${userId}`,
+                JSON.stringify(preferences)
+            );
+            setPreferencesError(undefined);
+        } catch {
+            setPreferencesError('즐겨찾기 설정을 이 브라우저에 저장하지 못했습니다.');
+        }
     }, [loadedUserId, preferences, userId]);
 
     const toggleFavorite = useCallback((brandId: string) => {
@@ -129,6 +142,7 @@ export function useBrandDiscoveryPreferences(userId: string) {
         hasCurrentLocation: Boolean(currentLocation),
         isLocating,
         isPreferencesLoaded: Boolean(userId && loadedUserId === userId),
+        preferencesError,
         toggleFavorite,
         setDefaultViewMode,
         requestCurrentLocation,

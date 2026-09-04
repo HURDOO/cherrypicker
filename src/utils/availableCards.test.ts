@@ -54,4 +54,22 @@ describe('selectAvailableCards', () => {
             }],
         }).map(card => card.id)).toEqual(['system-a', 'system-b', 'personal']);
     });
+
+    it('uses an explicit system-card selection even without performance input', () => {
+        expect(selectAvailableCards({
+            cards,
+            performances: [],
+            history: [],
+            selectedSystemCardIds: ['system-b'],
+        }).map(card => card.id)).toEqual(['system-b', 'personal']);
+    });
+
+    it('keeps personal cards but no system cards for an explicit empty selection', () => {
+        expect(selectAvailableCards({
+            cards,
+            performances: [],
+            history: [],
+            selectedSystemCardIds: [],
+        }).map(card => card.id)).toEqual(['personal']);
+    });
 });

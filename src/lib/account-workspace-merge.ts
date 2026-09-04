@@ -6,6 +6,7 @@ import type {
     TransactionHistory,
     UserBenefitProfile,
     UserCardPerformance,
+    WorkspacePreferences,
 } from '@/types';
 import {
     parseAccountWorkspaceExport,
@@ -17,6 +18,7 @@ export type AccountWorkspaceMergeSide = 'local' | 'account';
 
 export type AccountWorkspaceMergeRecordKind =
     | 'profile'
+    | 'workspacePreferences'
     | 'category'
     | 'brand'
     | 'card'
@@ -62,7 +64,8 @@ type MergeRecordValue =
     | AccountWorkspaceExport['rules'][number]
     | UserCardPerformance
     | TransactionHistory
-    | UserBenefitProfile;
+    | UserBenefitProfile
+    | WorkspacePreferences;
 
 type IndexedMergeRecord = {
     key: string;
@@ -107,11 +110,13 @@ const stableStringify = (value: unknown): string => {
 
 const recordKindFromKey = (key: string): AccountWorkspaceMergeRecordKind => {
     if (key === 'profile') return 'profile';
+    if (key === 'workspacePreferences') return 'workspacePreferences';
     return RECORD_PREFIXES.find(item => key.startsWith(item.prefix))?.kind ?? 'metadata';
 };
 
 const recordLabel = (kind: AccountWorkspaceMergeRecordKind, value: unknown, key: string) => {
     if (kind === 'profile') return '보유 혜택 프로필';
+    if (kind === 'workspacePreferences') return '내 카드·첫 설정 상태';
     if (value && typeof value === 'object') {
         if ('name' in value && typeof value.name === 'string') return value.name;
         if (kind === 'rule' && 'description' in value && typeof value.description === 'string') {
@@ -162,6 +167,13 @@ const indexWorkspaceRecords = (value: AccountWorkspaceExport) => {
     });
 
     addActiveRecord(records, workspace, 'profile', 'profile', workspace.benefitProfile);
+    addActiveRecord(
+        records,
+        workspace,
+        'workspacePreferences',
+        'workspacePreferences',
+        workspace.workspacePreferences,
+    );
     workspace.categories.forEach(row => addActiveRecord(
         records,
         workspace,
@@ -358,6 +370,10 @@ const materializeWorkspace = (
     const values = [...records.values()].filter(record => !record.metadata.deletedAt);
     const profile = values.find(record => record.kind === 'profile')?.value;
     if (!profile) throw new Error('병합 결과에 보유 혜택 프로필이 없습니다.');
+    const workspacePreferences = values.find(
+        record => record.kind === 'workspacePreferences'
+    )?.value;
+    if (!workspacePreferences) throw new Error('병합 결과에 첫 설정 상태가 없습니다.');
 
     const workspace: AccountWorkspaceExport = {
         schemaVersion: 1,
@@ -388,6 +404,9 @@ const materializeWorkspace = (
                 String(left.id).localeCompare(String(right.id))
             )),
         benefitProfile: structuredClone(profile) as UserBenefitProfile,
+        workspacePreferences: structuredClone(
+            workspacePreferences
+        ) as WorkspacePreferences,
         recordMetadata: metadata,
     };
 

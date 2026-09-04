@@ -3,6 +3,7 @@ import type { Brand, TransactionHistory } from '@/types';
 import { INITIAL_BRANDS } from './seedData';
 import {
     BRAND_BROWSE_GROUPS,
+    DEFAULT_FAVORITE_BRAND_IDS,
     getBrandBrowseGroupId,
     getBrandIndexKeys,
     getKoreanInitials,
@@ -169,6 +170,27 @@ describe('nearby brand history', () => {
 });
 
 describe('brand discovery preferences', () => {
+    it('starts a new browser with a small cross-category favorite set', () => {
+        expect(parseBrandDiscoveryPreferences(null).favoriteBrandIds).toEqual(
+            DEFAULT_FAVORITE_BRAND_IDS
+        );
+        expect(DEFAULT_FAVORITE_BRAND_IDS).toEqual([
+            'cu',
+            'gs25',
+            'daiso',
+            'oliveyoung',
+            'starbucks',
+            'mcdonalds',
+        ]);
+    });
+
+    it('preserves an explicitly saved empty favorite set', () => {
+        expect(parseBrandDiscoveryPreferences(JSON.stringify({
+            favoriteBrandIds: [],
+            locationVisits: [],
+        })).favoriteBrandIds).toEqual([]);
+    });
+
     it('keeps older saved preferences compatible with the default view', () => {
         expect(parseBrandDiscoveryPreferences(JSON.stringify({
             favoriteBrandIds: ['cu'],

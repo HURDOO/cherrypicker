@@ -87,7 +87,8 @@ describe('account workspace merge route', () => {
                 history: 0,
                 deletedRecords: 0,
                 hasProfile: true,
-                totalRecords: 1,
+                hasWorkspacePreferences: true,
+                totalRecords: 2,
             },
         });
     });

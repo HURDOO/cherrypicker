@@ -100,7 +100,8 @@ describe('account workspace export', () => {
             history: 1,
             deletedRecords: 0,
             hasProfile: true,
-            totalRecords: 7,
+            hasWorkspacePreferences: true,
+            totalRecords: 8,
         });
     });
 
@@ -117,6 +118,22 @@ describe('account workspace export', () => {
             .toBe(100);
     });
 
+    it('preserves selected cards and completed onboarding in account backups', () => {
+        const workspace = createExport();
+        workspace.workspacePreferences = {
+            selectedSystemCardIds: ['system-a', 'system-b'],
+            firstSetup: {
+                status: 'COMPLETED',
+                step: 'RECOMMENDATION',
+                completedAt: '2026-08-18T10:05:00.000Z',
+            },
+        };
+
+        expect(parseAccountWorkspaceExport(workspace).workspacePreferences).toEqual(
+            workspace.workspacePreferences
+        );
+    });
+
     it('rejects unsupported versions and server ownership leakage', () => {
         const workspace = createExport();
 
@@ -128,6 +145,16 @@ describe('account workspace export', () => {
             ...workspace,
             cards: [{ ...workspace.cards[0], userId: 'account-1' }],
         })).toThrow('서버 소유자 정보가 포함');
+        expect(() => parseAccountWorkspaceExport({
+            ...workspace,
+            workspacePreferences: {
+                selectedSystemCardIds: ['system-a'],
+                firstSetup: {
+                    status: 'AWAITING_RECOMMENDATION',
+                    step: 'PERFORMANCE',
+                },
+            },
+        })).toThrow('첫 설정 단계 조합');
     });
 
     it('preserves deletion metadata and counts it as backup data', () => {
@@ -145,7 +172,7 @@ describe('account workspace export', () => {
             .toBe('2026-08-18T09:00:00.000Z');
         expect(summarizeAccountWorkspace(parsed)).toMatchObject({
             deletedRecords: 1,
-            totalRecords: 8,
+            totalRecords: 9,
         });
     });
 

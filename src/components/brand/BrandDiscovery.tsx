@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import {
+    BadgePercent,
     Clock3,
     Flame,
     LayoutGrid,
@@ -16,6 +17,7 @@ import {
 import { BrandLogo } from '@/components/design-lab/BrandLogo';
 import { IconByName } from '@/components/ui/IconByName';
 import type { Brand, Category, TransactionHistory } from '@/types';
+import type { BenefitBrandSuggestion } from '@/utils/benefitBrandSuggestions';
 import {
     BRAND_BROWSE_GROUPS,
     getBrandBrowseGroupId,
@@ -41,7 +43,10 @@ interface BrandDiscoveryProps {
     nearbyBrandIds: string[];
     hasCurrentLocation: boolean;
     isLocating: boolean;
+    benefitSuggestions?: BenefitBrandSuggestion[];
+    benefitOpportunityCount?: number;
     onSelectBrand: (brand: Brand) => void;
+    onSelectBenefitSuggestion?: (suggestion: BenefitBrandSuggestion) => void;
     onToggleFavorite: (brandId: string) => void;
     onRequestLocation: () => Promise<boolean>;
 }
@@ -183,7 +188,10 @@ export function BrandDiscovery({
     nearbyBrandIds,
     hasCurrentLocation,
     isLocating,
+    benefitSuggestions = [],
+    benefitOpportunityCount = benefitSuggestions.length,
     onSelectBrand,
+    onSelectBenefitSuggestion,
     onToggleFavorite,
     onRequestLocation,
 }: BrandDiscoveryProps) {
@@ -388,6 +396,57 @@ export function BrandDiscovery({
                     })}
                 </div>
             </div>
+
+            {!isSearching && benefitSuggestions.length > 0 && (
+                <div className="border-b border-emerald-100 bg-emerald-50/70 p-4 sm:p-5">
+                    <div className="flex items-start gap-2.5">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                            <BadgePercent className="h-4 w-4" aria-hidden="true" />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-black text-emerald-950">
+                                지금 놓치고 있던 혜택 {benefitOpportunityCount.toLocaleString()}개
+                            </h3>
+                            <p className="mt-0.5 text-[10px] font-bold leading-relaxed text-emerald-800/70">
+                                내 멤버십·구독·페이·카드로 바로 계산되는 곳이에요. 실제 결제 금액 예시도 함께 보여드려요.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                        {benefitSuggestions.map(suggestion => (
+                            <button
+                                key={suggestion.brand.id}
+                                type="button"
+                                onClick={() => {
+                                    if (onSelectBenefitSuggestion) {
+                                        onSelectBenefitSuggestion(suggestion);
+                                        return;
+                                    }
+                                    onSelectBrand(suggestion.brand);
+                                }}
+                                aria-label={`${suggestion.brand.name}, ${suggestion.sampleAmount.toLocaleString()}원 결제 시 확정 혜택 ${suggestion.benefitAmount.toLocaleString()}원`}
+                                className="flex min-h-[116px] min-w-0 flex-col items-center justify-center rounded-2xl border border-emerald-100 bg-white px-2 py-3 text-center shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 active:scale-[0.97]"
+                            >
+                                <BrandLogo
+                                    brand={suggestion.brand}
+                                    className="h-10 w-10 rounded-xl border border-gray-100 shadow-sm"
+                                    imageClassName="p-1.5"
+                                />
+                                <span className="mt-1.5 line-clamp-1 w-full text-[11px] font-black text-gray-900">
+                                    {suggestion.brand.name}
+                                </span>
+                                <span className="mt-1 line-clamp-1 w-full text-[9px] font-bold text-emerald-700">
+                                    {suggestion.sampleAmount.toLocaleString()}원 결제 시 {suggestion.benefitAmount.toLocaleString()}원 혜택
+                                </span>
+                                <span className="mt-0.5 line-clamp-1 w-full text-[8px] font-bold text-gray-400">
+                                    {suggestion.methodSummary}
+                                    {suggestion.benefitCount > 1 && ` · ${suggestion.benefitCount}개 조합`}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {isSearching ? (
                 <div className="p-4 sm:p-5">

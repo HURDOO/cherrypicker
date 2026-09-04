@@ -2,8 +2,10 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import {
     AlertCircle,
+    ArrowRight,
     Check,
     CheckCircle2,
     ChevronDown,
@@ -59,6 +61,8 @@ import {
 } from '@/utils/recommendationPreferences';
 import { derivePerformanceGoals } from '@/utils/performanceGoals';
 import { selectAvailableCards } from '@/utils/availableCards';
+import { rankBenefitBrandSuggestions } from '@/utils/benefitBrandSuggestions';
+import { getFirstSetupRoute } from '@/utils/firstSetupRoutes';
 
 const formatWon = (value: number) => `${value.toLocaleString()}원`;
 
@@ -282,6 +286,9 @@ function CombinationSummary({
 }
 
 export default function HomePage() {
+    const router = useRouter();
+    const pathname = usePathname();
+    const guidedFirstRecommendation = pathname === '/setup/recommendation';
     const {
         userId,
         storageMode,
@@ -292,11 +299,14 @@ export default function HomePage() {
         history,
         performances,
         benefitProfile,
+        workspacePreferences,
         isLoading,
+        appDataError,
         selectedBrandId,
         setSelectedBrandId,
         addTransaction,
         updatePerformance,
+        setWorkspacePreferences,
     } = useAppStore();
     const addToast = useToastStore(state => state.addToast);
     const {
@@ -319,11 +329,15 @@ export default function HomePage() {
     const [recommendationPriority, setRecommendationPriority] =
         useState<RecommendationPriority>('BENEFIT');
     const [confirmedConditionIds, setConfirmedConditionIds] = useState<Set<string>>(new Set());
+    const [suggestedSimulationAmount, setSuggestedSimulationAmount] = useState<number>();
     const [isItemBenefitOpen, setIsItemBenefitOpen] = useState(false);
     const [recordConfirmationId, setRecordConfirmationId] = useState<string>();
     const [isRecording, setIsRecording] = useState(false);
     const recommendationVersion = useRef(0);
     const recordInFlight = useRef(false);
+    const firstSetupCompletionInFlight = useRef(false);
+    const firstSetupRouteSyncInFlight = useRef(false);
+    const firstRecommendationGuideRef = useRef<HTMLElement>(null);
     const amountInputRef = useRef<HTMLInputElement>(null);
     const amountSectionRef = useRef<HTMLElement>(null);
     const {
@@ -381,9 +395,60 @@ export default function HomePage() {
         [performances, performancePeriod.performanceMonth]
     );
     const recommendationCards = useMemo(
-        () => selectAvailableCards({ cards, performances, history }),
-        [cards, history, performances]
+        () => selectAvailableCards({
+            cards,
+            performances,
+            history,
+            selectedSystemCardIds: workspacePreferences.selectedSystemCardIds,
+        }),
+        [cards, history, performances, workspacePreferences.selectedSystemCardIds]
     );
+    const promotionUsage = useMemo(() => buildPromotionUsage(history), [history]);
+    const benefitBrandSuggestionResult = useMemo(
+        () => guidedFirstRecommendation && !currentBrand && catalog
+            ? rankBenefitBrandSuggestions({
+                brands,
+                cards: recommendationCards,
+                rules,
+                history,
+                performances: currentPerformances,
+                promotions: catalog.promotions,
+                providers: catalog.providers,
+                profile: benefitProfile,
+                favoriteBrandIds,
+                routeVerifications: catalog.routeVerifications,
+                promotionUsage,
+                performanceBenefitMonth: performancePeriod.nextBenefitMonth,
+                isOnline: isOnlinePurchase,
+            })
+            : { suggestions: [], opportunityCount: 0 },
+        [
+            benefitProfile,
+            brands,
+            catalog,
+            currentBrand,
+            currentPerformances,
+            favoriteBrandIds,
+            guidedFirstRecommendation,
+            history,
+            isOnlinePurchase,
+            performancePeriod.nextBenefitMonth,
+            promotionUsage,
+            recommendationCards,
+            rules,
+        ]
+    );
+    const benefitBrandSuggestions = benefitBrandSuggestionResult.suggestions;
+    const incompleteTelecomProvider = useMemo(() => {
+        const membership = benefitProfile.telecomMemberships.find(item => !item.tier?.trim());
+        if (!membership || !catalog) return undefined;
+        const hasTierSpecificOffers = catalog.promotions.some(offer => (
+            offer.providerId === membership.providerId &&
+            (offer.condition.telecomTiers?.length ?? 0) > 0
+        ));
+        if (!hasTierSpecificOffers) return undefined;
+        return catalog.providers.find(provider => provider.id === membership.providerId);
+    }, [benefitProfile.telecomMemberships, catalog]);
     const performanceGoals = useMemo(() => {
         if (!currentBrand || amount <= 0) return [];
         return derivePerformanceGoals({
@@ -421,8 +486,6 @@ export default function HomePage() {
             return needsPerformance && activeCardIds.has(card.id) && !enteredCardIds.has(card.id);
         });
     }, [cards, currentPerformances, history, performances, rules]);
-    const promotionUsage = useMemo(() => buildPromotionUsage(history), [history]);
-
     useEffect(() => {
         if (!catalog && catalogError) {
             addToast(
@@ -559,6 +622,117 @@ export default function HomePage() {
         )
         : undefined;
 
+    useEffect(() => {
+        if (
+            workspacePreferences.firstSetup.status !== 'AWAITING_RECOMMENDATION' ||
+            recommendation === null ||
+            firstSetupCompletionInFlight.current
+        ) return;
+
+        firstSetupCompletionInFlight.current = true;
+        const next = {
+            ...workspacePreferences,
+            firstSetup: {
+                status: 'COMPLETED' as const,
+                step: 'RECOMMENDATION' as const,
+                completedAt: new Date().toISOString(),
+            },
+        };
+        void localWorkspaceClient.updateWorkspacePreferences(next)
+            .then(saved => {
+                setWorkspacePreferences(saved);
+                addToast('첫 설정을 마쳤어요. 다음부터 바로 추천을 받을 수 있습니다.', 'success');
+            })
+            .catch(error => addToast(
+                getErrorMessage(error, '첫 설정 완료 상태를 저장하지 못했습니다.'),
+                'error'
+            ))
+            .finally(() => {
+                firstSetupCompletionInFlight.current = false;
+            });
+    }, [
+        addToast,
+        recommendation,
+        setWorkspacePreferences,
+        workspacePreferences,
+    ]);
+
+    const shouldRedirectHomeToSetup = !guidedFirstRecommendation &&
+        workspacePreferences.firstSetup.status !== 'COMPLETED';
+    const isGuidedRouteSyncNeeded = guidedFirstRecommendation &&
+        workspacePreferences.firstSetup.status === 'IN_PROGRESS' &&
+        Boolean(workspacePreferences.selectedSystemCardIds?.length);
+    const shouldRedirectGuidedSetup = guidedFirstRecommendation && (
+        workspacePreferences.firstSetup.status === 'NOT_STARTED' ||
+        (
+            workspacePreferences.firstSetup.status === 'IN_PROGRESS' &&
+            !workspacePreferences.selectedSystemCardIds?.length
+        ) ||
+        (
+            workspacePreferences.firstSetup.status === 'COMPLETED' &&
+            recommendation === null
+        )
+    );
+
+    useEffect(() => {
+        if (
+            isLoading ||
+            appDataError ||
+            !isGuidedRouteSyncNeeded ||
+            firstSetupRouteSyncInFlight.current
+        ) return;
+
+        firstSetupRouteSyncInFlight.current = true;
+        const next = {
+            ...workspacePreferences,
+            firstSetup: {
+                status: 'AWAITING_RECOMMENDATION' as const,
+                step: 'RECOMMENDATION' as const,
+            },
+        };
+        void localWorkspaceClient.updateWorkspacePreferences(next)
+            .then(saved => setWorkspacePreferences(saved))
+            .catch(error => {
+                addToast(
+                    getErrorMessage(error, '첫 추천 단계를 이 브라우저에 저장하지 못했습니다.'),
+                    'error'
+                );
+                router.replace(getFirstSetupRoute(workspacePreferences));
+            })
+            .finally(() => {
+                firstSetupRouteSyncInFlight.current = false;
+            });
+    }, [
+        addToast,
+        appDataError,
+        isGuidedRouteSyncNeeded,
+        isLoading,
+        router,
+        setWorkspacePreferences,
+        workspacePreferences,
+    ]);
+
+    useEffect(() => {
+        if (isLoading || appDataError) return;
+        if (shouldRedirectHomeToSetup) {
+            router.replace(getFirstSetupRoute(workspacePreferences));
+            return;
+        }
+        if (!shouldRedirectGuidedSetup) return;
+        router.replace(
+            workspacePreferences.firstSetup.status === 'COMPLETED'
+                ? '/'
+                : getFirstSetupRoute(workspacePreferences)
+        );
+    }, [
+        appDataError,
+        isLoading,
+        router,
+        shouldRedirectGuidedSetup,
+        shouldRedirectHomeToSetup,
+        workspacePreferences,
+    ]);
+
     const handleKeypadChange = (value: string) => {
         setAmount(current => {
             if (current === 0) return value === '0' || value === '00' ? 0 : Number(value);
@@ -576,11 +750,12 @@ export default function HomePage() {
         });
     };
 
-    const handleSelectBrand = (brandId: string) => {
+    const handleSelectBrand = (brandId: string, simulationAmount?: number) => {
         setSelectedBrandId(brandId);
         setRecommendation(null);
         setSelectedCombinationId(undefined);
         setAmount(0);
+        setSuggestedSimulationAmount(simulationAmount);
         setEligibleItemAmount(undefined);
         setConfirmedConditionIds(new Set());
     };
@@ -599,6 +774,18 @@ export default function HomePage() {
         }, 120);
         return () => window.clearTimeout(timer);
     }, [currentBrand]);
+
+    useEffect(() => {
+        if (!guidedFirstRecommendation || recommendation === null || isRecommending) return;
+        const timer = window.setTimeout(() => {
+            firstRecommendationGuideRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+            firstRecommendationGuideRef.current?.focus({ preventScroll: true });
+        }, 120);
+        return () => window.clearTimeout(timer);
+    }, [guidedFirstRecommendation, isRecommending, recommendation]);
 
     const handleRecord = async () => {
         if (!currentBrand || !selectedCombination || amount <= 0 || recordInFlight.current) return;
@@ -670,6 +857,39 @@ export default function HomePage() {
         );
     }
 
+    if (appDataError) {
+        return (
+            <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-8 text-center">
+                <AlertCircle className="mb-4 h-10 w-10 text-rose-400" aria-hidden="true" />
+                <h1 className="text-xl font-black text-gray-900">
+                    {appDataError.kind === 'INDEXED_DB_UNAVAILABLE'
+                        ? '이 브라우저에서는 기기 저장소를 사용할 수 없어요'
+                        : '기기 저장 데이터를 열지 못했어요'}
+                </h1>
+                <p className="mt-2 max-w-sm text-sm leading-relaxed text-gray-500">
+                    {appDataError.kind === 'INDEXED_DB_UNAVAILABLE'
+                        ? '설정과 실적을 안전하게 보관하려면 일반 Chrome 또는 Safari에서 다시 열어주세요.'
+                        : `${appDataError.message} 브라우저 저장 공간과 권한을 확인한 뒤 다시 시도해주세요.`}
+                </p>
+                <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="mt-6 min-h-12 rounded-2xl bg-gray-900 px-6 text-sm font-black text-white"
+                >
+                    다시 시도
+                </button>
+            </div>
+        );
+    }
+
+    if (shouldRedirectHomeToSetup || shouldRedirectGuidedSetup || isGuidedRouteSyncNeeded) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-gray-50">
+                <LoaderCircle className="h-8 w-8 animate-spin text-blue-600" aria-label="화면 이동 중" />
+            </div>
+        );
+    }
+
     if (cards.length === 0 || brands.length === 0) {
         return (
             <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-8 text-center">
@@ -719,23 +939,120 @@ export default function HomePage() {
             </header>
 
             <div className="mx-auto max-w-lg space-y-7 px-5 pt-6">
-                <CatalogFreshnessCard
-                    health={catalogHealth}
-                    isOnline={isNetworkOnline}
-                    isRefreshing={isCatalogRefreshing}
-                    lastCheckedAt={catalogLastCheckedAt}
-                    catalogVersion={catalog?.catalogVersion}
-                    error={catalogError}
-                    cacheWarning={catalogCacheWarning}
-                    onRefresh={refreshCatalog}
-                    collectionManagementHref="/admin/promotions"
-                />
+                {guidedFirstRecommendation && (
+                    <section
+                        ref={firstRecommendationGuideRef}
+                        tabIndex={-1}
+                        aria-live="polite"
+                        className="setup-route-enter scroll-mt-6 overflow-hidden rounded-[2rem] bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-500 p-5 text-white shadow-xl shadow-blue-100 outline-none"
+                    >
+                        <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs font-black text-blue-100">첫 추천 튜토리얼</p>
+                            <p className="text-xs font-black text-white">
+                                {!currentBrand ? '1' : amount <= 0 ? '2' : '3'}/3
+                            </p>
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-1" aria-label="첫 추천 진행률">
+                            {[1, 2, 3].map(item => {
+                                const activeStep = !currentBrand ? 1 : amount <= 0 ? 2 : 3;
+                                return (
+                                    <span
+                                        key={item}
+                                        className={clsx(
+                                            'h-1.5 rounded-full',
+                                            item <= activeStep ? 'bg-white' : 'bg-white/25'
+                                        )}
+                                    />
+                                );
+                            })}
+                        </div>
+                        <div className="mt-5 flex items-start gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/15">
+                                {recommendation !== null && !isRecommending
+                                    ? <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
+                                    : <Sparkles className="h-6 w-6" aria-hidden="true" />}
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-black leading-tight">
+                                    {!currentBrand
+                                        ? '1. 브랜드를 선택해보세요'
+                                        : amount <= 0
+                                            ? '2. 결제 금액을 입력하세요'
+                                            : isRecommending || recommendation === null
+                                                ? '3. 혜택을 찾고 있어요'
+                                                : selectedCombination
+                                                    ? '혜택을 찾았어요. 짜잔!'
+                                                    : '첫 추천 확인 완료!'}
+                                </h2>
+                                <p className="mt-2 text-xs font-bold leading-relaxed text-blue-100">
+                                    {!currentBrand
+                                        ? incompleteTelecomProvider
+                                            ? `${incompleteTelecomProvider.name} 등급을 고르면 CU 같은 제휴 혜택과 금액을 정확히 시뮬레이션할 수 있어요.`
+                                            : benefitBrandSuggestions.length > 0
+                                            ? `내 혜택 설정으로 바로 계산되는 브랜드 ${benefitBrandSuggestionResult.opportunityCount.toLocaleString()}곳을 찾았어요. 아래 추천 중 하나로 금액까지 체험해보세요.`
+                                            : '현재 조건에서 확정 혜택 브랜드가 없으면 아래에서 자주 가는 매장 하나를 눌러보세요.'
+                                        : amount <= 0
+                                            ? suggestedSimulationAmount
+                                                ? `${currentBrand.name}에서 직접 금액을 입력하거나, 추천 예시 ${formatWon(suggestedSimulationAmount)}으로 체험해보세요.`
+                                                : `${currentBrand.name}에서 결제할 금액을 숫자로 입력해보세요.`
+                                            : isRecommending || recommendation === null
+                                                ? '내 카드와 함께 쓸 수 있는 혜택을 이 기기에서 비교하고 있습니다.'
+                                                : selectedCombination
+                                                    ? `${formatWon(amount)} 결제에서 확정 혜택 ${formatWon(selectedCombination.confirmedValue)}을 찾았어요.`
+                                                    : '이 조건에 맞는 혜택이 없어도 준비는 모두 끝났어요.'}
+                                </p>
+                            </div>
+                        </div>
+                        {!currentBrand && incompleteTelecomProvider && (
+                            <Link
+                                href="/setup/benefits"
+                                className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-white/15 px-4 text-xs font-black text-white transition hover:bg-white/25"
+                            >
+                                {incompleteTelecomProvider.name} 등급 선택하기
+                                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                            </Link>
+                        )}
+                        {recommendation !== null && !isRecommending && (
+                            <button
+                                type="button"
+                                disabled={workspacePreferences.firstSetup.status !== 'COMPLETED'}
+                                onClick={() => {
+                                    setSelectedBrandId('');
+                                    router.push('/');
+                                }}
+                                className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-blue-700 shadow-lg transition hover:bg-blue-50 disabled:cursor-wait disabled:bg-white/40 disabled:text-white/70"
+                            >
+                                {workspacePreferences.firstSetup.status === 'COMPLETED'
+                                    ? '튜토리얼 마치고 홈으로'
+                                    : '설정 완료 저장 중'}
+                                {workspacePreferences.firstSetup.status === 'COMPLETED' && (
+                                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                                )}
+                            </button>
+                        )}
+                    </section>
+                )}
+                {!guidedFirstRecommendation && (
+                    <>
+                        <CatalogFreshnessCard
+                            health={catalogHealth}
+                            isOnline={isNetworkOnline}
+                            isRefreshing={isCatalogRefreshing}
+                            lastCheckedAt={catalogLastCheckedAt}
+                            catalogVersion={catalog?.catalogVersion}
+                            error={catalogError}
+                            cacheWarning={catalogCacheWarning}
+                            onRefresh={refreshCatalog}
+                            collectionManagementHref="/admin/promotions"
+                        />
 
-                <MonthlyPerformanceReminder
-                    missingCount={missingPerformanceCards.length}
-                    performanceMonthLabel={formatPerformanceMonthLabel(performancePeriod.performanceMonth)}
-                    benefitMonthLabel={formatPerformanceMonthLabel(performancePeriod.benefitMonth)}
-                />
+                        <MonthlyPerformanceReminder
+                            missingCount={missingPerformanceCards.length}
+                            performanceMonthLabel={formatPerformanceMonthLabel(performancePeriod.performanceMonth)}
+                            benefitMonthLabel={formatPerformanceMonthLabel(performancePeriod.benefitMonth)}
+                        />
+                    </>
+                )}
 
                 {!currentBrand ? (
                     <BrandDiscovery
@@ -747,7 +1064,13 @@ export default function HomePage() {
                         nearbyBrandIds={nearbyBrandIds}
                         hasCurrentLocation={hasCurrentLocation}
                         isLocating={isLocating}
+                        benefitSuggestions={benefitBrandSuggestions}
+                        benefitOpportunityCount={benefitBrandSuggestionResult.opportunityCount}
                         onSelectBrand={brand => handleSelectBrand(brand.id)}
+                        onSelectBenefitSuggestion={suggestion => handleSelectBrand(
+                            suggestion.brand.id,
+                            suggestion.sampleAmount,
+                        )}
                         onToggleFavorite={toggleFavorite}
                         onRequestLocation={handleRequestLocation}
                     />
@@ -767,6 +1090,7 @@ export default function HomePage() {
                                 type="button"
                                 onClick={() => {
                                     setSelectedBrandId('');
+                                    setSuggestedSimulationAmount(undefined);
                                     setRecommendation(null);
                                     setSelectedCombinationId(undefined);
                                 }}
@@ -784,7 +1108,9 @@ export default function HomePage() {
                             ref={amountSectionRef}
                             className="scroll-mt-24 rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm"
                         >
-                            <label className="ml-1 text-xs font-black text-gray-400">총 결제금액</label>
+                            <label className="ml-1 text-xs font-black text-gray-400">
+                                {guidedFirstRecommendation ? '2. 결제 금액을 입력하세요' : '총 결제금액'}
+                            </label>
                             <div className="relative mt-2">
                                 <input
                                     ref={amountInputRef}
@@ -799,6 +1125,16 @@ export default function HomePage() {
                                 />
                                 <span className="absolute right-5 top-1/2 -translate-y-1/2 text-lg font-black text-gray-400">원</span>
                             </div>
+                            {guidedFirstRecommendation && suggestedSimulationAmount && amount === 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setAmount(suggestedSimulationAmount)}
+                                    className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 text-xs font-black text-emerald-800 transition hover:bg-emerald-100 active:scale-[0.98]"
+                                >
+                                    <Sparkles className="h-4 w-4" aria-hidden="true" />
+                                    추천 예시 {formatWon(suggestedSimulationAmount)}으로 혜택 보기
+                                </button>
+                            )}
                             <div className="mt-4">
                                 <NumericKeypad
                                     onValueChange={handleKeypadChange}

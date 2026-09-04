@@ -12,10 +12,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     useAccountWorkspaceAutoSync();
     const pathname = usePathname();
     const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
+    const isSetupRoute = pathname === '/setup' || pathname.startsWith('/setup/');
+    const isImmersiveRoute = isAdminRoute || isSetupRoute;
 
     return (
         <div className={`min-h-screen bg-gray-50 font-sans text-gray-900 ${
-            isAdminRoute ? '' : 'pb-20'
+            isImmersiveRoute ? '' : 'pb-20'
         }`}>
             <div className={isAdminRoute
                 ? 'min-h-screen bg-gray-50'

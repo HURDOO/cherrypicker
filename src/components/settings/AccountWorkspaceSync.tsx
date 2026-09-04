@@ -528,6 +528,7 @@ export function AccountWorkspaceSync({ accountUserId }: { accountUserId: string 
 
 const MERGE_KIND_LABELS: Record<AccountWorkspaceMergeConflict['kind'], string> = {
     profile: '혜택 프로필',
+    workspacePreferences: '내 카드·첫 설정',
     category: '카테고리',
     brand: '브랜드',
     card: '카드',

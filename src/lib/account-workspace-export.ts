@@ -9,6 +9,7 @@ import type {
     TransactionHistory,
     UserBenefitProfile,
     UserCardPerformance,
+    WorkspacePreferences,
 } from '@/types';
 import {
     DEFAULT_SMALL_BENEFIT_THRESHOLD,
@@ -16,6 +17,7 @@ import {
 } from '@/utils/recommendationPreferences';
 
 export const ACCOUNT_WORKSPACE_EXPORT_SCHEMA_VERSION = 1 as const;
+const LEGACY_FIRST_SETUP_COMPLETED_AT = '1970-01-01T00:00:00.000Z';
 
 type WithoutOwner<T> = Omit<T, 'userId'>;
 
@@ -37,6 +39,7 @@ export interface AccountWorkspaceExport {
     performances: UserCardPerformance[];
     history: TransactionHistory[];
     benefitProfile: UserBenefitProfile;
+    workspacePreferences: WorkspacePreferences;
     recordMetadata: Record<string, AccountWorkspaceRecordMetadata>;
 }
 
@@ -49,6 +52,7 @@ export interface AccountWorkspaceSummary {
     history: number;
     deletedRecords: number;
     hasProfile: boolean;
+    hasWorkspacePreferences: boolean;
     totalRecords: number;
 }
 
@@ -71,7 +75,9 @@ interface AccountWorkspaceExportSource {
     performances: UserCardPerformance[];
     history: TransactionHistory[];
     benefitProfile: UserBenefitProfile;
+    workspacePreferences?: WorkspacePreferences;
     profileUpdatedAt?: Date | string;
+    workspacePreferencesUpdatedAt?: Date | string;
     performanceUpdatedAt?: Record<string, Date | string>;
 }
 
@@ -172,6 +178,102 @@ export const hasMeaningfulBenefitProfile = (profile: UserBenefitProfile) => (
     profile.smallBenefitThreshold !== DEFAULT_SMALL_BENEFIT_THRESHOLD
 );
 
+export const createEmptyWorkspacePreferences = (): WorkspacePreferences => ({
+    selectedSystemCardIds: [],
+    firstSetup: {
+        status: 'NOT_STARTED',
+        step: 'WELCOME',
+    },
+});
+
+export const hasMeaningfulWorkspacePreferences = (value: WorkspacePreferences) => (
+    Boolean(value.selectedSystemCardIds?.length) ||
+    value.firstSetup.status !== 'NOT_STARTED'
+);
+
+export function parseWorkspacePreferences(
+    value: unknown,
+    options: {
+        legacyMeaningful: boolean;
+        label: '계정' | '로컬';
+    },
+): WorkspacePreferences {
+    if (value === undefined) {
+        return {
+            selectedSystemCardIds: options.legacyMeaningful ? null : [],
+            firstSetup: options.legacyMeaningful
+                ? {
+                    status: 'COMPLETED',
+                    step: 'RECOMMENDATION',
+                    completedAt: LEGACY_FIRST_SETUP_COMPLETED_AT,
+                }
+                : {
+                    status: 'NOT_STARTED',
+                    step: 'WELCOME',
+                },
+        };
+    }
+    if (!isRecord(value)) {
+        throw new Error(`${options.label} workspace 설정 상태가 올바르지 않습니다.`);
+    }
+    const selectedSystemCardIds = value.selectedSystemCardIds;
+    if (
+        selectedSystemCardIds !== null &&
+        (!Array.isArray(selectedSystemCardIds) ||
+            selectedSystemCardIds.length > 200 ||
+            selectedSystemCardIds.some(id => typeof id !== 'string' || !id) ||
+            new Set(selectedSystemCardIds).size !== selectedSystemCardIds.length)
+    ) {
+        throw new Error(`${options.label} workspace의 보유 카드 선택이 올바르지 않습니다.`);
+    }
+    if (!isRecord(value.firstSetup)) {
+        throw new Error(`${options.label} workspace의 첫 설정 상태가 올바르지 않습니다.`);
+    }
+    const status = value.firstSetup.status;
+    const step = value.firstSetup.step;
+    const statuses = ['NOT_STARTED', 'IN_PROGRESS', 'AWAITING_RECOMMENDATION', 'COMPLETED'];
+    const steps = ['WELCOME', 'CARDS', 'BENEFITS', 'PERFORMANCE', 'FAVORITES', 'RECOMMENDATION'];
+    if (!statuses.includes(String(status)) || !steps.includes(String(step))) {
+        throw new Error(`${options.label} workspace의 첫 설정 진행 상태가 올바르지 않습니다.`);
+    }
+    const validStatusAndStep =
+        (status === 'NOT_STARTED' && (step === 'WELCOME' || step === 'CARDS')) ||
+        (status === 'IN_PROGRESS' && step !== 'WELCOME' && step !== 'RECOMMENDATION') ||
+        (status === 'AWAITING_RECOMMENDATION' && step === 'RECOMMENDATION') ||
+        (status === 'COMPLETED' && step === 'RECOMMENDATION');
+    if (!validStatusAndStep) {
+        throw new Error(`${options.label} workspace의 첫 설정 단계 조합이 올바르지 않습니다.`);
+    }
+    const completedAt = value.firstSetup.completedAt;
+    if (completedAt !== undefined) {
+        toIsoString(
+            requiredText(completedAt, `${options.label} workspace 첫 설정 완료 시각`, 100),
+            `${options.label} workspace 첫 설정 완료`,
+        );
+    }
+    if (status === 'COMPLETED' && completedAt === undefined) {
+        throw new Error(`${options.label} workspace의 첫 설정 완료 시각이 없습니다.`);
+    }
+    if (status !== 'COMPLETED' && completedAt !== undefined) {
+        throw new Error(`${options.label} workspace의 첫 설정 완료 시각이 아직 필요하지 않습니다.`);
+    }
+
+    return {
+        selectedSystemCardIds: selectedSystemCardIds === null
+            ? null
+            : [...selectedSystemCardIds] as string[],
+        firstSetup: {
+            status: status as WorkspacePreferences['firstSetup']['status'],
+            step: status === 'NOT_STARTED'
+                ? 'WELCOME'
+                : step as WorkspacePreferences['firstSetup']['step'],
+            ...(completedAt !== undefined && {
+                completedAt: toIsoString(String(completedAt), '첫 설정 완료'),
+            }),
+        },
+    };
+}
+
 export function createAccountWorkspaceExport(
     source: AccountWorkspaceExportSource
 ): AccountWorkspaceExport {
@@ -191,6 +293,12 @@ export function createAccountWorkspaceExport(
             ? toIsoString(source.profileUpdatedAt, '혜택 프로필')
             : exportedAt
     );
+    addMetadata(
+        'workspacePreferences',
+        source.workspacePreferencesUpdatedAt
+            ? toIsoString(source.workspacePreferencesUpdatedAt, 'workspace 설정')
+            : exportedAt
+    );
     source.categories.forEach(row => addMetadata(metadataKey('categories', row.id), exportedAt));
     source.brands.forEach(row => addMetadata(metadataKey('brands', row.id), exportedAt));
     source.cards.forEach(row => addMetadata(metadataKey('cards', row.id), exportedAt));
@@ -208,6 +316,14 @@ export function createAccountWorkspaceExport(
         toIsoString(row.date, '결제 기록')
     ));
 
+    const legacyMeaningful = source.categories.length > 0 ||
+        source.brands.length > 0 ||
+        source.cards.length > 0 ||
+        source.rules.length > 0 ||
+        source.performances.length > 0 ||
+        source.history.length > 0 ||
+        hasMeaningfulBenefitProfile(source.benefitProfile);
+
     return parseAccountWorkspaceExport({
         schemaVersion: ACCOUNT_WORKSPACE_EXPORT_SCHEMA_VERSION,
         sourceWorkspaceId: source.sourceWorkspaceId,
@@ -219,6 +335,12 @@ export function createAccountWorkspaceExport(
         performances: structuredClone(source.performances),
         history: structuredClone(source.history),
         benefitProfile: structuredClone(source.benefitProfile),
+        workspacePreferences: source.workspacePreferences
+            ? structuredClone(source.workspacePreferences)
+            : parseWorkspacePreferences(undefined, {
+                legacyMeaningful,
+                label: '계정',
+            }),
         recordMetadata,
     });
 }
@@ -728,6 +850,25 @@ export function parseAccountWorkspaceExport(value: unknown): AccountWorkspaceExp
             ...(deletedAt && { deletedAt }),
         } satisfies AccountWorkspaceRecordMetadata];
     }));
+    const benefitProfile = parseBenefitProfile(value.benefitProfile);
+    const legacyMeaningful = categories.length > 0 ||
+        brands.length > 0 ||
+        cards.length > 0 ||
+        rules.length > 0 ||
+        performances.length > 0 ||
+        history.length > 0 ||
+        hasMeaningfulBenefitProfile(benefitProfile);
+    const workspacePreferences = parseWorkspacePreferences(value.workspacePreferences, {
+        legacyMeaningful,
+        label: '계정',
+    });
+    if (!recordMetadata.workspacePreferences) {
+        recordMetadata.workspacePreferences = {
+            id: `${sourceWorkspaceId}:workspacePreferences`,
+            createdAt: exportedAt,
+            updatedAt: exportedAt,
+        };
+    }
 
     return {
         schemaVersion: ACCOUNT_WORKSPACE_EXPORT_SCHEMA_VERSION,
@@ -739,7 +880,8 @@ export function parseAccountWorkspaceExport(value: unknown): AccountWorkspaceExp
         rules,
         performances,
         history,
-        benefitProfile: parseBenefitProfile(value.benefitProfile),
+        benefitProfile,
+        workspacePreferences,
         recordMetadata,
     };
 }
@@ -758,6 +900,9 @@ export function summarizeAccountWorkspace(
         history: workspace.history.length,
         deletedRecords,
         hasProfile: hasMeaningfulBenefitProfile(workspace.benefitProfile),
+        hasWorkspacePreferences: hasMeaningfulWorkspacePreferences(
+            workspace.workspacePreferences
+        ),
     };
 
     return {
@@ -770,7 +915,8 @@ export function summarizeAccountWorkspace(
             summary.performances +
             summary.history +
             summary.deletedRecords +
-            (summary.hasProfile ? 1 : 0),
+            (summary.hasProfile ? 1 : 0) +
+            (summary.hasWorkspacePreferences ? 1 : 0),
     };
 }
 

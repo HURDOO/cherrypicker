@@ -10,4 +10,26 @@
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  .setup-route-enter {
+    animation: setup-route-enter 220ms ease-out both;
+  }
+}
+
+@keyframes setup-route-enter {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setup-route-enter {
+    animation: none;
+  }
 }

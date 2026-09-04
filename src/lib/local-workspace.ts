@@ -13,9 +13,12 @@ import type {
     TransactionHistory,
     UserBenefitProfile,
     UserCardPerformance,
+    WorkspacePreferences,
 } from '@/types';
 import {
     accountWorkspaceContentEquals,
+    createEmptyWorkspacePreferences,
+    parseWorkspacePreferences,
     parseAccountWorkspaceExport,
     summarizeAccountWorkspace,
     type AccountWorkspaceExport,
@@ -69,6 +72,7 @@ export interface LocalWorkspaceSnapshot {
     performances: UserCardPerformance[];
     history: TransactionHistory[];
     benefitProfile: UserBenefitProfile;
+    workspacePreferences: WorkspacePreferences;
     recordMetadata: Record<string, LocalSyncMetadata>;
 }
 
@@ -171,9 +175,15 @@ export function createEmptyLocalWorkspace(
         performances: [],
         history: [],
         benefitProfile: createEmptyBenefitProfile(),
+        workspacePreferences: createEmptyWorkspacePreferences(),
         recordMetadata: {
             profile: {
                 id: profileId,
+                createdAt: now,
+                updatedAt: now,
+            },
+            workspacePreferences: {
+                id: `${workspaceId}:workspace-preferences`,
                 createdAt: now,
                 updatedAt: now,
             },
@@ -192,6 +202,17 @@ const assertDate = (value: unknown, label: string) => {
         throw new Error(`로컬 workspace의 ${label} 시각이 올바르지 않습니다.`);
     }
 };
+
+const hasMeaningfulProfileValue = (profile: Record<string, unknown>) => (
+    (Array.isArray(profile.telecomMemberships) && profile.telecomMemberships.length > 0) ||
+    (Array.isArray(profile.subscriptions) && profile.subscriptions.length > 0) ||
+    (Array.isArray(profile.enabledPayProviderIds) && profile.enabledPayProviderIds.length > 0) ||
+    profile.moneyEnabled === false ||
+    profile.pointsEnabled === false ||
+    profile.pointValue !== 1 ||
+    (profile.smallBenefitThreshold ?? DEFAULT_SMALL_BENEFIT_THRESHOLD) !==
+        DEFAULT_SMALL_BENEFIT_THRESHOLD
+);
 
 export function parseLocalWorkspaceSnapshot(value: unknown): LocalWorkspaceSnapshot {
     if (!isRecord(value)) throw new Error('로컬 workspace가 객체가 아닙니다.');
@@ -245,6 +266,33 @@ export function parseLocalWorkspaceSnapshot(value: unknown): LocalWorkspaceSnaps
         if (metadata.deletedAt !== undefined) assertDate(metadata.deletedAt, `${key} 삭제`);
     });
 
+    const recordMetadata = structuredClone(
+        value.recordMetadata as Record<string, LocalSyncMetadata>
+    );
+    const legacyMeaningful = [
+        value.categories,
+        value.brands,
+        value.cards,
+        value.rules,
+        value.performances,
+        value.history,
+    ].some(rows => Array.isArray(rows) && rows.length > 0) ||
+        Object.keys(recordMetadata).some(key => key !== 'profile') ||
+        recordMetadata.profile?.createdAt !== recordMetadata.profile?.updatedAt ||
+        Boolean(recordMetadata.profile?.deletedAt) ||
+        hasMeaningfulProfileValue(profile);
+    const workspacePreferences = parseWorkspacePreferences(value.workspacePreferences, {
+        legacyMeaningful,
+        label: '로컬',
+    });
+    if (!recordMetadata.workspacePreferences) {
+        recordMetadata.workspacePreferences = {
+            id: `${String(value.workspaceId)}:workspace-preferences`,
+            createdAt: String(value.createdAt),
+            updatedAt: String(value.updatedAt),
+        };
+    }
+
     const snapshot = value as unknown as LocalWorkspaceSnapshot;
     const idCollections = [
         snapshot.categories,
@@ -277,6 +325,8 @@ export function parseLocalWorkspaceSnapshot(value: unknown): LocalWorkspaceSnaps
             ...snapshot.benefitProfile,
             smallBenefitThreshold: smallBenefitThreshold as number,
         },
+        workspacePreferences,
+        recordMetadata,
     };
 }
 
@@ -458,7 +508,9 @@ export const hasMeaningfulLocalWorkspaceData = (workspace: LocalWorkspaceSnapsho
     workspace.rules.length > 0 ||
     workspace.performances.length > 0 ||
     workspace.history.length > 0 ||
-    Object.keys(workspace.recordMetadata).some(key => key !== 'profile') ||
+    Object.keys(workspace.recordMetadata).some(
+        key => key !== 'profile' && key !== 'workspacePreferences'
+    ) ||
     workspace.recordMetadata.profile?.createdAt !== workspace.recordMetadata.profile?.updatedAt ||
     Boolean(workspace.recordMetadata.profile?.deletedAt) ||
     workspace.benefitProfile.telecomMemberships.length > 0 ||
@@ -467,7 +519,9 @@ export const hasMeaningfulLocalWorkspaceData = (workspace: LocalWorkspaceSnapsho
     !workspace.benefitProfile.moneyEnabled ||
     !workspace.benefitProfile.pointsEnabled ||
     workspace.benefitProfile.pointValue !== 1 ||
-    workspace.benefitProfile.smallBenefitThreshold !== DEFAULT_SMALL_BENEFIT_THRESHOLD
+    workspace.benefitProfile.smallBenefitThreshold !== DEFAULT_SMALL_BENEFIT_THRESHOLD ||
+    Boolean(workspace.workspacePreferences.selectedSystemCardIds?.length) ||
+    workspace.workspacePreferences.firstSetup.status !== 'NOT_STARTED'
 );
 
 const withoutLocalOwner = <T extends { userId?: string }>(row: T) => {
@@ -494,6 +548,7 @@ export function createAccountWorkspaceExportFromLocal(
         performances: structuredClone(workspace.performances),
         history: structuredClone(workspace.history),
         benefitProfile: structuredClone(workspace.benefitProfile),
+        workspacePreferences: structuredClone(workspace.workspacePreferences),
         recordMetadata: structuredClone(workspace.recordMetadata),
     });
 }
@@ -573,6 +628,7 @@ function materializeLocalWorkspaceFromAccountExport(
         performances: structuredClone(accountWorkspace.performances),
         history: structuredClone(accountWorkspace.history),
         benefitProfile: structuredClone(accountWorkspace.benefitProfile),
+        workspacePreferences: structuredClone(accountWorkspace.workspacePreferences),
         recordMetadata: structuredClone(accountWorkspace.recordMetadata),
     };
 
@@ -913,6 +969,14 @@ export const createLocalWorkspaceClient = (
         }, storage);
     },
 
+    updateWorkspacePreferences(preferences: WorkspacePreferences) {
+        return mutateWorkspace((workspace, timestamp) => {
+            workspace.workspacePreferences = structuredClone(preferences);
+            touchMetadata(workspace, 'workspacePreferences', timestamp);
+            return structuredClone(workspace.workspacePreferences);
+        }, storage);
+    },
+
     createTransaction(input: LocalCombinationTransactionInput) {
         return mutateWorkspace((workspace, timestamp) => {
             const id = createId();
@@ -1013,7 +1077,9 @@ export const createLocalWorkspaceClient = (
             workspace.performances = [];
             workspace.history = [];
             workspace.benefitProfile = createEmptyBenefitProfile();
+            workspace.workspacePreferences = createEmptyWorkspacePreferences();
             touchMetadata(workspace, 'profile', timestamp);
+            touchMetadata(workspace, 'workspacePreferences', timestamp);
         }, storage);
     },
 

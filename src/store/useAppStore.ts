@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import {
     Card, BenefitRule, Brand, Category,
-    TransactionHistory, UserBenefitProfile, UserCardPerformance
+    TransactionHistory, UserBenefitProfile, UserCardPerformance, WorkspacePreferences
 } from '@/types';
+import { createEmptyWorkspacePreferences } from '@/lib/account-workspace-export';
 import { DEFAULT_SMALL_BENEFIT_THRESHOLD } from '@/utils/recommendationPreferences';
 
 const createEmptyBenefitProfile = (): UserBenefitProfile => ({
@@ -29,9 +30,14 @@ interface AppState {
     performances: UserCardPerformance[];
     history: TransactionHistory[];
     benefitProfile: UserBenefitProfile;
+    workspacePreferences: WorkspacePreferences;
 
     // UI State
     isLoading: boolean;
+    appDataError: null | {
+        kind: 'INDEXED_DB_UNAVAILABLE' | 'LOAD_FAILED';
+        message: string;
+    };
 
     // Actions
     setInitialData: (data: {
@@ -44,13 +50,16 @@ interface AppState {
         performances: UserCardPerformance[];
         history: TransactionHistory[];
         benefitProfile: UserBenefitProfile;
+        workspacePreferences: WorkspacePreferences;
     }) => void;
 
     addTransaction: (transaction: TransactionHistory) => void;
     clearHistory: () => void;
     updatePerformance: (perf: UserCardPerformance) => void;
     setBenefitProfile: (profile: UserBenefitProfile) => void;
+    setWorkspacePreferences: (preferences: WorkspacePreferences) => void;
     setLoading: (loading: boolean) => void;
+    setAppDataError: (error: AppState['appDataError']) => void;
     resetData: () => void;
 
     // Data Management Actions
@@ -84,7 +93,9 @@ export const useAppStore = create<AppState>((set) => ({
     performances: [],
     history: [],
     benefitProfile: createEmptyBenefitProfile(),
+    workspacePreferences: createEmptyWorkspacePreferences(),
     isLoading: true, // Default to loading until sync completes
+    appDataError: null,
 
     setInitialData: (data) => set({
         userId: data.userId,
@@ -96,6 +107,8 @@ export const useAppStore = create<AppState>((set) => ({
         performances: data.performances,
         history: data.history,
         benefitProfile: data.benefitProfile,
+        workspacePreferences: data.workspacePreferences,
+        appDataError: null,
         isLoading: false
     }),
 
@@ -117,8 +130,10 @@ export const useAppStore = create<AppState>((set) => ({
         return { performances: newPerformances };
     }),
     setBenefitProfile: (benefitProfile) => set({ benefitProfile }),
+    setWorkspacePreferences: (workspacePreferences) => set({ workspacePreferences }),
 
     setLoading: (loading) => set({ isLoading: loading }),
+    setAppDataError: (appDataError) => set({ appDataError }),
     resetData: () => set({
         userId: '',
         storageMode: 'guest',
@@ -129,8 +144,10 @@ export const useAppStore = create<AppState>((set) => ({
         performances: [],
         history: [],
         benefitProfile: createEmptyBenefitProfile(),
+        workspacePreferences: createEmptyWorkspacePreferences(),
         selectedBrandId: '',
         isLoading: false,
+        appDataError: null,
     }),
 
     addCard: (card) => set(state => ({ cards: [...state.cards, card] })),

@@ -63,10 +63,12 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 ### 3.2 추천과 기록 흐름
 
 1. `useAppData`가 공용 카탈로그와 로컬 workspace를 로드해 Zustand에 결합한다.
-2. 홈 화면이 브랜드, 금액, 온라인 여부와 사용자가 확인한 조건을 조합 계산기에 전달한다.
-3. `src/utils/combination.ts`와 `src/utils/calculation.ts`가 프로모션 계층, 카드 규칙, 한도, 이용 이력과 실적 목표를 비교한다.
-4. 현재 추천은 로컬에서 계산하며, 기존 서버 계정 데이터 경로의 `/api/recommendations`도 같은 도메인 계산기를 공유한다.
-5. 확정한 결제는 조합·카탈로그 snapshot과 함께 로컬 workspace에 원자적으로 추가되고 현재 실적을 갱신한다.
+2. 신규 workspace는 `/setup` 소개에서 시작하고 `/setup/cards`, `/setup/benefits`, `/setup/performance`, `/setup/favorites`, `/setup/recommendation` 순서로 App Router client navigation을 사용한다. URL로 이동한 단계와 선택한 시스템 카드 ID를 IndexedDB에 동기화하므로 브라우저 뒤로가기·새로고침 뒤에도 같은 지점에서 이어갈 수 있다.
+3. 완료 전 마지막 경로는 브랜드 선택·금액 입력·결과 공개를 3단계로 안내한다. 브랜드 선택 전에는 `calculateBestCombinations`로 멤버십·구독·페이·카드의 현재 실적·남은 한도·기간·요일·시간·온오프라인 조건을 함께 시뮬레이션한다. 즐겨찾기·사용 이력·인기 브랜드를 우선으로, 확정 혜택을 받을 수 있는 브랜드 수와 예시 결제 금액·혜택 금액을 제안한다. 추천 응답을 확인한 뒤 완료 시각을 저장하며, 조합이 없는 정상 응답도 사용자를 설정 흐름에 가두지 않는다.
+4. 홈 화면이 브랜드, 금액, 온라인 여부와 사용자가 확인한 조건을 조합 계산기에 전달한다.
+5. `src/utils/combination.ts`와 `src/utils/calculation.ts`가 선택한 시스템 카드와 개인 카드를 대상으로 프로모션 계층, 카드 규칙, 한도, 이용 이력과 실적 목표를 비교한다.
+6. 현재 추천은 로컬에서 계산하며, 기존 서버 계정 데이터 경로의 `/api/recommendations`도 같은 도메인 계산기를 공유한다.
+7. 확정한 결제는 조합·카탈로그 snapshot과 함께 로컬 workspace에 원자적으로 추가되고 현재 실적을 갱신한다.
 
 ### 3.3 선택적 계정 동기화
 
@@ -87,12 +89,15 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 
 | 모듈 | 책임 |
 | --- | --- |
-| `src/app/` | 홈·설정·히스토리·인증·관리자 화면과 App Router API |
+| `src/app/` | 홈·설정·히스토리·단계별 `/setup/*`·인증·관리자 화면과 App Router API |
+| `src/components/onboarding/` | 첫 소개, URL-진행 상태 동기화, 카드·혜택·실적·즐겨찾기 설정 화면 |
 | `src/components/brand/` | 즐겨찾기·최근·주변·카테고리·검색 기반 브랜드 탐색 |
 | `src/components/settings/`, `performance/` | 카드·혜택 프로필·실적·소액 기준·싱크·JSON 관리 |
 | `src/components/admin/` | 카드 등록, 수집 실행, 후보·diff·근거·오류 검수와 revision 관리 |
 | `src/utils/calculation.ts`, `combination.ts` | 규칙별 혜택 계산, 계층별 조합, 한도·사용량·순위 결정 |
 | `src/utils/performanceGoals.ts` | 카드 규칙·사용자 덮어쓰기에서 실적 추천 목표 파생 |
+| `src/utils/benefitBrandSuggestions.ts` | 멤버십·구독·페이·카드 실적·한도와 시점 조건을 금액별로 조합해 첫 추천용 확정 혜택 브랜드 선정 |
+| `src/utils/firstSetupRoutes.ts` | 저장된 첫 설정 단계와 App Router URL의 고정 매핑 |
 | `src/lib/benefit-catalog-*` | 공용 snapshot 생성, ETag HTTP 계약, IndexedDB 캐시와 freshness |
 | `src/lib/local-workspace*` | 로컬 workspace schema·검증·mutation·IndexedDB 저장·outbox |
 | `src/lib/account-workspace-*` | snapshot 백업·복원·병합, operation 동기화와 revision 계약 |
@@ -107,7 +112,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 
 - `categories`, `brands`, `cards`, `benefit_rules`는 `user_id IS NULL`인 시스템 항목과 사용자 소유 커스텀 항목을 모두 표현한다.
 - 시스템 카드는 `catalog_status`, `issue_status`, 상품 코드와 공개 caveat로 게시·발급 상태를 구분한다.
-- 로컬 workspace는 공용 카탈로그와 서로 다른 저장소에 있으며, 보유 카드 여부·실적·프로필·기록과 커스텀 항목만 보존한다.
+- 로컬 workspace는 공용 카탈로그와 서로 다른 저장소에 있으며, 선택한 시스템 카드 ID·첫 설정 진행 상태·실적·프로필·기록과 커스텀 항목을 보존한다. 기존 workspace에 명시적 카드 선택이 없으면 과거 실적·기록·개인 카드에서 관리 카드를 추론해 호환하고, 신규 workspace는 명시적 선택만 추천에 사용한다.
 
 ### 5.2 카드 혜택 수집
 

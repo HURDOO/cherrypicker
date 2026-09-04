@@ -4,11 +4,18 @@ export function selectAvailableCards({
     cards,
     performances,
     history,
+    selectedSystemCardIds,
 }: {
     cards: Card[];
     performances: UserCardPerformance[];
     history: TransactionHistory[];
+    selectedSystemCardIds?: string[] | null;
 }) {
+    if (Array.isArray(selectedSystemCardIds)) {
+        const selectedIds = new Set(selectedSystemCardIds);
+        return cards.filter(card => card.userId || selectedIds.has(card.id));
+    }
+
     const managedCardIds = new Set([
         ...performances.map(performance => performance.cardId),
         ...history.flatMap(transaction => transaction.cardId ? [transaction.cardId] : []),

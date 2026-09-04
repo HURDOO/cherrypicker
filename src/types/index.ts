@@ -45,6 +45,30 @@ export interface Card {
     network?: CardNetwork;
 }
 
+export type FirstSetupStep =
+    | 'WELCOME'
+    | 'CARDS'
+    | 'BENEFITS'
+    | 'PERFORMANCE'
+    | 'FAVORITES'
+    | 'RECOMMENDATION';
+
+export type FirstSetupStatus =
+    | 'NOT_STARTED'
+    | 'IN_PROGRESS'
+    | 'AWAITING_RECOMMENDATION'
+    | 'COMPLETED';
+
+export interface WorkspacePreferences {
+    /** null preserves the legacy behavior that inferred managed cards from activity. */
+    selectedSystemCardIds: CardId[] | null;
+    firstSetup: {
+        status: FirstSetupStatus;
+        step: FirstSetupStep;
+        completedAt?: string;
+    };
+}
+
 export type PlatformType = 'ALL' | 'ONLINE' | 'OFFLINE' | 'OFFICIAL_SITE';
 export type ActionType = 'PERCENT' | 'FLAT' | 'FIXED_PRICE';
 export type BenefitWeekday = 'SUN' | 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT';

@@ -31,17 +31,23 @@ import {
     type AccountLifecycleSelection,
 } from '@/components/settings/AccountLifecycleDialog';
 import { disconnectLocalWorkspaceSync } from '@/lib/local-workspace-sync';
+import { LocalDataPrivacyNotice } from '@/components/settings/LocalDataPrivacyNotice';
+import { SystemCardSelector } from '@/components/settings/SystemCardSelector';
+import { selectAvailableCards } from '@/utils/availableCards';
 
 export default function SettingsPage() {
     const {
         userId,
         storageMode,
         cards,
+        brands,
         rules,
         performances,
         history,
         isLoading,
         updatePerformance,
+        workspacePreferences,
+        setWorkspacePreferences,
     } = useAppStore();
     const { addToast } = useToastStore();
     const { user, signOut, deleteAccount } = useAuth();
@@ -53,6 +59,7 @@ export default function SettingsPage() {
     const [isAccountLifecycleWorking, setIsAccountLifecycleWorking] = useState(false);
     const [performanceDrafts, setPerformanceDrafts] = useState<Record<string, string>>({});
     const [savingPerformanceCards, setSavingPerformanceCards] = useState<Record<string, boolean>>({});
+    const [isSavingCardSelection, setIsSavingCardSelection] = useState(false);
     const [performancePeriod] = useState(() => {
         const referenceDate = new Date();
         return {
@@ -82,10 +89,24 @@ export default function SettingsPage() {
         [performances, performancePeriod.benefitMonth]
     );
 
+    const managedCards = useMemo(() => selectAvailableCards({
+        cards,
+        performances,
+        history,
+        selectedSystemCardIds: workspacePreferences.selectedSystemCardIds,
+    }), [cards, history, performances, workspacePreferences.selectedSystemCardIds]);
+
+    const selectedSystemCardIds = useMemo(
+        () => workspacePreferences.selectedSystemCardIds ?? managedCards
+            .filter(card => !card.userId)
+            .map(card => card.id),
+        [managedCards, workspacePreferences.selectedSystemCardIds]
+    );
+
     const performanceCards = useMemo(
-        () => cards.filter(card => card.limitTable.some(tier => tier.threshold > 0)
+        () => managedCards.filter(card => card.limitTable.some(tier => tier.threshold > 0)
             || rules.some(rule => rule.cardId === card.id && (rule.condition?.minPerformance || 0) > 0)),
-        [cards, rules]
+        [managedCards, rules]
     );
 
     const managedPerformanceCards = useMemo(() => {
@@ -171,6 +192,30 @@ export default function SettingsPage() {
             addToast(getErrorMessage(error, '개인 데이터를 초기화하지 못했습니다.'), 'error');
         } finally {
             setIsSeeding(false);
+        }
+    };
+
+    const handleToggleSystemCard = async (cardId: string) => {
+        const nextIds = selectedSystemCardIds.includes(cardId)
+            ? selectedSystemCardIds.filter(id => id !== cardId)
+            : [...selectedSystemCardIds, cardId];
+        setIsSavingCardSelection(true);
+        try {
+            const saved = await localWorkspaceClient.updateWorkspacePreferences({
+                ...workspacePreferences,
+                selectedSystemCardIds: nextIds,
+            });
+            setWorkspacePreferences(saved);
+            addToast(
+                nextIds.includes(cardId)
+                    ? '내 카드에 추가했습니다.'
+                    : '추천에서 이 카드를 제외했습니다.',
+                'success'
+            );
+        } catch (error) {
+            addToast(getErrorMessage(error, '내 카드 선택을 저장하지 못했습니다.'), 'error');
+        } finally {
+            setIsSavingCardSelection(false);
         }
     };
 
@@ -302,9 +347,46 @@ export default function SettingsPage() {
 
             <div className="px-5 pt-6 space-y-8 max-w-lg mx-auto">
 
+                <section id="my-cards" className="scroll-mt-24">
+                    <div className="mb-4 flex items-center gap-2 px-1">
+                        <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
+                            <CreditCard className="h-4 w-4" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-bold text-gray-900">내 카드 관리</h2>
+                            <p className="text-[10px] text-gray-500">
+                                선택한 시스템 카드만 결제 추천에 사용합니다.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between rounded-2xl bg-gray-50 px-3 py-2 text-[11px]">
+                            <span className="font-bold text-gray-500">첫 설정 상태</span>
+                            <strong className="font-black text-gray-900">
+                                {workspacePreferences.firstSetup.status === 'COMPLETED'
+                                    ? '완료'
+                                    : workspacePreferences.firstSetup.status === 'AWAITING_RECOMMENDATION'
+                                        ? '첫 추천 확인 전'
+                                        : '진행 중'}
+                            </strong>
+                        </div>
+                        <SystemCardSelector
+                            cards={cards.filter(card => !card.userId)}
+                            selectedCardIds={selectedSystemCardIds}
+                            disabled={isSavingCardSelection}
+                            onToggle={cardId => void handleToggleSystemCard(cardId)}
+                        />
+                        {selectedSystemCardIds.length === 0 && (
+                            <p role="alert" className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800">
+                                선택한 시스템 카드가 없어 직접 추가한 카드만 추천에 사용됩니다.
+                            </p>
+                        )}
+                    </div>
+                </section>
+
                 <BenefitProfileSettings />
 
-                <BrandDiscoverySettings userId={userId} />
+                <BrandDiscoverySettings userId={userId} brands={brands} />
 
                 {/* 1. Performance Tuning */}
                 <section id="performance" className="scroll-mt-24">
@@ -321,6 +403,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-6">
+                        <LocalDataPrivacyNotice isAccountStorage={storageMode === 'account'} />
                         {performanceCards.length > 0 && (
                             <div className="flex items-center justify-between rounded-2xl bg-blue-50 px-4 py-3 text-xs">
                                 <span className="font-bold text-blue-900">관리 중 카드 입력 현황</span>
