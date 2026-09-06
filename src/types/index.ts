@@ -30,6 +30,27 @@ export interface Brand {
     order?: number;
 }
 
+export type PaymentTarget =
+    | {
+        kind: 'BRAND';
+        brand: Brand;
+    }
+    | {
+        kind: 'GENERAL';
+        label: string;
+    };
+
+export type PaymentTargetSnapshot =
+    | {
+        kind: 'BRAND';
+        brandId: BrandId;
+        label: string;
+    }
+    | {
+        kind: 'GENERAL';
+        label: string;
+    };
+
 export interface LimitTableItem {
     threshold: number; // Min performance required
     limit: number;    // Monthly discount limit
@@ -287,7 +308,9 @@ export interface PerformanceRecommendationGoal extends UserCardPerformance {
 export interface TransactionHistory {
     id: number | string;
     date: string; // ISO string
-    brandId: BrandId;
+    /** Legacy records only have brandId. New records also keep an explicit target snapshot. */
+    brandId?: BrandId;
+    paymentTarget?: PaymentTargetSnapshot;
     cardId?: CardId;
     ruleId?: RuleId; // Applied rule
     amount: number;
@@ -613,7 +636,9 @@ export interface BenefitCombination {
 }
 
 export interface RecommendationResponse {
-    brandId: BrandId;
+    /** Kept for brand recommendation API compatibility. General recommendations omit it. */
+    brandId?: BrandId;
+    target: PaymentTargetSnapshot;
     amount: number;
     eligibleItemAmount?: number;
     combinations: BenefitCombination[];

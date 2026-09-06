@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
     AlertCircle,
     ArrowRight,
@@ -29,7 +29,6 @@ import { IconByName } from '@/components/ui/IconByName';
 import { NumericKeypad } from '@/components/ui/NumericKeypad';
 import { MonthlyPerformanceReminder } from '@/components/performance/MonthlyPerformanceReminder';
 import { BrandDiscovery } from '@/components/brand/BrandDiscovery';
-import { CatalogFreshnessCard } from '@/components/catalog/CatalogFreshnessCard';
 import { CardBenefitSupportCard } from '@/components/catalog/CardBenefitSupportCard';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
 import { localWorkspaceClient } from '@/lib/local-workspace';
@@ -39,6 +38,7 @@ import type {
     BenefitCombination,
     BenefitLayer,
     CombinationStep,
+    PaymentTarget,
     RecommendationPriority,
     RecommendationRequest,
     RecommendationResponse,
@@ -63,6 +63,12 @@ import { derivePerformanceGoals } from '@/utils/performanceGoals';
 import { selectAvailableCards } from '@/utils/availableCards';
 import { rankBenefitBrandSuggestions } from '@/utils/benefitBrandSuggestions';
 import { getFirstSetupRoute } from '@/utils/firstSetupRoutes';
+import {
+    GENERAL_PAYMENT_LABEL,
+    getPaymentTargetHref,
+    normalizeGeneralPaymentLabel,
+    toPaymentTargetSnapshot,
+} from '@/utils/paymentTarget';
 
 const formatWon = (value: number) => `${value.toLocaleString()}원`;
 
@@ -285,9 +291,10 @@ function CombinationSummary({
     );
 }
 
-export default function HomePage() {
+function HomePageContent() {
     const router = useRouter();
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const guidedFirstRecommendation = pathname === '/setup/recommendation';
     const {
         userId,
@@ -312,13 +319,7 @@ export default function HomePage() {
     const {
         snapshot: catalog,
         isLoading: isCatalogLoading,
-        isRefreshing: isCatalogRefreshing,
-        isOnline: isNetworkOnline,
-        health: catalogHealth,
-        lastCheckedAt: catalogLastCheckedAt,
         error: catalogError,
-        cacheWarning: catalogCacheWarning,
-        refresh: refreshCatalog,
     } = useBenefitCatalog();
     const [amount, setAmount] = useState(0);
     const [eligibleItemAmount, setEligibleItemAmount] = useState<number | undefined>();
@@ -333,6 +334,8 @@ export default function HomePage() {
     const [isItemBenefitOpen, setIsItemBenefitOpen] = useState(false);
     const [recordConfirmationId, setRecordConfirmationId] = useState<string>();
     const [isRecording, setIsRecording] = useState(false);
+    const [isGeneralPaymentSelected, setIsGeneralPaymentSelected] = useState(false);
+    const [generalPaymentLabel, setGeneralPaymentLabel] = useState(GENERAL_PAYMENT_LABEL);
     const recommendationVersion = useRef(0);
     const recordInFlight = useRef(false);
     const firstSetupCompletionInFlight = useRef(false);
@@ -384,10 +387,38 @@ export default function HomePage() {
         [catalog, serverRules]
     );
 
+    const urlBrandId = searchParams.get('brand');
+    const urlSelectsGeneralPayment = searchParams.get('general') === '1';
+
+    useEffect(() => {
+        if (urlSelectsGeneralPayment) {
+            setSelectedBrandId('');
+            setIsGeneralPaymentSelected(true);
+            return;
+        }
+        setIsGeneralPaymentSelected(false);
+        setGeneralPaymentLabel(GENERAL_PAYMENT_LABEL);
+        setSelectedBrandId(
+            urlBrandId && brands.some(brand => brand.id === urlBrandId)
+                ? urlBrandId
+                : ''
+        );
+    }, [brands, setSelectedBrandId, urlBrandId, urlSelectsGeneralPayment]);
+
     const currentBrand = useMemo(
         () => brands.find(brand => brand.id === selectedBrandId),
         [brands, selectedBrandId]
     );
+    const currentPaymentTarget = useMemo<PaymentTarget | undefined>(() => {
+        if (currentBrand) return { kind: 'BRAND', brand: currentBrand };
+        if (isGeneralPaymentSelected) {
+            return { kind: 'GENERAL', label: generalPaymentLabel };
+        }
+        return undefined;
+    }, [currentBrand, generalPaymentLabel, isGeneralPaymentSelected]);
+    const currentPaymentTargetLabel = currentPaymentTarget?.kind === 'BRAND'
+        ? currentPaymentTarget.brand.name
+        : currentPaymentTarget?.label;
     const currentPerformances = useMemo(
         () => performances.filter(
             performance => performance.performanceMonth === performancePeriod.performanceMonth
@@ -405,7 +436,7 @@ export default function HomePage() {
     );
     const promotionUsage = useMemo(() => buildPromotionUsage(history), [history]);
     const benefitBrandSuggestionResult = useMemo(
-        () => guidedFirstRecommendation && !currentBrand && catalog
+        () => guidedFirstRecommendation && !currentPaymentTarget && catalog
             ? rankBenefitBrandSuggestions({
                 brands,
                 cards: recommendationCards,
@@ -426,7 +457,7 @@ export default function HomePage() {
             benefitProfile,
             brands,
             catalog,
-            currentBrand,
+            currentPaymentTarget,
             currentPerformances,
             favoriteBrandIds,
             guidedFirstRecommendation,
@@ -450,19 +481,19 @@ export default function HomePage() {
         return catalog.providers.find(provider => provider.id === membership.providerId);
     }, [benefitProfile.telecomMemberships, catalog]);
     const performanceGoals = useMemo(() => {
-        if (!currentBrand || amount <= 0) return [];
+        if (!currentPaymentTarget || amount <= 0) return [];
         return derivePerformanceGoals({
             cards: recommendationCards,
             rules,
             performances,
             performanceMonth: performancePeriod.benefitMonth,
-            brand: currentBrand,
+            target: currentPaymentTarget,
             amount,
             isOnline: isOnlinePurchase,
         });
     }, [
         amount,
-        currentBrand,
+        currentPaymentTarget,
         isOnlinePurchase,
         performances,
         performancePeriod.benefitMonth,
@@ -496,7 +527,7 @@ export default function HomePage() {
     }, [addToast, catalog, catalogError]);
 
     useEffect(() => {
-        if (!currentBrand || amount <= 0) {
+        if (!currentPaymentTarget || amount <= 0) {
             recommendationVersion.current += 1;
             setIsRecommending(false);
             setRecommendation(null);
@@ -512,22 +543,27 @@ export default function HomePage() {
         const timer = window.setTimeout(async () => {
             setIsRecommending(true);
             try {
-                const request = {
-                    brandId: currentBrand.id,
+                const requestBase = {
                     amount,
                     ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
                     isOnline: isOnlinePurchase,
                     confirmedConditionIds: [...confirmedConditionIds],
                     priority: effectiveRecommendationPriority,
-                } satisfies RecommendationRequest;
+                };
+                const serverRequest = currentPaymentTarget.kind === 'BRAND'
+                    ? {
+                        ...requestBase,
+                        brandId: currentPaymentTarget.brand.id,
+                    } satisfies RecommendationRequest
+                    : undefined;
                 if (!catalog && storageMode === 'guest') {
                     throw new Error('최신 혜택 정보를 받은 뒤 기기에서 계산할 수 있습니다.');
                 }
                 const result = catalog
                     ? calculateBestCombinations(
                         {
-                            ...request,
-                            brand: currentBrand,
+                            ...requestBase,
+                            target: currentPaymentTarget,
                             cards: recommendationCards,
                             rules,
                             history,
@@ -552,17 +588,22 @@ export default function HomePage() {
                             }
                             : undefined,
                     )
-                    : await apiClient.getRecommendation(request);
+                    : serverRequest
+                        ? await apiClient.getRecommendation(serverRequest)
+                        : (() => {
+                            throw new Error('일반 결제 추천은 기기 저장 모드에서 사용할 수 있습니다.');
+                        })();
                 if (recommendationVersion.current !== version) return;
                 setRecommendation(result);
                 setSelectedCombinationId(result.combinations[0]?.id);
 
                 if (
                     catalog &&
+                    serverRequest &&
                     effectiveRecommendationPriority === 'BENEFIT' &&
                     process.env.NODE_ENV === 'development'
                 ) {
-                    void apiClient.getRecommendation(request)
+                    void apiClient.getRecommendation(serverRequest)
                         .then(serverResult => {
                             if (JSON.stringify(serverResult) !== JSON.stringify(result)) {
                                 console.warn('브라우저와 서버 추천 결과가 다릅니다.', {
@@ -588,7 +629,7 @@ export default function HomePage() {
         benefitProfile,
         catalog,
         confirmedConditionIds,
-        currentBrand,
+        currentPaymentTarget,
         currentPerformances,
         eligibleItemAmount,
         effectiveRecommendationPriority,
@@ -751,13 +792,54 @@ export default function HomePage() {
     };
 
     const handleSelectBrand = (brandId: string, simulationAmount?: number) => {
+        const brand = brands.find(item => item.id === brandId);
+        if (!brand) return;
+        setIsGeneralPaymentSelected(false);
+        setGeneralPaymentLabel(GENERAL_PAYMENT_LABEL);
         setSelectedBrandId(brandId);
         setRecommendation(null);
         setSelectedCombinationId(undefined);
+        setRecordConfirmationId(undefined);
         setAmount(0);
         setSuggestedSimulationAmount(simulationAmount);
         setEligibleItemAmount(undefined);
         setConfirmedConditionIds(new Set());
+        router.push(getPaymentTargetHref(pathname, {
+            kind: 'BRAND',
+            brandId: brand.id,
+            label: brand.name,
+        }), { scroll: false });
+    };
+
+    const handleSelectGeneralPayment = (label?: string) => {
+        setSelectedBrandId('');
+        setIsGeneralPaymentSelected(true);
+        setGeneralPaymentLabel(normalizeGeneralPaymentLabel(label));
+        setRecommendation(null);
+        setSelectedCombinationId(undefined);
+        setRecordConfirmationId(undefined);
+        setAmount(0);
+        setSuggestedSimulationAmount(undefined);
+        setEligibleItemAmount(undefined);
+        setConfirmedConditionIds(new Set());
+        router.push(getPaymentTargetHref(pathname, {
+            kind: 'GENERAL',
+            label: normalizeGeneralPaymentLabel(label),
+        }), { scroll: false });
+    };
+
+    const handleClearPaymentTarget = () => {
+        setSelectedBrandId('');
+        setIsGeneralPaymentSelected(false);
+        setGeneralPaymentLabel(GENERAL_PAYMENT_LABEL);
+        setSuggestedSimulationAmount(undefined);
+        setRecommendation(null);
+        setSelectedCombinationId(undefined);
+        setRecordConfirmationId(undefined);
+        setAmount(0);
+        setEligibleItemAmount(undefined);
+        setConfirmedConditionIds(new Set());
+        router.push(getPaymentTargetHref(pathname), { scroll: false });
     };
 
     const handleRequestLocation = async () => {
@@ -767,13 +849,13 @@ export default function HomePage() {
     };
 
     useEffect(() => {
-        if (!currentBrand) return;
+        if (!currentPaymentTarget) return;
         const timer = window.setTimeout(() => {
             amountSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             amountInputRef.current?.focus({ preventScroll: true });
         }, 120);
         return () => window.clearTimeout(timer);
-    }, [currentBrand]);
+    }, [currentPaymentTarget]);
 
     useEffect(() => {
         if (!guidedFirstRecommendation || recommendation === null || isRecommending) return;
@@ -788,7 +870,12 @@ export default function HomePage() {
     }, [guidedFirstRecommendation, isRecommending, recommendation]);
 
     const handleRecord = async () => {
-        if (!currentBrand || !selectedCombination || amount <= 0 || recordInFlight.current) return;
+        if (
+            !currentPaymentTarget ||
+            !selectedCombination ||
+            amount <= 0 ||
+            recordInFlight.current
+        ) return;
         if (recordConfirmationId !== selectedCombination.id) {
             setRecordConfirmationId(selectedCombination.id);
             window.setTimeout(() => setRecordConfirmationId(undefined), 3000);
@@ -800,20 +887,24 @@ export default function HomePage() {
         try {
             const transaction = storageMode === 'guest'
                 ? await localWorkspaceClient.createTransaction({
-                    brandId: currentBrand.id,
+                    paymentTarget: toPaymentTargetSnapshot(currentPaymentTarget),
                     amount,
                     ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
                     combination: selectedCombination,
                     catalogVersion: catalog?.catalogVersion ?? 'unknown',
                 })
-                : await apiClient.createCombinationTransaction({
-                    brandId: currentBrand.id,
-                    amount,
-                    ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
-                    isOnline: isOnlinePurchase,
-                    confirmedConditionIds: [...confirmedConditionIds],
-                    combinationId: selectedCombination.id,
-                });
+                    : currentPaymentTarget.kind === 'BRAND'
+                    ? await apiClient.createCombinationTransaction({
+                        brandId: currentPaymentTarget.brand.id,
+                        amount,
+                        ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
+                        isOnline: isOnlinePurchase,
+                        confirmedConditionIds: [...confirmedConditionIds],
+                        combinationId: selectedCombination.id,
+                    })
+                    : (() => {
+                        throw new Error('일반 결제 기록은 기기 저장 모드에서 사용할 수 있습니다.');
+                    })();
             addTransaction(transaction);
             if (
                 storageMode === 'guest' &&
@@ -834,7 +925,9 @@ export default function HomePage() {
                     }),
                 });
             }
-            recordBrandVisit(currentBrand.id);
+            if (currentPaymentTarget.kind === 'BRAND') {
+                recordBrandVisit(currentPaymentTarget.brand.id);
+            }
             addToast(
                 transaction.performanceContributionAmount
                     ? `결제를 기록하고 실적에 ${formatWon(transaction.performanceContributionAmount)} 반영했습니다.`
@@ -903,29 +996,16 @@ export default function HomePage() {
     }
 
     return (
-        <main className="min-h-screen bg-gray-50 pb-32">
-            <header className="sticky top-0 z-20 flex items-center justify-between border-b border-gray-100 bg-white/90 px-6 py-4 backdrop-blur">
-                <div>
-                    <h1 className="flex items-center gap-2 text-xl font-black text-gray-900">
-                        <span className="text-2xl">🍒</span> Cherry Picker
-                    </h1>
-                    <p className="text-[10px] font-bold text-gray-400">할인부터 결제수단까지 한 번에</p>
-                    {catalog && (
-                        <p className="mt-0.5 text-[9px] font-bold text-emerald-600">
-                            혜택 조합은 이 기기에서 계산
-                        </p>
-                    )}
-                    {storageMode === 'guest' && (
-                        <p className="mt-0.5 text-[9px] font-bold text-blue-600">
-                            개인 데이터는 이 기기에 저장
-                        </p>
-                    )}
-                </div>
+        <main className="min-h-screen bg-gray-50 pb-20">
+            <header className="sticky top-0 z-20 flex items-center justify-between border-b border-gray-100 bg-white/90 px-4 py-2.5 backdrop-blur">
+                <h1 className="flex items-center gap-1.5 text-[17px] font-black tracking-[-0.025em] text-gray-900">
+                    <span className="text-xl">🍒</span> Cherry Picker
+                </h1>
                 <button
                     type="button"
                     onClick={() => setIsOnlinePurchase(value => !value)}
                     className={clsx(
-                        'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black',
+                        'flex min-h-9 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[9px] font-black',
                         isOnlinePurchase
                             ? 'border-violet-200 bg-violet-50 text-violet-700'
                             : 'border-gray-200 bg-gray-100 text-gray-600'
@@ -938,7 +1018,7 @@ export default function HomePage() {
                 </button>
             </header>
 
-            <div className="mx-auto max-w-lg space-y-7 px-5 pt-6">
+            <div className="mx-auto max-w-lg space-y-5 px-3 pt-4">
                 {guidedFirstRecommendation && (
                     <section
                         ref={firstRecommendationGuideRef}
@@ -949,12 +1029,12 @@ export default function HomePage() {
                         <div className="flex items-center justify-between gap-3">
                             <p className="text-xs font-black text-blue-100">첫 추천 튜토리얼</p>
                             <p className="text-xs font-black text-white">
-                                {!currentBrand ? '1' : amount <= 0 ? '2' : '3'}/3
+                                {!currentPaymentTarget ? '1' : amount <= 0 ? '2' : '3'}/3
                             </p>
                         </div>
                         <div className="mt-3 grid grid-cols-3 gap-1" aria-label="첫 추천 진행률">
                             {[1, 2, 3].map(item => {
-                                const activeStep = !currentBrand ? 1 : amount <= 0 ? 2 : 3;
+                                const activeStep = !currentPaymentTarget ? 1 : amount <= 0 ? 2 : 3;
                                 return (
                                     <span
                                         key={item}
@@ -974,7 +1054,7 @@ export default function HomePage() {
                             </div>
                             <div>
                                 <h2 className="text-xl font-black leading-tight">
-                                    {!currentBrand
+                                    {!currentPaymentTarget
                                         ? '1. 브랜드를 선택해보세요'
                                         : amount <= 0
                                             ? '2. 결제 금액을 입력하세요'
@@ -985,7 +1065,7 @@ export default function HomePage() {
                                                     : '첫 추천 확인 완료!'}
                                 </h2>
                                 <p className="mt-2 text-xs font-bold leading-relaxed text-blue-100">
-                                    {!currentBrand
+                                    {!currentPaymentTarget
                                         ? incompleteTelecomProvider
                                             ? `${incompleteTelecomProvider.name} 등급을 고르면 CU 같은 제휴 혜택과 금액을 정확히 시뮬레이션할 수 있어요.`
                                             : benefitBrandSuggestions.length > 0
@@ -993,8 +1073,8 @@ export default function HomePage() {
                                             : '현재 조건에서 확정 혜택 브랜드가 없으면 아래에서 자주 가는 매장 하나를 눌러보세요.'
                                         : amount <= 0
                                             ? suggestedSimulationAmount
-                                                ? `${currentBrand.name}에서 직접 금액을 입력하거나, 추천 예시 ${formatWon(suggestedSimulationAmount)}으로 체험해보세요.`
-                                                : `${currentBrand.name}에서 결제할 금액을 숫자로 입력해보세요.`
+                                                ? `${currentPaymentTargetLabel}에서 직접 금액을 입력하거나, 추천 예시 ${formatWon(suggestedSimulationAmount)}으로 체험해보세요.`
+                                                : `${currentPaymentTargetLabel} 금액을 숫자로 입력해보세요.`
                                             : isRecommending || recommendation === null
                                                 ? '내 카드와 함께 쓸 수 있는 혜택을 이 기기에서 비교하고 있습니다.'
                                                 : selectedCombination
@@ -1003,7 +1083,7 @@ export default function HomePage() {
                                 </p>
                             </div>
                         </div>
-                        {!currentBrand && incompleteTelecomProvider && (
+                        {!currentPaymentTarget && incompleteTelecomProvider && (
                             <Link
                                 href="/setup/benefits"
                                 className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-white/15 px-4 text-xs font-black text-white transition hover:bg-white/25"
@@ -1033,28 +1113,14 @@ export default function HomePage() {
                     </section>
                 )}
                 {!guidedFirstRecommendation && (
-                    <>
-                        <CatalogFreshnessCard
-                            health={catalogHealth}
-                            isOnline={isNetworkOnline}
-                            isRefreshing={isCatalogRefreshing}
-                            lastCheckedAt={catalogLastCheckedAt}
-                            catalogVersion={catalog?.catalogVersion}
-                            error={catalogError}
-                            cacheWarning={catalogCacheWarning}
-                            onRefresh={refreshCatalog}
-                            collectionManagementHref="/admin/promotions"
-                        />
-
-                        <MonthlyPerformanceReminder
-                            missingCount={missingPerformanceCards.length}
-                            performanceMonthLabel={formatPerformanceMonthLabel(performancePeriod.performanceMonth)}
-                            benefitMonthLabel={formatPerformanceMonthLabel(performancePeriod.benefitMonth)}
-                        />
-                    </>
+                    <MonthlyPerformanceReminder
+                        missingCount={missingPerformanceCards.length}
+                        performanceMonthLabel={formatPerformanceMonthLabel(performancePeriod.performanceMonth)}
+                        benefitMonthLabel={formatPerformanceMonthLabel(performancePeriod.benefitMonth)}
+                    />
                 )}
 
-                {!currentBrand ? (
+                {!currentPaymentTarget ? (
                     <BrandDiscovery
                         categories={categories}
                         brands={brands}
@@ -1067,6 +1133,7 @@ export default function HomePage() {
                         benefitSuggestions={benefitBrandSuggestions}
                         benefitOpportunityCount={benefitBrandSuggestionResult.opportunityCount}
                         onSelectBrand={brand => handleSelectBrand(brand.id)}
+                        onSelectGeneralPayment={handleSelectGeneralPayment}
                         onSelectBenefitSuggestion={suggestion => handleSelectBrand(
                             suggestion.brand.id,
                             suggestion.sampleAmount,
@@ -1079,21 +1146,32 @@ export default function HomePage() {
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                                    <IconByName name={currentBrand.iconName || 'Store'} className="h-5 w-5" />
+                                    <IconByName
+                                        name={currentPaymentTarget.kind === 'BRAND'
+                                            ? currentPaymentTarget.brand.iconName || 'Store'
+                                            : 'CreditCard'}
+                                        className="h-5 w-5"
+                                    />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black text-gray-400">선택한 브랜드</p>
-                                    <p className="text-lg font-black text-gray-900">{currentBrand.name}</p>
+                                    <p className="text-[10px] font-black text-gray-400">
+                                        {currentPaymentTarget.kind === 'BRAND'
+                                            ? '선택한 브랜드'
+                                            : '미지원 결제처'}
+                                    </p>
+                                    <p className="text-lg font-black text-gray-900">
+                                        {currentPaymentTargetLabel}
+                                    </p>
+                                    {currentPaymentTarget.kind === 'GENERAL' && (
+                                        <p className="mt-0.5 text-[10px] font-bold text-blue-600">
+                                            일반 적용 혜택만 계산해요
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setSelectedBrandId('');
-                                    setSuggestedSimulationAmount(undefined);
-                                    setRecommendation(null);
-                                    setSelectedCombinationId(undefined);
-                                }}
+                                onClick={handleClearPaymentTarget}
                                 className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-black text-gray-600"
                             >
                                 변경
@@ -1102,7 +1180,7 @@ export default function HomePage() {
                     </section>
                 )}
 
-                {currentBrand && (
+                {currentPaymentTarget && (
                     <>
                         <section
                             ref={amountSectionRef}
@@ -1529,5 +1607,17 @@ export default function HomePage() {
                 )}
             </div>
         </main>
+    );
+}
+
+export default function HomePage() {
+    return (
+        <Suspense fallback={(
+            <div className="flex h-screen items-center justify-center bg-gray-50">
+                <LoaderCircle className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+        )}>
+            <HomePageContent />
+        </Suspense>
     );
 }

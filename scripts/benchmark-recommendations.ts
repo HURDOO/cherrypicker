@@ -75,8 +75,7 @@ async function main() {
     let combinationCount = 0;
     const calculate = () => {
         const result = calculateBestCombinations({
-            brandId: benchmarkTarget.brand.id,
-            brand: benchmarkTarget.brand,
+            target: { kind: 'BRAND', brand: benchmarkTarget.brand },
             amount: 100_000,
             eligibleItemAmount: 50_000,
             isOnline: benchmarkTarget.isOnline,

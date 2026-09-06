@@ -4,26 +4,33 @@ import Image from 'next/image';
 import { useState } from 'react';
 import clsx from 'clsx';
 import type { Brand } from '@/types';
-import { getBrandLogoUrl, getBrandMonogram } from './brandVisuals';
+import {
+    getBrandLogoUrl,
+    getBrandMonogram,
+    usesCoverBrandLogo,
+} from './brandVisuals';
 
 interface BrandLogoProps {
     brand: Pick<Brand, 'id' | 'name'>;
     className?: string;
     imageClassName?: string;
+    loading?: 'eager' | 'lazy';
 }
 
 export function BrandLogo({
     brand,
     className,
     imageClassName,
+    loading,
 }: BrandLogoProps) {
     const [imageFailed, setImageFailed] = useState(false);
     const logoUrl = getBrandLogoUrl(brand);
+    const usesCoverFit = usesCoverBrandLogo(brand);
 
     return (
         <span
             className={clsx(
-                'relative flex items-center justify-center overflow-hidden bg-gray-100 text-xs font-black text-gray-500',
+                'relative flex items-center justify-center overflow-hidden bg-gray-100 text-[16px] font-black leading-none text-gray-600',
                 className
             )}
             aria-hidden="true"
@@ -36,10 +43,12 @@ export function BrandLogo({
                     width={64}
                     height={64}
                     unoptimized
+                    loading={loading}
                     onError={() => setImageFailed(true)}
                     className={clsx(
                         'absolute inset-0 h-full w-full bg-white object-contain',
-                        imageClassName
+                        imageClassName,
+                        usesCoverFit && '!object-cover !p-0'
                     )}
                 />
             )}

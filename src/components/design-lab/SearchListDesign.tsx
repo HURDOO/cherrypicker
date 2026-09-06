@@ -121,6 +121,7 @@ export function SearchListDesign({
         const result: RecentBrand[] = [];
 
         for (const transaction of sortedHistory) {
+            if (!transaction.brandId) continue;
             if (seenBrandIds.has(transaction.brandId)) continue;
 
             const brand = brandById.get(transaction.brandId);

@@ -6,6 +6,7 @@ import type {
     Category,
     FundingType,
     PlatformType,
+    PaymentTargetSnapshot,
     TransactionHistory,
     UserBenefitProfile,
     UserCardPerformance,
@@ -685,11 +686,41 @@ const parseHistory = (value: unknown): TransactionHistory => {
     const combinationSnapshot = row.combinationSnapshot === undefined
         ? undefined
         : objectValue(row.combinationSnapshot, '추천 조합 snapshot');
+    const paymentTarget = (() => {
+        if (row.paymentTarget === undefined) return undefined;
+        const target = objectValue(row.paymentTarget, '결제 기록 대상');
+        if (target.kind === 'BRAND') {
+            return {
+                kind: 'BRAND' as const,
+                brandId: requiredText(target.brandId, '결제 기록 대상 브랜드 ID', 200),
+                label: requiredText(target.label, '결제 기록 대상 이름', 200),
+            } satisfies PaymentTargetSnapshot;
+        }
+        if (target.kind === 'GENERAL') {
+            return {
+                kind: 'GENERAL' as const,
+                label: requiredText(target.label, '일반 결제 표시명', 80),
+            } satisfies PaymentTargetSnapshot;
+        }
+        throw new Error('결제 기록 대상 종류가 올바르지 않습니다.');
+    })();
+    const brandId = optionalText(row.brandId, '결제 기록 브랜드 ID', 200);
+    if (!brandId && !paymentTarget) {
+        throw new Error('결제 기록 대상이 없습니다.');
+    }
+    if (
+        brandId &&
+        paymentTarget?.kind === 'BRAND' &&
+        paymentTarget.brandId !== brandId
+    ) {
+        throw new Error('결제 기록 브랜드와 대상 snapshot이 일치하지 않습니다.');
+    }
 
     return {
         id: row.id as string | number,
         date,
-        brandId: requiredText(row.brandId, '결제 기록 브랜드 ID', 200),
+        ...(brandId && { brandId }),
+        ...(paymentTarget && { paymentTarget }),
         ...(cardId && { cardId }),
         ...(ruleId && { ruleId }),
         amount: safeInteger(row.amount, '결제 금액', 0, MAX_MONEY_AMOUNT),

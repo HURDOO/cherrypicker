@@ -33,6 +33,8 @@ import {
 import { disconnectLocalWorkspaceSync } from '@/lib/local-workspace-sync';
 import { LocalDataPrivacyNotice } from '@/components/settings/LocalDataPrivacyNotice';
 import { SystemCardSelector } from '@/components/settings/SystemCardSelector';
+import { CatalogFreshnessCard } from '@/components/catalog/CatalogFreshnessCard';
+import { useBenefitCatalog } from '@/hooks/useBenefitCatalog';
 import { selectAvailableCards } from '@/utils/availableCards';
 
 export default function SettingsPage() {
@@ -51,6 +53,16 @@ export default function SettingsPage() {
     } = useAppStore();
     const { addToast } = useToastStore();
     const { user, signOut, deleteAccount } = useAuth();
+    const {
+        snapshot: catalog,
+        isRefreshing: isCatalogRefreshing,
+        isOnline: isNetworkOnline,
+        health: catalogHealth,
+        lastCheckedAt: catalogLastCheckedAt,
+        error: catalogError,
+        cacheWarning: catalogCacheWarning,
+        refresh: refreshCatalog,
+    } = useBenefitCatalog();
     const router = useRouter();
     const [isSeeding, setIsSeeding] = useState(false);
     const [confirmStep, setConfirmStep] = useState(false);
@@ -346,6 +358,31 @@ export default function SettingsPage() {
             </header>
 
             <div className="px-5 pt-6 space-y-8 max-w-lg mx-auto">
+
+                <section id="catalog-status" className="scroll-mt-24">
+                    <div className="mb-4 flex items-center gap-2 px-1">
+                        <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
+                            <RefreshCw className="h-4 w-4" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-bold text-gray-900">혜택 데이터 갱신 상태</h2>
+                            <p className="text-[10px] text-gray-500">
+                                공개 혜택 정보와 기기 저장본 상태를 확인합니다.
+                            </p>
+                        </div>
+                    </div>
+                    <CatalogFreshnessCard
+                        health={catalogHealth}
+                        isOnline={isNetworkOnline}
+                        isRefreshing={isCatalogRefreshing}
+                        lastCheckedAt={catalogLastCheckedAt}
+                        catalogVersion={catalog?.catalogVersion}
+                        error={catalogError}
+                        cacheWarning={catalogCacheWarning}
+                        onRefresh={refreshCatalog}
+                        collectionManagementHref="/admin/promotions"
+                    />
+                </section>
 
                 <section id="my-cards" className="scroll-mt-24">
                     <div className="mb-4 flex items-center gap-2 px-1">

@@ -7,6 +7,7 @@ import {
     BenefitWeekday,
     LimitConfig,
     LimitUsageField,
+    PaymentTarget,
     RuleAction,
     TransactionHistory,
     UserCardPerformance,
@@ -225,17 +226,30 @@ const getActionAmountBasis = (rule: BenefitRule) =>
         'ORIGINAL_AMOUNT',
     );
 
-const getRuleSpecificity = (rule: BenefitRule, brand: Brand) => {
+type CalculationTarget = Brand | PaymentTarget;
+
+const getTargetBrand = (target: CalculationTarget) => (
+    'kind' in target
+        ? target.kind === 'BRAND' ? target.brand : undefined
+        : target
+);
+
+const getRuleSpecificity = (rule: BenefitRule, target: CalculationTarget) => {
     const includedBrands = getIncludedBrands(rule);
+    const brand = getTargetBrand(target);
+    if (!brand) {
+        return !rule.category && includedBrands.length === 0 ? 1 : 0;
+    }
     if (includedBrands.includes(brand.id)) return 3;
     if (rule.category === brand.categoryId && includedBrands.length === 0) return 2;
     if (!rule.category && includedBrands.length === 0) return 1;
     return 0;
 };
 
-const matchesRule = (rule: BenefitRule, brand: Brand) => {
-    if (getExcludedBrands(rule).includes(brand.id)) return false;
-    return getRuleSpecificity(rule, brand) > 0;
+const matchesRule = (rule: BenefitRule, target: CalculationTarget) => {
+    const brand = getTargetBrand(target);
+    if (brand && getExcludedBrands(rule).includes(brand.id)) return false;
+    return getRuleSpecificity(rule, target) > 0;
 };
 
 const ruleTrackingId = (ruleId: string) => `rule:${ruleId}`;
@@ -776,7 +790,7 @@ const compareEvaluationSets = (left: RuleEvaluation[], right: RuleEvaluation[]) 
 
 export function calculateBestCards(
     amount: number,
-    brand: Brand,
+    target: CalculationTarget,
     cards: Card[],
     rules: BenefitRule[],
     history: TransactionHistory[],
@@ -798,14 +812,14 @@ export function calculateBestCards(
 
         const candidateRules = rules
             .filter(rule => {
-                if (rule.cardId !== card.id || !matchesRule(rule, brand)) return false;
+                if (rule.cardId !== card.id || !matchesRule(rule, target)) return false;
                 const action = getAction(rule);
                 return action.value > 0 || (
                     action.type === 'FIXED_PRICE' && getConditionItemSpecific(rule)
                 );
             })
             .sort((a, b) => {
-                const specificity = getRuleSpecificity(b, brand) - getRuleSpecificity(a, brand);
+                const specificity = getRuleSpecificity(b, target) - getRuleSpecificity(a, target);
                 return specificity || a.id.localeCompare(b.id);
             });
         const hasIntegratedNewCardWaiver = allowPerformanceWaiver && candidateRules.some(rule => (

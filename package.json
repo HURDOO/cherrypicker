@@ -19,7 +19,9 @@
     "promotions:collect": "tsx scripts/collect-promotions.ts",
     "cards:collect": "tsx scripts/collect-card-benefits.ts",
     "cards:verify": "tsx scripts/collect-card-benefits.ts --all",
-    "cards:verify:scheduled": "tsx scripts/collect-card-benefits.ts --all --scheduled"
+    "cards:verify:scheduled": "tsx scripts/collect-card-benefits.ts --all --scheduled",
+    "logos:collect": "tsx scripts/collect-brand-logos.ts",
+    "logos:audit": "tsx scripts/generate-brand-logo-audit.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.23",

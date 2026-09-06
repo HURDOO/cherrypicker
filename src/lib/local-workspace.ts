@@ -8,6 +8,7 @@ import type {
     Category,
     LimitConfig,
     PlatformType,
+    PaymentTargetSnapshot,
     RuleAction,
     RuleCondition,
     TransactionHistory,
@@ -100,7 +101,7 @@ export type LocalRuleInput = {
     limitConfig: LimitConfig;
 };
 export type LocalCombinationTransactionInput = {
-    brandId: string;
+    paymentTarget: PaymentTargetSnapshot;
     amount: number;
     eligibleItemAmount?: number;
     combination: BenefitCombination;
@@ -989,7 +990,10 @@ export const createLocalWorkspaceClient = (
             const transaction: TransactionHistory = {
                 id,
                 date: timestamp,
-                brandId: input.brandId,
+                ...(input.paymentTarget.kind === 'BRAND' && {
+                    brandId: input.paymentTarget.brandId,
+                }),
+                paymentTarget: structuredClone(input.paymentTarget),
                 ...(input.combination.cardId && { cardId: input.combination.cardId }),
                 ...(cardStep?.ruleId && { ruleId: cardStep.ruleId }),
                 amount: input.amount,
@@ -1013,6 +1017,7 @@ export const createLocalWorkspaceClient = (
                 combinationSnapshot: {
                     ...structuredClone(input.combination),
                     catalogVersion: input.catalogVersion,
+                    paymentTarget: structuredClone(input.paymentTarget),
                 },
             };
             workspace.history.unshift(transaction);

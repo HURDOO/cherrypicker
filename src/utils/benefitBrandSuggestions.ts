@@ -114,6 +114,7 @@ export function rankBenefitBrandSuggestions({
     );
     const brandUsage = new Map<string, number>();
     history.forEach(transaction => {
+        if (!transaction.brandId) return;
         brandUsage.set(transaction.brandId, (brandUsage.get(transaction.brandId) ?? 0) + 1);
     });
 
@@ -152,8 +153,7 @@ export function rankBenefitBrandSuggestions({
 
         const brandCandidates = sampleAmounts.flatMap<BenefitBrandSuggestion>(sampleAmount => {
             const response = calculateBestCombinations({
-                brandId: brand.id,
-                brand,
+                target: { kind: 'BRAND', brand },
                 amount: sampleAmount,
                 isOnline,
                 priority: 'BENEFIT',

@@ -1,7 +1,7 @@
 import type {
     BenefitRule,
-    Brand,
     Card,
+    PaymentTarget,
     PerformanceRecommendationGoal,
     UserCardPerformance,
 } from '@/types';
@@ -12,7 +12,7 @@ interface DerivePerformanceGoalsInput {
     rules: BenefitRule[];
     performances: UserCardPerformance[];
     performanceMonth: string;
-    brand: Brand;
+    target: PaymentTarget;
     amount: number;
     isOnline: boolean;
 }
@@ -22,7 +22,7 @@ export function derivePerformanceGoals({
     rules,
     performances,
     performanceMonth,
-    brand,
+    target,
     amount,
     isOnline,
 }: DerivePerformanceGoalsInput): PerformanceRecommendationGoal[] {
@@ -37,7 +37,7 @@ export function derivePerformanceGoals({
         const currentAmount = stored?.amount ?? 0;
         const evaluateAt = (performanceAmount: number) => calculateBestCards(
             amount,
-            brand,
+            target,
             [card],
             rules,
             // The target prepares the next benefit month, whose monthly limits reset.

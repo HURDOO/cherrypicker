@@ -159,7 +159,7 @@ export function calculateRecommendationForUser(
 
     return calculateBestCombinations({
         ...input,
-        brand: toBrand(brand),
+        target: { kind: 'BRAND', brand: toBrand(brand) },
         cards: recommendationCards,
         rules: ruleRows.map(toRule),
         history: historyRows.map(toTransaction),
@@ -169,7 +169,7 @@ export function calculateRecommendationForUser(
             rules: ruleRows.map(toRule),
             performances: currentPerformanceRows.map(toPerformance),
             performanceMonth: getCurrentMonthInKst(),
-            brand: toBrand(brand),
+            target: { kind: 'BRAND', brand: toBrand(brand) },
             amount: input.amount,
             isOnline: input.isOnline,
         }),

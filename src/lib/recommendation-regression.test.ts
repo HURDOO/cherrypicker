@@ -83,15 +83,15 @@ const calculateScenario = (
         rules: catalog.rules,
         performances: workspace.performances,
         performanceMonth: RECOMMENDATION_REGRESSION_GOAL_MONTH,
-        brand,
+        target: { kind: 'BRAND', brand },
         amount: scenario.request.amount,
         isOnline: scenario.request.isOnline,
     });
 
     return calculateBestCombinations({
         ...scenario.request,
+        target: { kind: 'BRAND', brand },
         priority: performanceGoals.length > 0 ? scenario.request.priority : 'BENEFIT',
-        brand,
         cards,
         rules: catalog.rules,
         history: workspace.history,

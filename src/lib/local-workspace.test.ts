@@ -13,6 +13,7 @@ import {
     type LocalWorkspaceSnapshot,
     type LocalWorkspaceStorage,
 } from './local-workspace';
+import { buildPromotionUsage } from '@/utils/promotionUsage';
 
 const createMemoryStorage = (initial: LocalWorkspaceSnapshot | null = null) => {
     let current = initial ? structuredClone(initial) : null;
@@ -568,7 +569,7 @@ describe('local workspace', () => {
             smallBenefitThreshold: 100,
         });
         const transaction = await client.createTransaction({
-            brandId: brand.id,
+            paymentTarget: { kind: 'BRAND', brandId: brand.id, label: brand.name },
             amount: 10000,
             combination: {
                 ...combination,
@@ -616,27 +617,56 @@ describe('local workspace', () => {
             await client.updatePerformance(card.id, 250000, '2026-08', 300000);
 
             const transaction = await client.createTransaction({
-                brandId: 'brand-1',
+                paymentTarget: { kind: 'GENERAL', label: '동네 문구점' },
                 amount: 10000,
                 combination: {
                     ...combination,
                     cardId: card.id,
-                    steps: combination.steps.map(step => ({
-                        ...step,
-                        cardId: card.id,
-                        amountBefore: 10000,
-                    })),
+                    steps: [
+                        {
+                            id: 'promotion:general-payment',
+                            layer: 'DISCOUNT',
+                            providerName: '테스트 프로모션',
+                            title: '일반 결제 할인',
+                            certainty: 'CONFIRMED',
+                            amountBefore: 10000,
+                            benefitAmount: 500,
+                            amountAfter: 9500,
+                            isImmediate: true,
+                            promotionId: 'general-payment-promotion',
+                        },
+                        ...combination.steps.map(step => ({
+                            ...step,
+                            cardId: card.id,
+                            amountBefore: 10000,
+                        })),
+                    ],
                 },
                 catalogVersion: 'catalog-v1',
             });
             const workspace = await client.read();
 
             expect(transaction.performanceContributionAmount).toBe(10000);
+            expect(transaction).toMatchObject({
+                paymentTarget: { kind: 'GENERAL', label: '동네 문구점' },
+                combinationSnapshot: {
+                    paymentTarget: { kind: 'GENERAL', label: '동네 문구점' },
+                },
+            });
+            expect(transaction.brandId).toBeUndefined();
             expect(workspace.performances).toContainEqual({
                 cardId: card.id,
                 performanceMonth: '2026-08',
                 amount: 260000,
                 targetAmount: 300000,
+            });
+            expect(buildPromotionUsage(workspace.history, new Date(
+                '2026-08-20T03:00:00.000Z'
+            ))['general-payment-promotion']).toMatchObject({
+                dailyCount: 1,
+                monthlyCount: 1,
+                yearlyCount: 1,
+                monthlyAmount: 500,
             });
             expect(workspace.recordMetadata[`performances:${card.id}:2026-08`].updatedAt)
                 .toBe('2026-08-20T03:00:00.000Z');

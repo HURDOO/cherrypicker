@@ -2,12 +2,12 @@ import type {
     BenefitCertainty,
     BenefitCombination,
     BenefitRule,
-    Brand,
     CalculatedCard,
     Card,
     CombinationStep,
     FundingType,
     MerchantRouteVerification,
+    PaymentTarget,
     PromotionOffer,
     PromotionProvider,
     PerformanceRecommendationGoal,
@@ -23,6 +23,7 @@ import {
     DEFAULT_SMALL_BENEFIT_THRESHOLD,
     isSmallBenefitAmount,
 } from './recommendationPreferences';
+import { toPaymentTargetSnapshot } from './paymentTarget';
 
 type WorkingCombination = {
     remainingAmount: number;
@@ -41,8 +42,8 @@ type WorkingCombination = {
     blocksCardBenefit: boolean;
 };
 
-export type CombinationEngineInput = RecommendationRequest & {
-    brand: Brand;
+export type CombinationEngineInput = Omit<RecommendationRequest, 'brandId'> & {
+    target: PaymentTarget;
     cards: Card[];
     rules: BenefitRule[];
     history: TransactionHistory[];
@@ -178,10 +179,19 @@ const isPublishedAndCurrent = (offer: PromotionOffer, now: Date) => {
     return true;
 };
 
-const matchesBrand = (offer: PromotionOffer, brand: Brand) =>
-    offer.brandIds.includes(brand.id) ||
-    offer.categoryIds.includes(brand.categoryId) ||
-    (offer.brandIds.length === 0 && offer.categoryIds.length === 0);
+const matchesPaymentTarget = (offer: PromotionOffer, target: PaymentTarget) => {
+    if (target.kind === 'BRAND') {
+        return offer.brandIds.includes(target.brand.id) ||
+            offer.categoryIds.includes(target.brand.categoryId) ||
+            (offer.brandIds.length === 0 && offer.categoryIds.length === 0);
+    }
+    return offer.brandIds.length === 0 &&
+        offer.categoryIds.length === 0 &&
+        offer.condition.applicabilityScope !== 'CATEGORY' &&
+        offer.condition.applicabilityScope !== 'PRODUCT_SET' &&
+        offer.condition.itemSpecific !== true &&
+        offer.condition.amountBasis !== 'ELIGIBLE_ITEM_AMOUNT';
+};
 
 const isTelecomEligible = (
     offer: PromotionOffer,
@@ -484,9 +494,17 @@ const getRouteCertainty = (
     payProviderId?: string,
 ): { eligible: boolean; certainty: BenefitCertainty; warning?: string } => {
     if (!payProviderId) return { eligible: true, certainty: 'CONFIRMED' };
+    if (input.target.kind === 'GENERAL') {
+        return {
+            eligible: true,
+            certainty: 'ESTIMATED',
+            warning: '간편결제 승인 가맹점·MCC에 따라 카드 혜택이 제외될 수 있어요.',
+        };
+    }
     const requestedChannel = input.isOnline ? 'ONLINE' : 'OFFLINE';
+    const brandId = input.target.brand.id;
     const verification = input.routeVerifications?.find(item =>
-        item.brandId === input.brand.id &&
+        item.brandId === brandId &&
         item.payProviderId === payProviderId &&
         (!item.cardCompany || item.cardCompany === card.company) &&
         (item.channel === 'ALL' || item.channel === requestedChannel)
@@ -733,7 +751,7 @@ export function calculateBestCombinations(
     const confirmedConditionIds = new Set(input.confirmedConditionIds ?? []);
     const currentOffers = input.promotions.filter(offer =>
         isPublishedAndCurrent(offer, now) &&
-        matchesBrand(offer, input.brand) &&
+        matchesPaymentTarget(offer, input.target) &&
         matchesChannel(offer, input.isOnline) &&
         isTelecomEligible(offer, providerById.get(offer.providerId), input.profile) &&
         isSubscriptionEligible(offer, providerById.get(offer.providerId), input.profile)
@@ -785,11 +803,12 @@ export function calculateBestCombinations(
     const currentDate = now.toISOString().slice(0, 10);
     const cardItemSpecificOffers = input.rules
         .filter(rule => {
+            if (input.target.kind === 'GENERAL') return false;
             if (rule.condition.itemSpecific !== true) return false;
-            if ((rule.excludedBrands ?? []).includes(input.brand.id)) return false;
+            if ((rule.excludedBrands ?? []).includes(input.target.brand.id)) return false;
             const includedBrands = rule.includedBrands ?? [];
-            const matches = includedBrands.includes(input.brand.id) ||
-                (includedBrands.length === 0 && rule.category === input.brand.categoryId);
+            const matches = includedBrands.includes(input.target.brand.id) ||
+                (includedBrands.length === 0 && rule.category === input.target.brand.categoryId);
             if (!matches) return false;
             if (rule.platformType === 'ONLINE' || rule.platformType === 'OFFICIAL_SITE') {
                 if (!input.isOnline) return false;
@@ -938,7 +957,7 @@ export function calculateBestCombinations(
                         if (!next.blocksCardBenefit) {
                             const evaluatedCard = calculateBestCards(
                                 cardCharge,
-                                input.brand,
+                                input.target,
                                 [card],
                                 input.rules,
                                 input.history,
@@ -1022,7 +1041,8 @@ export function calculateBestCombinations(
     options.onMetrics?.({ ...metrics });
 
     return {
-        brandId: input.brand.id,
+        ...(input.target.kind === 'BRAND' && { brandId: input.target.brand.id }),
+        target: toPaymentTargetSnapshot(input.target),
         amount: input.amount,
         ...(input.eligibleItemAmount && { eligibleItemAmount: input.eligibleItemAmount }),
         combinations: deduplicated,

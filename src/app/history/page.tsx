@@ -3,12 +3,17 @@
 import React from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { Trash2, AlertCircle, Calendar, TrendingUp, History, CreditCard } from 'lucide-react';
-import { TransactionHistory } from '@/types';
+import type { TransactionHistory } from '@/types';
 import { IconByName } from '@/components/ui/IconByName';
 import { useToastStore } from '@/store/useToastStore';
 import clsx from 'clsx';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
 import { localWorkspaceClient } from '@/lib/local-workspace';
+import { getTransactionPaymentTarget } from '@/utils/paymentTarget';
+import {
+    getTransactionConfirmedBenefit,
+    summarizeTransactions,
+} from '@/utils/historySummary';
 
 export default function HistoryPage() {
     const {
@@ -101,6 +106,10 @@ export default function HistoryPage() {
                 txDate.getFullYear() === currentDate.getFullYear();
         });
     }, [history, currentDate]);
+    const monthlySummary = React.useMemo(
+        () => summarizeTransactions(monthlyHistory),
+        [monthlyHistory]
+    );
 
     // 2. Filter by Card (from Monthly History)
     const filteredHistory = selectedCardId === 'all'
@@ -163,7 +172,7 @@ export default function HistoryPage() {
                     txDate.getMonth() === currentDate.getMonth() &&
                     txDate.getFullYear() === currentDate.getFullYear();
             })
-            .reduce((sum, tx) => sum + tx.discountAmount, 0);
+            .reduce((sum, tx) => sum + getTransactionConfirmedBenefit(tx), 0);
 
         return {
             card,
@@ -288,23 +297,21 @@ export default function HistoryPage() {
                                         {currentDate.getMonth() + 1}월 받은 총 혜택
                                     </p>
                                     <h2 className="text-4xl font-black text-gray-900 tracking-tight">
-                                        {monthlyHistory.reduce((sum, tx) => sum + tx.discountAmount, 0).toLocaleString()}
+                                        {monthlySummary.totalConfirmedBenefit.toLocaleString()}
                                         <span className="text-2xl ml-1 text-gray-400 font-bold">원</span>
                                     </h2>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100 relative z-10">
                                     <div className="bg-gray-50 rounded-2xl p-3 text-center">
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Total Spend</p>
+                                        <p className="text-[10px] text-gray-400 font-bold tracking-wider">기록한 결제금액</p>
                                         <p className="text-sm font-bold text-gray-800 mt-0.5">
-                                            {monthlyHistory.reduce((sum, tx) => sum + tx.amount, 0).toLocaleString()}원
+                                            {monthlySummary.totalSpend.toLocaleString()}원
                                         </p>
                                     </div>
                                     <div className="bg-blue-50 rounded-2xl p-3 text-center">
-                                        <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Picking Rate</p>
+                                        <p className="text-[10px] text-blue-400 font-bold tracking-wider">확정 혜택률</p>
                                         <p className="text-sm font-bold text-blue-600 mt-0.5">
-                                            {monthlyHistory.length > 0 ? (
-                                                (monthlyHistory.reduce((sum, tx) => sum + tx.discountAmount, 0) / monthlyHistory.reduce((sum, tx) => sum + tx.amount, 0) * 100).toFixed(1)
-                                            ) : 0}%
+                                            {monthlySummary.confirmedBenefitRate.toFixed(1)}%
                                         </p>
                                     </div>
                                 </div>
@@ -391,7 +398,15 @@ export default function HistoryPage() {
                                     </h3>
                                     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
                                         {grouped[date].map((tx) => {
-                                            const brand = getBrand(tx.brandId);
+                                            const paymentTarget = getTransactionPaymentTarget(
+                                                tx,
+                                                brands,
+                                            );
+                                            const brand = paymentTarget.kind === 'BRAND'
+                                                ? getBrand(paymentTarget.brandId)
+                                                : undefined;
+                                            const confirmedBenefit = getTransactionConfirmedBenefit(tx);
+                                            const payableAmount = tx.payableAmount ?? tx.amount;
                                             // Optional: Find card name to display if showing 'All'
                                             const txCard = cards.find(c => c.id === tx.cardId);
 
@@ -401,14 +416,20 @@ export default function HistoryPage() {
                                                         <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-white group-hover:shadow-sm transition-all">
                                                             {brand ? (
                                                                 <IconByName name={brand.iconName || 'HelpCircle'} className="w-5 h-5" />
+                                                            ) : paymentTarget.kind === 'GENERAL' ? (
+                                                                <CreditCard className="h-5 w-5" />
                                                             ) : (
-                                                                <span className="font-bold text-xs">{tx.brandId.substring(0, 1)}</span>
+                                                                <span className="font-bold text-xs">
+                                                                    {paymentTarget.label.substring(0, 1)}
+                                                                </span>
                                                             )}
                                                         </div>
                                                         <div>
                                                             <div className="flex items-center gap-2">
-                                                                <span className="font-bold text-gray-800 text-sm">{brand?.name || tx.brandId}</span>
-                                                                {(tx.confirmedValue || tx.discountAmount) > 0 && (
+                                                                <span className="font-bold text-gray-800 text-sm">
+                                                                    {paymentTarget.label}
+                                                                </span>
+                                                                {confirmedBenefit > 0 && (
                                                                     <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold">혜택적용</span>
                                                                 )}
                                                             </div>
@@ -426,13 +447,16 @@ export default function HistoryPage() {
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <p className="font-bold text-gray-900 text-sm">
-                                                            {(tx.payableAmount ?? tx.amount).toLocaleString()}
+                                                    <div className="shrink-0 text-right">
+                                                        <p className="whitespace-nowrap text-sm font-bold text-gray-900">
+                                                            {tx.amount.toLocaleString()}원
                                                         </p>
-                                                        {(tx.confirmedValue || tx.discountAmount) > 0 && (
-                                                            <p className="text-[10px] text-blue-500 font-bold">
-                                                                혜택 {(tx.confirmedValue || tx.discountAmount).toLocaleString()}
+                                                        {confirmedBenefit > 0 && (
+                                                            <p className="mt-0.5 whitespace-nowrap text-[10px] font-bold text-blue-500">
+                                                                혜택 {confirmedBenefit.toLocaleString()}원
+                                                                {payableAmount !== tx.amount && (
+                                                                    <> · 실결제 {payableAmount.toLocaleString()}원</>
+                                                                )}
                                                             </p>
                                                         )}
                                                     </div>

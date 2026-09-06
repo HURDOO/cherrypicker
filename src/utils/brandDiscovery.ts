@@ -377,6 +377,7 @@ export function rankBrands(
     const usage = new Map<string, { count: number; lastUsedAt?: string }>();
 
     history.forEach(transaction => {
+        if (!transaction.brandId) return;
         const current = usage.get(transaction.brandId) || { count: 0 };
         const lastUsedAt = !current.lastUsedAt || transaction.date > current.lastUsedAt
             ? transaction.date

@@ -17,7 +17,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
     return (
         <div className={`min-h-screen bg-gray-50 font-sans text-gray-900 ${
-            isImmersiveRoute ? '' : 'pb-20'
+            isImmersiveRoute ? '' : 'pb-16'
         }`}>
             <div className={isAdminRoute
                 ? 'min-h-screen bg-gray-50'

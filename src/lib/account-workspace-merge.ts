@@ -125,8 +125,14 @@ const recordLabel = (kind: AccountWorkspaceMergeRecordKind, value: unknown, key:
         if (kind === 'performance' && 'cardId' in value && 'performanceMonth' in value) {
             return `${String(value.cardId)} · ${String(value.performanceMonth)} 실적`;
         }
-        if (kind === 'history' && 'brandId' in value && 'date' in value) {
-            return `${String(value.brandId)} · ${String(value.date).slice(0, 10)} 결제`;
+        if (kind === 'history' && 'date' in value) {
+            const targetLabel = 'paymentTarget' in value &&
+                value.paymentTarget &&
+                typeof value.paymentTarget === 'object' &&
+                'label' in value.paymentTarget
+                ? String(value.paymentTarget.label)
+                : 'brandId' in value ? String(value.brandId) : '일반 결제';
+            return `${targetLabel} · ${String(value.date).slice(0, 10)} 결제`;
         }
     }
     return key;

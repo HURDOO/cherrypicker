@@ -82,8 +82,10 @@ const input = (
     promotions: PromotionOffer[],
     overrides: Partial<CombinationEngineInput> = {}
 ): CombinationEngineInput => ({
-    brandId: 'brand-1',
-    brand: { id: 'brand-1', name: '테스트 브랜드', categoryId: 'cafe' },
+    target: {
+        kind: 'BRAND',
+        brand: { id: 'brand-1', name: '테스트 브랜드', categoryId: 'cafe' },
+    },
     amount: 20_000,
     isOnline: false,
     cards: [card],
@@ -98,6 +100,63 @@ const input = (
 });
 
 describe('calculateBestCombinations', () => {
+    it('calculates only unscoped rules and offers for a general payment', () => {
+        const generalRule: BenefitRule = {
+            ...cardRule,
+            id: 'general-card-rule',
+            includedBrands: [],
+            description: '국내 가맹점 1% 할인',
+            action: { type: 'PERCENT', value: 1 },
+        };
+        const categoryRule: BenefitRule = {
+            ...cardRule,
+            id: 'category-card-rule',
+            includedBrands: [],
+            category: 'cafe',
+            description: '카페 20% 할인',
+            action: { type: 'PERCENT', value: 20 },
+        };
+        const generalOffer = offer('general-offer', {
+            brandIds: [],
+            categoryIds: [],
+            title: '모든 결제 500원 할인',
+            action: { type: 'FLAT', value: 500 },
+        });
+        const categoryOffer = offer('category-offer', {
+            brandIds: [],
+            categoryIds: ['cafe'],
+            title: '카페 3천원 할인',
+            action: { type: 'FLAT', value: 3_000 },
+        });
+
+        const result = calculateBestCombinations(input([
+            offer('brand-offer', {}),
+            categoryOffer,
+            generalOffer,
+        ], {
+            target: { kind: 'GENERAL', label: '동네 문구점' },
+            rules: [cardRule, categoryRule, generalRule],
+            profile: { ...profile, enabledPayProviderIds: [] },
+        }));
+        const appliedIds = new Set(
+            result.combinations.flatMap(combination =>
+                combination.steps.flatMap(step => [step.promotionId, step.ruleId])
+            ).filter((id): id is string => Boolean(id))
+        );
+
+        expect(result).toMatchObject({
+            target: { kind: 'GENERAL', label: '동네 문구점' },
+            itemSpecificOffers: [],
+        });
+        expect(result.brandId).toBeUndefined();
+        expect(appliedIds).toContain('general-offer');
+        expect(appliedIds).toContain('general-card-rule');
+        expect(appliedIds).not.toContain('brand-offer');
+        expect(appliedIds).not.toContain('category-offer');
+        expect(appliedIds).not.toContain('rule-1');
+        expect(appliedIds).not.toContain('category-card-rule');
+    });
+
     it('creates browser-safe deterministic combination IDs', () => {
         const value = JSON.stringify({
             payProviderId: 'naverpay',

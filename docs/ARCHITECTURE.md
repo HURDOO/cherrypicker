@@ -65,10 +65,10 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 1. `useAppData`가 공용 카탈로그와 로컬 workspace를 로드해 Zustand에 결합한다.
 2. 신규 workspace는 `/setup` 소개에서 시작하고 `/setup/cards`, `/setup/benefits`, `/setup/performance`, `/setup/favorites`, `/setup/recommendation` 순서로 App Router client navigation을 사용한다. URL로 이동한 단계와 선택한 시스템 카드 ID를 IndexedDB에 동기화하므로 브라우저 뒤로가기·새로고침 뒤에도 같은 지점에서 이어갈 수 있다.
 3. 완료 전 마지막 경로는 브랜드 선택·금액 입력·결과 공개를 3단계로 안내한다. 브랜드 선택 전에는 `calculateBestCombinations`로 멤버십·구독·페이·카드의 현재 실적·남은 한도·기간·요일·시간·온오프라인 조건을 함께 시뮬레이션한다. 즐겨찾기·사용 이력·인기 브랜드를 우선으로, 확정 혜택을 받을 수 있는 브랜드 수와 예시 결제 금액·혜택 금액을 제안한다. 추천 응답을 확인한 뒤 완료 시각을 저장하며, 조합이 없는 정상 응답도 사용자를 설정 흐름에 가두지 않는다.
-4. 홈 화면이 브랜드, 금액, 온라인 여부와 사용자가 확인한 조건을 조합 계산기에 전달한다.
-5. `src/utils/combination.ts`와 `src/utils/calculation.ts`가 선택한 시스템 카드와 개인 카드를 대상으로 프로모션 계층, 카드 규칙, 한도, 이용 이력과 실적 목표를 비교한다.
+4. 홈 화면은 실제 브랜드를 `BRAND`, 미지원 결제처를 `GENERAL` 결제 대상으로 구분하고 금액, 온라인 여부와 사용자가 확인한 조건을 조합 계산기에 전달한다. 대상 종류와 실제 브랜드 ID만 URL search param에 보존하며 금액과 일반 결제 표시명은 URL에 넣지 않는다.
+5. `src/utils/combination.ts`와 `src/utils/calculation.ts`가 선택한 시스템 카드와 개인 카드를 대상으로 프로모션 계층, 카드 규칙, 한도, 이용 이력과 실적 목표를 비교한다. `GENERAL` 대상은 브랜드·카테고리·상품 범위가 없는 일반 적용 규칙만 후보로 삼으며 공용 카탈로그에 가상 브랜드를 추가하지 않는다.
 6. 현재 추천은 로컬에서 계산하며, 기존 서버 계정 데이터 경로의 `/api/recommendations`도 같은 도메인 계산기를 공유한다.
-7. 확정한 결제는 조합·카탈로그 snapshot과 함께 로컬 workspace에 원자적으로 추가되고 현재 실적을 갱신한다.
+7. 확정한 결제는 결제 대상 종류·표시명, 조합·카탈로그 snapshot과 함께 로컬 workspace에 원자적으로 추가되고 현재 실적을 갱신한다. 기존 `brandId`만 있는 기록은 `BRAND` 대상으로 계속 읽는다.
 
 ### 3.3 선택적 계정 동기화
 
@@ -95,6 +95,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 | `src/components/settings/`, `performance/` | 카드·혜택 프로필·실적·소액 기준·싱크·JSON 관리 |
 | `src/components/admin/` | 카드 등록, 수집 실행, 후보·diff·근거·오류 검수와 revision 관리 |
 | `src/utils/calculation.ts`, `combination.ts` | 규칙별 혜택 계산, 계층별 조합, 한도·사용량·순위 결정 |
+| `src/utils/paymentTarget.ts` | 실제 브랜드와 일반 결제 대상의 snapshot·URL·레거시 기록 호환 계약 |
 | `src/utils/performanceGoals.ts` | 카드 규칙·사용자 덮어쓰기에서 실적 추천 목표 파생 |
 | `src/utils/benefitBrandSuggestions.ts` | 멤버십·구독·페이·카드 실적·한도와 시점 조건을 금액별로 조합해 첫 추천용 확정 혜택 브랜드 선정 |
 | `src/utils/firstSetupRoutes.ts` | 저장된 첫 설정 단계와 App Router URL의 고정 매핑 |

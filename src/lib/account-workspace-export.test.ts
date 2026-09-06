@@ -118,6 +118,21 @@ describe('account workspace export', () => {
             .toBe(100);
     });
 
+    it('round-trips a general payment target without a catalog brand', () => {
+        const workspace = createExport();
+        workspace.history[0] = {
+            ...workspace.history[0],
+            brandId: undefined,
+            paymentTarget: { kind: 'GENERAL', label: '동네 문구점' },
+        };
+
+        const parsed = parseAccountWorkspaceExport(workspace).history[0];
+        expect(parsed).toMatchObject({
+            paymentTarget: { kind: 'GENERAL', label: '동네 문구점' },
+        });
+        expect(parsed.brandId).toBeUndefined();
+    });
+
     it('preserves selected cards and completed onboarding in account backups', () => {
         const workspace = createExport();
         workspace.workspacePreferences = {

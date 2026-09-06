@@ -55,7 +55,8 @@ type RuleInput = {
 
 type CategoryInput = Pick<Category, 'name'>;
 type BrandInput = Pick<Brand, 'name' | 'categoryId' | 'iconName'>;
-type TransactionInput = Pick<TransactionHistory, 'brandId' | 'cardId' | 'amount'> & {
+type TransactionInput = Pick<TransactionHistory, 'cardId' | 'amount'> & {
+    brandId: string;
     isOnline: boolean;
 };
 type CombinationTransactionInput = RecommendationRequest & {

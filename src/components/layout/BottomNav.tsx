@@ -35,8 +35,8 @@ export default function BottomNav() {
     ];
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom z-50">
-            <div className="max-w-md mx-auto flex justify-around items-center h-16">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white safe-area-bottom">
+            <div className="mx-auto flex h-14 max-w-md items-center justify-around">
                 {tabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = pathname === tab.href;
@@ -47,12 +47,12 @@ export default function BottomNav() {
                             href={tab.href}
                             onClick={tab.onClick}
                             className={clsx(
-                                "flex flex-col items-center justify-center w-full h-full space-y-1",
+                                'flex h-full w-full flex-col items-center justify-center gap-0.5',
                                 isActive ? "text-blue-600" : "text-gray-400 hover:text-gray-600"
                             )}
                         >
-                            <Icon className={clsx("w-6 h-6", isActive && "fill-current opacity-20")} strokeWidth={isActive ? 2.5 : 2} />
-                            <span className="text-[10px] font-medium">{tab.name}</span>
+                            <Icon className={clsx('h-5 w-5', isActive && 'fill-current opacity-20')} strokeWidth={isActive ? 2.5 : 2} />
+                            <span className="text-[9px] font-bold">{tab.name}</span>
                         </Link>
                     );
                 })}

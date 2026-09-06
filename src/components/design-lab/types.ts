@@ -12,5 +12,5 @@ export interface BrandDesignProps {
     history: TransactionHistory[];
     selectedBrandId: string | null;
     onSelectBrand: (brand: Brand) => void;
+    onSelectGeneralPayment?: (label?: string) => void;
 }
-

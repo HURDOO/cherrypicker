@@ -52,7 +52,7 @@ const baseInput = {
     ],
     performances: [],
     performanceMonth: '2026-08',
-    brand,
+    target: { kind: 'BRAND' as const, brand },
     amount: 20_000,
     isOnline: false,
 };
