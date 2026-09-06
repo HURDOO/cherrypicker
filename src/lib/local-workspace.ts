@@ -11,6 +11,7 @@ import type {
     PaymentTargetSnapshot,
     RuleAction,
     RuleCondition,
+    TelecomMembership,
     TransactionHistory,
     UserBenefitProfile,
     UserCardPerformance,
@@ -248,6 +249,24 @@ export function parseLocalWorkspaceSnapshot(value: unknown): LocalWorkspaceSnaps
     }
     const smallBenefitThreshold = profile.smallBenefitThreshold ??
         DEFAULT_SMALL_BENEFIT_THRESHOLD;
+    const telecomMemberships: TelecomMembership[] = profile.telecomMemberships.map(item => {
+        if (!isRecord(item) || typeof item.providerId !== 'string' || !item.providerId.trim()) {
+            throw new Error('로컬 통신사 멤버십 제공자가 올바르지 않습니다.');
+        }
+        if (item.tier !== undefined && typeof item.tier !== 'string') {
+            throw new Error('로컬 통신사 멤버십 등급이 올바르지 않습니다.');
+        }
+        if (item.mode !== undefined && item.mode !== 'DISCOUNT' && item.mode !== 'POINTS') {
+            throw new Error('로컬 통신사 멤버십 혜택 유형이 올바르지 않습니다.');
+        }
+        return {
+            providerId: item.providerId.trim(),
+            ...(item.tier?.trim() && { tier: item.tier.trim() }),
+            ...((item.mode === 'DISCOUNT' || item.mode === 'POINTS') && {
+                mode: item.mode,
+            }),
+        };
+    });
     if (
         !Number.isSafeInteger(smallBenefitThreshold) ||
         (smallBenefitThreshold as number) < 0 ||
@@ -324,6 +343,7 @@ export function parseLocalWorkspaceSnapshot(value: unknown): LocalWorkspaceSnaps
         ...snapshot,
         benefitProfile: {
             ...snapshot.benefitProfile,
+            telecomMemberships,
             smallBenefitThreshold: smallBenefitThreshold as number,
         },
         workspacePreferences,
@@ -980,12 +1000,21 @@ export const createLocalWorkspaceClient = (
 
     createTransaction(input: LocalCombinationTransactionInput) {
         return mutateWorkspace((workspace, timestamp) => {
+            if (input.combination.steps.some(step => step.certainty === 'CONDITIONAL')) {
+                throw new Error(
+                    '확인하지 않은 혜택 조건이 있습니다. 조건을 확인한 뒤 다시 기록해주세요.'
+                );
+            }
             const id = createId();
             const cardSteps = input.combination.steps.filter(step => step.cardId);
             const cardStep = cardSteps[0];
             const performanceContributionAmount = input.combination.fundingType === 'CARD' &&
                 input.combination.cardId
-                ? Math.max(0, Math.floor(cardStep?.amountBefore ?? input.combination.payableAmount))
+                ? Math.max(0, Math.floor(
+                    input.combination.cardChargeAmount ??
+                    cardStep?.amountBefore ??
+                    input.combination.payableAmount
+                ))
                 : 0;
             const transaction: TransactionHistory = {
                 id,

@@ -774,14 +774,14 @@ const compareEvaluationSets = (left: RuleEvaluation[], right: RuleEvaluation[]) 
     const confirmed = (evaluations: RuleEvaluation[]) => evaluations
         .filter(evaluation => evaluation.certainty === 'CONFIRMED')
         .reduce((total, evaluation) => total + evaluation.discount, 0);
-    const total = (evaluations: RuleEvaluation[]) => evaluations
-        .reduce((sum, evaluation) => sum + evaluation.discount, 0);
+    const unresolved = (evaluations: RuleEvaluation[]) => evaluations
+        .filter(evaluation => evaluation.certainty !== 'CONFIRMED').length;
     const performanceTier = (evaluations: RuleEvaluation[]) => Math.max(
         0,
         ...evaluations.map(evaluation => getConditionMinPerformance(evaluation.rule)),
     );
     return confirmed(right) - confirmed(left) ||
-        total(right) - total(left) ||
+        unresolved(left) - unresolved(right) ||
         performanceTier(right) - performanceTier(left) ||
         right.length - left.length ||
         left.map(evaluation => evaluation.rule.id).join('\u0000')
@@ -963,5 +963,10 @@ export function calculateBestCards(
                 ? { ...fallbackEvaluation.rule, usage: fallbackEvaluation.usage }
                 : undefined,
         };
-    }).sort((a, b) => b.calculatedDiscount - a.calculatedDiscount);
+    }).sort((a, b) => (
+        b.confirmedDiscount - a.confirmedDiscount ||
+        a.matchedBenefits.filter(benefit => benefit.certainty !== 'CONFIRMED').length -
+            b.matchedBenefits.filter(benefit => benefit.certainty !== 'CONFIRMED').length ||
+        a.id.localeCompare(b.id)
+    ));
 }

@@ -42,6 +42,7 @@ import type {
     RecommendationPriority,
     RecommendationRequest,
     RecommendationResponse,
+    TransactionHistory,
 } from '@/types';
 import {
     formatPerformanceMonthLabel,
@@ -50,8 +51,11 @@ import {
     getPreviousMonthInKst,
 } from '@/lib/monthly-performance';
 import {
+    BENEFIT_STATUS_LABELS,
     FUNDING_TYPE_LABELS,
     getCombinationMethodSummary,
+    getCombinationRecommendationReason,
+    getUnresolvedConditionSteps,
 } from '@/utils/combinationPresentation';
 import { calculateBestCombinations } from '@/utils/combination';
 import { buildPromotionUsage } from '@/utils/promotionUsage';
@@ -114,20 +118,33 @@ function StepRow({
     onConfirm: (promotionId: string) => void;
 }) {
     const confirmationId = step.confirmationId ?? step.promotionId;
-    const conditional = step.certainty === 'CONDITIONAL' && confirmationId;
+    const canConfirm = Boolean(step.requiresConfirmation && confirmationId);
+    const statusColor = {
+        CONFIRMED: 'bg-emerald-100 text-emerald-700',
+        CONDITIONAL: 'bg-amber-100 text-amber-800',
+        ESTIMATED: 'bg-violet-100 text-violet-700',
+    }[step.certainty];
     return (
         <div className="rounded-2xl border border-gray-100 bg-white p-3">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
-                        {step.providerName}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                            {step.providerName}
+                        </p>
+                        <span className={clsx(
+                            'rounded-full px-2 py-0.5 text-[9px] font-black',
+                            statusColor,
+                        )}>
+                            {BENEFIT_STATUS_LABELS[step.certainty]}
+                        </span>
+                    </div>
                     <p className="mt-1 text-xs font-black leading-snug text-gray-900">
                         {step.title}
                     </p>
                 </div>
                 <span className="shrink-0 text-sm font-black text-gray-900">
-                    +{formatWon(step.benefitAmount)}
+                    {step.certainty === 'ESTIMATED' && '참고 '}+{formatWon(step.benefitAmount)}
                 </span>
             </div>
             {step.warning && (
@@ -135,10 +152,12 @@ function StepRow({
                     {step.warning}
                 </p>
             )}
-            {conditional && (
+            {canConfirm && (
                 <button
                     type="button"
                     onClick={() => onConfirm(confirmationId!)}
+                    aria-pressed={confirmed}
+                    aria-label={`${step.title} 조건 ${confirmed ? '확인 완료' : '미확인'}`}
                     className={clsx(
                         'mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black',
                         confirmed
@@ -146,7 +165,9 @@ function StepRow({
                             : 'bg-amber-100 text-amber-800'
                     )}
                 >
-                    {confirmed ? <Check className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+                    {confirmed
+                        ? <Check className="h-3 w-3" aria-hidden="true" />
+                        : <AlertCircle className="h-3 w-3" aria-hidden="true" />}
                     {confirmed ? '조건 확인 완료' : '이 조건을 충족했어요'}
                 </button>
             )}
@@ -234,6 +255,7 @@ function CombinationSummary({
         <button
             type="button"
             onClick={onSelect}
+            aria-pressed={selected}
             className={clsx(
                 'w-full rounded-2xl border p-4 text-left transition-all',
                 selected
@@ -259,12 +281,17 @@ function CombinationSummary({
                         {getCombinationMethodSummary(combination)}
                     </p>
                     <p className="mt-1 text-[10px] font-bold text-gray-500">
-                        {hasPotentialBenefit ? '조건 충족 시 예상 결제' : '실결제'}{' '}
+                        확정 혜택 적용 후 결제{' '}
                         {formatWon(combination.payableAmount)}
                     </p>
+                    {hasPotentialBenefit && combination.potentialPayableAmount !== undefined && (
+                        <p className="mt-0.5 text-[10px] font-bold text-amber-600">
+                            조건·정보 반영 시 {formatWon(combination.potentialPayableAmount)}
+                        </p>
+                    )}
                     {combination.performanceProgress && (
                         <p className="mt-1 text-[10px] font-black text-violet-700">
-                            실적 우선 판단 ·{' '}
+                            {intent === 'PERFORMANCE' ? '실적 우선 판단' : '실적 참고'} ·{' '}
                             {combination.performanceProgress.targetReached
                                 ? '목표 달성 예상'
                                 : `${formatWon(combination.performanceProgress.remainingAfter)} 남음`}
@@ -332,8 +359,12 @@ function HomePageContent() {
     const [confirmedConditionIds, setConfirmedConditionIds] = useState<Set<string>>(new Set());
     const [suggestedSimulationAmount, setSuggestedSimulationAmount] = useState<number>();
     const [isItemBenefitOpen, setIsItemBenefitOpen] = useState(false);
-    const [recordConfirmationId, setRecordConfirmationId] = useState<string>();
     const [isRecording, setIsRecording] = useState(false);
+    const [recordReceipt, setRecordReceipt] = useState<{
+        transaction: TransactionHistory;
+        performanceBefore?: number;
+        performanceAfter?: number;
+    }>();
     const [isGeneralPaymentSelected, setIsGeneralPaymentSelected] = useState(false);
     const [generalPaymentLabel, setGeneralPaymentLabel] = useState(GENERAL_PAYMENT_LABEL);
     const recommendationVersion = useRef(0);
@@ -471,7 +502,9 @@ function HomePageContent() {
     );
     const benefitBrandSuggestions = benefitBrandSuggestionResult.suggestions;
     const incompleteTelecomProvider = useMemo(() => {
-        const membership = benefitProfile.telecomMemberships.find(item => !item.tier?.trim());
+        const membership = benefitProfile.telecomMemberships.find(item => (
+            !item.tier?.trim() || (item.providerId === 'skt' && !item.mode)
+        ));
         if (!membership || !catalog) return undefined;
         const hasTierSpecificOffers = catalog.promotions.some(offer => (
             offer.providerId === membership.providerId &&
@@ -654,6 +687,16 @@ function HomePageContent() {
             effectiveRecommendationPriority,
         )
         : undefined;
+    const selectedCombinationReason = selectedCombination
+        ? getCombinationRecommendationReason(
+            selectedCombination,
+            benefitProfile.smallBenefitThreshold,
+            effectiveRecommendationPriority,
+        )
+        : undefined;
+    const unresolvedConditionSteps = selectedCombination
+        ? getUnresolvedConditionSteps(selectedCombination)
+        : [];
     const selectedCard = selectedCombination?.cardId
         ? cards.find(card => card.id === selectedCombination.cardId)
         : undefined;
@@ -775,6 +818,7 @@ function HomePageContent() {
     ]);
 
     const handleKeypadChange = (value: string) => {
+        setRecordReceipt(undefined);
         setAmount(current => {
             if (current === 0) return value === '0' || value === '00' ? 0 : Number(value);
             const next = `${current}${value}`;
@@ -783,6 +827,7 @@ function HomePageContent() {
     };
 
     const handleConfirmCondition = (promotionId: string) => {
+        setRecordReceipt(undefined);
         setConfirmedConditionIds(current => {
             const next = new Set(current);
             if (next.has(promotionId)) next.delete(promotionId);
@@ -799,7 +844,7 @@ function HomePageContent() {
         setSelectedBrandId(brandId);
         setRecommendation(null);
         setSelectedCombinationId(undefined);
-        setRecordConfirmationId(undefined);
+        setRecordReceipt(undefined);
         setAmount(0);
         setSuggestedSimulationAmount(simulationAmount);
         setEligibleItemAmount(undefined);
@@ -817,7 +862,7 @@ function HomePageContent() {
         setGeneralPaymentLabel(normalizeGeneralPaymentLabel(label));
         setRecommendation(null);
         setSelectedCombinationId(undefined);
-        setRecordConfirmationId(undefined);
+        setRecordReceipt(undefined);
         setAmount(0);
         setSuggestedSimulationAmount(undefined);
         setEligibleItemAmount(undefined);
@@ -835,7 +880,7 @@ function HomePageContent() {
         setSuggestedSimulationAmount(undefined);
         setRecommendation(null);
         setSelectedCombinationId(undefined);
-        setRecordConfirmationId(undefined);
+        setRecordReceipt(undefined);
         setAmount(0);
         setEligibleItemAmount(undefined);
         setConfirmedConditionIds(new Set());
@@ -874,17 +919,23 @@ function HomePageContent() {
             !currentPaymentTarget ||
             !selectedCombination ||
             amount <= 0 ||
+            recordReceipt ||
             recordInFlight.current
         ) return;
-        if (recordConfirmationId !== selectedCombination.id) {
-            setRecordConfirmationId(selectedCombination.id);
-            window.setTimeout(() => setRecordConfirmationId(undefined), 3000);
+        const unresolvedConditions = getUnresolvedConditionSteps(selectedCombination);
+        if (unresolvedConditions.length > 0) {
+            addToast('조건 충족 여부를 확인하거나 다른 조합을 선택해주세요.', 'error');
             return;
         }
         recordInFlight.current = true;
         setIsRecording(true);
-        setRecordConfirmationId(undefined);
         try {
+            const currentPerformance = selectedCombination.cardId
+                ? performances.find(item => (
+                    item.cardId === selectedCombination.cardId &&
+                    item.performanceMonth === performancePeriod.benefitMonth
+                ))
+                : undefined;
             const transaction = storageMode === 'guest'
                 ? await localWorkspaceClient.createTransaction({
                     paymentTarget: toPaymentTargetSnapshot(currentPaymentTarget),
@@ -906,15 +957,7 @@ function HomePageContent() {
                         throw new Error('일반 결제 기록은 기기 저장 모드에서 사용할 수 있습니다.');
                     })();
             addTransaction(transaction);
-            if (
-                storageMode === 'guest' &&
-                transaction.cardId &&
-                transaction.performanceContributionAmount
-            ) {
-                const currentPerformance = performances.find(item => (
-                    item.cardId === transaction.cardId &&
-                    item.performanceMonth === performancePeriod.benefitMonth
-                ));
+            if (transaction.cardId && transaction.performanceContributionAmount) {
                 updatePerformance({
                     cardId: transaction.cardId,
                     performanceMonth: performancePeriod.benefitMonth,
@@ -928,10 +971,21 @@ function HomePageContent() {
             if (currentPaymentTarget.kind === 'BRAND') {
                 recordBrandVisit(currentPaymentTarget.brand.id);
             }
+            const performanceBefore = currentPerformance?.amount ?? 0;
+            const performanceAfter = transaction.performanceContributionAmount
+                ? performanceBefore + transaction.performanceContributionAmount
+                : undefined;
+            setRecordReceipt({
+                transaction,
+                ...(transaction.performanceContributionAmount && {
+                    performanceBefore,
+                    performanceAfter,
+                }),
+            });
             addToast(
                 transaction.performanceContributionAmount
-                    ? `결제를 기록하고 실적에 ${formatWon(transaction.performanceContributionAmount)} 반영했습니다.`
-                    : '선택한 혜택 조합으로 기록했습니다.',
+                    ? `기록 완료 · 실적에 ${formatWon(transaction.performanceContributionAmount)} 반영`
+                    : '선택한 혜택 조합을 기록했습니다.',
                 'success'
             );
         } catch (error) {
@@ -1003,7 +1057,11 @@ function HomePageContent() {
                 </h1>
                 <button
                     type="button"
-                    onClick={() => setIsOnlinePurchase(value => !value)}
+                    aria-pressed={isOnlinePurchase}
+                    onClick={() => {
+                        setRecordReceipt(undefined);
+                        setIsOnlinePurchase(value => !value);
+                    }}
                     className={clsx(
                         'flex min-h-9 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[9px] font-black',
                         isOnlinePurchase
@@ -1067,7 +1125,7 @@ function HomePageContent() {
                                 <p className="mt-2 text-xs font-bold leading-relaxed text-blue-100">
                                     {!currentPaymentTarget
                                         ? incompleteTelecomProvider
-                                            ? `${incompleteTelecomProvider.name} 등급을 고르면 CU 같은 제휴 혜택과 금액을 정확히 시뮬레이션할 수 있어요.`
+                                            ? `${incompleteTelecomProvider.name} 혜택 유형과 등급을 고르면 제휴 혜택과 금액을 정확히 시뮬레이션할 수 있어요.`
                                             : benefitBrandSuggestions.length > 0
                                             ? `내 혜택 설정으로 바로 계산되는 브랜드 ${benefitBrandSuggestionResult.opportunityCount.toLocaleString()}곳을 찾았어요. 아래 추천 중 하나로 금액까지 체험해보세요.`
                                             : '현재 조건에서 확정 혜택 브랜드가 없으면 아래에서 자주 가는 매장 하나를 눌러보세요.'
@@ -1088,7 +1146,7 @@ function HomePageContent() {
                                 href="/setup/benefits"
                                 className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-white/15 px-4 text-xs font-black text-white transition hover:bg-white/25"
                             >
-                                {incompleteTelecomProvider.name} 등급 선택하기
+                                {incompleteTelecomProvider.name} 설정 마치기
                                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
                             </Link>
                         )}
@@ -1195,6 +1253,7 @@ function HomePageContent() {
                                     value={amount ? amount.toLocaleString() : ''}
                                     onChange={event => {
                                         const value = event.target.value.replace(/\D/g, '').slice(0, 9);
+                                        setRecordReceipt(undefined);
                                         setAmount(value ? Number(value) : 0);
                                     }}
                                     inputMode="numeric"
@@ -1206,7 +1265,10 @@ function HomePageContent() {
                             {guidedFirstRecommendation && suggestedSimulationAmount && amount === 0 && (
                                 <button
                                     type="button"
-                                    onClick={() => setAmount(suggestedSimulationAmount)}
+                                    onClick={() => {
+                                        setRecordReceipt(undefined);
+                                        setAmount(suggestedSimulationAmount);
+                                    }}
                                     className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 text-xs font-black text-emerald-800 transition hover:bg-emerald-100 active:scale-[0.98]"
                                 >
                                     <Sparkles className="h-4 w-4" aria-hidden="true" />
@@ -1216,9 +1278,12 @@ function HomePageContent() {
                             <div className="mt-4">
                                 <NumericKeypad
                                     onValueChange={handleKeypadChange}
-                                    onDelete={() => setAmount(value =>
-                                        value < 10 ? 0 : Number(String(value).slice(0, -1))
-                                    )}
+                                    onDelete={() => {
+                                        setRecordReceipt(undefined);
+                                        setAmount(value => (
+                                            value < 10 ? 0 : Number(String(value).slice(0, -1))
+                                        ));
+                                    }}
                                 />
                             </div>
                         </section>
@@ -1238,7 +1303,10 @@ function HomePageContent() {
                                     <button
                                         type="button"
                                         aria-pressed={effectiveRecommendationPriority === 'BENEFIT'}
-                                        onClick={() => setRecommendationPriority('BENEFIT')}
+                                        onClick={() => {
+                                            setRecordReceipt(undefined);
+                                            setRecommendationPriority('BENEFIT');
+                                        }}
                                         className={clsx(
                                             'rounded-xl px-3 py-2.5 text-[11px] font-black',
                                             effectiveRecommendationPriority === 'BENEFIT'
@@ -1251,7 +1319,10 @@ function HomePageContent() {
                                     <button
                                         type="button"
                                         aria-pressed={effectiveRecommendationPriority === 'PERFORMANCE'}
-                                        onClick={() => setRecommendationPriority('PERFORMANCE')}
+                                        onClick={() => {
+                                            setRecordReceipt(undefined);
+                                            setRecommendationPriority('PERFORMANCE');
+                                        }}
                                         className={clsx(
                                             'rounded-xl px-3 py-2.5 text-[11px] font-black',
                                             effectiveRecommendationPriority === 'PERFORMANCE'
@@ -1270,6 +1341,8 @@ function HomePageContent() {
                                 <button
                                     type="button"
                                     onClick={() => setIsItemBenefitOpen(value => !value)}
+                                    aria-expanded={isItemBenefitOpen}
+                                    aria-controls="item-specific-benefits"
                                     className="flex w-full items-center justify-between text-left"
                                 >
                                     <div>
@@ -1286,7 +1359,10 @@ function HomePageContent() {
                                     )} />
                                 </button>
                                 {isItemBenefitOpen && (
-                                    <div className="mt-4 border-t border-amber-200 pt-4">
+                                    <div
+                                        id="item-specific-benefits"
+                                        className="mt-4 border-t border-amber-200 pt-4"
+                                    >
                                         <div className="space-y-1">
                                             {recommendation.itemSpecificOffers.map(offer => (
                                                 <div key={offer.id} className="rounded-xl bg-white/60 px-3 py-2">
@@ -1313,6 +1389,7 @@ function HomePageContent() {
                                                 value={eligibleItemAmount?.toLocaleString() ?? ''}
                                                 onChange={event => {
                                                     const value = event.target.value.replace(/\D/g, '');
+                                                    setRecordReceipt(undefined);
                                                     setEligibleItemAmount(value ? Math.min(amount, Number(value)) : undefined);
                                                 }}
                                                 inputMode="numeric"
@@ -1329,10 +1406,10 @@ function HomePageContent() {
                         {recommendation?.informationalOffers.length ? (
                             <section className="rounded-3xl border border-violet-200 bg-violet-50 p-4">
                                 <p className="text-xs font-black text-violet-900">
-                                    계산 제외 참고 혜택 {recommendation.informationalOffers.length}개
+                                    정보 제공 혜택 {recommendation.informationalOffers.length}개
                                 </p>
                                 <p className="mt-1 text-[10px] text-violet-800/70">
-                                    최대치·추첨처럼 확정할 수 없는 혜택은 최대 혜택 계산에 포함하지 않았어요.
+                                    최대치·추첨처럼 확정할 수 없는 정보는 혜택 금액과 순위에 포함하지 않았어요.
                                 </p>
                                 <div className="mt-3 space-y-1 border-t border-violet-200 pt-3">
                                     {recommendation.informationalOffers.map(offer => (
@@ -1343,7 +1420,7 @@ function HomePageContent() {
                                             <p className="mt-1 text-[9px] font-black text-violet-700">
                                                 {offer.valueSemantics === 'UP_TO'
                                                     ? '최대치 정보'
-                                                    : '추첨·확률형 정보'} · 정확한 계산에서 제외
+                                                    : '추첨·확률형 정보'} · 정보 제공
                                             </p>
                                             {(offer.eligibleItemSummary || offer.requiredNote) && (
                                                 <p className="mt-1 text-[9px] font-bold text-violet-800/65">
@@ -1376,16 +1453,12 @@ function HomePageContent() {
                                                         : <ShieldCheck className="h-4 w-4" />}
                                                 <span className="text-[10px] font-black uppercase tracking-widest">
                                                     {selectedCombinationIntent === 'PERFORMANCE'
-                                                        ? selectedCombination.performanceProgress?.targetReached
-                                                            ? '다음 달 혜택 목표 달성 추천'
-                                                            : '다음 달 실적 우선 추천'
+                                                        ? '실적 우선 추천'
                                                         : selectedCombinationIntent === 'SMALL_BENEFIT'
-                                                            ? `소액 혜택 · ${benefitProfile.smallBenefitThreshold.toLocaleString()}원 미만`
+                                                            ? `소액 확정 혜택 · ${benefitProfile.smallBenefitThreshold.toLocaleString()}원 미만`
                                                             : selectedCombinationIntent === 'NO_BENEFIT'
-                                                                ? '즉시 혜택 없음'
-                                                                : eligibleItemAmount
-                                                                    ? '대상 상품 포함 확정 혜택'
-                                                                    : '매장 전체 기준 확정 혜택'}
+                                                                ? '확정 혜택 없음'
+                                                                : '이번 결제 확정 혜택'}
                                                 </span>
                                             </div>
                                             <p
@@ -1394,11 +1467,9 @@ function HomePageContent() {
                                             >
                                                 {formatWon(selectedCombination.confirmedValue)}
                                             </p>
-                                            {selectedCombinationIntent === 'PERFORMANCE' && (
-                                                <p className="mt-1 text-[10px] font-bold text-violet-300">
-                                                    실적 우선 판단 · 다음 달 카드 혜택 기준을 준비해요
-                                                </p>
-                                            )}
+                                            <p className="mt-2 max-w-sm text-[11px] font-bold leading-relaxed text-gray-300">
+                                                {selectedCombinationReason}
+                                            </p>
                                             <p className="mt-3 text-[9px] font-black uppercase tracking-[0.16em] text-gray-500">
                                                 사용 수단
                                             </p>
@@ -1415,28 +1486,32 @@ function HomePageContent() {
                                     <div className="mt-6 grid grid-cols-3 gap-2">
                                         <div className="rounded-2xl bg-white/10 p-3">
                                             <p className="text-[9px] font-black text-gray-400">
-                                                {(selectedCombination.conditionalValue + selectedCombination.estimatedValue) > 0
-                                                    ? '조건 충족 시 예상 결제'
-                                                    : '실결제'}
+                                                확정 혜택 적용 후 결제
                                             </p>
                                             <p className="mt-1 text-xs font-black">{formatWon(selectedCombination.payableAmount)}</p>
                                         </div>
                                         <div className="rounded-2xl bg-white/10 p-3">
-                                            <p className="text-[9px] font-black text-gray-400">조건부</p>
+                                            <p className="text-[9px] font-black text-gray-400">조건 충족 시</p>
                                             <p className="mt-1 text-xs font-black text-amber-300">
                                                 +{formatWon(selectedCombination.conditionalValue)}
                                             </p>
                                         </div>
                                         <div className="rounded-2xl bg-white/10 p-3">
-                                            <p className="text-[9px] font-black text-gray-400">예상</p>
+                                            <p className="text-[9px] font-black text-gray-400">정보 제공</p>
                                             <p className="mt-1 text-xs font-black text-blue-300">
                                                 +{formatWon(selectedCombination.estimatedValue)}
                                             </p>
                                         </div>
                                     </div>
+                                    {selectedCombination.potentialPayableAmount !== undefined && (
+                                        <p className="mt-3 rounded-xl bg-amber-500/15 px-3 py-2 text-[10px] font-bold text-amber-200">
+                                            조건·정보가 모두 적용되면 결제 예상액은{' '}
+                                            {formatWon(selectedCombination.potentialPayableAmount)}이에요.
+                                        </p>
+                                    )}
                                     {selectedCombination.laterReward > 0 && (
                                         <p className="mt-3 rounded-xl bg-violet-500/15 px-3 py-2 text-[10px] font-bold text-violet-200">
-                                            결제 후 적립 {formatWon(selectedCombination.laterReward)} 포함
+                                            확정 혜택 중 결제 후 적립 {formatWon(selectedCombination.laterReward)} 포함
                                         </p>
                                     )}
                                 </section>
@@ -1452,7 +1527,9 @@ function HomePageContent() {
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-xs font-black text-violet-950">
-                                                    실적 우선 판단
+                                                    {selectedCombinationIntent === 'PERFORMANCE'
+                                                        ? '실적 우선 이유'
+                                                        : '카드 실적 참고'}
                                                 </p>
                                                 <p className="mt-1 text-[10px] font-bold leading-relaxed text-violet-800/75">
                                                     현재 {formatWon(
@@ -1544,31 +1621,95 @@ function HomePageContent() {
                                     </section>
                                 )}
 
+                                {unresolvedConditionSteps.length > 0 && (
+                                    <p
+                                        id="record-condition-help"
+                                        role="status"
+                                        className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] font-bold leading-relaxed text-amber-900"
+                                    >
+                                        조건 충족 시 혜택 {unresolvedConditionSteps.length}개를 먼저 확인해야
+                                        이 조합을 기록할 수 있어요. 조건을 충족하지 않았다면 다른 조합을 선택하세요.
+                                    </p>
+                                )}
+
                                 <button
                                     type="button"
                                     onClick={handleRecord}
-                                    disabled={isRecording}
+                                    disabled={
+                                        isRecording ||
+                                        Boolean(recordReceipt) ||
+                                        unresolvedConditionSteps.length > 0
+                                    }
+                                    aria-describedby={
+                                        unresolvedConditionSteps.length > 0
+                                            ? 'record-condition-help'
+                                            : undefined
+                                    }
+                                    data-testid="record-combination"
                                     className={clsx(
                                         'flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-black shadow-lg transition active:scale-[0.98]',
-                                        recordConfirmationId === selectedCombination.id
-                                            ? 'bg-red-500 text-white'
-                                            : 'bg-gray-900 text-white hover:bg-black',
-                                        isRecording && 'cursor-wait opacity-60'
+                                        'bg-gray-900 text-white hover:bg-black',
+                                        (isRecording || recordReceipt || unresolvedConditionSteps.length > 0) &&
+                                            'cursor-not-allowed opacity-60'
                                     )}
                                 >
                                     {isRecording ? (
-                                        <LoaderCircle className="h-5 w-5 animate-spin" />
-                                    ) : recordConfirmationId === selectedCombination.id ? (
-                                        <CheckCircle2 className="h-5 w-5" />
+                                        <LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />
+                                    ) : recordReceipt ? (
+                                        <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
                                     ) : (
-                                        <Wallet className="h-5 w-5" />
+                                        <Wallet className="h-5 w-5" aria-hidden="true" />
                                     )}
                                     {isRecording
                                         ? '기록 중'
-                                        : recordConfirmationId === selectedCombination.id
-                                            ? `${formatWon(selectedCombination.payableAmount)} 결제를 기록할까요?`
-                                            : '이 조합으로 결제 기록하기'}
+                                        : recordReceipt
+                                            ? '기록 완료'
+                                            : unresolvedConditionSteps.length > 0
+                                                ? `조건 ${unresolvedConditionSteps.length}개 확인 후 기록`
+                                                : '이 조합으로 한 번에 기록하기'}
                                 </button>
+
+                                {recordReceipt && (
+                                    <section
+                                        role="status"
+                                        aria-live="polite"
+                                        className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5"
+                                        data-testid="record-receipt"
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <div className="rounded-xl bg-emerald-600 p-2 text-white">
+                                                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <h2 className="text-sm font-black text-emerald-950">결제 기록 완료</h2>
+                                                <p className="mt-1 text-[11px] font-bold text-emerald-800">
+                                                    확정 혜택{' '}
+                                                    {formatWon(
+                                                        recordReceipt.transaction.confirmedValue ??
+                                                        recordReceipt.transaction.discountAmount
+                                                    )}을 기록했어요.
+                                                </p>
+                                                {recordReceipt.performanceAfter !== undefined && (
+                                                    <p className="mt-1 text-[11px] font-bold text-emerald-800">
+                                                        이번 달 카드 실적{' '}
+                                                        {formatWon(recordReceipt.performanceBefore ?? 0)} →{' '}
+                                                        {formatWon(recordReceipt.performanceAfter)}
+                                                    </p>
+                                                )}
+                                                <p className="mt-2 text-[10px] leading-relaxed text-emerald-700">
+                                                    확정된 혜택 사용량과 한도를 반영해 같은 조건의 추천도 다시 계산했어요.
+                                                </p>
+                                                <Link
+                                                    href="/history"
+                                                    className="mt-3 inline-flex min-h-11 items-center gap-1 rounded-xl bg-white px-3 text-[11px] font-black text-emerald-800 shadow-sm"
+                                                >
+                                                    기록 상세 보기
+                                                    <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                                                </Link>
+                                            </div>
+                                        </div>
+                                    </section>
+                                )}
 
                                 {recommendation && recommendation.combinations.length > 1 && (
                                     <section className="space-y-2 pb-8">
@@ -1581,7 +1722,10 @@ function HomePageContent() {
                                                 selected={combination.id === selectedCombination.id}
                                                 priority={effectiveRecommendationPriority}
                                                 smallBenefitThreshold={benefitProfile.smallBenefitThreshold}
-                                                onSelect={() => setSelectedCombinationId(combination.id)}
+                                                onSelect={() => {
+                                                    setRecordReceipt(undefined);
+                                                    setSelectedCombinationId(combination.id);
+                                                }}
                                             />
                                         ))}
                                     </section>

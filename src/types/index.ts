@@ -395,6 +395,7 @@ export type PromotionActionType =
     | 'CASHBACK'
     | 'GIFT_CERTIFICATE';
 export type PromotionValueSemantics = 'EXACT' | 'UP_TO';
+export type TelecomMembershipMode = 'DISCOUNT' | 'POINTS';
 export type PromotionCalculationMode =
     | 'CALCULABLE'
     | 'CONDITIONAL'
@@ -437,6 +438,23 @@ export interface PromotionSourceDocumentMetadata {
     etag?: string;
     lastModified?: string;
     finalUrl?: string;
+    collectionCompleteness?: {
+        status: 'COMPLETE' | 'PARTIAL';
+        expectedBrandCount: number;
+        listedBrandCount: number;
+        expectedPageCount: number;
+        fetchedPageCount: number;
+        fetchedDetailCount: number;
+        deterministicBrandCount?: number;
+        aiFallbackBrandCount?: number;
+        aiCacheHitBrandCount?: number;
+        structuredBrandCount?: number;
+        deterministicUnparsedBrandIds?: string[];
+        unparsedBrandIds?: string[];
+        aiFailedBrandIds?: string[];
+        aiFailures?: Array<{ brandId: string; message: string }>;
+        failedUrls?: string[];
+    };
 }
 
 export interface PromotionCandidateEvidenceReference {
@@ -498,6 +516,8 @@ export interface PromotionAction {
     valueSemantics?: PromotionValueSemantics;
     maxBenefit?: number;
     faceValue?: number;
+    /** Apply percentage-like values only to complete units, such as 1,000 won. */
+    unitAmount?: number;
 }
 
 export interface PromotionCondition {
@@ -509,6 +529,7 @@ export interface PromotionCondition {
     requiredInputs?: PromotionRequiredInput[];
     minSpend?: number;
     telecomTiers?: string[];
+    telecomModes?: TelecomMembershipMode[];
     requiredSubscriptionProducts?: string[];
     requiresCoupon?: boolean;
     requiresEnrollment?: boolean;
@@ -532,6 +553,8 @@ export interface PromotionCompatibility {
 export interface PromotionOffer {
     id: PromotionId;
     providerId: PromotionProviderId;
+    /** Stable official-benefit key used to share selected usage-limit fields. */
+    usageGroupId?: string;
     layer: BenefitLayer;
     title: string;
     description: string;
@@ -556,6 +579,7 @@ export interface PromotionOffer {
 export interface TelecomMembership {
     providerId: PromotionProviderId;
     tier?: string;
+    mode?: TelecomMembershipMode;
 }
 
 export interface BenefitSubscription {
@@ -611,9 +635,12 @@ export interface CombinationStep {
     isImmediate: boolean;
     warning?: string;
     promotionId?: PromotionId;
+    promotionUsageGroupId?: string;
     cardId?: CardId;
     ruleId?: RuleId;
     confirmationId?: string;
+    requiresConfirmation?: boolean;
+    usesCardLimit?: boolean;
 }
 
 export interface BenefitCombination {
@@ -629,7 +656,12 @@ export interface BenefitCombination {
     estimatedValue: number;
     immediateDiscount: number;
     laterReward: number;
+    /** Confirmed amount charged to the selected card before card benefits. */
+    cardChargeAmount?: number;
+    /** Amount after confirmed immediate benefits only. */
     payableAmount: number;
+    /** Best-case amount when conditional or informational immediate values also apply. */
+    potentialPayableAmount?: number;
     performanceProgress?: PerformancePriorityProgress;
     warnings: string[];
     requiredChecks: string[];

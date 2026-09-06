@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { BenefitCombination, CombinationStep } from '@/types';
-import { getCombinationMethodSummary } from './combinationPresentation';
+import {
+    BENEFIT_STATUS_LABELS,
+    getCombinationMethodSummary,
+    getCombinationRecommendationReason,
+    getUnresolvedConditionSteps,
+} from './combinationPresentation';
 
 function step(overrides: Partial<CombinationStep> = {}): CombinationStep {
     return {
@@ -65,5 +70,46 @@ describe('combination method summary', () => {
             cardName: undefined,
             steps: [],
         }))).toBe('Npay + 페이머니');
+    });
+
+    it('uses the three user-facing benefit states consistently', () => {
+        expect(BENEFIT_STATUS_LABELS).toEqual({
+            CONFIRMED: '확정',
+            CONDITIONAL: '조건 충족 시',
+            ESTIMATED: '정보 제공',
+        });
+        const pending = combination({
+            steps: [step({ certainty: 'CONDITIONAL', requiresConfirmation: true })],
+            confirmedValue: 0,
+            conditionalValue: 1_000,
+        });
+
+        expect(getUnresolvedConditionSteps(pending)).toHaveLength(1);
+    });
+
+    it('explains benefit and performance recommendations in one short sentence', () => {
+        expect(getCombinationRecommendationReason(combination(), 100, 'BENEFIT'))
+            .toBe('매장 할인으로 확정 혜택 1,000원을 받아요.');
+        expect(getCombinationRecommendationReason(combination({
+            steps: [],
+            confirmedValue: 0,
+            immediateDiscount: 0,
+            payableAmount: 10_000,
+            performanceProgress: {
+                performanceMonth: '2026-09',
+                benefitMonth: '2026-10',
+                currentAmount: 290_000,
+                targetAmount: 300_000,
+                contributionAmount: 10_000,
+                projectedAmount: 300_000,
+                remainingBefore: 10_000,
+                remainingAfter: 0,
+                targetReached: true,
+                goalSource: 'AUTOMATIC',
+                projectedBenefitAmount: 1_000,
+            },
+        }), 100, 'BENEFIT')).toBe(
+            '이번 결제로 다음 달 카드 혜택 목표를 채울 수 있어요.'
+        );
     });
 });

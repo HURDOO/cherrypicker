@@ -2,7 +2,17 @@
 
 import React from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { Trash2, AlertCircle, Calendar, TrendingUp, History, CreditCard } from 'lucide-react';
+import {
+    AlertCircle,
+    Calendar,
+    ChevronDown,
+    CreditCard,
+    History,
+    Info,
+    Target,
+    Trash2,
+    TrendingUp,
+} from 'lucide-react';
 import type { TransactionHistory } from '@/types';
 import { IconByName } from '@/components/ui/IconByName';
 import { useToastStore } from '@/store/useToastStore';
@@ -11,15 +21,29 @@ import { apiClient, getErrorMessage } from '@/lib/api-client';
 import { localWorkspaceClient } from '@/lib/local-workspace';
 import { getTransactionPaymentTarget } from '@/utils/paymentTarget';
 import {
+    getTransactionCombinationSummary,
     getTransactionConfirmedBenefit,
+    getTransactionConfirmedIntegratedCardBenefit,
+    getTransactionConfirmedPayableAmount,
+    getTransactionPerformanceContribution,
     summarizeTransactions,
 } from '@/utils/historySummary';
+import {
+    BENEFIT_STATUS_LABELS,
+    FUNDING_TYPE_LABELS,
+} from '@/utils/combinationPresentation';
+import {
+    formatPerformanceMonthLabel,
+    getCurrentMonthInKst,
+    getPreviousMonthInKst,
+} from '@/lib/monthly-performance';
 
 export default function HistoryPage() {
     const {
         history,
         brands,
         cards,
+        performances,
         storageMode,
         isLoading,
         setLoading,
@@ -28,6 +52,7 @@ export default function HistoryPage() {
     const { addToast } = useToastStore();
     const [confirmDelete, setConfirmDelete] = React.useState(false);
     const [selectedCardId, setSelectedCardId] = React.useState<string>('all');
+    const [expandedTransactionId, setExpandedTransactionId] = React.useState<string>();
 
     // Date State (Defaults to current month)
     const [currentDate, setCurrentDate] = React.useState(new Date());
@@ -136,48 +161,52 @@ export default function HistoryPage() {
         const card = cards.find(c => c.id === cardId);
         if (!card) return null;
 
-        // 1. Current Month Spend (Usage for SELECTED month)
-        // Note: Performance usually depends on Previous Month, but user wants to see "This Month's Report".
-        // Use monthlyHistory which is already filtered by currentDate.
-        const currentMonthSpend = history
-            .filter(tx => {
-                const txDate = new Date(tx.date);
-                return tx.cardId === cardId &&
-                    txDate.getMonth() === currentDate.getMonth() &&
-                    txDate.getFullYear() === currentDate.getFullYear();
-            })
-            .reduce((sum, tx) => sum + tx.amount, 0);
+        const performanceMonth = getCurrentMonthInKst(currentDate);
+        const benefitPerformanceMonth = getPreviousMonthInKst(currentDate);
+        const cardHistory = monthlyHistory.filter(tx => tx.cardId === cardId);
+        const savedPerformance = performances.find(performance => (
+            performance.cardId === cardId &&
+            performance.performanceMonth === performanceMonth
+        ));
+        const currentMonthSpend = savedPerformance?.amount ?? cardHistory.reduce(
+            (sum, transaction) => sum + getTransactionPerformanceContribution(transaction),
+            0,
+        );
+        const benefitPerformance = performances.find(performance => (
+            performance.cardId === cardId &&
+            performance.performanceMonth === benefitPerformanceMonth
+        ));
 
         // 2. Tiers (Limit Table)
         let nextTier = null;
-        let currentTier = null;
+        let benefitTier = null;
 
         if (card.limitTable && card.limitTable.length > 0) {
             const sortedTable = [...card.limitTable].sort((a, b) => a.threshold - b.threshold);
             for (let i = 0; i < sortedTable.length; i++) {
-                if (currentMonthSpend >= sortedTable[i].threshold) {
-                    currentTier = sortedTable[i];
-                } else {
+                if (currentMonthSpend < sortedTable[i].threshold) {
                     nextTier = sortedTable[i];
                     break;
                 }
             }
+            benefitTier = [...sortedTable]
+                .reverse()
+                .find(tier => (benefitPerformance?.amount ?? 0) >= tier.threshold) ?? null;
         }
 
-        // 3. Benefit Usage (Selected Month)
-        const monthlyBenefitUsed = history
-            .filter(tx => {
-                const txDate = new Date(tx.date);
-                return tx.cardId === cardId &&
-                    txDate.getMonth() === currentDate.getMonth() &&
-                    txDate.getFullYear() === currentDate.getFullYear();
-            })
-            .reduce((sum, tx) => sum + getTransactionConfirmedBenefit(tx), 0);
+        const monthlyBenefitUsed = cardHistory.reduce(
+            (sum, transaction) => (
+                sum + getTransactionConfirmedIntegratedCardBenefit(transaction)
+            ),
+            0,
+        );
 
         return {
             card,
             currentMonthSpend,
-            currentTier,
+            performanceMonth,
+            benefitPerformanceMonth,
+            benefitTier,
             nextTier,
             monthlyBenefitUsed
         };
@@ -206,6 +235,7 @@ export default function HistoryPage() {
                         소비 리포트
                     </h1>
                     <button
+                        type="button"
                         onClick={handleDeleteAll}
                         className={clsx(
                             "flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs font-bold transition-all",
@@ -230,13 +260,23 @@ export default function HistoryPage() {
 
                 {/* Date Navigation */}
                 <div className="flex items-center justify-center gap-4 pb-4">
-                    <button onClick={handlePrevMonth} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                    <button
+                        type="button"
+                        aria-label="이전 달"
+                        onClick={handlePrevMonth}
+                        className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                    >
                         <span className="text-gray-400">◀</span>
                     </button>
                     <span className="text-lg font-bold text-gray-900">
                         {currentDate.getFullYear()}년 {currentDate.getMonth() + 1}월
                     </span>
-                    <button onClick={handleNextMonth} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                    <button
+                        type="button"
+                        aria-label="다음 달"
+                        onClick={handleNextMonth}
+                        className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                    >
                         <span className="text-gray-400">▶</span>
                     </button>
                 </div>
@@ -244,6 +284,8 @@ export default function HistoryPage() {
                 {/* Card Tabs */}
                 <div className="flex items-center gap-2 overflow-x-auto px-6 pb-4 no-scrollbar">
                     <button
+                        type="button"
+                        aria-pressed={selectedCardId === 'all'}
                         onClick={() => setSelectedCardId('all')}
                         className={clsx(
                             "flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all border",
@@ -256,7 +298,9 @@ export default function HistoryPage() {
                     </button>
                     {cards.map(card => (
                         <button
+                            type="button"
                             key={card.id}
+                            aria-pressed={selectedCardId === card.id}
                             onClick={() => setSelectedCardId(card.id)}
                             className={clsx(
                                 "flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all border flex items-center gap-2",
@@ -323,17 +367,22 @@ export default function HistoryPage() {
 
                                 {/* 1. Performance / Spend */}
                                 <div className="relative z-10 mb-6 text-center">
-                                    <p className="text-xs text-gray-500 font-bold mb-2">{currentDate.getMonth() + 1}월 실적 (이용 금액)</p>
+                                    <p className="text-xs text-gray-500 font-bold mb-2">
+                                        {formatPerformanceMonthLabel(selectedCardStat.performanceMonth)} 카드 실적
+                                    </p>
                                     <h2 className="text-3xl font-black text-gray-900 tracking-tight">
                                         {selectedCardStat.currentMonthSpend.toLocaleString()}
                                         <span className="text-xl ml-1 text-gray-400 font-bold">원</span>
                                     </h2>
+                                    <p className="mt-1 text-[10px] font-bold text-gray-400">
+                                        직접 입력한 실적과 기록한 카드 승인금액을 반영해요
+                                    </p>
 
                                     {/* Next Tier Progress */}
                                     {selectedCardStat.nextTier ? (
                                         <div className="mt-3 bg-gray-50 rounded-xl p-3 inline-block w-full">
                                             <div className="flex justify-between items-center text-xs mb-1.5">
-                                                <span className="font-bold text-gray-500">다음 단계 ({selectedCardStat.nextTier.threshold.toLocaleString()}원) 까지</span>
+                                                <span className="font-bold text-gray-500">다음 달 혜택 기준 {selectedCardStat.nextTier.threshold.toLocaleString()}원</span>
                                                 <span className="font-bold text-indigo-600">
                                                     {(selectedCardStat.nextTier.threshold - selectedCardStat.currentMonthSpend).toLocaleString()}원 남음
                                                 </span>
@@ -347,7 +396,7 @@ export default function HistoryPage() {
                                         </div>
                                     ) : (
                                         <div className="mt-3 text-xs font-bold text-green-600 bg-green-50 rounded-xl p-2">
-                                            🎉 모든 실적 조건을 달성했어요!
+                                            모든 실적 기준을 달성했어요
                                         </div>
                                     )}
                                 </div>
@@ -355,7 +404,7 @@ export default function HistoryPage() {
                                 {/* 2. Benefit Limit Status */}
                                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100 relative z-10">
                                     <div className="bg-gray-50 rounded-2xl p-3 text-center">
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Discount Received</p>
+                                        <p className="text-[10px] text-gray-400 font-bold tracking-wider">확정 카드 혜택</p>
                                         <p className="text-sm font-bold text-gray-800 mt-0.5">
                                             {selectedCardStat.monthlyBenefitUsed.toLocaleString()}원
                                         </p>
@@ -363,15 +412,25 @@ export default function HistoryPage() {
                                     {/* Show Limit if available (Current Tier Limit) */}
                                     <div className="bg-indigo-50 rounded-2xl p-3 text-center">
                                         <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">
-                                            {selectedCardStat.currentTier ? `Max Limit (${(selectedCardStat.currentTier.limit / 10000).toFixed(0)}만)` : 'Benefits'}
+                                            {selectedCardStat.benefitTier
+                                                ? `${formatPerformanceMonthLabel(
+                                                    selectedCardStat.benefitPerformanceMonth
+                                                )} 실적 기준 잔여 한도`
+                                                : '현재 혜택 한도'}
                                         </p>
                                         <p className="text-sm font-bold text-indigo-600 mt-0.5">
-                                            {selectedCardStat.currentTier ? (
+                                            {selectedCardStat.benefitTier ? (
                                                 <>
-                                                    {Math.max(0, selectedCardStat.currentTier.limit - selectedCardStat.monthlyBenefitUsed).toLocaleString()}원 남음
+                                                    {Math.max(
+                                                        0,
+                                                        selectedCardStat.benefitTier.limit -
+                                                        selectedCardStat.monthlyBenefitUsed
+                                                    ).toLocaleString()}원
                                                 </>
                                             ) : (
-                                                selectedCardStat.nextTier ? '실적 부족' : '한도 없음'
+                                                selectedCardStat.card.limitTable.length > 0
+                                                    ? '전월 실적 부족'
+                                                    : '통합 한도 없음'
                                             )}
                                         </p>
                                     </div>
@@ -406,60 +465,165 @@ export default function HistoryPage() {
                                                 ? getBrand(paymentTarget.brandId)
                                                 : undefined;
                                             const confirmedBenefit = getTransactionConfirmedBenefit(tx);
-                                            const payableAmount = tx.payableAmount ?? tx.amount;
-                                            // Optional: Find card name to display if showing 'All'
+                                            const payableAmount = getTransactionConfirmedPayableAmount(tx);
+                                            const performanceContribution =
+                                                getTransactionPerformanceContribution(tx);
                                             const txCard = cards.find(c => c.id === tx.cardId);
+                                            const snapshot = getTransactionCombinationSummary(tx);
+                                            const fundingType = snapshot.fundingType ??
+                                                tx.fundingType ?? 'CARD';
+                                            const methodParts = [
+                                                ...snapshot.steps
+                                                    .filter(step => step.layer === 'DISCOUNT')
+                                                    .map(step => step.providerName),
+                                                snapshot.payProviderName,
+                                                snapshot.cardName ?? txCard?.name ??
+                                                    FUNDING_TYPE_LABELS[fundingType],
+                                            ].filter((value): value is string => Boolean(value));
+                                            const methodSummary = [...new Set(methodParts)].join(' + ');
+                                            const transactionKey = String(tx.id);
+                                            const detailId = `transaction-detail-${transactionKey.replace(
+                                                /[^a-zA-Z0-9_-]/g,
+                                                '-',
+                                            )}`;
+                                            const expanded = expandedTransactionId === transactionKey;
 
                                             return (
-                                                <div key={tx.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors group">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 group-hover:bg-white group-hover:shadow-sm transition-all">
-                                                            {brand ? (
-                                                                <IconByName name={brand.iconName || 'HelpCircle'} className="w-5 h-5" />
-                                                            ) : paymentTarget.kind === 'GENERAL' ? (
-                                                                <CreditCard className="h-5 w-5" />
-                                                            ) : (
-                                                                <span className="font-bold text-xs">
-                                                                    {paymentTarget.label.substring(0, 1)}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-bold text-gray-800 text-sm">
-                                                                    {paymentTarget.label}
-                                                                </span>
-                                                                {confirmedBenefit > 0 && (
-                                                                    <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold">혜택적용</span>
+                                                <div key={tx.id}>
+                                                    <button
+                                                        type="button"
+                                                        aria-expanded={expanded}
+                                                        aria-controls={detailId}
+                                                        onClick={() => setExpandedTransactionId(
+                                                            expanded ? undefined : transactionKey
+                                                        )}
+                                                        className="group flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-gray-50"
+                                                    >
+                                                        <div className="flex min-w-0 items-center gap-4">
+                                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-400 transition-all group-hover:bg-white group-hover:shadow-sm">
+                                                                {brand ? (
+                                                                    <IconByName name={brand.iconName || 'HelpCircle'} className="h-5 w-5" />
+                                                                ) : paymentTarget.kind === 'GENERAL' ? (
+                                                                    <CreditCard className="h-5 w-5" aria-hidden="true" />
+                                                                ) : (
+                                                                    <span className="text-xs font-bold">
+                                                                        {paymentTarget.label.substring(0, 1)}
+                                                                    </span>
                                                                 )}
                                                             </div>
-                                                            <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
-                                                                <CreditCard className="w-3 h-3" />
-                                                                {txCard?.name || (
-                                                                    tx.fundingType === 'MONEY'
-                                                                        ? '페이머니'
-                                                                        : tx.fundingType === 'POINTS'
-                                                                            ? '포인트'
-                                                                            : tx.fundingType === 'GIFT_CERTIFICATE'
-                                                                                ? '상품권'
-                                                                                : '카드 미지정'
-                                                                )}
-                                                            </p>
+                                                            <div className="min-w-0">
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <span className="text-sm font-bold text-gray-800">
+                                                                        {paymentTarget.label}
+                                                                    </span>
+                                                                    {confirmedBenefit > 0 && (
+                                                                        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-600">
+                                                                            확정 혜택
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="mt-0.5 flex items-center gap-1 truncate text-[10px] text-gray-400">
+                                                                    <CreditCard className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                                                    {methodSummary}
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    <div className="shrink-0 text-right">
-                                                        <p className="whitespace-nowrap text-sm font-bold text-gray-900">
-                                                            {tx.amount.toLocaleString()}원
-                                                        </p>
-                                                        {confirmedBenefit > 0 && (
-                                                            <p className="mt-0.5 whitespace-nowrap text-[10px] font-bold text-blue-500">
-                                                                혜택 {confirmedBenefit.toLocaleString()}원
-                                                                {payableAmount !== tx.amount && (
-                                                                    <> · 실결제 {payableAmount.toLocaleString()}원</>
+                                                        <div className="flex shrink-0 items-center gap-2 text-right">
+                                                            <div>
+                                                                <p className="whitespace-nowrap text-sm font-bold text-gray-900">
+                                                                    {tx.amount.toLocaleString()}원
+                                                                </p>
+                                                                {confirmedBenefit > 0 && (
+                                                                    <p className="mt-0.5 whitespace-nowrap text-[10px] font-bold text-blue-500">
+                                                                        혜택 {confirmedBenefit.toLocaleString()}원
+                                                                    </p>
                                                                 )}
-                                                            </p>
-                                                        )}
-                                                    </div>
+                                                            </div>
+                                                            <ChevronDown
+                                                                className={clsx(
+                                                                    'h-4 w-4 text-gray-300 transition-transform',
+                                                                    expanded && 'rotate-180',
+                                                                )}
+                                                                aria-hidden="true"
+                                                            />
+                                                        </div>
+                                                    </button>
+
+                                                    {expanded && (
+                                                        <div
+                                                            id={detailId}
+                                                            className="border-t border-gray-100 bg-gray-50/70 p-4"
+                                                        >
+                                                            <div className="grid grid-cols-3 gap-2">
+                                                                <div className="rounded-xl bg-white p-3 text-center">
+                                                                    <p className="text-[9px] font-bold text-gray-400">원 결제금액</p>
+                                                                    <p className="mt-1 text-xs font-black text-gray-800">
+                                                                        {tx.amount.toLocaleString()}원
+                                                                    </p>
+                                                                </div>
+                                                                <div className="rounded-xl bg-blue-50 p-3 text-center">
+                                                                    <p className="text-[9px] font-bold text-blue-400">확정 혜택</p>
+                                                                    <p className="mt-1 text-xs font-black text-blue-700">
+                                                                        {confirmedBenefit.toLocaleString()}원
+                                                                    </p>
+                                                                </div>
+                                                                <div className="rounded-xl bg-white p-3 text-center">
+                                                                    <p className="text-[9px] font-bold text-gray-400">확정 기준 결제</p>
+                                                                    <p className="mt-1 text-xs font-black text-gray-800">
+                                                                        {payableAmount.toLocaleString()}원
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            {performanceContribution > 0 && (
+                                                                <p className="mt-3 flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-[10px] font-bold text-violet-800">
+                                                                    <Target className="h-3.5 w-3.5" aria-hidden="true" />
+                                                                    카드 실적에 {performanceContribution.toLocaleString()}원 반영
+                                                                </p>
+                                                            )}
+
+                                                            {snapshot.steps.length > 0 ? (
+                                                                <div className="mt-3 space-y-2">
+                                                                    {snapshot.steps.map(step => (
+                                                                        <div
+                                                                            key={step.id}
+                                                                            className="rounded-xl bg-white px-3 py-2"
+                                                                        >
+                                                                            <div className="flex items-start justify-between gap-3">
+                                                                                <div className="min-w-0">
+                                                                                    <span className={clsx(
+                                                                                        'inline-flex rounded-full px-2 py-0.5 text-[9px] font-black',
+                                                                                        step.certainty === 'CONFIRMED' && 'bg-emerald-100 text-emerald-700',
+                                                                                        step.certainty === 'CONDITIONAL' && 'bg-amber-100 text-amber-800',
+                                                                                        step.certainty === 'ESTIMATED' && 'bg-violet-100 text-violet-700',
+                                                                                    )}>
+                                                                                        {BENEFIT_STATUS_LABELS[step.certainty]}
+                                                                                    </span>
+                                                                                    <p className="mt-1 text-[11px] font-black leading-snug text-gray-800">
+                                                                                        {step.providerName} · {step.title}
+                                                                                    </p>
+                                                                                </div>
+                                                                                <span className="shrink-0 text-[11px] font-black text-gray-700">
+                                                                                    +{step.benefitAmount.toLocaleString()}원
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <p className="mt-3 flex items-center gap-2 text-[10px] font-bold text-gray-400">
+                                                                    <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                                                                    이전 형식으로 저장된 기록이라 조합 상세가 없어요.
+                                                                </p>
+                                                            )}
+
+                                                            {snapshot.catalogVersion && (
+                                                                <p className="mt-3 break-all text-[9px] font-bold text-gray-400">
+                                                                    기록 당시 혜택 정보 버전 {snapshot.catalogVersion}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })}

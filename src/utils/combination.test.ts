@@ -47,7 +47,7 @@ const cardRule: BenefitRule = {
 };
 
 const profile: UserBenefitProfile = {
-    telecomMemberships: [{ providerId: 'skt', tier: 'VIP' }],
+    telecomMemberships: [{ providerId: 'skt', tier: 'VIP', mode: 'DISCOUNT' }],
     subscriptions: [{ providerId: 't-universe', productName: '우주패스 쇼핑' }],
     enabledPayProviderIds: ['naverpay', 'kakaopay-gooddeal'],
     moneyEnabled: true,
@@ -59,24 +59,30 @@ const profile: UserBenefitProfile = {
 const offer = (
     id: string,
     overrides: Partial<PromotionOffer>
-): PromotionOffer => ({
-    id,
-    providerId: 'skt',
-    layer: 'DISCOUNT',
-    title: id,
-    description: '',
-    brandIds: ['brand-1'],
-    categoryIds: [],
-    channels: ['ALL'],
-    action: { type: 'PERCENT', value: 10 },
-    condition: { amountBasis: 'REMAINING_AMOUNT' },
-    compatibility: {},
-    limitConfig: {},
-    certainty: 'CONFIRMED',
-    status: 'PUBLISHED',
-    sourceUrl: 'https://example.com',
-    ...overrides,
-});
+): PromotionOffer => {
+    const baseCondition: PromotionOffer['condition'] = {
+        amountBasis: 'REMAINING_AMOUNT',
+        telecomModes: ['DISCOUNT'],
+    };
+    return {
+        id,
+        providerId: 'skt',
+        layer: 'DISCOUNT',
+        title: id,
+        description: '',
+        brandIds: ['brand-1'],
+        categoryIds: [],
+        channels: ['ALL'],
+        action: { type: 'PERCENT', value: 10 },
+        compatibility: {},
+        limitConfig: {},
+        certainty: 'CONFIRMED',
+        status: 'PUBLISHED',
+        sourceUrl: 'https://example.com',
+        ...overrides,
+        condition: { ...baseCondition, ...overrides.condition },
+    };
+};
 
 const input = (
     promotions: PromotionOffer[],
@@ -308,15 +314,56 @@ describe('calculateBestCombinations', () => {
         expect(pending).toMatchObject({
             confirmedValue: 0,
             conditionalValue: 1_000,
+            payableAmount: 20_000,
+            potentialPayableAmount: 19_000,
             requiredChecks: ['제외 거래가 아닌지 확인'],
         });
         expect(pending?.steps[0]).toMatchObject({
             certainty: 'CONDITIONAL',
             confirmationId: 'card-rule:rule-1',
+            requiresConfirmation: true,
         });
         expect(confirmed).toMatchObject({
             confirmedValue: 1_000,
             conditionalValue: 0,
+            payableAmount: 19_000,
+        });
+    });
+
+    it('does not let an unconfirmed benefit raise the default recommendation rank', () => {
+        const conditionalOffer = offer('conditional-only', {
+            action: { type: 'FLAT', value: 5_000 },
+            condition: {
+                amountBasis: 'ORIGINAL_AMOUNT',
+                requiresEnrollment: true,
+            },
+        });
+        const pending = calculateBestCombinations(input([conditionalOffer], {
+            rules: [],
+            profile: { ...profile, enabledPayProviderIds: [] },
+        }));
+        const confirmed = calculateBestCombinations(input([conditionalOffer], {
+            rules: [],
+            profile: { ...profile, enabledPayProviderIds: [] },
+            confirmedConditionIds: [conditionalOffer.id],
+        }));
+
+        expect(pending.combinations[0]).toMatchObject({
+            confirmedValue: 0,
+            payableAmount: 20_000,
+            steps: [],
+        });
+        expect(pending.combinations.find(combination =>
+            combination.steps.some(step => step.promotionId === conditionalOffer.id)
+        )).toMatchObject({
+            confirmedValue: 0,
+            conditionalValue: 5_000,
+            payableAmount: 20_000,
+            potentialPayableAmount: 15_000,
+        });
+        expect(confirmed.combinations[0]).toMatchObject({
+            confirmedValue: 5_000,
+            payableAmount: 15_000,
         });
     });
 
@@ -496,6 +543,9 @@ describe('calculateBestCombinations', () => {
 
         expect(payCard?.confirmedValue).toBe(1_000);
         expect(payCard?.estimatedValue).toBe(950);
+        expect(payCard?.payableAmount).toBe(19_000);
+        expect(payCard?.potentialPayableAmount).toBe(18_050);
+        expect(payCard?.cardChargeAmount).toBe(19_000);
         expect(payCard?.warnings.join(' ')).toContain('MCC');
     });
 
@@ -786,13 +836,98 @@ describe('calculateBestCombinations', () => {
         ], {
             profile: {
                 ...profile,
-                telecomMemberships: [{ providerId: 'skt', tier: 'vip' }],
+                telecomMemberships: [{
+                    providerId: 'skt',
+                    tier: 'vip',
+                    mode: 'DISCOUNT',
+                }],
             },
         }));
 
         expect(result.combinations.some(combination =>
             combination.steps.some(step => step.promotionId === 'vip-only')
         )).toBe(true);
+    });
+
+    it('requires an SKT benefit mode and applies only the selected mode', () => {
+        const discount = offer('skt-discount', {
+            condition: { telecomModes: ['DISCOUNT'] },
+        });
+        const points = offer('skt-points', {
+            layer: 'POST_REWARD',
+            action: { type: 'POINTS', value: 10 },
+            condition: { telecomModes: ['POINTS'] },
+        });
+        const withoutMode = calculateBestCombinations(input([discount, points], {
+            profile: {
+                ...profile,
+                telecomMemberships: [{ providerId: 'skt', tier: 'VIP' }],
+            },
+        }));
+        const pointsMode = calculateBestCombinations(input([discount, points], {
+            profile: {
+                ...profile,
+                telecomMemberships: [{
+                    providerId: 'skt',
+                    tier: 'VIP',
+                    mode: 'POINTS',
+                }],
+            },
+        }));
+
+        expect(withoutMode.combinations.flatMap(item => item.steps).some(step => (
+            step.promotionId === discount.id || step.promotionId === points.id
+        ))).toBe(false);
+        expect(pointsMode.combinations.some(item => item.steps.some(step => (
+            step.promotionId === points.id
+        )))).toBe(true);
+        expect(pointsMode.combinations.flatMap(item => item.steps).some(step => (
+            step.promotionId === discount.id
+        ))).toBe(false);
+    });
+
+    it('calculates per-thousand benefits only from complete 1,000 won units', () => {
+        const perThousand = offer('per-thousand', {
+            action: { type: 'PERCENT', value: 10, unitAmount: 1_000 },
+        });
+        const benefitAt = (amount: number) => calculateBestCombinations(input(
+            [perThousand],
+            { amount },
+        )).combinations.flatMap(item => item.steps).find(step => (
+            step.promotionId === perThousand.id
+        ))?.benefitAmount ?? 0;
+
+        expect(benefitAt(999)).toBe(0);
+        expect(benefitAt(1_000)).toBe(100);
+        expect(benefitAt(1_999)).toBe(100);
+        expect(benefitAt(2_000)).toBe(200);
+    });
+
+    it('shares selected limits across SKT discount and points variants', () => {
+        const usageGroupId = 'telecom:skt:brand:cu';
+        const discount = offer('cu-discount', {
+            usageGroupId,
+            limitConfig: { dailyCount: 1, sharedFields: ['dailyCount'] },
+        });
+        const available = calculateBestCombinations(input([discount]));
+        const exhausted = calculateBestCombinations(input([discount], {
+            promotionUsage: {
+                [usageGroupId]: {
+                    dailyCount: 1,
+                    dailyAmount: 100,
+                    monthlyCount: 1,
+                    monthlyAmount: 100,
+                    yearlyCount: 1,
+                },
+            },
+        }));
+
+        expect(available.combinations.flatMap(item => item.steps).find(step => (
+            step.promotionId === discount.id
+        ))).toMatchObject({ promotionUsageGroupId: usageGroupId });
+        expect(exhausted.combinations.flatMap(item => item.steps).some(step => (
+            step.promotionId === discount.id
+        ))).toBe(false);
     });
 
     it('uses a T Universe offer only when the required product is subscribed', () => {
@@ -845,6 +980,20 @@ describe('calculateBestCombinations', () => {
 
         expect(applied?.steps.find(step => step.promotionId === 'monthly-cap')?.benefitAmount)
             .toBe(500);
+
+        const exhausted = calculateBestCombinations(input([capped], {
+            promotionUsage: {
+                'monthly-cap': {
+                    dailyCount: 0,
+                    monthlyCount: 1,
+                    yearlyCount: 1,
+                    monthlyAmount: 5_000,
+                },
+            },
+        }));
+        expect(exhausted.combinations.some(combination =>
+            combination.steps.some(step => step.promotionId === 'monthly-cap')
+        )).toBe(false);
     });
 
     it('caps a promotion at its remaining daily amount limit', () => {
@@ -870,5 +1019,21 @@ describe('calculateBestCombinations', () => {
 
         expect(applied?.steps.find(step => step.promotionId === 'daily-cap')?.benefitAmount)
             .toBe(500);
+
+        const exhausted = calculateBestCombinations(input([capped], {
+            amount: 20_000,
+            promotionUsage: {
+                'daily-cap': {
+                    dailyCount: 1,
+                    dailyAmount: 5_000,
+                    monthlyCount: 1,
+                    yearlyCount: 1,
+                    monthlyAmount: 5_000,
+                },
+            },
+        }));
+        expect(exhausted.combinations.some(combination =>
+            combination.steps.some(step => step.promotionId === 'daily-cap')
+        )).toBe(false);
     });
 });

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { BenefitCombination } from '@/types';
+import type {
+    BenefitCombination,
+    PromotionOffer,
+    PromotionProvider,
+    UserBenefitProfile,
+} from '@/types';
 import { createAccountWorkspaceExport } from './account-workspace-export';
 import {
     accountWorkspaceMatchesLocal,
@@ -14,6 +19,7 @@ import {
     type LocalWorkspaceStorage,
 } from './local-workspace';
 import { buildPromotionUsage } from '@/utils/promotionUsage';
+import { calculateBestCombinations } from '@/utils/combination';
 
 const createMemoryStorage = (initial: LocalWorkspaceSnapshot | null = null) => {
     let current = initial ? structuredClone(initial) : null;
@@ -239,6 +245,27 @@ describe('local workspace', () => {
         expect(smallBenefitThreshold).toBe(100);
         expect(parseLocalWorkspaceSnapshot(legacy).benefitProfile.smallBenefitThreshold)
             .toBe(100);
+    });
+
+    it('round-trips an SKT mode without guessing one for legacy workspaces', () => {
+        const workspace = createEmptyLocalWorkspace();
+        workspace.benefitProfile.telecomMemberships = [{
+            providerId: 'skt',
+            tier: 'VIP',
+            mode: 'DISCOUNT',
+        }];
+        expect(parseLocalWorkspaceSnapshot(workspace).benefitProfile.telecomMemberships)
+            .toEqual([{ providerId: 'skt', tier: 'VIP', mode: 'DISCOUNT' }]);
+
+        delete workspace.benefitProfile.telecomMemberships[0].mode;
+        expect(parseLocalWorkspaceSnapshot(workspace).benefitProfile.telecomMemberships)
+            .toEqual([{ providerId: 'skt', tier: 'VIP' }]);
+
+        (workspace.benefitProfile.telecomMemberships[0] as unknown as Record<string, unknown>).mode =
+            'UNKNOWN';
+        expect(() => parseLocalWorkspaceSnapshot(workspace)).toThrow(
+            '로컬 통신사 멤버십 혜택 유형이 올바르지 않습니다.'
+        );
     });
 
     it('previews and imports an account snapshot only into an empty local workspace', async () => {
@@ -670,6 +697,153 @@ describe('local workspace', () => {
             });
             expect(workspace.recordMetadata[`performances:${card.id}:2026-08`].updatedAt)
                 .toBe('2026-08-20T03:00:00.000Z');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('rejects recording a combination with an unresolved condition', async () => {
+        const memory = createMemoryStorage();
+        const client = createLocalWorkspaceClient(memory.storage);
+
+        await expect(client.createTransaction({
+            paymentTarget: { kind: 'GENERAL', label: '테스트 결제처' },
+            amount: 10_000,
+            combination: {
+                ...combination,
+                confirmedValue: 0,
+                conditionalValue: 1_000,
+                immediateDiscount: 0,
+                payableAmount: 10_000,
+                potentialPayableAmount: 9_000,
+                steps: combination.steps.map(step => ({
+                    ...step,
+                    certainty: 'CONDITIONAL' as const,
+                    requiresConfirmation: true,
+                })),
+            },
+            catalogVersion: 'catalog-v1',
+        })).rejects.toThrow('확인하지 않은 혜택 조건');
+        expect((await client.read()).history).toEqual([]);
+    });
+
+    it('recalculates performance and promotion limits after each record without changing old snapshots', async () => {
+        vi.useFakeTimers();
+        const now = new Date('2026-08-20T03:00:00.000Z');
+        vi.setSystemTime(now);
+        try {
+            const memory = createMemoryStorage();
+            const client = createLocalWorkspaceClient(memory.storage);
+            const card = await client.createCard({
+                name: '한도 테스트 카드',
+                company: '테스트 카드사',
+                color: 'bg-blue-500',
+                limitTable: [],
+            });
+            const provider: PromotionProvider = {
+                id: 'merchant-promotion',
+                name: '테스트 매장',
+                kind: 'MERCHANT',
+                isActive: true,
+                sortOrder: 0,
+            };
+            const limitedOffer: PromotionOffer = {
+                id: 'limited-offer',
+                providerId: provider.id,
+                layer: 'DISCOUNT',
+                title: '월 1,500원 한도 정액 할인',
+                description: '',
+                brandIds: ['brand-1'],
+                categoryIds: [],
+                channels: ['ALL'],
+                action: { type: 'FLAT', value: 1_000 },
+                condition: { amountBasis: 'REMAINING_AMOUNT' },
+                compatibility: {},
+                limitConfig: { monthlyAmount: 1_500 },
+                certainty: 'CONFIRMED',
+                status: 'PUBLISHED',
+                sourceUrl: 'https://example.com/limited-offer',
+            };
+            const profile: UserBenefitProfile = {
+                telecomMemberships: [],
+                subscriptions: [],
+                enabledPayProviderIds: [],
+                moneyEnabled: false,
+                pointsEnabled: false,
+                pointValue: 1,
+                smallBenefitThreshold: 100,
+            };
+            const calculate = async () => {
+                const workspace = await client.read();
+                return calculateBestCombinations({
+                    target: {
+                        kind: 'BRAND',
+                        brand: { id: 'brand-1', name: '테스트 매장', categoryId: 'shopping' },
+                    },
+                    amount: 10_000,
+                    isOnline: false,
+                    cards: [card],
+                    rules: [],
+                    history: workspace.history,
+                    performances: workspace.performances,
+                    promotions: [limitedOffer],
+                    providers: [provider],
+                    profile,
+                    promotionUsage: buildPromotionUsage(workspace.history, now),
+                    now,
+                });
+            };
+            const getLimitedCombination = async () => (await calculate()).combinations.find(
+                candidate => candidate.steps.some(step => step.promotionId === limitedOffer.id),
+            );
+
+            const beforeRecord = await getLimitedCombination();
+            expect(beforeRecord).toMatchObject({
+                confirmedValue: 1_000,
+                cardChargeAmount: 9_000,
+            });
+            if (!beforeRecord) throw new Error('기록 전 한도 혜택 조합이 필요합니다.');
+
+            const first = await client.createTransaction({
+                paymentTarget: { kind: 'BRAND', brandId: 'brand-1', label: '테스트 매장' },
+                amount: 10_000,
+                combination: beforeRecord,
+                catalogVersion: 'catalog-v1',
+            });
+            const firstSnapshot = structuredClone(first.combinationSnapshot);
+
+            const afterFirstRecord = await getLimitedCombination();
+            expect(afterFirstRecord).toMatchObject({
+                confirmedValue: 500,
+                cardChargeAmount: 9_500,
+            });
+            if (!afterFirstRecord) throw new Error('첫 기록 후 잔여 한도 조합이 필요합니다.');
+
+            await client.createTransaction({
+                paymentTarget: { kind: 'BRAND', brandId: 'brand-1', label: '테스트 매장' },
+                amount: 10_000,
+                combination: afterFirstRecord,
+                catalogVersion: 'catalog-v1',
+            });
+
+            const afterSecondRecord = await calculate();
+            expect(afterSecondRecord.combinations.some(candidate =>
+                candidate.steps.some(step => step.promotionId === limitedOffer.id)
+            )).toBe(false);
+            const workspace = await client.read();
+            expect(workspace.performances).toContainEqual({
+                cardId: card.id,
+                performanceMonth: '2026-08',
+                amount: 18_500,
+            });
+            expect(workspace.history.find(transaction => transaction.id === first.id)
+                ?.combinationSnapshot).toEqual(firstSnapshot);
+            expect(buildPromotionUsage(workspace.history, now)[limitedOffer.id]).toMatchObject({
+                dailyCount: 2,
+                monthlyCount: 2,
+                yearlyCount: 2,
+                monthlyAmount: 1_500,
+            });
         } finally {
             vi.useRealTimers();
         }

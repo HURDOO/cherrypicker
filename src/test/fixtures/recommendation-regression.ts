@@ -108,6 +108,7 @@ export const recommendationRegressionPromotions: PromotionOffer[] = [
             calculationMode: 'CALCULABLE',
             headlineEligible: true,
             telecomTiers: ['VIP'],
+            telecomModes: ['DISCOUNT'],
         },
         compatibility: { exclusiveGroup: 'telecom:cu' },
         limitConfig: { dailyCount: 1, monthlyAmount: 10_000 },
@@ -180,7 +181,7 @@ export const recommendationRegressionRouteVerifications: MerchantRouteVerificati
 }));
 
 export const recommendationRegressionProfile: UserBenefitProfile = {
-    telecomMemberships: [{ providerId: 'skt', tier: 'VIP' }],
+    telecomMemberships: [{ providerId: 'skt', tier: 'VIP', mode: 'DISCOUNT' }],
     subscriptions: [{
         providerId: 't-universe',
         productName: 'T 우주패스 편의점&카페',

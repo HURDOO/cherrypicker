@@ -49,10 +49,21 @@ describe('structured card benefit conditions', () => {
     afterEach(() => vi.useRealTimers());
 
     it('caps a discount without rejecting a payment above the eligible amount', () => {
+        expect(calculate(5_000, [rule()]).calculatedDiscount).toBe(500);
+
         const result = calculate(20_000, [rule()]);
 
         expect(result.calculatedDiscount).toBe(1_000);
         expect(result.isApplicable).toBe(true);
+    });
+
+    it('applies a performance benefit exactly at and after its threshold', () => {
+        expect(calculate(10_000, [rule()], 299_999)).toMatchObject({
+            calculatedDiscount: 0,
+            reason: '실적 조건(300,000원) 부족',
+        });
+        expect(calculate(10_000, [rule()], 300_000).calculatedDiscount).toBe(1_000);
+        expect(calculate(10_000, [rule()], 300_001).calculatedDiscount).toBe(1_000);
     });
 
     it('evaluates weekend and overnight ranges in Korea Standard Time', () => {
@@ -123,6 +134,58 @@ describe('structured card benefit conditions', () => {
         expect(result.matchedBenefits[0]?.usage).toMatchObject({
             monthlyCount: 0,
             monthlyAmount: 800,
+        });
+    });
+
+    it('allows the boundary purchase and rejects the next one for daily, monthly, and yearly counts', () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-09-05T13:00:00.000Z'));
+        const scenarios: Array<{
+            field: 'dailyCount' | 'monthlyCount' | 'yearlyCount';
+            dates: [string, string];
+            exhaustedReason: string;
+        }> = [
+            {
+                field: 'dailyCount',
+                dates: ['2026-09-05T01:00:00.000Z', '2026-09-05T02:00:00.000Z'],
+                exhaustedReason: '일 횟수 제한 초과',
+            },
+            {
+                field: 'monthlyCount',
+                dates: ['2026-09-01T01:00:00.000Z', '2026-09-02T01:00:00.000Z'],
+                exhaustedReason: '월 횟수 제한 초과',
+            },
+            {
+                field: 'yearlyCount',
+                dates: ['2026-07-01T01:00:00.000Z', '2026-08-01T01:00:00.000Z'],
+                exhaustedReason: '연 횟수 제한 초과',
+            },
+        ];
+
+        scenarios.forEach(({ field, dates, exhaustedReason }) => {
+            const limitedRule = rule({
+                id: `${field}-rule`,
+                condition: {},
+                limitConfig: { [field]: 2 },
+            });
+            const history = dates.map((date, index): TransactionHistory => ({
+                id: `${field}-${index}`,
+                date,
+                brandId: brand.id,
+                cardId: card.id,
+                ruleId: limitedRule.id,
+                amount: 10_000,
+                discountAmount: 1_000,
+            }));
+
+            const boundaryPurchase = calculate(10_000, [limitedRule], 300_000, history.slice(0, 1));
+            expect(boundaryPurchase.calculatedDiscount, field).toBe(1_000);
+            expect(boundaryPurchase.matchedBenefits[0]?.usage[field], field).toBe(1);
+
+            expect(calculate(10_000, [limitedRule], 300_000, history), field).toMatchObject({
+                calculatedDiscount: 0,
+                reason: exhaustedReason,
+            });
         });
     });
 

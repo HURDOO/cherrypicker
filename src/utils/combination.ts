@@ -27,8 +27,12 @@ import { toPaymentTargetSnapshot } from './paymentTarget';
 
 type WorkingCombination = {
     remainingAmount: number;
+    confirmedRemainingAmount: number;
+    remainingAmountCertainty: BenefitCertainty;
     cardChargeBase?: number;
+    confirmedCardChargeBase?: number;
     cardChargeAmount?: number;
+    confirmedCardChargeAmount?: number;
     steps: CombinationStep[];
     appliedPromotionIds: Set<string>;
     exclusiveGroups: Set<string>;
@@ -112,6 +116,17 @@ const cloneWorking = (state: WorkingCombination): WorkingCombination => ({
 
 const uniqueStrings = (items: string[]) => [...new Set(items.filter(Boolean))];
 
+const certaintyRank: Record<BenefitCertainty, number> = {
+    CONFIRMED: 0,
+    CONDITIONAL: 1,
+    ESTIMATED: 2,
+};
+
+const combineCertainty = (
+    left: BenefitCertainty,
+    right: BenefitCertainty,
+): BenefitCertainty => certaintyRank[left] >= certaintyRank[right] ? left : right;
+
 const compareText = (left: string, right: string) => {
     if (left === right) return 0;
     return left < right ? -1 : 1;
@@ -139,7 +154,10 @@ const getBenefitAmount = (offer: PromotionOffer, basisAmount: number) => {
     let benefit = 0;
 
     if (action.type === 'PERCENT' || action.type === 'POINTS' || action.type === 'CASHBACK') {
-        benefit = Math.floor(basisAmount * (action.value / 100));
+        const calculationAmount = action.unitAmount
+            ? Math.floor(basisAmount / action.unitAmount) * action.unitAmount
+            : basisAmount;
+        benefit = Math.floor(calculationAmount * (action.value / 100));
     } else if (action.type === 'FLAT') {
         benefit = action.value;
     } else if (action.type === 'FIXED_PRICE') {
@@ -203,10 +221,16 @@ const isTelecomEligible = (
     if (!membership) return false;
     const allowedTiers = offer.condition.telecomTiers ?? [];
     const membershipTier = membership.tier?.trim().toLocaleUpperCase('ko-KR');
-    return allowedTiers.length === 0 || Boolean(
+    if (allowedTiers.length > 0 && !(
         membershipTier && allowedTiers.some(tier =>
             tier.trim().toLocaleUpperCase('ko-KR') === membershipTier
         )
+    )) return false;
+
+    const allowedModes = offer.condition.telecomModes ?? [];
+    if (provider.id === 'skt' && allowedModes.length === 0) return false;
+    return allowedModes.length === 0 || Boolean(
+        membership.mode && allowedModes.includes(membership.mode)
     );
 };
 
@@ -251,17 +275,23 @@ const getOfferProviderName = (
         : providerName;
 };
 
+const offerNeedsConfirmation = (offer: PromotionOffer) => (
+    offer.certainty === 'CONDITIONAL' ||
+    offer.condition.requiresCoupon ||
+    offer.condition.requiresEnrollment ||
+    offer.condition.firstPaymentOnly ||
+    offer.condition.confirmationRequired ||
+    offer.condition.manualCheckRequired
+);
+
 const getEffectiveCertainty = (
     offer: PromotionOffer,
     confirmedConditionIds: Set<string>,
 ): BenefitCertainty => {
-    const needsConfirmation = offer.condition.requiresCoupon ||
-        offer.condition.requiresEnrollment ||
-        offer.condition.firstPaymentOnly ||
-        offer.condition.confirmationRequired ||
-        offer.condition.manualCheckRequired;
+    if (offer.certainty === 'ESTIMATED') return 'ESTIMATED';
+    const needsConfirmation = offerNeedsConfirmation(offer);
     if (needsConfirmation && !confirmedConditionIds.has(offer.id)) return 'CONDITIONAL';
-    return offer.certainty;
+    return 'CONFIRMED';
 };
 
 const addValue = (
@@ -282,7 +312,7 @@ const getConfirmationLabel = (offer: PromotionOffer) => {
     if (offer.condition.firstPaymentOnly) labels.push('첫 결제 대상');
     if (offer.condition.confirmationRequired) labels.push('행사 대상 여부');
     if (offer.condition.manualCheckRequired) labels.push('추가 조건');
-    return labels.length > 0 ? `${labels.join('·')} 확인` : '';
+    return labels.length > 0 ? `${labels.join('·')} 확인` : '혜택 적용 조건 확인';
 };
 
 const canApplyOffer = (
@@ -326,13 +356,22 @@ const applyOffer = (
     confirmedConditionIds: Set<string>,
 ) => {
     const next = cloneWorking(state);
-    const usage = input.promotionUsage?.[offer.id];
+    const offerUsage = input.promotionUsage?.[offer.id];
+    const sharedUsage = offer.usageGroupId
+        ? input.promotionUsage?.[offer.usageGroupId]
+        : undefined;
+    const sharedFields = offer.limitConfig.sharedFields ?? [];
+    const usageValue = (field: keyof NonNullable<CombinationEngineInput['promotionUsage']>[string]) => (
+        offer.usageGroupId && (sharedFields.length === 0 || sharedFields.includes(field))
+            ? sharedUsage?.[field]
+            : offerUsage?.[field]
+    ) ?? 0;
     if (
-        (offer.limitConfig.dailyCount && (usage?.dailyCount ?? 0) >= offer.limitConfig.dailyCount) ||
-        (offer.limitConfig.dailyAmount && (usage?.dailyAmount ?? 0) >= offer.limitConfig.dailyAmount) ||
-        (offer.limitConfig.monthlyCount && (usage?.monthlyCount ?? 0) >= offer.limitConfig.monthlyCount) ||
-        (offer.limitConfig.yearlyCount && (usage?.yearlyCount ?? 0) >= offer.limitConfig.yearlyCount) ||
-        (offer.limitConfig.monthlyAmount && (usage?.monthlyAmount ?? 0) >= offer.limitConfig.monthlyAmount)
+        (offer.limitConfig.dailyCount && usageValue('dailyCount') >= offer.limitConfig.dailyCount) ||
+        (offer.limitConfig.dailyAmount && usageValue('dailyAmount') >= offer.limitConfig.dailyAmount) ||
+        (offer.limitConfig.monthlyCount && usageValue('monthlyCount') >= offer.limitConfig.monthlyCount) ||
+        (offer.limitConfig.yearlyCount && usageValue('yearlyCount') >= offer.limitConfig.yearlyCount) ||
+        (offer.limitConfig.monthlyAmount && usageValue('monthlyAmount') >= offer.limitConfig.monthlyAmount)
     ) {
         return null;
     }
@@ -347,26 +386,41 @@ const applyOffer = (
     if (offer.limitConfig.dailyAmount) {
         benefitAmount = Math.min(
             benefitAmount,
-            Math.max(0, offer.limitConfig.dailyAmount - (usage?.dailyAmount ?? 0))
+            Math.max(0, offer.limitConfig.dailyAmount - usageValue('dailyAmount'))
         );
     }
     if (offer.limitConfig.monthlyAmount) {
         benefitAmount = Math.min(
             benefitAmount,
-            Math.max(0, offer.limitConfig.monthlyAmount - (usage?.monthlyAmount ?? 0))
+            Math.max(0, offer.limitConfig.monthlyAmount - usageValue('monthlyAmount'))
         );
     }
     if (benefitAmount <= 0) return null;
 
-    const certainty = getEffectiveCertainty(offer, confirmedConditionIds);
+    const ownCertainty = getEffectiveCertainty(offer, confirmedConditionIds);
+    const amountBasis = offer.condition.amountBasis ?? 'REMAINING_AMOUNT';
+    const certainty = amountBasis === 'REMAINING_AMOUNT' || amountBasis === 'FINAL_APPROVED_AMOUNT'
+        ? combineCertainty(ownCertainty, next.remainingAmountCertainty)
+        : ownCertainty;
     const isImmediate = offer.layer !== 'POST_REWARD' &&
         immediateActionTypes.has(offer.action.type);
     const amountBefore = next.remainingAmount;
+    const confirmedAmountBefore = next.confirmedRemainingAmount;
     if (isImmediate) {
         next.remainingAmount = Math.max(0, next.remainingAmount - benefitAmount);
-        next.immediateDiscount += benefitAmount;
+        next.remainingAmountCertainty = combineCertainty(
+            next.remainingAmountCertainty,
+            certainty,
+        );
+        if (certainty === 'CONFIRMED') {
+            next.confirmedRemainingAmount = Math.max(
+                0,
+                next.confirmedRemainingAmount - benefitAmount,
+            );
+            next.immediateDiscount += benefitAmount;
+        }
     } else {
-        next.laterReward += benefitAmount;
+        if (certainty === 'CONFIRMED') next.laterReward += benefitAmount;
     }
 
     if (offer.action.type === 'GIFT_CERTIFICATE') {
@@ -374,6 +428,11 @@ const applyOffer = (
         next.cardChargeBase = offer.compatibility.allowResidualPayment
             ? Math.max(0, amountBefore - faceValue)
             : 0;
+        if (certainty === 'CONFIRMED') {
+            next.confirmedCardChargeBase = offer.compatibility.allowResidualPayment
+                ? Math.max(0, confirmedAmountBefore - faceValue)
+                : 0;
+        }
     }
 
     addValue(next, certainty, benefitAmount);
@@ -385,7 +444,9 @@ const applyOffer = (
     if (group) next.exclusiveGroups.add(group);
     next.blocksCardBenefit ||= Boolean(offer.compatibility.blocksCardBenefit);
 
-    const confirmationLabel = getConfirmationLabel(offer);
+    const requiresConfirmation = offerNeedsConfirmation(offer) &&
+        offer.certainty !== 'ESTIMATED';
+    const confirmationLabel = requiresConfirmation ? getConfirmationLabel(offer) : '';
     if (certainty === 'CONDITIONAL' && confirmationLabel) {
         next.requiredChecks.push(confirmationLabel);
     }
@@ -393,6 +454,7 @@ const applyOffer = (
     next.steps.push({
         id: `promotion:${offer.id}`,
         promotionId: offer.id,
+        ...(offer.usageGroupId && { promotionUsageGroupId: offer.usageGroupId }),
         layer: offer.layer,
         providerId: offer.providerId,
         providerName: getOfferProviderName(
@@ -409,6 +471,10 @@ const applyOffer = (
         ...(confirmationLabel && certainty === 'CONDITIONAL'
             ? { warning: confirmationLabel }
             : {}),
+        ...(requiresConfirmation && {
+            confirmationId: offer.id,
+            requiresConfirmation: true,
+        }),
     });
     return next;
 };
@@ -418,14 +484,13 @@ const compareWorkingStates = (a: WorkingCombination, b: WorkingCombination) => {
     if (b.immediateDiscount !== a.immediateDiscount) {
         return b.immediateDiscount - a.immediateDiscount;
     }
-    const bPotential = b.conditionalValue + b.estimatedValue;
-    const aPotential = a.conditionalValue + a.estimatedValue;
-    if (bPotential !== aPotential) return bPotential - aPotential;
-    if (a.remainingAmount !== b.remainingAmount) return a.remainingAmount - b.remainingAmount;
     if (b.laterReward !== a.laterReward) return b.laterReward - a.laterReward;
     if (a.requiredChecks.length !== b.requiredChecks.length) {
         return a.requiredChecks.length - b.requiredChecks.length;
     }
+    const aUnconfirmedSteps = a.steps.filter(step => step.certainty !== 'CONFIRMED').length;
+    const bUnconfirmedSteps = b.steps.filter(step => step.certainty !== 'CONFIRMED').length;
+    if (aUnconfirmedSteps !== bUnconfirmedSteps) return aUnconfirmedSteps - bUnconfirmedSteps;
     return compareText(
         a.steps.map(step => step.id).join('\u0000'),
         b.steps.map(step => step.id).join('\u0000'),
@@ -541,13 +606,24 @@ const addCardSteps = (
     card.matchedBenefits.forEach((benefit, index) => {
         const benefitAmount = Math.min(next.remainingAmount, benefit.discount);
         if (benefitAmount <= 0) return;
-        const certainty = benefit.certainty === 'CONDITIONAL'
+        const ownCertainty = benefit.certainty === 'CONDITIONAL'
             ? 'CONDITIONAL'
             : route.certainty;
+        const certainty = combineCertainty(ownCertainty, next.remainingAmountCertainty);
         addValue(next, certainty, benefitAmount);
-        next.immediateDiscount += benefitAmount;
         const amountBefore = next.remainingAmount;
         next.remainingAmount = Math.max(0, next.remainingAmount - benefitAmount);
+        next.remainingAmountCertainty = combineCertainty(
+            next.remainingAmountCertainty,
+            certainty,
+        );
+        if (certainty === 'CONFIRMED') {
+            next.confirmedRemainingAmount = Math.max(
+                0,
+                next.confirmedRemainingAmount - benefitAmount,
+            );
+            next.immediateDiscount += benefitAmount;
+        }
         const confirmationLabel = benefit.requiredChecks.join(' · ');
         if (certainty === 'CONDITIONAL') {
             next.requiredChecks.push(...benefit.requiredChecks);
@@ -565,6 +641,8 @@ const addCardSteps = (
             cardId: card.id,
             ruleId: benefit.rule.id,
             ...(benefit.confirmationId && { confirmationId: benefit.confirmationId }),
+            ...(benefit.confirmationId && { requiresConfirmation: true }),
+            usesCardLimit: benefit.rule.usesCardLimit !== false,
             ...((confirmationLabel || (index === 0 && route.warning)) && {
                 warning: confirmationLabel || route.warning,
             }),
@@ -598,7 +676,10 @@ const getPerformanceProgress = (
         item.targetAmount !== undefined &&
         item.targetAmount > item.amount
     ));
-    const contributionAmount = Math.max(0, Math.floor(state.cardChargeAmount ?? 0));
+    const contributionAmount = Math.max(
+        0,
+        Math.floor(state.confirmedCardChargeAmount ?? 0),
+    );
     if (!performance?.targetAmount || contributionAmount <= 0) return undefined;
 
     const remainingBefore = performance.targetAmount - performance.amount;
@@ -643,7 +724,13 @@ const toCombination = (
         estimatedValue: state.estimatedValue,
         immediateDiscount: state.immediateDiscount,
         laterReward: state.laterReward,
-        payableAmount: Math.max(0, state.remainingAmount),
+        ...(card && state.confirmedCardChargeAmount !== undefined && {
+            cardChargeAmount: Math.max(0, state.confirmedCardChargeAmount),
+        }),
+        payableAmount: Math.max(0, state.confirmedRemainingAmount),
+        ...(state.remainingAmount !== state.confirmedRemainingAmount && {
+            potentialPayableAmount: Math.max(0, state.remainingAmount),
+        }),
         ...(performanceProgress && { performanceProgress }),
         warnings: uniqueStrings(state.warnings),
         requiredChecks: uniqueStrings(state.requiredChecks),
@@ -659,9 +746,9 @@ const compareCombinations = (a: BenefitCombination, b: BenefitCombination) => {
     if (a.requiredChecks.length !== b.requiredChecks.length) {
         return a.requiredChecks.length - b.requiredChecks.length;
     }
-    const bPotential = b.conditionalValue + b.estimatedValue;
-    const aPotential = a.conditionalValue + a.estimatedValue;
-    return bPotential - aPotential || compareText(a.id, b.id);
+    const aUnconfirmedSteps = a.steps.filter(step => step.certainty !== 'CONFIRMED').length;
+    const bUnconfirmedSteps = b.steps.filter(step => step.certainty !== 'CONFIRMED').length;
+    return aUnconfirmedSteps - bUnconfirmedSteps || compareText(a.id, b.id);
 };
 
 const comparePerformanceProgress = (a: BenefitCombination, b: BenefitCombination) => {
@@ -892,6 +979,8 @@ export function calculateBestCombinations(
     payOptions.forEach(payProviderId => {
         const initial: WorkingCombination = {
             remainingAmount: input.amount,
+            confirmedRemainingAmount: input.amount,
+            remainingAmountCertainty: 'CONFIRMED',
             steps: [],
             appliedPromotionIds: new Set(),
             exclusiveGroups: new Set(),
@@ -953,7 +1042,10 @@ export function calculateBestCombinations(
                     input.cards.forEach(card => {
                         let next = cloneWorking(state);
                         const cardCharge = next.cardChargeBase ?? next.remainingAmount;
+                        const confirmedCardCharge = next.confirmedCardChargeBase ??
+                            next.confirmedRemainingAmount;
                         next.cardChargeAmount = cardCharge;
+                        next.confirmedCardChargeAmount = confirmedCardCharge;
                         if (!next.blocksCardBenefit) {
                             const evaluatedCard = calculateBestCards(
                                 cardCharge,

@@ -1,4 +1,4 @@
-import { and, eq, gte } from 'drizzle-orm';
+import { and, eq, gte, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
     benefitRules,
@@ -29,6 +29,7 @@ import {
     toTransaction,
 } from '@/lib/db-mappers';
 import {
+    getCurrentMonthInKst,
     getPreviousMonthInKst,
     getStartOfCurrentYearInKst,
 } from '@/lib/monthly-performance';
@@ -75,11 +76,23 @@ export async function POST(request: Request) {
                     '혜택 조건이 변경되었습니다. 추천 결과를 새로 확인해주세요.'
                 );
             }
+            if (selected.steps.some(step => step.certainty === 'CONDITIONAL')) {
+                throw new HttpError(
+                    409,
+                    '확인하지 않은 혜택 조건이 있습니다. 조건을 확인한 뒤 다시 기록해주세요.'
+                );
+            }
 
             assertCanCreateTransaction(user.id);
             const cardSteps = selected.steps.filter(step => step.cardId);
             const cardStep = cardSteps[0];
             const createdAt = new Date();
+            const performanceContributionAmount = selected.fundingType === 'CARD' &&
+                selected.cardId
+                ? Math.max(0, Math.floor(
+                    selected.cardChargeAmount ?? cardStep?.amountBefore ?? selected.payableAmount
+                ))
+                : 0;
             const row = db.transaction(tx => {
                 const inserted = tx.insert(transactionHistory)
                     .values({
@@ -120,10 +133,36 @@ export async function POST(request: Request) {
                         })))
                         .run();
                 }
+                if (selected.cardId && performanceContributionAmount > 0) {
+                    const performanceMonth = getCurrentMonthInKst(createdAt);
+                    tx.insert(userCardPerformances)
+                        .values({
+                            userId: user.id,
+                            cardId: selected.cardId,
+                            performanceMonth,
+                            amount: performanceContributionAmount,
+                            updatedAt: createdAt,
+                        })
+                        .onConflictDoUpdate({
+                            target: [
+                                userCardPerformances.userId,
+                                userCardPerformances.cardId,
+                                userCardPerformances.performanceMonth,
+                            ],
+                            set: {
+                                amount: sql`${userCardPerformances.amount} + ${performanceContributionAmount}`,
+                                updatedAt: createdAt,
+                            },
+                        })
+                        .run();
+                }
                 return inserted;
             });
 
-            return Response.json(toTransaction(row), { status: 201 });
+            return Response.json({
+                ...toTransaction(row),
+                ...(performanceContributionAmount > 0 && { performanceContributionAmount }),
+            }, { status: 201 });
         }
 
         const cardId = requiredString(input, 'cardId', '카드 ID');
@@ -182,6 +221,14 @@ export async function POST(request: Request) {
         if (!calculatedCard) {
             throw new HttpError(404, '카드를 찾을 수 없습니다.');
         }
+        if (calculatedCard.matchedBenefits.some(
+            benefit => benefit.certainty === 'CONDITIONAL'
+        )) {
+            throw new HttpError(
+                409,
+                '확인하지 않은 혜택 조건이 있습니다. 조건을 확인한 뒤 다시 기록해주세요.'
+            );
+        }
 
         const confirmedBenefits = calculatedCard.matchedBenefits
             .filter(benefit => benefit.certainty === 'CONFIRMED');
@@ -207,6 +254,8 @@ export async function POST(request: Request) {
                 cardId,
                 ruleId: benefit.rule.id,
                 ...(benefit.confirmationId && { confirmationId: benefit.confirmationId }),
+                ...(benefit.confirmationId && { requiresConfirmation: true }),
+                usesCardLimit: benefit.rule.usesCardLimit !== false,
             };
         });
         const createdAt = new Date();
@@ -240,10 +289,33 @@ export async function POST(request: Request) {
                     snapshot: step,
                 }))).run();
             }
+            tx.insert(userCardPerformances)
+                .values({
+                    userId: user.id,
+                    cardId,
+                    performanceMonth: getCurrentMonthInKst(createdAt),
+                    amount,
+                    updatedAt: createdAt,
+                })
+                .onConflictDoUpdate({
+                    target: [
+                        userCardPerformances.userId,
+                        userCardPerformances.cardId,
+                        userCardPerformances.performanceMonth,
+                    ],
+                    set: {
+                        amount: sql`${userCardPerformances.amount} + ${amount}`,
+                        updatedAt: createdAt,
+                    },
+                })
+                .run();
             return inserted;
         });
 
-        return Response.json(toTransaction(row), { status: 201 });
+        return Response.json({
+            ...toTransaction(row),
+            performanceContributionAmount: amount,
+        }, { status: 201 });
     } catch (error) {
         return handleRouteError(error);
     }

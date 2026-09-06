@@ -31,12 +31,17 @@ const getPromotionSteps = (transaction: TransactionHistory) => {
             !isRecord(step) ||
             typeof step.promotionId !== 'string' ||
             typeof step.benefitAmount !== 'number' ||
-            !Number.isFinite(step.benefitAmount)
+            !Number.isFinite(step.benefitAmount) ||
+            ('certainty' in step && step.certainty !== 'CONFIRMED')
         ) {
             return [];
         }
         return [{
             promotionId: step.promotionId,
+            ...(typeof step.promotionUsageGroupId === 'string' &&
+                step.promotionUsageGroupId.trim() && {
+                promotionUsageGroupId: step.promotionUsageGroupId.trim(),
+            }),
             benefitAmount: Math.max(0, Math.floor(step.benefitAmount)),
         }];
     });
@@ -57,26 +62,32 @@ export function buildPromotionUsage(
         if (date.year !== nowParts.year) return;
 
         getPromotionSteps(transaction).forEach(step => {
-            const usage = usageByPromotion[step.promotionId] ?? {
-                dailyCount: 0,
-                dailyAmount: 0,
-                monthlyCount: 0,
-                yearlyCount: 0,
-                monthlyAmount: 0,
-            };
-            usage.yearlyCount += 1;
+            const usageKeys = [...new Set([
+                step.promotionId,
+                step.promotionUsageGroupId,
+            ].filter((key): key is string => Boolean(key)))];
+            usageKeys.forEach(usageKey => {
+                const usage = usageByPromotion[usageKey] ?? {
+                    dailyCount: 0,
+                    dailyAmount: 0,
+                    monthlyCount: 0,
+                    yearlyCount: 0,
+                    monthlyAmount: 0,
+                };
+                usage.yearlyCount += 1;
 
-            if (date.month === nowParts.month) {
-                usage.monthlyCount += 1;
-                usage.monthlyAmount += step.benefitAmount;
+                if (date.month === nowParts.month) {
+                    usage.monthlyCount += 1;
+                    usage.monthlyAmount += step.benefitAmount;
 
-                if (date.day === nowParts.day) {
-                    usage.dailyCount += 1;
-                    usage.dailyAmount += step.benefitAmount;
+                    if (date.day === nowParts.day) {
+                        usage.dailyCount += 1;
+                        usage.dailyAmount += step.benefitAmount;
+                    }
                 }
-            }
 
-            usageByPromotion[step.promotionId] = usage;
+                usageByPromotion[usageKey] = usage;
+            });
         });
     });
 
