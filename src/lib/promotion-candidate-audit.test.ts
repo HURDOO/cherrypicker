@@ -121,6 +121,92 @@ describe('promotion candidate audit', () => {
         ]));
     });
 
+    it('requires field-specific evidence instead of borrowing an unrelated global quote', () => {
+        const audit = createPromotionCandidateAudit({
+            candidate: offer(),
+            evidenceTexts: ['5만원 이상 결제 시 2천원 적립'],
+            documents,
+            fieldEvidence: {
+                'action.value': ['공식 원문에 없는 3천원 적립'],
+            },
+        });
+
+        expect(audit.coverage.find(item => item.path === 'action.value'))
+            .toMatchObject({ status: 'MISSING_EVIDENCE', evidence: [] });
+        expect(audit.blockingErrors).toContain(
+            '계산 필드의 공식 원문 근거가 없습니다: action.value'
+        );
+    });
+
+    it('blocks a detected official condition that the parser failed to structure', () => {
+        const audit = createPromotionCandidateAudit({
+            candidate: offer(),
+            evidenceTexts: ['5만원 이상 결제 시 2천원 적립'],
+            documents,
+            expectedFields: [{
+                path: 'limitConfig.dailyCount',
+                evidence: '1일 1회',
+            }],
+        });
+
+        expect(audit.blockingErrors).toContain(
+            '공식 상세에서 감지한 조건이 구조화되지 않았습니다: limitConfig.dailyCount (1일 1회)'
+        );
+    });
+
+    it('requires evidence from the matching SKT brand detail document', () => {
+        const detailUrl = 'https://skt.example/detail.do?brandId=146';
+        const missing = createPromotionCandidateAudit({
+            candidate: offer(),
+            evidenceTexts: ['5만원 이상 결제 시 2천원 적립'],
+            documents,
+            requiredEvidenceSourceUrl: detailUrl,
+        });
+        const covered = createPromotionCandidateAudit({
+            candidate: offer(),
+            evidenceTexts: ['5만원 이상 결제 시 2천원 적립'],
+            documents: [
+                ...documents,
+                {
+                    id: 'skt-detail-146',
+                    sourceUrl: detailUrl,
+                    extractedText: '일 최대 2천원 적립',
+                },
+            ],
+            fieldEvidence: { 'action.maxBenefit': ['일 최대 2천원 적립'] },
+            requiredEvidenceSourceUrl: detailUrl,
+        });
+
+        expect(missing.blockingErrors).toContain(
+            `계산형 SKT 후보에 해당 브랜드 상세 문서 근거가 없습니다: ${detailUrl}`
+        );
+        expect(covered.blockingErrors).not.toContain(
+            `계산형 SKT 후보에 해당 브랜드 상세 문서 근거가 없습니다: ${detailUrl}`
+        );
+    });
+
+    it('accepts matching detail evidence when the same quote appears in the list first', () => {
+        const detailUrl = 'https://skt.example/detail.do?brandId=146';
+        const audit = createPromotionCandidateAudit({
+            candidate: offer(),
+            evidenceTexts: ['5만원 이상 결제 시 2천원 적립'],
+            documents: [{
+                id: 'skt-list',
+                sourceUrl: 'https://skt.example/list.do',
+                extractedText: '5만원 이상 결제 시 2천원 적립',
+            }, {
+                id: 'skt-detail-146',
+                sourceUrl: detailUrl,
+                extractedText: '5만원 이상 결제 시 2천원 적립',
+            }],
+            requiredEvidenceSourceUrl: detailUrl,
+        });
+
+        expect(audit.blockingErrors).not.toContain(
+            `계산형 SKT 후보에 해당 브랜드 상세 문서 근거가 없습니다: ${detailUrl}`
+        );
+    });
+
     it('allows an admin to acknowledge only high-risk field removals', () => {
         expect(canAcknowledgePromotionAuditErrors([
             '게시 후보에서 기존 고위험 계산 필드가 제거됩니다: action.maxBenefit',

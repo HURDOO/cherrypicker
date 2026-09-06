@@ -35,13 +35,63 @@ describe('promotion source parsers', () => {
             </a>
         `;
 
-        const offers = parseSktMembershipHtml(html, 'https://example.com/skt');
+        const offers = parseSktMembershipHtml(html, 'https://example.com/skt', {
+            '146': '<li>할인/적립 횟수 : 1일 1회</li>',
+        });
 
-        expect(offers).toHaveLength(2);
-        expect(offers.map(item => item.offer.action.value)).toEqual([10, 5]);
+        expect(offers).toHaveLength(3);
+        expect(offers.map(item => item.offer.action.value)).toEqual([10, 5, 10]);
         expect(offers[0].offer.brandIds).toEqual(['cu']);
         expect(offers[0].offer.condition.telecomTiers).toEqual(['VIP', 'GOLD']);
-        expect(offers.every(item => item.autoPublish)).toBe(true);
+        expect(offers.every(item => item.offer.limitConfig.dailyCount === 1)).toBe(true);
+        expect(offers.every(item => item.evidence.includes('할인/적립 횟수 : 1일 1회')))
+            .toBe(true);
+        expect(offers.map(item => item.offer.condition.telecomModes)).toEqual([
+            ['DISCOUNT'],
+            ['DISCOUNT'],
+            ['POINTS'],
+        ]);
+        expect(offers[2].offer.action.type).toBe('POINTS');
+        expect(offers.every(item => item.autoPublish === false)).toBe(true);
+    });
+
+    it('does not mistake coupon download instructions for the purchase channel', () => {
+        const html = `
+            <a class="benefit-box" data-id="146">
+                <span class="brand">CU</span>
+                <dl><dt>할인형</dt><dd><div class="info">
+                    <i class="badge-circle vip"></i>10% 할인
+                </div></dd></dl>
+            </a>
+        `;
+        const [offer] = parseSktMembershipHtml(html, 'https://example.com/list.do', {
+            '146': '<li>T 멤버십 앱에서 쿠폰 다운로드 후 혜택을 이용하실 수 있습니다.</li>',
+        });
+
+        expect(offer.offer.channels).toEqual([]);
+        expect(offer.expectedFields).not.toEqual(expect.arrayContaining([
+            expect.objectContaining({ path: 'channels' }),
+        ]));
+    });
+
+    it('uses employee barcode presentation as explicit offline evidence', () => {
+        const html = `
+            <a class="benefit-box" data-id="146">
+                <span class="brand">CU</span>
+                <dl><dt>할인형</dt><dd><div class="info">
+                    <i class="badge-circle vip"></i>10% 할인
+                </div></dd></dl>
+            </a>
+        `;
+        const detail = '<li>직원에게 T 멤버십 App 내 일회용 바코드를 제시해야 합니다.</li>';
+        const [offer] = parseSktMembershipHtml(html, 'https://example.com/list.do', {
+            '146': detail,
+        });
+
+        expect(offer.offer.channels).toEqual(['OFFLINE']);
+        expect(offer.fieldEvidence?.channels).toEqual([
+            '직원에게 T 멤버십 App 내 일회용 바코드를 제시해야 합니다.',
+        ]);
     });
 
     it('parses SKT daily benefit caps and maximum monthly uses without review', () => {
@@ -69,10 +119,97 @@ describe('promotion source parsers', () => {
         expect(offers).toHaveLength(2);
         expect(offers.map(item => item.offer.action.maxBenefit)).toEqual([20_000, 10_000]);
         expect(offers.map(item => item.offer.limitConfig)).toEqual([
-            { dailyCount: 1, monthlyCount: 4 },
-            { dailyCount: 1, monthlyCount: 4 },
+            {
+                dailyCount: 1,
+                dailyAmount: 20_000,
+                monthlyCount: 4,
+                sharedFields: ['dailyCount', 'dailyAmount', 'monthlyCount'],
+            },
+            {
+                dailyCount: 1,
+                dailyAmount: 10_000,
+                monthlyCount: 4,
+                sharedFields: ['dailyCount', 'dailyAmount', 'monthlyCount'],
+            },
         ]);
-        expect(offers.every(item => item.autoPublish)).toBe(true);
+        expect(offers.every(item => item.autoPublish === false)).toBe(true);
+    });
+
+    it('keeps SKT product and excluded-store conditions out of the confirmed total', () => {
+        const html = `
+            <a class="benefit-box" data-id="771">
+                <span class="brand">공차</span>
+                <dl><dt>할인형</dt><dd><div class="info">
+                    <i class="badge-circle vip"></i><i class="badge-circle gold"></i>
+                    <i class="badge-circle silver"></i>10% 할인
+                </div></dd></dl>
+                <dl><dt>적립형</dt><dd><div class="info">
+                    <i class="badge-circle vip"></i><i class="badge-circle gold"></i>
+                    <i class="badge-circle silver"></i>10% 적립
+                </div></dd></dl>
+            </a>
+        `;
+        const detail = `
+            <h2>혜택</h2><h2>유의사항</h2><ul>
+                <li>횟수 제한 : 1일 1회 할인 또는 적립</li>
+                <li>최대 할인 금액 : 일 최대 20,000원</li>
+                <li>최대 적립 금액 : 일 최대 20,000P</li>
+                <li>제조음료에 한함</li>
+                <li>제외 매장 : 공항, 휴게소 외 일부 매장 사용 불가</li>
+            </ul>
+        `;
+
+        const offers = parseSktMembershipHtml(html, 'https://example.com/list.do', {
+            '771': detail,
+        });
+
+        expect(offers).toHaveLength(2);
+        expect(offers.every(item => (
+            item.autoPublish === false &&
+            item.offer.certainty === 'CONDITIONAL' &&
+            item.offer.condition.applicabilityScope === 'PRODUCT_SET' &&
+            item.offer.condition.calculationMode === 'CONDITIONAL' &&
+            item.offer.limitConfig.dailyCount === 1 &&
+            item.offer.limitConfig.dailyAmount === 20_000
+        ))).toBe(true);
+        expect(offers[0].offer.condition.requiredInputs).toEqual([
+            'ELIGIBLE_ITEM_AMOUNT',
+            'STORE_ELIGIBILITY',
+        ]);
+        expect(offers.every(item => item.requiredEvidenceSourceUrl === (
+            'https://example.com/detail.do?brandId=771'
+        ))).toBe(true);
+    });
+
+    it('keeps mixed and maximum-only SKT headlines informational for every mode', () => {
+        const html = `
+            <a class="benefit-box" data-id="1">
+                <span class="brand">이마트</span>
+                <dl><dt>할인형</dt><dd><div class="info"><i class="badge-circle vip"></i>짝수월 7%, 홀수월 3% 할인</div></dd></dl>
+                <dl><dt>적립형</dt><dd><div class="info"><i class="badge-circle vip"></i>짝수월 7%, 홀수월 3% 적립</div></dd></dl>
+            </a>
+            <a class="benefit-box" data-id="2">
+                <span class="brand">CGV</span>
+                <dl><dt>할인형</dt><dd><div class="info"><i class="badge-circle vip"></i>무료 관람 연 3회, 관람 1+1 연 9회, 최대 4,000원 할인</div></dd></dl>
+                <dl><dt>적립형</dt><dd><div class="info"><i class="badge-circle vip"></i>무료 관람 연 3회, 관람 1+1 연 9회, 최대 4,000원 할인</div></dd></dl>
+            </a>
+            <a class="benefit-box" data-id="3">
+                <span class="brand">11번가</span>
+                <dl><dt>할인형</dt><dd><div class="info"><i class="badge-circle vip"></i>상시 최대 11% 할인</div></dd></dl>
+                <dl><dt>적립형</dt><dd><div class="info"><i class="badge-circle vip"></i>상시 최대 11% 적립</div></dd></dl>
+            </a>
+        `;
+
+        const offers = parseSktMembershipHtml(html, 'https://example.com/list.do');
+
+        expect(offers).toHaveLength(6);
+        expect(offers.every(item => (
+            item.autoPublish === false &&
+            item.offer.condition.calculationMode === 'INFORMATION_ONLY' &&
+            item.offer.action.valueSemantics === 'UP_TO'
+        ))).toBe(true);
+        expect(new Set(offers.map(item => item.offer.condition.telecomModes?.[0])))
+            .toEqual(new Set(['DISCOUNT', 'POINTS']));
     });
 
     it('parses the Paris Baguette KT membership limits', () => {

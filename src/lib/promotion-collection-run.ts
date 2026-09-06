@@ -1,7 +1,7 @@
 import type { PromotionCollectionRunStatus } from '@/types';
 
 type CollectionResult = {
-    status: 'created' | 'unchanged' | 'failed' | 'skipped';
+    status: 'created' | 'unchanged' | 'partial' | 'failed' | 'skipped';
     discovered: number;
     published: number;
     reviewRequired: number;
@@ -26,7 +26,9 @@ export function summarizePromotionCollectionRun(
     results: CollectionResult[]
 ): PromotionCollectionRunSummary {
     const supported = results.filter(result => result.status !== 'skipped');
-    const failedSourceCount = supported.filter(result => result.status === 'failed').length;
+    const failedSourceCount = supported.filter(result => (
+        result.status === 'failed' || result.status === 'partial'
+    )).length;
     const successfulSourceCount = supported.length - failedSourceCount;
     const status: PromotionCollectionRunStatus = supported.length === 0
         ? 'FAILED'

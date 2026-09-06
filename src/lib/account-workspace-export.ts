@@ -781,9 +781,14 @@ const parseBenefitProfile = (value: unknown): UserBenefitProfile => {
         telecomMemberships: profile.telecomMemberships.map(item => {
             const row = objectValue(item, '통신사 멤버십');
             const tier = optionalText(row.tier, '통신사 멤버십 등급', 100);
+            const mode = optionalText(row.mode, '통신사 멤버십 혜택 유형', 20);
+            if (mode && mode !== 'DISCOUNT' && mode !== 'POINTS') {
+                throw new Error('통신사 멤버십 혜택 유형이 올바르지 않습니다.');
+            }
             return {
                 providerId: requiredText(row.providerId, '통신사 제공자 ID', 200),
                 ...(tier && { tier }),
+                ...(mode && { mode: mode as 'DISCOUNT' | 'POINTS' }),
             };
         }),
         subscriptions: profile.subscriptions.map(item => {

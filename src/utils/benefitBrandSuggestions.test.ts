@@ -31,7 +31,7 @@ const providers: PromotionProvider[] = [{
 }];
 
 const profile: UserBenefitProfile = {
-    telecomMemberships: [{ providerId: 'skt', tier: 'VIP' }],
+    telecomMemberships: [{ providerId: 'skt', tier: 'VIP', mode: 'DISCOUNT' }],
     subscriptions: [],
     enabledPayProviderIds: [],
     moneyEnabled: true,
@@ -70,6 +70,7 @@ const promotion = (overrides: Partial<PromotionOffer> = {}): PromotionOffer => (
         applicabilityScope: 'STORE_WIDE',
         calculationMode: 'CALCULABLE',
         telecomTiers: ['VIP', 'GOLD'],
+        telecomModes: ['DISCOUNT'],
     },
     compatibility: { exclusiveGroup: 'telecom:skt:cu' },
     limitConfig: {},
@@ -114,7 +115,11 @@ describe('benefit brand suggestions', () => {
             promotions: [promotion()],
             profile: {
                 ...profile,
-                telecomMemberships: [{ providerId: 'skt', tier: 'SILVER' }],
+                telecomMemberships: [{
+                    providerId: 'skt',
+                    tier: 'SILVER',
+                    mode: 'DISCOUNT',
+                }],
             },
         });
 

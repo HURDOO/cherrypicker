@@ -120,6 +120,13 @@
       "when": 1788418736959,
       "tag": "0016_system-card-onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1788708249644,
+      "tag": "0017_promotion-usage-group",
+      "breakpoints": true
     }
   ]
 }

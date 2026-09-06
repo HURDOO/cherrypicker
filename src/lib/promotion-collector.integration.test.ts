@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import Database from 'better-sqlite3';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as schema from '@/db/schema';
@@ -9,6 +10,8 @@ import {
     officialNaverPayRows,
     officialParisKtHtmlExcerpt,
     officialParisSktHtmlExcerpt,
+    officialSktCuDetailHtmlExcerpt,
+    officialSktCuHtmlExcerpt,
     officialTousLesJoursHtmlExcerpt,
     officialTUniverseBigGuideHtmlExcerpt,
     officialTUniverseDailyPassHtmlExcerpt,
@@ -28,6 +31,7 @@ const sqlite = new Database(':memory:');
 const integrationDb = drizzle(sqlite, { schema });
 let currentNaverPayRows = [...officialNaverPayRows];
 let currentParisKtHtml = officialParisKtHtmlExcerpt;
+let currentSktDetailAvailable = true;
 let originalOpenAiApiKey: string | undefined;
 let collectPromotionCandidates: (
     typeof import('./promotion-collector')
@@ -97,6 +101,17 @@ const fetchOfficialFixture = vi.fn(async (input: string | URL | Request) => {
 
     if (url === promotionOfficialFixtureMetadata.sources.parisSkt) {
         return htmlResponse(officialParisSktHtmlExcerpt);
+    }
+
+    if (url.startsWith(`${promotionOfficialFixtureMetadata.sources.skt}?`)) {
+        return htmlResponse(officialSktCuHtmlExcerpt);
+    }
+
+    if (url === promotionOfficialFixtureMetadata.sources.sktCuDetail) {
+        if (!currentSktDetailAvailable) {
+            return new Response('temporary SKT detail failure', { status: 503 });
+        }
+        return htmlResponse(officialSktCuDetailHtmlExcerpt);
     }
 
     if (url === promotionOfficialFixtureMetadata.sources.tousLesJours) {
@@ -213,9 +228,16 @@ describe('official promotion collection lifecycle', () => {
         expect(firstResults.find(result => result.sourceId === 'paris-kt'))
             .toMatchObject({ discovered: 2, published: 2, reviewRequired: 0 });
         expect(firstResults.find(result => result.sourceId === 'paris-skt'))
-            .toMatchObject({ discovered: 2, published: 2, reviewRequired: 0 });
+            .toMatchObject({ discovered: 2, published: 2, reviewRequired: 0, unchanged: 0 });
         expect(firstResults.find(result => result.sourceId === 'tlj-membership'))
             .toMatchObject({ discovered: 7, published: 7, reviewRequired: 0 });
+        expect(firstResults.find(result => result.sourceId === 'skt-membership'))
+            .toMatchObject({
+                discovered: 4,
+                published: 0,
+                reviewRequired: 4,
+                message: 'SKT 목록 1건과 상세 1건을 완전 수집하고 1개 브랜드를 구조화했습니다.',
+            });
         const firstNaverPayResult = firstResults.find(
             result => result.sourceId === 'naverpay-benefits',
         );
@@ -271,6 +293,28 @@ describe('official promotion collection lifecycle', () => {
             && candidate.audit?.blockingErrors.length === 0
             && candidate.audit.coverage.every(item => item.evidence.length > 0)
         ))).toBe(true);
+        const sktCuBundle = integrationDb.select()
+            .from(schema.promotionSourceBundles)
+            .all()
+            .find(bundle => bundle.collectionSourceId === 'skt-membership');
+        expect(integrationDb.select()
+            .from(schema.promotionSourceBundleDocuments)
+            .all()
+            .filter(row => row.bundleId === sktCuBundle?.id)).toHaveLength(2);
+        expect(integrationDb.select()
+            .from(schema.promotionOffers)
+            .all()
+            .filter(offer => (
+                offer.providerId === 'skt'
+                && offer.brandIds.includes('cu')
+            ))).toHaveLength(0);
+        expect(firstCandidates.filter(candidate => (
+            candidate.diff.collectionSourceId === 'skt-membership'
+        )).every(candidate => (
+            candidate.status === 'PENDING'
+            && candidate.audit?.blockingErrors.length === 0
+            && candidate.parsedOffer.usageGroupId === 'telecom:skt:brand:cu'
+        ))).toBe(true);
         const twosomeCandidate = firstCandidates.find(
             candidate => candidate.diff.sourceKey === twosome.sourceKey,
         );
@@ -287,6 +331,56 @@ describe('official promotion collection lifecycle', () => {
             item => item.evidence.length > 0,
         )).toBe(true);
         expect(electrolandCandidate).toMatchObject({ status: 'PENDING' });
+        expect(integrationDb.select().from(schema.brands).all().some(brand => (
+            brand.id === electroland.discoveredBrand?.id
+        ))).toBe(false);
+
+        const protectedSktPromotionId = autoPromotionId('skt', 'partial-protected');
+        integrationDb.insert(schema.promotionOffers).values({
+            id: protectedSktPromotionId,
+            providerId: 'skt',
+            layer: 'DISCOUNT',
+            title: '부분 수집 보호 검증 혜택',
+            description: '',
+            brandIds: ['cu'],
+            categoryIds: [],
+            channels: ['OFFLINE'],
+            action: { type: 'FLAT', value: 100 },
+            condition: {
+                amountBasis: 'ORIGINAL_AMOUNT',
+                applicabilityScope: 'STORE_WIDE',
+                calculationMode: 'CALCULABLE',
+                telecomModes: ['DISCOUNT'],
+            },
+            compatibility: {},
+            limitConfig: {},
+            certainty: 'CONFIRMED',
+            status: 'PUBLISHED',
+            sourceUrl: promotionOfficialFixtureMetadata.sources.skt,
+        }).run();
+        currentSktDetailAvailable = false;
+        const partialResults = await collectPromotionCandidates();
+        currentSktDetailAvailable = true;
+
+        expect(partialResults.find(result => result.sourceId === 'skt-membership'))
+            .toMatchObject({
+                status: 'partial',
+                discovered: 0,
+                published: 0,
+                reviewRequired: 0,
+                expired: 0,
+            });
+        expect(integrationDb.select().from(schema.promotionOffers)
+            .where(eq(schema.promotionOffers.id, protectedSktPromotionId)).get()?.status)
+            .toBe('PUBLISHED');
+        expect(integrationDb.select().from(schema.promotionCandidates).all().some(candidate => (
+            candidate.linkedPromotionId === protectedSktPromotionId &&
+            candidate.diff.removedFromSource === true
+        ))).toBe(false);
+        integrationDb.update(schema.promotionOffers)
+            .set({ status: 'EXPIRED' })
+            .where(eq(schema.promotionOffers.id, protectedSktPromotionId))
+            .run();
 
         currentNaverPayRows = [officialNaverPayRows[0]];
         await collectPromotionCandidates();

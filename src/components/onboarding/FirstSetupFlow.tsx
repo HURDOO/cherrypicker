@@ -52,6 +52,8 @@ const TELECOM_TIER_ORDER = [
     'VVIP',
 ];
 
+const SKT_TIER_OPTIONS = ['SILVER', 'GOLD', 'VIP'];
+
 const compareTelecomTiers = (left: string, right: string) => {
     const leftIndex = TELECOM_TIER_ORDER.indexOf(left.toLocaleUpperCase('ko-KR'));
     const rightIndex = TELECOM_TIER_ORDER.indexOf(right.toLocaleUpperCase('ko-KR'));
@@ -267,16 +269,20 @@ export function FirstSetupFlow({
     );
     const telecomTierOptions = useMemo(() => {
         if (!selectedTelecomId || !catalog) return [];
-        return [...new Set(catalog.promotions
+        const collectedTiers = [...new Set(catalog.promotions
             .filter(offer => offer.providerId === selectedTelecomId)
             .flatMap(offer => offer.condition.telecomTiers ?? [])
             .map(tier => tier.trim())
             .filter(Boolean))]
             .sort(compareTelecomTiers);
+        if (collectedTiers.length > 0) return collectedTiers;
+        return selectedTelecomId === 'skt' ? SKT_TIER_OPTIONS : [];
     }, [catalog, selectedTelecomId]);
     const isTelecomTierMissing = Boolean(
         selectedTelecomId && telecomTierOptions.length > 0 && !selectedTelecom?.tier
     );
+    const isTelecomModeMissing = selectedTelecomId === 'skt' && !selectedTelecom?.mode;
+    const isTelecomSetupIncomplete = isTelecomTierMissing || isTelecomModeMissing;
 
     return (
         <div className="setup-route-enter min-h-screen bg-gray-50" data-setup-step={step}>
@@ -433,12 +439,44 @@ export function FirstSetupFlow({
                                                         ...(selectedTelecomId === provider.id && selectedTelecom?.tier
                                                             ? { tier: selectedTelecom.tier }
                                                             : {}),
+                                                        ...(selectedTelecomId === provider.id && selectedTelecom?.mode
+                                                            ? { mode: selectedTelecom.mode }
+                                                            : {}),
                                                     }],
                                                 })}
                                             >{provider.name}</SelectionButton>
                                         ))}
                                     </div>
                                 </fieldset>
+                                {selectedTelecomId === 'skt' && (
+                                    <fieldset>
+                                        <legend className="text-xs font-black text-gray-700">
+                                            T멤버십 혜택 유형
+                                        </legend>
+                                        <p className="mt-1 text-[10px] font-bold leading-relaxed text-gray-400">
+                                            T멤버십 앱에서 선택한 유형과 같게 골라주세요. 할인과 적립은 동시에 적용되지 않아요.
+                                        </p>
+                                        <div className="mt-2 grid grid-cols-2 gap-2">
+                                            {([
+                                                ['DISCOUNT', '할인형'],
+                                                ['POINTS', '적립형'],
+                                            ] as const).map(([mode, label]) => (
+                                                <SelectionButton
+                                                    key={mode}
+                                                    selected={selectedTelecom?.mode === mode}
+                                                    disabled={isSaving}
+                                                    onClick={() => void persistProfile({
+                                                        ...benefitProfile,
+                                                        telecomMemberships: [{
+                                                            ...selectedTelecom!,
+                                                            mode,
+                                                        }],
+                                                    })}
+                                                >{label}</SelectionButton>
+                                            ))}
+                                        </div>
+                                    </fieldset>
+                                )}
                                 {selectedTelecomId && telecomTierOptions.length > 0 && (
                                     <fieldset>
                                         <legend className="text-xs font-black text-gray-700">
@@ -458,6 +496,9 @@ export function FirstSetupFlow({
                                                         telecomMemberships: [{
                                                             providerId: selectedTelecomId,
                                                             tier,
+                                                            ...(selectedTelecom?.mode && {
+                                                                mode: selectedTelecom.mode,
+                                                            }),
                                                         }],
                                                     })}
                                                 >{tier}</SelectionButton>
@@ -656,7 +697,7 @@ export function FirstSetupFlow({
                         data-onboarding-navigation
                         disabled={isSaving ||
                             (step === 'CARDS' && selectedCardIds.length === 0) ||
-                            (step === 'BENEFITS' && isTelecomTierMissing)}
+                            (step === 'BENEFITS' && isTelecomSetupIncomplete)}
                         onClick={() => {
                             if (step === 'WELCOME') void goToStep('CARDS');
                             if (step === 'CARDS') void goToStep('BENEFITS');
@@ -677,8 +718,8 @@ export function FirstSetupFlow({
                 </div>
                 {step !== 'WELCOME' && step !== 'CARDS' && step !== 'FAVORITES' && (
                     <p className="mt-2 text-center text-[10px] font-bold text-gray-400">
-                        {step === 'BENEFITS' && isTelecomTierMissing
-                            ? '멤버십 등급을 고르면 CU 같은 제휴 혜택도 정확히 계산할 수 있어요.'
+                        {step === 'BENEFITS' && isTelecomSetupIncomplete
+                            ? '멤버십 혜택 유형과 등급을 모두 고르면 제휴 혜택을 정확히 계산할 수 있어요.'
                             : '아무것도 고르지 않아도 계속할 수 있어요.'}
                     </p>
                 )}

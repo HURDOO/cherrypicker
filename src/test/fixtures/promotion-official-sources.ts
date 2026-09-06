@@ -6,8 +6,10 @@
 export const promotionOfficialFixtureMetadata = {
     collectedAt: '2026-08-23T05:46:36.808Z',
     compositeCollectedAt: '2026-09-02T15:15:10.952Z',
+    sktCuDetailCollectedAt: '2026-09-06T14:01:10.000Z',
     sources: {
         skt: 'https://sktmembership.tworld.co.kr/mps/pc-bff/benefitbrand/list-tab1.do',
+        sktCuDetail: 'https://sktmembership.tworld.co.kr/mps/pc-bff/benefitbrand/detail.do?brandId=146',
         lguplus: 'https://www.lguplus.com/uhdc/fo/prdv/mebfjnco/v1/jnco',
         naverpay: 'https://pay.naver.com/web-api/pub/benefit/payment/accumulation-promotions',
         tUniverseBig: 'https://shop.tworld.co.kr/magazine/plan/twoojoo-benefits-guide.html',
@@ -149,12 +151,47 @@ export const officialSktCuHtmlExcerpt = `
                 </dl>
                 <dl>
                     <dt>적립형</dt>
-                    <dd><div class='info'>1천 원당 100P 적립</div></dd>
+                    <dd>
+                        <div class='info'>
+                            <span class='badge-list'>
+                                <i class="badge-circle vip"><span class='blind'>V</span></i>
+                                <i class="badge-circle gold"><span class='blind'>G</span></i>
+                            </span>
+                            1천 원당 100P 적립
+                        </div>
+                        <div class='info'>
+                            <span class='badge-list'>
+                                <i class="badge-circle silver"><span class='blind'>S</span></i>
+                            </span>
+                            1천 원당 50P 적립
+                        </div>
+                    </dd>
                 </dl>
             </div>
             <span class="btn-round gra">자세히 보기</span>
         </a>
     </li>
+    <script>var totalCount = 1;</script>
+    <input type="hidden" name="pageNum" value="0" />
+    <input type="hidden" name="pageSize" value="20" />
+    <input type="hidden" name="sortType" value="BRAND_NAME" />
+    <input type="hidden" name="lastPageYn" value="Y" />
+`;
+
+export const officialSktCuDetailHtmlExcerpt = `
+    <h1>CU</h1>
+    <div class="benefit-info">
+        <h2>유의사항</h2>
+        <ul>
+            <li>할인/적립 횟수 : 1일 1회</li>
+            <li>포인트 사용 횟수 : 제한 없음</li>
+            <li>일 최대 할인 가능 : VIP/GOLD 20,000원, SILVER 10,000원</li>
+            <li>일 최대 적립 가능 : VIP/GOLD 20,000P, SILVER 10,000P</li>
+            <li>1천 원 이상 금액 결제 시 혜택 적용</li>
+            <li>할인/적립/사용 제외 상품 : 행사 상품(1+1, 2+1 등), 담배, 주류, 종량제 봉투, 안전상비의약품, 유가증권 등</li>
+            <li>일부 특수 매장에서는 할인/적립/사용 불가합니다.</li>
+        </ul>
+    </div>
 `;
 
 export const officialLguplusRows = [{

@@ -74,6 +74,11 @@ export function BenefitProfileSettings() {
         [providers]
     );
     const selectedTelecom = profile.telecomMemberships[0];
+    const requiresTelecomMode = selectedTelecom?.providerId === 'skt';
+    const isTelecomTierMissing = Boolean(selectedTelecom && !selectedTelecom.tier?.trim());
+    const isTelecomProfileIncomplete = isTelecomTierMissing || Boolean(
+        requiresTelecomMode && !selectedTelecom?.mode
+    );
 
     useEffect(() => {
         if (storageMode !== 'guest') return;
@@ -277,7 +282,17 @@ export function BenefitProfileSettings() {
                                 key={provider.id}
                                 onClick={() => setProfile(current => ({
                                     ...current,
-                                    telecomMemberships: [{ providerId: provider.id }],
+                                    telecomMemberships: [{
+                                        providerId: provider.id,
+                                        ...(selectedTelecom?.providerId === provider.id &&
+                                            selectedTelecom.tier && {
+                                            tier: selectedTelecom.tier,
+                                        }),
+                                        ...(selectedTelecom?.providerId === provider.id &&
+                                            selectedTelecom.mode && {
+                                            mode: selectedTelecom.mode,
+                                        }),
+                                    }],
                                 }))}
                                 className={`rounded-xl border px-3 py-2 text-xs font-black ${
                                     selectedTelecom?.providerId === provider.id
@@ -290,18 +305,64 @@ export function BenefitProfileSettings() {
                         ))}
                     </div>
                     {selectedTelecom && (
-                        <input
-                            value={selectedTelecom.tier ?? ''}
-                            onChange={event => setProfile(current => ({
-                                ...current,
-                                telecomMemberships: [{
-                                    ...selectedTelecom,
-                                    tier: event.target.value,
-                                }],
-                            }))}
-                            placeholder="등급 입력 (예: VIP, VVIP)"
-                            className="mt-3 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-bold outline-none focus:border-blue-500"
-                        />
+                        <>
+                            {requiresTelecomMode && (
+                                <fieldset className="mt-3">
+                                    <legend className="text-[10px] font-black text-gray-500">
+                                        T멤버십 혜택 유형
+                                    </legend>
+                                    <p className="mt-1 text-[10px] font-bold leading-relaxed text-gray-400">
+                                        T멤버십 앱에서 선택한 할인형 또는 적립형과 같아야 정확히 계산돼요.
+                                    </p>
+                                    <div className="mt-2 grid grid-cols-2 gap-2">
+                                        {([
+                                            ['DISCOUNT', '할인형'],
+                                            ['POINTS', '적립형'],
+                                        ] as const).map(([mode, label]) => (
+                                            <button
+                                                type="button"
+                                                key={mode}
+                                                aria-pressed={selectedTelecom.mode === mode}
+                                                onClick={() => setProfile(current => ({
+                                                    ...current,
+                                                    telecomMemberships: [{
+                                                        ...selectedTelecom,
+                                                        mode,
+                                                    }],
+                                                }))}
+                                                className={`rounded-xl border px-3 py-2 text-xs font-black ${
+                                                    selectedTelecom.mode === mode
+                                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                                        : 'border-gray-200 text-gray-500'
+                                                }`}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </fieldset>
+                            )}
+                            <input
+                                aria-label="멤버십 등급"
+                                value={selectedTelecom.tier ?? ''}
+                                onChange={event => setProfile(current => ({
+                                    ...current,
+                                    telecomMemberships: [{
+                                        ...selectedTelecom,
+                                        tier: event.target.value,
+                                    }],
+                                }))}
+                                placeholder="등급 입력 (예: VIP, VVIP)"
+                                className="mt-3 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-bold outline-none focus:border-blue-500"
+                            />
+                            {isTelecomProfileIncomplete && (
+                                <p className="mt-2 text-[10px] font-bold text-amber-600">
+                                    {requiresTelecomMode
+                                        ? 'T멤버십 혜택 유형과 등급을 모두 입력해주세요.'
+                                        : '멤버십 등급을 입력해주세요.'}
+                                </p>
+                            )}
+                        </>
                     )}
                 </div>
 
@@ -552,7 +613,8 @@ export function BenefitProfileSettings() {
                 <button
                     type="button"
                     onClick={save}
-                    disabled={isSaving || Boolean(savingSubscriptionProviderId)}
+                    disabled={isSaving || Boolean(savingSubscriptionProviderId) ||
+                        isTelecomProfileIncomplete}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 py-3 text-xs font-black text-white disabled:opacity-60"
                 >
                     {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}

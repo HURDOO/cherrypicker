@@ -349,6 +349,7 @@ export const promotionOffers = sqliteTable('promotion_offers', {
     providerId: text('provider_id')
         .notNull()
         .references(() => promotionProviders.id),
+    usageGroupId: text('usage_group_id'),
     layer: text('layer').$type<BenefitLayer>().notNull(),
     title: text('title').notNull(),
     description: text('description').notNull(),
@@ -378,6 +379,7 @@ export const promotionOffers = sqliteTable('promotion_offers', {
         .default(nowInMilliseconds),
 }, (table) => [
     index('promotion_offers_provider_idx').on(table.providerId),
+    index('promotion_offers_usage_group_idx').on(table.usageGroupId),
     index('promotion_offers_layer_status_idx').on(table.layer, table.status),
     index('promotion_offers_period_idx').on(table.startsAt, table.endsAt),
 ]);

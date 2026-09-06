@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { summarizePromotionCollectionRun } from './promotion-collection-run';
 
 const result = (
-    status: 'created' | 'unchanged' | 'failed' | 'skipped',
+    status: 'created' | 'unchanged' | 'partial' | 'failed' | 'skipped',
     counts: Partial<{
         discovered: number;
         published: number;
@@ -42,7 +42,7 @@ describe('promotion collection run summary', () => {
     it('distinguishes partial and total collection failures', () => {
         expect(summarizePromotionCollectionRun([
             result('unchanged'),
-            result('failed'),
+            result('partial'),
         ]).status).toBe('PARTIAL');
         expect(summarizePromotionCollectionRun([
             result('failed'),

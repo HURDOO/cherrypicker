@@ -13,6 +13,7 @@ import type {
     PromotionOffer,
     PromotionApplicabilityScope,
     PromotionRequiredInput,
+    TelecomMembershipMode,
     PromotionValueSemantics,
 } from '@/types';
 
@@ -58,6 +59,7 @@ const requiredInputTypes: PromotionRequiredInput[] = [
     'STORE_ELIGIBILITY',
     'PAYMENT_INSTRUMENT',
 ];
+const telecomModes: TelecomMembershipMode[] = ['DISCOUNT', 'POINTS'];
 
 const record = (value: unknown, label: string): Input => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -154,6 +156,9 @@ export function normalizePromotionDraft(value: unknown): NormalizedPromotionDraf
         ...(optionalNumber(actionInput.faceValue, '상품권 액면가') !== undefined && {
             faceValue: optionalNumber(actionInput.faceValue, '상품권 액면가'),
         }),
+        ...(optionalNumber(actionInput.unitAmount, '계산 단위', 1_000_000_000_000) !== undefined && {
+            unitAmount: optionalNumber(actionInput.unitAmount, '계산 단위', 1_000_000_000_000),
+        }),
     };
 
     const conditionInput = record(input.condition ?? {}, '혜택 조건');
@@ -194,6 +199,14 @@ export function normalizePromotionDraft(value: unknown): NormalizedPromotionDraf
     if (itemScoped && !requiredInputs.includes('ELIGIBLE_ITEM_AMOUNT')) {
         requiredInputs.push('ELIGIBLE_ITEM_AMOUNT');
     }
+    const rawTelecomModes = stringList(
+        conditionInput.telecomModes ?? [],
+        '통신사 혜택 유형',
+        2,
+    ) as TelecomMembershipMode[];
+    if (rawTelecomModes.some(mode => !telecomModes.includes(mode))) {
+        throw new HttpError(400, '통신사 혜택 유형이 올바르지 않습니다.');
+    }
     const condition: PromotionCondition = {
         amountBasis: amountBasis as PromotionCondition['amountBasis'],
         applicabilityScope,
@@ -211,6 +224,7 @@ export function normalizePromotionDraft(value: unknown): NormalizedPromotionDraf
             minSpend: optionalNumber(conditionInput.minSpend, '최소 결제금액'),
         }),
         telecomTiers: stringList(conditionInput.telecomTiers ?? [], '통신사 등급', 100),
+        telecomModes: rawTelecomModes,
         requiredSubscriptionProducts: stringList(
             conditionInput.requiredSubscriptionProducts ?? [],
             '필수 구독 상품',
@@ -275,6 +289,14 @@ export function normalizePromotionDraft(value: unknown): NormalizedPromotionDraf
         ...(optionalNumber(limitInput.monthlyAmount, '월 혜택 한도') !== undefined && {
             monthlyAmount: optionalNumber(limitInput.monthlyAmount, '월 혜택 한도'),
         }),
+        sharedFields: stringList(limitInput.sharedFields ?? [], '공유 한도 필드', 5)
+            .filter(field => [
+                'dailyCount',
+                'dailyAmount',
+                'monthlyCount',
+                'monthlyAmount',
+                'yearlyCount',
+            ].includes(field)) as LimitConfig['sharedFields'],
     };
 
     const startsAt = optionalDate(input.startsAt, '시작일');
@@ -285,6 +307,9 @@ export function normalizePromotionDraft(value: unknown): NormalizedPromotionDraf
 
     return {
         providerId: string(input.providerId, '제공자', 200),
+        usageGroupId: input.usageGroupId
+            ? string(input.usageGroupId, '공유 이용 한도 그룹', 200)
+            : null,
         layer,
         title: string(input.title, '혜택명', 300),
         description: typeof input.description === 'string'

@@ -563,7 +563,7 @@ export async function classifyParsedPromotions(
 ) {
     const classified: ParsedPromotion[] = [];
     for (const offer of parsed) {
-        const analysis = await classifier.classify(offer);
+        const analysis = offer.semanticAnalysis ?? await classifier.classify(offer);
         classified.push(applyPromotionSemanticAnalysis(offer, analysis));
     }
     return classified;

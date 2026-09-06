@@ -128,7 +128,7 @@ type CollectionResult = {
     sourceId: string;
     sourceUrl: string;
     label: string;
-    status: 'created' | 'unchanged' | 'failed' | 'skipped';
+    status: 'created' | 'unchanged' | 'partial' | 'failed' | 'skipped';
     discovered: number;
     published: number;
     reviewRequired: number;
@@ -1597,9 +1597,11 @@ export function PromotionAdminClient() {
             const published = result.results.reduce((sum, item) => sum + item.published, 0);
             const reviewRequired = result.results.reduce((sum, item) => sum + item.reviewRequired, 0);
             const failed = result.results.filter(item => item.status === 'failed').length;
+            const partial = result.results.filter(item => item.status === 'partial').length;
             addToast(
                 `신규 ${discovered}건 · 자동 게시 ${published}건` +
                 `${reviewRequired ? ` · 검수 ${reviewRequired}건` : ''}` +
+                `${partial ? ` · 부분 수집 ${partial}곳` : ''}` +
                 `${failed ? ` · 실패 ${failed}곳` : ''}`,
                 failed ? 'error' : 'success'
             );
@@ -1747,7 +1749,11 @@ export function PromotionAdminClient() {
                 {collectionResults.length > 0 && (
                     <details className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                         <summary className="cursor-pointer text-xs font-black text-gray-800">
-                            마지막 수집 결과 · {collectionResults.filter(item => item.status === 'failed').length}곳 실패
+                            마지막 수집 결과 · {collectionResults.filter(item => (
+                                item.status === 'failed'
+                            )).length}곳 실패 · {collectionResults.filter(item => (
+                                item.status === 'partial'
+                            )).length}곳 부분 수집
                         </summary>
                         <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                             {collectionResults.map(result => (
@@ -1764,11 +1770,19 @@ export function PromotionAdminClient() {
                                         <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black ${
                                             result.status === 'failed'
                                                 ? 'bg-rose-100 text-rose-700'
+                                                : result.status === 'partial'
+                                                    ? 'bg-amber-100 text-amber-700'
                                                 : result.status === 'skipped'
                                                     ? 'bg-gray-200 text-gray-600'
                                                     : 'bg-emerald-100 text-emerald-700'
                                         }`}>
-                                            {result.status === 'failed' ? '실패' : result.status === 'skipped' ? '제외' : '정상'}
+                                            {result.status === 'failed'
+                                                ? '실패'
+                                                : result.status === 'partial'
+                                                    ? '부분'
+                                                    : result.status === 'skipped'
+                                                        ? '제외'
+                                                        : '정상'}
                                         </span>
                                     </div>
                                     <p className="mt-1 text-[10px] text-gray-500">

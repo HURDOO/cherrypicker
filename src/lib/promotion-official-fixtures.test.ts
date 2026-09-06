@@ -4,6 +4,7 @@ import {
     officialNaverPayRows,
     officialParisKtHtmlExcerpt,
     officialParisSktHtmlExcerpt,
+    officialSktCuDetailHtmlExcerpt,
     officialSktCuHtmlExcerpt,
     officialTousLesJoursHtmlExcerpt,
     promotionOfficialFixtureMetadata,
@@ -31,17 +32,56 @@ describe('preserved official promotion response fixtures', () => {
         const offers = parseSktMembershipHtml(
             officialSktCuHtmlExcerpt,
             promotionOfficialFixtureMetadata.sources.skt,
+            { '146': officialSktCuDetailHtmlExcerpt },
         );
 
-        expect(offers).toHaveLength(2);
+        expect(offers).toHaveLength(4);
         expect(offers.map(offer => ({
             tiers: offer.offer.condition.telecomTiers,
+            mode: offer.offer.condition.telecomModes?.[0],
+            type: offer.offer.action.type,
             value: offer.offer.action.value,
+            dailyCount: offer.offer.limitConfig.dailyCount,
+            dailyAmount: offer.offer.limitConfig.dailyAmount,
+            minSpend: offer.offer.condition.minSpend,
         }))).toEqual([
-            { tiers: ['VIP', 'GOLD'], value: 10 },
-            { tiers: ['SILVER'], value: 5 },
+            {
+                tiers: ['VIP', 'GOLD'], mode: 'DISCOUNT', type: 'PERCENT', value: 10,
+                dailyCount: 1, dailyAmount: 20_000, minSpend: 1_000,
+            },
+            {
+                tiers: ['SILVER'], mode: 'DISCOUNT', type: 'PERCENT', value: 5,
+                dailyCount: 1, dailyAmount: 10_000, minSpend: 1_000,
+            },
+            {
+                tiers: ['VIP', 'GOLD'], mode: 'POINTS', type: 'POINTS', value: 10,
+                dailyCount: 1, dailyAmount: 20_000, minSpend: 1_000,
+            },
+            {
+                tiers: ['SILVER'], mode: 'POINTS', type: 'POINTS', value: 5,
+                dailyCount: 1, dailyAmount: 10_000, minSpend: 1_000,
+            },
         ]);
-        expect(offers.every(offer => offer.autoPublish)).toBe(true);
+        expect(offers.every(offer => offer.autoPublish === false)).toBe(true);
+        expect(new Set(offers.map(offer => offer.offer.usageGroupId))).toEqual(
+            new Set(['telecom:skt:brand:cu'])
+        );
+        expect(offers.every(offer => createPromotionCandidateAudit({
+            candidate: offer.offer as unknown as Record<string, unknown>,
+            evidenceTexts: [offer.evidence],
+            documents: [{
+                id: 'official-skt-list',
+                sourceUrl: promotionOfficialFixtureMetadata.sources.skt,
+                extractedText: htmlToText(officialSktCuHtmlExcerpt),
+            }, {
+                id: 'official-skt-cu-detail',
+                sourceUrl: promotionOfficialFixtureMetadata.sources.sktCuDetail,
+                extractedText: htmlToText(officialSktCuDetailHtmlExcerpt),
+            }],
+            fieldEvidence: offer.fieldEvidence,
+            expectedFields: offer.expectedFields,
+            requiredEvidenceSourceUrl: offer.requiredEvidenceSourceUrl,
+        }).blockingErrors.length === 0)).toBe(true);
     });
 
     it('keeps both official Paris Baguette membership pages calculable', () => {

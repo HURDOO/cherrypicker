@@ -66,9 +66,9 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 2. 신규 workspace는 `/setup` 소개에서 시작하고 `/setup/cards`, `/setup/benefits`, `/setup/performance`, `/setup/favorites`, `/setup/recommendation` 순서로 App Router client navigation을 사용한다. URL로 이동한 단계와 선택한 시스템 카드 ID를 IndexedDB에 동기화하므로 브라우저 뒤로가기·새로고침 뒤에도 같은 지점에서 이어갈 수 있다.
 3. 완료 전 마지막 경로는 브랜드 선택·금액 입력·결과 공개를 3단계로 안내한다. 브랜드 선택 전에는 `calculateBestCombinations`로 멤버십·구독·페이·카드의 현재 실적·남은 한도·기간·요일·시간·온오프라인 조건을 함께 시뮬레이션한다. 즐겨찾기·사용 이력·인기 브랜드를 우선으로, 확정 혜택을 받을 수 있는 브랜드 수와 예시 결제 금액·혜택 금액을 제안한다. 추천 응답을 확인한 뒤 완료 시각을 저장하며, 조합이 없는 정상 응답도 사용자를 설정 흐름에 가두지 않는다.
 4. 홈 화면은 실제 브랜드를 `BRAND`, 미지원 결제처를 `GENERAL` 결제 대상으로 구분하고 금액, 온라인 여부와 사용자가 확인한 조건을 조합 계산기에 전달한다. 대상 종류와 실제 브랜드 ID만 URL search param에 보존하며 금액과 일반 결제 표시명은 URL에 넣지 않는다.
-5. `src/utils/combination.ts`와 `src/utils/calculation.ts`가 선택한 시스템 카드와 개인 카드를 대상으로 프로모션 계층, 카드 규칙, 한도, 이용 이력과 실적 목표를 비교한다. `GENERAL` 대상은 브랜드·카테고리·상품 범위가 없는 일반 적용 규칙만 후보로 삼으며 공용 카탈로그에 가상 브랜드를 추가하지 않는다.
+5. `src/utils/combination.ts`와 `src/utils/calculation.ts`가 선택한 시스템 카드와 개인 카드를 대상으로 프로모션 계층, 카드 규칙, 한도, 이용 이력과 실적 목표를 비교한다. 확정 혜택만 기본 순위·확정 결제액·실적 기여액에 반영하고, 미확인 조건은 사용자 확인 전 `조건 충족 시`, 승인 경로나 최대치처럼 자동 확정할 수 없는 값은 `정보 제공`으로 분리한다. SKT는 프로필의 등급과 할인형·적립형이 모두 일치할 때만 적용하고, `1천 원당` 혜택은 완성된 1,000원 단위만 계산한다. `GENERAL` 대상은 브랜드·카테고리·상품 범위가 없는 일반 적용 규칙만 후보로 삼으며 공용 카탈로그에 가상 브랜드를 추가하지 않는다.
 6. 현재 추천은 로컬에서 계산하며, 기존 서버 계정 데이터 경로의 `/api/recommendations`도 같은 도메인 계산기를 공유한다.
-7. 확정한 결제는 결제 대상 종류·표시명, 조합·카탈로그 snapshot과 함께 로컬 workspace에 원자적으로 추가되고 현재 실적을 갱신한다. 기존 `brandId`만 있는 기록은 `BRAND` 대상으로 계속 읽는다.
+7. 사용자가 조건을 모두 확인한 조합만 한 번의 행동으로 기록한다. 로컬 workspace와 계정 API는 결제 기록·확정 혜택 사용량·카드 승인금액 기준 현재 실적을 각각 하나의 트랜잭션에서 갱신하며, 결제 대상 종류·표시명·조합·카탈로그 snapshot을 보존한다. 프로모션 step에는 필요할 때 안정적인 `promotionUsageGroupId`도 저장해, 이후 유형이나 등급이 바뀌어도 같은 공식 혜택의 공유 한도를 과거 snapshot에서 집계한다. 기록 후 같은 입력의 추천은 새 실적과 남은 한도로 다시 계산하고, 과거 snapshot은 다시 계산하지 않는다. 기존 `brandId`만 있는 기록은 `BRAND` 대상으로 계속 읽는다.
 
 ### 3.3 선택적 계정 동기화
 
@@ -80,10 +80,10 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 ### 3.4 수집·게시 흐름
 
 1. 카드별 출처 registry 또는 DB 출처 설정으로 허용 host·HTML·PDF를 수집한다.
-2. 원문, extracted text, response metadata, content hash와 source bundle을 보존한다.
-3. 카드 혜택은 AI 인벤토리→BenefitRule 후보와 근거 연결 단계를 거친다. 지원되는 일부 adapter는 AI 실패 시 보수적 규칙 추출로 대체한다.
+2. 원문, extracted text, response metadata, content hash와 source bundle을 보존한다. SKT adapter는 공식 `totalCount`와 이름순 20건 페이지를 기준으로 전체 목록을 검증한 뒤 각 공식 브랜드 ID의 상세를 동시 요청 4개 이하로 수집하고, 시작 목록을 다시 확인해 수집 중 변동도 감지한다.
+3. 카드 혜택은 AI 인벤토리→BenefitRule 후보와 근거 연결 단계를 거친다. 지원되는 일부 adapter는 AI 실패 시 보수적 규칙 추출로 대체한다. SKT는 반대로 규칙 parser를 먼저 적용하고 한 브랜드의 모든 variant가 미해석된 경우에만 해당 공개 목록·상세를 strict schema의 AI 보조 parser에 보낸다. AI 결과는 input hash로 재사용하며 원문 인용·variant 완전성 검증에 실패하면 SKT 출처 전체를 `partial`로 낮춘다.
 4. schema, 근거 인용, 참조 무결성, 숫자·한도, 필드 제거·변경 위험을 audit한다.
-5. 승인 가능 후보만 사람 관리자가 게시하고, revision snapshot을 활성화한다. 프로모션도 공식 근거·diff·검수 정책을 거친다.
+5. 승인 가능 후보만 사람 관리자가 게시하고, revision snapshot을 활성화한다. 프로모션도 공식 근거·diff·검수 정책을 거친다. SKT 목록·상세가 하나라도 빠진 bundle은 `partial`로 보존하되 성공 출처 집합에는 넣지 않으며 후보 생성·자동 게시·삭제 관측을 수행하지 않는다.
 
 ## 4. 주요 모듈과 책임
 
@@ -126,10 +126,10 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 ### 5.3 프로모션 수집
 
 - 제공자·구독: `promotion_providers`, `subscription_products`
-- 게시 혜택: `promotion_offers`
+- 게시 혜택: `promotion_offers`. `usage_group_id`는 하나의 공식 혜택에서 파생된 유형·등급 variant가 공유할 일·월·연 한도를 식별한다.
 - 원문 bundle: `promotion_source_documents`, `promotion_source_bundles`, 연결 테이블
 - 후보·실행: `promotion_candidates`, `promotion_collection_runs`
-- 구조화 안전장치: 출처별 parser가 반복 확인된 표시 금액, 항목별 U+ 혜택, 상품·카테고리·고객 범위와 복합 정보용 혜택을 구조화한다. 공식 API 필드와 표시 문구의 충돌이 단일 원문 안에서 해소되지 않으면 `autoPublish`를 차단하고 후보로 남긴다.
+- 구조화 안전장치: 출처별 parser가 반복 확인된 표시 금액, 항목별 U+ 혜택, 상품·카테고리·고객 범위와 복합 정보용 혜택을 구조화한다. SKT parser는 할인형·적립형을 별도 action으로 만들고 상세의 횟수·혜택 금액 상한·최소 결제·상품 범위·채널·카드 형태 조건을 필드별 근거와 연결한다. 쿠폰 다운로드 앱을 구매 채널로 간주하지 않으며, 목록·상세에 같은 문장이 있어도 요구된 브랜드 상세 문서 안에서 근거 존재를 별도로 확인한다. 규칙 미해석 브랜드의 AI 보조 결과는 원문 hash, provider·model, variant와 field evidence를 후보 diff에 보존한다. 복수 혜택·요율이나 상품·대상 계산을 단일 금액으로 확정할 수 없으면 정보 제공 또는 조건부로 낮추며, 모든 신규·변경 SKT 후보는 사람 검수 전 게시하지 않는다. 공식 API 필드와 표시 문구의 충돌이 단일 원문 안에서 해소되지 않으면 `autoPublish`를 차단하고 후보로 남긴다.
 - 자동 삭제: `promotion_candidates.diff.removalObservation`에 완전 수집별 출처 bundle과 시각을 누적한다. 첫 누락 5분 뒤 자동 재수집에서도 사라진 경우만 `REMOVAL_AUTO_CONFIRMED`로 승인하고, 자동 처리 주체·정책·관측 목록을 같은 diff에 보존한다. CLI는 두 번째 수집까지 프로세스를 유지하고, 관리자 수동 수집은 단일 앱 프로세스의 중복 방지 타이머로 재확인한다. 재시작으로 타이머가 사라져도 후보가 DB에 남아 다음 완전 수집에서 다시 판정된다.
 
 ### 5.4 계정·거래

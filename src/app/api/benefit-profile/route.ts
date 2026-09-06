@@ -12,7 +12,11 @@ import {
     toPromotionProvider,
     toSubscriptionProduct,
 } from '@/lib/db-mappers';
-import type { BenefitSubscription, TelecomMembership } from '@/types';
+import type {
+    BenefitSubscription,
+    TelecomMembership,
+    TelecomMembershipMode,
+} from '@/types';
 import {
     canonicalizeSubscriptionProductName,
     normalizeSubscriptionProductName,
@@ -74,9 +78,15 @@ export async function PUT(request: Request) {
             if (row.tier !== undefined && typeof row.tier !== 'string') {
                 throw new HttpError(400, '멤버십 등급 형식이 올바르지 않습니다.');
             }
+            if (row.mode !== undefined && !['DISCOUNT', 'POINTS'].includes(String(row.mode))) {
+                throw new HttpError(400, '멤버십 혜택 유형 형식이 올바르지 않습니다.');
+            }
             return {
                 providerId: row.providerId.trim(),
                 ...(row.tier && { tier: String(row.tier).trim().slice(0, 100) }),
+                ...((row.mode === 'DISCOUNT' || row.mode === 'POINTS') && {
+                    mode: row.mode as TelecomMembershipMode,
+                }),
             };
         });
         const rawSubscriptions = input.subscriptions ?? [];

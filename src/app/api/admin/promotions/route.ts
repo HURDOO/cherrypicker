@@ -140,6 +140,24 @@ function reviewCandidate(
     };
 
     db.transaction(tx => {
+        const discoveredBrand = candidate.diff.discoveredBrand;
+        if (discoveredBrand && typeof discoveredBrand === 'object' &&
+            !Array.isArray(discoveredBrand)) {
+            const row = discoveredBrand as Record<string, unknown>;
+            if (
+                typeof row.id === 'string' && row.id &&
+                typeof row.name === 'string' && row.name &&
+                typeof row.categoryId === 'string' && row.categoryId &&
+                typeof row.iconName === 'string' && row.iconName
+            ) {
+                tx.insert(brands).values({
+                    id: row.id,
+                    name: row.name,
+                    categoryId: row.categoryId,
+                    iconName: row.iconName,
+                }).onConflictDoNothing().run();
+            }
+        }
         tx.insert(promotionOffers)
             .values({ id: promotionId, ...values })
             .onConflictDoUpdate({

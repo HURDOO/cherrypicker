@@ -108,6 +108,7 @@ const toCatalogSubscriptionProduct = (
 const toCatalogPromotion = (offer: PromotionOffer): CatalogPromotionOffer => ({
     id: offer.id,
     providerId: offer.providerId,
+    ...(offer.usageGroupId && { usageGroupId: offer.usageGroupId }),
     layer: offer.layer,
     title: offer.title,
     description: offer.description,

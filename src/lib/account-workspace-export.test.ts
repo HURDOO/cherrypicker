@@ -118,6 +118,27 @@ describe('account workspace export', () => {
             .toBe(100);
     });
 
+    it('round-trips an SKT mode while preserving legacy profiles without one', () => {
+        const workspace = createExport();
+        workspace.benefitProfile.telecomMemberships = [{
+            providerId: 'skt',
+            tier: 'VIP',
+            mode: 'POINTS',
+        }];
+        expect(parseAccountWorkspaceExport(workspace).benefitProfile.telecomMemberships)
+            .toEqual([{ providerId: 'skt', tier: 'VIP', mode: 'POINTS' }]);
+
+        delete workspace.benefitProfile.telecomMemberships[0].mode;
+        expect(parseAccountWorkspaceExport(workspace).benefitProfile.telecomMemberships)
+            .toEqual([{ providerId: 'skt', tier: 'VIP' }]);
+
+        (workspace.benefitProfile.telecomMemberships[0] as unknown as Record<string, unknown>).mode =
+            'UNKNOWN';
+        expect(() => parseAccountWorkspaceExport(workspace)).toThrow(
+            '통신사 멤버십 혜택 유형이 올바르지 않습니다.'
+        );
+    });
+
     it('round-trips a general payment target without a catalog brand', () => {
         const workspace = createExport();
         workspace.history[0] = {

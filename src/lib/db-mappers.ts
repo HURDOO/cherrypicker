@@ -144,6 +144,7 @@ export function toPromotionOffer(
     return {
         id: row.id,
         providerId: row.providerId,
+        ...(row.usageGroupId && { usageGroupId: row.usageGroupId }),
         layer: row.layer,
         title: row.title,
         description: row.description,

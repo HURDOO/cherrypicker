@@ -17,13 +17,19 @@ import {
     classifyParsedPromotions,
     createPromotionSemanticClassifier,
 } from './promotion-semantic-classifier';
-import type { PromotionCandidateAudit, PromotionSemanticAnalysis } from '@/types';
+import type {
+    PromotionCandidateAudit,
+    PromotionSemanticAnalysis,
+    PromotionSourceDocumentMetadata,
+} from '@/types';
 import {
     parseLguplusBenefits,
     parseNaverPayPromotions,
     parseParisMembershipHtml,
     parseSktMembershipHtml,
     parseTousLesJoursHtml,
+    extractSktDetailText,
+    extractSktMembershipBrandSources,
     htmlToText,
     type ParsedPromotion,
 } from './promotion-parsers';
@@ -31,7 +37,11 @@ import {
     parseTUniverseSources,
     type ParsedSubscriptionProduct,
 } from './t-universe-parser';
-import { createPromotionCandidateAudit } from './promotion-candidate-audit';
+import {
+    createPromotionCandidateAudit,
+    preparePromotionAuditDocuments,
+    type PromotionAuditDocument,
+} from './promotion-candidate-audit';
 import {
     persistPromotionSourceBundle,
     type CollectedPromotionSourceDocument,
@@ -53,6 +63,17 @@ import {
     canAutomaticallyPublishPromotionCandidate,
     shouldPreserveReviewedPromotionCandidate,
 } from './promotion-review-policy';
+import {
+    buildSktMembershipDetailUrl,
+    buildSktMembershipListUrl,
+    parseSktMembershipListPage,
+    validateSktMembershipListPages,
+} from './skt-membership-source';
+import {
+    createSktPromotionAiParser,
+    type SktPromotionAiCachedResult,
+    type SktPromotionAiParser,
+} from './skt-promotion-ai-parser';
 
 type PromotionSource = {
     id: string;
@@ -69,7 +90,7 @@ export type PromotionCollectionResult = {
     sourceId: string;
     sourceUrl: string;
     label: string;
-    status: 'created' | 'unchanged' | 'failed' | 'skipped';
+    status: 'created' | 'unchanged' | 'partial' | 'failed' | 'skipped';
     discovered: number;
     published: number;
     reviewRequired: number;
@@ -102,6 +123,12 @@ export const promotionSources: PromotionSource[] = [
         legacyUrls: [T_UNIVERSE_DAILY_PASS_URL, T_UNIVERSE_OLIVE_STARBUCKS_URL],
     },
     {
+        id: 'skt-membership',
+        url: SKT_URL,
+        label: 'T멤버십 제휴 브랜드',
+        kind: 'skt-html',
+    },
+    {
         id: 'paris-kt',
         url: PARIS_KT_URL,
         label: '파리바게뜨 KT멤버십',
@@ -118,12 +145,6 @@ export const promotionSources: PromotionSource[] = [
         url: TLJ_URL,
         label: '뚜레쥬르 통신 3사 혜택',
         kind: 'tlj-html',
-    },
-    {
-        id: 'skt-membership',
-        url: SKT_URL,
-        label: 'T멤버십 제휴 브랜드',
-        kind: 'skt-html',
     },
     {
         id: 'lguplus-membership',
@@ -205,7 +226,7 @@ const responseMetadata = (
     response: Response,
     requestedUrl: string,
     contentType: string,
-) => ({
+): PromotionSourceDocumentMetadata => ({
     ...(contentType && { contentType }),
     ...(response.headers.get('etag') && { etag: response.headers.get('etag')! }),
     ...(response.headers.get('last-modified') && {
@@ -320,9 +341,287 @@ type ParsedSource = {
     promotions: ParsedPromotion[];
     products: ParsedSubscriptionProduct[];
     documents: CollectedPromotionSourceDocument[];
+    completeness?: {
+        complete: boolean;
+        message: string;
+    };
 };
 
-async function parseSource(source: PromotionSource): Promise<ParsedSource> {
+type HtmlFetchResult = Awaited<ReturnType<typeof fetchHtml>>;
+
+async function mapSettledWithConcurrency<T, R>(
+    values: T[],
+    concurrency: number,
+    mapper: (value: T) => Promise<R>,
+) {
+    const results: Array<PromiseSettledResult<R> | undefined> = Array(values.length);
+    let cursor = 0;
+    const workers = Array.from(
+        { length: Math.min(Math.max(1, concurrency), values.length) },
+        async () => {
+            while (cursor < values.length) {
+                const index = cursor;
+                cursor += 1;
+                try {
+                    results[index] = { status: 'fulfilled', value: await mapper(values[index]) };
+                } catch (reason) {
+                    results[index] = { status: 'rejected', reason };
+                }
+            }
+        },
+    );
+    await Promise.all(workers);
+    return results as PromiseSettledResult<R>[];
+}
+
+const failureMessage = (reason: unknown) => reason instanceof Error
+    ? reason.message
+    : '알 수 없는 수집 오류';
+
+export async function collectSktMembershipSource(
+    sourceUrl: string,
+    fetcher: (url: string) => Promise<HtmlFetchResult> = fetchHtml,
+    aiParser: SktPromotionAiParser = createSktPromotionAiParser(),
+): Promise<ParsedSource> {
+    const firstUrl = buildSktMembershipListUrl(sourceUrl, 0);
+    const first = await fetcher(firstUrl);
+    const firstPage = parseSktMembershipListPage(first.value);
+    const expectedPageCount = Math.ceil(firstPage.totalCount / firstPage.pageSize);
+    const remainingPageUrls = Array.from(
+        { length: Math.max(0, expectedPageCount - 1) },
+        (_, index) => buildSktMembershipListUrl(sourceUrl, index + 1),
+    );
+    const pageResults = await mapSettledWithConcurrency(
+        remainingPageUrls,
+        4,
+        fetcher,
+    );
+    const successfulPages = pageResults.flatMap(result => (
+        result.status === 'fulfilled' ? [result.value] : []
+    ));
+    const failedPageUrls = pageResults.flatMap((result, index) => (
+        result.status === 'rejected' ? [remainingPageUrls[index]] : []
+    ));
+    const documents = [first.document, ...successfulPages.map(page => page.document)];
+    const pageValues = [first, ...successfulPages];
+
+    if (failedPageUrls.length > 0) {
+        first.document.responseMetadata.collectionCompleteness = {
+            status: 'PARTIAL',
+            expectedBrandCount: firstPage.totalCount,
+            listedBrandCount: pageValues.reduce(
+                (sum, page) => sum + parseSktMembershipListPage(page.value).brands.length,
+                0,
+            ),
+            expectedPageCount,
+            fetchedPageCount: pageValues.length,
+            fetchedDetailCount: 0,
+            failedUrls: failedPageUrls,
+        };
+        return {
+            promotions: [],
+            products: [],
+            documents,
+            completeness: {
+                complete: false,
+                message: `SKT 목록 ${expectedPageCount}페이지 중 ${pageValues.length}페이지만 수집됐습니다.`,
+            },
+        };
+    }
+
+    const parsedPages = pageValues
+        .map(page => parseSktMembershipListPage(page.value))
+        .sort((left, right) => left.pageNum - right.pageNum);
+    let inventory: ReturnType<typeof validateSktMembershipListPages>;
+    try {
+        inventory = validateSktMembershipListPages(parsedPages);
+    } catch (error) {
+        first.document.responseMetadata.collectionCompleteness = {
+            status: 'PARTIAL',
+            expectedBrandCount: firstPage.totalCount,
+            listedBrandCount: parsedPages.reduce((sum, page) => sum + page.brands.length, 0),
+            expectedPageCount,
+            fetchedPageCount: parsedPages.length,
+            fetchedDetailCount: 0,
+        };
+        return {
+            promotions: [],
+            products: [],
+            documents,
+            completeness: { complete: false, message: failureMessage(error) },
+        };
+    }
+
+    const detailUrls = inventory.brands.map(brand => (
+        buildSktMembershipDetailUrl(sourceUrl, brand.officialId)
+    ));
+    const detailResults = await mapSettledWithConcurrency(detailUrls, 4, fetcher);
+    const failedDetailUrls = detailResults.flatMap((result, index) => (
+        result.status === 'rejected' ? [detailUrls[index]] : []
+    ));
+    const successfulDetails = detailResults.flatMap((result, index) => (
+        result.status === 'fulfilled'
+            ? [{ brand: inventory.brands[index], detail: result.value }]
+            : []
+    ));
+    documents.push(...successfulDetails.map(item => item.detail.document));
+
+    let recheckFailure: string | undefined;
+    try {
+        const recheck = parseSktMembershipListPage((await fetcher(firstUrl)).value);
+        const initialIds = firstPage.brands.map(brand => brand.officialId).join(',');
+        const recheckIds = recheck.brands.map(brand => brand.officialId).join(',');
+        if (
+            recheck.totalCount !== firstPage.totalCount ||
+            recheck.pageSize !== firstPage.pageSize ||
+            recheck.sortType !== firstPage.sortType ||
+            recheckIds !== initialIds
+        ) {
+            recheckFailure = 'SKT 목록이 상세 수집 중 변경됐습니다.';
+        }
+    } catch (error) {
+        recheckFailure = `SKT 목록 재확인 실패: ${failureMessage(error)}`;
+    }
+
+    const failedUrls = [
+        ...failedDetailUrls,
+        ...(recheckFailure ? [firstUrl] : []),
+    ];
+    const complete = failedUrls.length === 0 &&
+        successfulDetails.length === inventory.totalCount;
+    const fetchCompleteness: NonNullable<
+        PromotionSourceDocumentMetadata['collectionCompleteness']
+    > = {
+        status: complete ? 'COMPLETE' : 'PARTIAL',
+        expectedBrandCount: inventory.totalCount,
+        listedBrandCount: inventory.brands.length,
+        expectedPageCount: inventory.pageCount,
+        fetchedPageCount: parsedPages.length,
+        fetchedDetailCount: successfulDetails.length,
+        ...(failedUrls.length > 0 && { failedUrls }),
+    };
+    first.document.responseMetadata.collectionCompleteness = fetchCompleteness;
+
+    if (!complete) {
+        return {
+            promotions: [],
+            products: [],
+            documents,
+            completeness: {
+                complete: false,
+                message: recheckFailure ??
+                    `SKT 상세 ${inventory.totalCount}건 중 ${successfulDetails.length}건만 수집됐습니다.`,
+            },
+        };
+    }
+
+    const detailHtmlByBrandId = Object.fromEntries(successfulDetails.map(item => [
+        item.brand.officialId,
+        item.detail.value,
+    ]));
+    const listHtml = parsedPages.map(page => pageValues.find(value => (
+        parseSktMembershipListPage(value.value).pageNum === page.pageNum
+    ))!.value).join('\n');
+    const deterministicPromotions = parseSktMembershipHtml(
+        listHtml,
+        sourceUrl,
+        detailHtmlByBrandId,
+    );
+    const deterministicOfficialIds = new Set(deterministicPromotions.flatMap(promotion => {
+        const officialId = promotion.requiredEvidenceSourceUrl
+            ?.match(/[?&]brandId=(\d+)/)?.[1];
+        return officialId ? [officialId] : [];
+    }));
+    const brandSources = new Map(extractSktMembershipBrandSources(listHtml).map(brand => [
+        brand.officialId,
+        brand,
+    ]));
+    const unparsedBrands = inventory.brands.filter(brand => (
+        !deterministicOfficialIds.has(brand.officialId)
+    ));
+    const aiPromotions: ParsedPromotion[] = [];
+    const aiFailedBrandIds: string[] = [];
+    const aiFailures: Array<{ brandId: string; message: string }> = [];
+    let aiCacheHitBrandCount = 0;
+
+    for (const brand of unparsedBrands) {
+        const source = brandSources.get(brand.officialId);
+        const detailUrl = buildSktMembershipDetailUrl(sourceUrl, brand.officialId);
+        if (!source || source.variants.length === 0) {
+            aiFailedBrandIds.push(brand.officialId);
+            aiFailures.push({
+                brandId: brand.officialId,
+                message: '할인형·적립형 원문 variant를 찾지 못했습니다.',
+            });
+            continue;
+        }
+        const aiResult = await aiParser.parse({
+            officialBrandId: brand.officialId,
+            brandName: brand.name,
+            sourceUrl,
+            detailUrl,
+            listText: source.listText,
+            detailText: extractSktDetailText(detailHtmlByBrandId[brand.officialId] ?? ''),
+            variants: source.variants,
+        });
+        if (aiResult.cacheHit) aiCacheHitBrandCount += 1;
+        if (aiResult.promotions.length !== source.variants.length) {
+            aiFailedBrandIds.push(brand.officialId);
+            aiFailures.push({
+                brandId: brand.officialId,
+                message: aiResult.diagnostic ?? 'AI가 모든 원문 variant를 구조화하지 못했습니다.',
+            });
+            continue;
+        }
+        aiPromotions.push(...aiResult.promotions);
+    }
+
+    const structuredBrandCount = deterministicOfficialIds.size +
+        unparsedBrands.length - aiFailedBrandIds.length;
+    first.document.responseMetadata.collectionCompleteness = {
+        ...fetchCompleteness,
+        status: aiFailedBrandIds.length > 0 ? 'PARTIAL' : 'COMPLETE',
+        deterministicBrandCount: deterministicOfficialIds.size,
+        aiFallbackBrandCount: unparsedBrands.length - aiFailedBrandIds.length,
+        aiCacheHitBrandCount,
+        structuredBrandCount,
+        ...(unparsedBrands.length > 0 && {
+            deterministicUnparsedBrandIds: unparsedBrands.map(brand => brand.officialId),
+        }),
+        ...(aiFailedBrandIds.length > 0 && {
+            unparsedBrandIds: aiFailedBrandIds,
+            aiFailedBrandIds,
+        }),
+        ...(aiFailures.length > 0 && { aiFailures }),
+    };
+    if (aiFailedBrandIds.length > 0) {
+        return {
+            promotions: [],
+            products: [],
+            documents,
+            completeness: {
+                complete: false,
+                message: `SKT ${inventory.totalCount}개 브랜드 중 ${aiFailedBrandIds.length}개를 ` +
+                    '규칙 파서나 AI로 구조화하지 못했습니다.',
+            },
+        };
+    }
+    return {
+        promotions: [...deterministicPromotions, ...aiPromotions],
+        products: [],
+        documents,
+        completeness: {
+            complete: true,
+            message: `SKT 목록 ${inventory.totalCount}건과 상세 ${successfulDetails.length}건을 ` +
+                `완전 수집하고 ${structuredBrandCount}개 브랜드를 구조화했습니다.`,
+        },
+    };
+}
+
+async function parseSource(
+    source: PromotionSource,
+    sktAiParser: SktPromotionAiParser,
+): Promise<ParsedSource> {
     if (source.kind === 'lguplus-api') {
         return collectLguplusSource();
     }
@@ -353,14 +652,10 @@ async function parseSource(source: PromotionSource): Promise<ParsedSource> {
         };
     }
 
-    const html = await fetchHtml(source.url);
     if (source.kind === 'skt-html') {
-        return {
-            promotions: parseSktMembershipHtml(html.value, source.url),
-            products: [],
-            documents: [html.document],
-        };
+        return collectSktMembershipSource(source.url, fetchHtml, sktAiParser);
     }
+    const html = await fetchHtml(source.url);
     if (source.kind === 'paris-skt-html') {
         return {
             promotions: parseParisMembershipHtml(html.value, 'skt', source.url),
@@ -397,6 +692,82 @@ const promotionForDiff = (value: Record<string, unknown>) => Object.fromEntries(
         'updatedAt',
     ].includes(key))
 );
+
+const recordValue = (value: unknown): Record<string, unknown> | undefined => (
+    value && typeof value === 'object' && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : undefined
+);
+
+const cachedSktPromotionAiResults = (): SktPromotionAiCachedResult[] => {
+    const seenVariants = new Set<string>();
+    return db.select({
+        parsedOffer: promotionCandidates.parsedOffer,
+        rawContent: promotionCandidates.rawContent,
+        diff: promotionCandidates.diff,
+    }).from(promotionCandidates)
+        .orderBy(desc(promotionCandidates.discoveredAt))
+        .all()
+        .flatMap(row => {
+            const metadata = recordValue(row.diff.aiFallback);
+            const sourceKey = row.diff.sourceKey;
+            if (
+                !metadata ||
+                typeof metadata.inputHash !== 'string' ||
+                typeof metadata.provider !== 'string' ||
+                typeof metadata.officialBrandId !== 'string' ||
+                !Number.isSafeInteger(metadata.variantIndex) ||
+                (metadata.variantIndex as number) < 0 ||
+                !Number.isSafeInteger(metadata.variantCount) ||
+                (metadata.variantCount as number) < 1 ||
+                typeof sourceKey !== 'string'
+            ) return [];
+            const cacheKey = `${metadata.inputHash}:${metadata.variantIndex}`;
+            if (seenVariants.has(cacheKey)) return [];
+            seenVariants.add(cacheKey);
+            const fieldEvidence = recordValue(metadata.fieldEvidence) as
+                Record<string, string[]> | undefined;
+            const expectedFields = Array.isArray(metadata.expectedFields)
+                ? metadata.expectedFields as Array<{ path: string; evidence: string }>
+                : undefined;
+            const semanticAnalysis = recordValue(row.diff.semanticAnalysis) as
+                PromotionSemanticAnalysis | undefined;
+            const discoveredBrand = recordValue(row.diff.discoveredBrand) as
+                ParsedPromotion['discoveredBrand'];
+            return [{
+                inputHash: metadata.inputHash,
+                provider: metadata.provider,
+                ...(typeof metadata.model === 'string' && { model: metadata.model }),
+                variantIndex: metadata.variantIndex as number,
+                variantCount: metadata.variantCount as number,
+                promotion: {
+                    sourceKey,
+                    offer: promotionForDiff(row.parsedOffer) as unknown as ParsedPromotion['offer'],
+                    evidence: row.rawContent,
+                    autoPublish: false,
+                    warnings: Array.isArray(row.diff.warnings)
+                        ? row.diff.warnings.filter((item): item is string => typeof item === 'string')
+                        : [],
+                    ...(metadata.semanticScopeLocked === true && { semanticScopeLocked: true }),
+                    ...(fieldEvidence && { fieldEvidence }),
+                    ...(expectedFields && { expectedFields }),
+                    ...(typeof metadata.requiredEvidenceSourceUrl === 'string' && {
+                        requiredEvidenceSourceUrl: metadata.requiredEvidenceSourceUrl,
+                    }),
+                    ...(semanticAnalysis && { semanticAnalysis }),
+                    ...(discoveredBrand && { discoveredBrand }),
+                    aiFallback: {
+                        inputHash: metadata.inputHash,
+                        provider: metadata.provider,
+                        ...(typeof metadata.model === 'string' && { model: metadata.model }),
+                        officialBrandId: metadata.officialBrandId,
+                        variantIndex: metadata.variantIndex as number,
+                        variantCount: metadata.variantCount as number,
+                    },
+                },
+            }];
+        });
+};
 
 export const autoPromotionId = (providerId: string, sourceKey: string) =>
     `promotion-auto-${createHash('sha256')
@@ -741,6 +1112,12 @@ function upsertAutoPromotion(
     promotionId: string,
     now: Date,
 ) {
+    if (parsed.discoveredBrand) {
+        db.insert(brands)
+            .values(parsed.discoveredBrand)
+            .onConflictDoNothing()
+            .run();
+    }
     const existingOffer = db.select().from(promotionOffers)
         .where(eq(promotionOffers.id, promotionId))
         .get();
@@ -778,18 +1155,8 @@ function persistParsedPromotion(
     now: Date,
     collectionSourceId: string,
     sourceBundle: PersistedPromotionSourceBundle,
+    auditDocuments: PromotionAuditDocument[],
 ) {
-    if (parsed.discoveredBrand) {
-        db.insert(brands)
-            .values({
-                id: parsed.discoveredBrand.id,
-                name: parsed.discoveredBrand.name,
-                categoryId: parsed.discoveredBrand.categoryId,
-                iconName: parsed.discoveredBrand.iconName,
-            })
-            .onConflictDoNothing()
-            .run();
-    }
     const normalizedOffer = normalizePromotionDraft(parsed.offer);
     const parsedOffer = {
         ...normalizedOffer,
@@ -867,11 +1234,10 @@ function persistParsedPromotion(
             ...(parsed.semanticAnalysis?.evidenceQuotes ?? []),
             parsed.evidence,
         ],
-        documents: sourceBundle.documents.map(document => ({
-            id: document.id,
-            sourceUrl: document.sourceUrl,
-            extractedText: document.extractedText,
-        })),
+        documents: auditDocuments,
+        fieldEvidence: parsed.fieldEvidence,
+        expectedFields: parsed.expectedFields,
+        requiredEvidenceSourceUrl: parsed.requiredEvidenceSourceUrl,
     });
     const canAutoPublish = canAutomaticallyPublishPromotionCandidate({
         parserApproved: parsed.autoPublish,
@@ -928,6 +1294,21 @@ function persistParsedPromotion(
                         fieldChanges: audit.changes,
                         auditSummary: audit.summary,
                         blockingErrors: audit.blockingErrors,
+                        ...(parsed.discoveredBrand && {
+                            discoveredBrand: parsed.discoveredBrand,
+                        }),
+                        ...(parsed.semanticAnalysis && {
+                            semanticAnalysis: parsed.semanticAnalysis,
+                        }),
+                        ...(parsed.aiFallback && {
+                            aiFallback: {
+                                ...parsed.aiFallback,
+                                semanticScopeLocked: parsed.semanticScopeLocked === true,
+                                fieldEvidence: parsed.fieldEvidence,
+                                expectedFields: parsed.expectedFields,
+                                requiredEvidenceSourceUrl: parsed.requiredEvidenceSourceUrl,
+                            },
+                        }),
                     },
                     sourceBundleHash: sourceBundle.sourceBundleHash,
                     audit,
@@ -1004,8 +1385,20 @@ function persistParsedPromotion(
                 blockingErrors: audit.blockingErrors,
                 linkedPromotionId: existingOffer?.id ?? previous?.linkedPromotionId ?? null,
                 warnings: parsed.warnings,
+                ...(parsed.discoveredBrand && {
+                    discoveredBrand: parsed.discoveredBrand,
+                }),
                 ...(parsed.semanticAnalysis && {
                     semanticAnalysis: parsed.semanticAnalysis,
+                }),
+                ...(parsed.aiFallback && {
+                    aiFallback: {
+                        ...parsed.aiFallback,
+                        semanticScopeLocked: parsed.semanticScopeLocked === true,
+                        fieldEvidence: parsed.fieldEvidence,
+                        expectedFields: parsed.expectedFields,
+                        requiredEvidenceSourceUrl: parsed.requiredEvidenceSourceUrl,
+                    },
                 }),
             },
             status: canAutoPublish ? 'APPROVED' : 'PENDING',
@@ -1093,6 +1486,7 @@ export async function collectPromotionCandidates(
                 : [];
         });
     const semanticClassifier = createPromotionSemanticClassifier(cachedSemanticAnalyses);
+    const sktAiParser = createSktPromotionAiParser(cachedSktPromotionAiResults());
 
     for (const source of promotionSources) {
         if (source.kind === 'unsupported') {
@@ -1113,7 +1507,7 @@ export async function collectPromotionCandidates(
         }
 
         try {
-            const sourceData = await parseSource(source);
+            const sourceData = await parseSource(source, sktAiParser);
             const sourceBytes = sourceData.documents.reduce(
                 (sum, document) => sum + Buffer.byteLength(document.rawContent, 'utf8'),
                 0,
@@ -1128,6 +1522,21 @@ export async function collectPromotionCandidates(
                 now,
             );
             sourceBundles.set(source.id, sourceBundle);
+            if (sourceData.completeness?.complete === false) {
+                results.push({
+                    sourceId: source.id,
+                    sourceUrl: source.url,
+                    label: source.label,
+                    status: 'partial',
+                    discovered: 0,
+                    published: 0,
+                    reviewRequired: 0,
+                    unchanged: 0,
+                    expired: 0,
+                    message: sourceData.completeness.message,
+                });
+                continue;
+            }
             const parsed = await classifyParsedPromotions(
                 sourceData.promotions,
                 semanticClassifier,
@@ -1143,6 +1552,13 @@ export async function collectPromotionCandidates(
             let published = 0;
             let reviewRequired = 0;
             let unchanged = 0;
+            const auditDocuments = preparePromotionAuditDocuments(
+                sourceBundle.documents.map(document => ({
+                    id: document.id,
+                    sourceUrl: document.sourceUrl,
+                    extractedText: document.extractedText,
+                })),
+            );
 
             parsed.forEach(offer => {
                 const promotionId = autoPromotionId(
@@ -1175,6 +1591,7 @@ export async function collectPromotionCandidates(
                     now,
                     source.id,
                     sourceBundle,
+                    auditDocuments,
                 );
                 claimedAutoPromotionIds.add(promotionId);
                 if (persisted.inserted) discovered += 1;
@@ -1207,6 +1624,9 @@ export async function collectPromotionCandidates(
                 ...(sourceData.products.length > 0 && {
                     products: sourceData.products.length,
                     message: `구독 상품 ${sourceData.products.length}개 동기화`,
+                }),
+                ...(sourceData.completeness?.message && {
+                    message: sourceData.completeness.message,
                 }),
             });
         } catch (error) {

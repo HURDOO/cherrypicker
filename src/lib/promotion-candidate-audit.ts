@@ -10,12 +10,14 @@ export interface PromotionAuditDocument {
     id: string;
     sourceUrl: string;
     extractedText: string;
+    normalizedText?: string;
 }
 
-const HIGH_RISK_PATH = /^(providerId|layer|brandIds|categoryIds|channels|startsAt|endsAt|certainty|action(?:\.|$)|condition\.(?:amountBasis|applicabilityScope|calculationMode|headlineEligible|eligibleItemSummary|minSpend|telecomTiers|requiredInputs|requiredSubscriptionProducts|requiresCoupon|requiresEnrollment|firstPaymentOnly|confirmationRequired|itemSpecific)|compatibility(?:\.|$)|limitConfig(?:\.|$))/;
+const HIGH_RISK_PATH = /^(providerId|usageGroupId|layer|brandIds|categoryIds|channels|startsAt|endsAt|certainty|action(?:\.|$)|condition\.(?:amountBasis|applicabilityScope|calculationMode|headlineEligible|eligibleItemSummary|minSpend|telecomTiers|telecomModes|requiredInputs|requiredSubscriptionProducts|requiresCoupon|requiresEnrollment|firstPaymentOnly|confirmationRequired|itemSpecific)|compatibility(?:\.|$)|limitConfig(?:\.|$))/;
 
 const COVERAGE_PATHS = [
     'layer',
+    'usageGroupId',
     'brandIds',
     'categoryIds',
     'channels',
@@ -26,6 +28,7 @@ const COVERAGE_PATHS = [
     'action.valueSemantics',
     'action.maxBenefit',
     'action.faceValue',
+    'action.unitAmount',
     'condition.amountBasis',
     'condition.applicabilityScope',
     'condition.calculationMode',
@@ -33,6 +36,7 @@ const COVERAGE_PATHS = [
     'condition.eligibleItemSummary',
     'condition.minSpend',
     'condition.telecomTiers',
+    'condition.telecomModes',
     'condition.requiredInputs',
     'condition.requiredSubscriptionProducts',
     'condition.requiresCoupon',
@@ -52,6 +56,7 @@ const COVERAGE_PATHS = [
     'limitConfig.monthlyCount',
     'limitConfig.monthlyAmount',
     'limitConfig.yearlyCount',
+    'limitConfig.sharedFields',
 ] as const;
 
 const ACKNOWLEDGEABLE_HIGH_RISK_REMOVAL_PREFIXES = [
@@ -110,6 +115,14 @@ const normalizeEvidenceText = (value: string) => value
     .trim()
     .toLocaleLowerCase('ko-KR');
 
+export const preparePromotionAuditDocuments = (
+    documents: PromotionAuditDocument[],
+): Array<PromotionAuditDocument & { normalizedText: string }> => documents.map(document => (
+    document.normalizedText
+        ? { ...document, normalizedText: document.normalizedText }
+        : { ...document, normalizedText: normalizeEvidenceText(document.extractedText) }
+));
+
 const evidenceQuoteCandidates = (values: string[]) => [...new Set(values
     .flatMap(value => [value, ...value.split(/\n|\s[|·]\s/)])
     .map(value => value.replace(/^근거\s*:\s*/i, '').trim())
@@ -120,10 +133,7 @@ const findEvidenceReferences = (
     documents: PromotionAuditDocument[],
 ): PromotionCandidateEvidenceReference[] => {
     const quotes = evidenceQuoteCandidates(evidenceTexts);
-    const normalizedDocuments = documents.map(document => ({
-        ...document,
-        normalizedText: normalizeEvidenceText(document.extractedText),
-    }));
+    const normalizedDocuments = preparePromotionAuditDocuments(documents);
     const references: PromotionCandidateEvidenceReference[] = [];
 
     quotes.forEach(quote => {
@@ -150,6 +160,9 @@ export function createPromotionCandidateAudit(options: {
     baseline?: Record<string, unknown>;
     evidenceTexts: string[];
     documents: PromotionAuditDocument[];
+    fieldEvidence?: Record<string, string[]>;
+    expectedFields?: Array<{ path: string; evidence: string }>;
+    requiredEvidenceSourceUrl?: string;
 }): PromotionCandidateAudit {
     const changes: PromotionCandidateFieldChange[] = diffStructuredValues(
         options.baseline ?? {},
@@ -161,11 +174,37 @@ export function createPromotionCandidateAudit(options: {
     const references = findEvidenceReferences(options.evidenceTexts, options.documents);
     const coverage: PromotionCandidateCoverageItem[] = COVERAGE_PATHS
         .filter(path => requiresCoverage(valueAtPath(options.candidate, path)))
-        .map(path => ({
-            path,
-            status: references.length > 0 ? 'COVERED' : 'MISSING_EVIDENCE',
-            evidence: references.map(reference => ({ ...reference })),
-        }));
+        .map(path => {
+            const fieldTexts = options.fieldEvidence?.[path];
+            const fieldReferences = fieldTexts
+                ? findEvidenceReferences(fieldTexts, options.documents)
+                : references;
+            return {
+                path,
+                status: fieldReferences.length > 0 ? 'COVERED' as const : 'MISSING_EVIDENCE' as const,
+                evidence: fieldReferences.map(reference => ({ ...reference })),
+            };
+        });
+    const calculationMode = valueAtPath(options.candidate, 'condition.calculationMode');
+    const missingExpectedFields = calculationMode === 'INFORMATION_ONLY'
+        ? []
+        : (options.expectedFields ?? []).filter(field => (
+            !requiresCoverage(valueAtPath(options.candidate, field.path))
+        ));
+    const requiredDocument = options.requiredEvidenceSourceUrl
+        ? preparePromotionAuditDocuments(options.documents).find(document => (
+            document.sourceUrl === options.requiredEvidenceSourceUrl
+        ))
+        : undefined;
+    const requiredDocumentQuotes = evidenceQuoteCandidates([
+        ...options.evidenceTexts,
+        ...Object.values(options.fieldEvidence ?? {}).flat(),
+    ]);
+    const requiredDocumentMissing = Boolean(options.requiredEvidenceSourceUrl) && (
+        !requiredDocument || !requiredDocumentQuotes.some(quote => (
+            requiredDocument.normalizedText.includes(normalizeEvidenceText(quote))
+        ))
+    );
     const blockingErrors = [...new Set([
         ...changes.flatMap(change => (
             change.kind === 'REMOVED' && change.risk === 'HIGH'
@@ -177,6 +216,12 @@ export function createPromotionCandidateAudit(options: {
                 ? [`계산 필드의 공식 원문 근거가 없습니다: ${item.path}`]
                 : []
         )),
+        ...missingExpectedFields.map(field => (
+            `공식 상세에서 감지한 조건이 구조화되지 않았습니다: ${field.path} (${field.evidence})`
+        )),
+        ...(requiredDocumentMissing
+            ? [`계산형 SKT 후보에 해당 브랜드 상세 문서 근거가 없습니다: ${options.requiredEvidenceSourceUrl}`]
+            : []),
     ])];
 
     return {
