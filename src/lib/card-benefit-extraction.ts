@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import type {
+    BenefitDslExpression,
+    BenefitProgramV1,
     BenefitRule,
     Card,
     CardNetwork,
@@ -20,9 +22,20 @@ import {
     informationalRuleErrors,
     performanceWaiverConsistencyErrors,
 } from './card-benefit-rule-consistency';
+import {
+    BENEFIT_DSL_MAX_NODES,
+    BENEFIT_DSL_SEMANTICS_VERSION,
+    compileLegacyBenefitRule,
+    listBenefitProgramEvidenceNodes,
+    validateBenefitProgram,
+    validateBenefitProgramSet,
+} from '@/utils/benefit-dsl';
+import { validateCardPerformancePolicy } from '@/utils/performance-policy';
 
 export const CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION = 2 as const;
 export const SHINHAN_SOL_RULESET_VERSION = 'shinhan-sol-v5' as const;
+const programEvidencePathPattern =
+    /^program(?:\.[A-Za-z][A-Za-z0-9]*|\[[0-9]+\])+$/;
 export const SHINHAN_SOL_REQUIRED_RULE_IDS = [
     'sol_foreign_currency_payment',
     'sol_overseas_fee',
@@ -372,6 +385,28 @@ const percentageValuesIn = (value: string) => unique(
         .map(match => Number(match[1]))
 );
 
+const sourceSupportsDslNumber = (value: number, quotes: string[]) => {
+    if (value === 0) return true;
+    const text = quotes.join('\n').normalize('NFKC');
+    const directNumbers = [...text.matchAll(/[0-9][0-9,]*(?:\.[0-9]+)?/g)]
+        .map(match => Number(match[0].replaceAll(',', '')))
+        .filter(Number.isFinite);
+    if (directNumbers.some(candidate => Math.abs(candidate - value) < 0.000001)) return true;
+    if (koreanMoneyValuesIn(text).includes(value)) return true;
+    const percentages = percentageValuesIn(text);
+    if (percentages.some(candidate => (
+        Math.abs(candidate - value) < 0.000001 ||
+        (Math.abs(value) <= 1 && Math.abs(candidate - value * 100) < 0.000001)
+    ))) return true;
+    if (value === 100 && percentages.length > 0) return true;
+    if (Number.isInteger(value) && value >= 0 && value < 24 * 60) {
+        const time = `${String(Math.floor(value / 60)).padStart(2, '0')}:` +
+            String(value % 60).padStart(2, '0');
+        if (text.includes(time)) return true;
+    }
+    return false;
+};
+
 const semanticTitleTokens = (value: string) => {
     const generic = new Set([
         'basic', 'easy', '서비스', '혜택', '할인', '캐시백', '제공', '이용', '이용권',
@@ -507,6 +542,27 @@ const validateRuleSemanticEvidence = (
             errors.push(`주말 혜택 적용 요일이 구조화되지 않았습니다: ${label}`);
         }
         const includedBrands = ruleRow.includedBrands ?? [];
+        const hasCalculableItemBenefit = ruleRow.program !== undefined ||
+            ruleRow.action.value > 0 || ruleRow.action.type === 'FIXED_PRICE';
+        if (hasCalculableItemBenefit && ruleRow.condition.itemSpecific === true &&
+            includedBrands.length === 0 && !ruleRow.category &&
+            !ruleRow.program?.target?.purchaseScenario) {
+            errors.push(`특정 상품 양수 혜택에 결제처 범위가 없습니다: ${label}`);
+        }
+        if (ruleRow.program && !ruleRow.program.target?.purchaseScenario &&
+            includedBrands.length === 0 && ruleRow.category &&
+            /(?:공식\s*(?:홈페이지|온라인샵)|지정\s*(?:판매처|가맹점)|매표소|상품샵|홈구장)/i
+                .test(actionEvidence)) {
+            errors.push(`특정 결제처 DSL 혜택이 카테고리 전체로 설정됐습니다: ${label}`);
+        }
+        if (ruleRow.condition.performanceWaiver === 'NEW_CARD_REGISTRATION_WINDOW' &&
+            /월\s*할인한도[^\n]{0,30}\d+(?:\.\d+)?\s*%[^\n]{0,20}(?:적용|제공)/i
+                .test(conditionEvidence) && (
+                ruleRow.limitConfig.monthlyAmount !== undefined ||
+                (ruleRow.limitConfig.monthlyAmountByPerformance?.length ?? 0) > 0
+            ) && !ruleRow.program?.limits?.monthlyBenefitAmount) {
+            errors.push(`신규카드 유예의 비율형 월 한도를 자동 계산할 수 없습니다: ${label}`);
+        }
         if (ruleRow.action.value > 0 && ruleRow.platformType === 'OFFICIAL_SITE' &&
             includedBrands.length === 0) {
             errors.push(`공식 사이트 전용 혜택에 가맹점 매핑이 없습니다: ${label}`);
@@ -660,6 +716,8 @@ export function validateCardBenefitExtraction(
     }
 
     const ruleIds = new Set<string>();
+    const requiredProgramPathsByRule = new Map<string, Set<string>>();
+    const numericProgramValuesByRule = new Map<string, Map<string, number>>();
     if (!Array.isArray(value.rules) || value.rules.length === 0 || value.rules.length > 100) {
         errors.push('혜택 규칙은 1건 이상 100건 이하여야 합니다.');
     } else {
@@ -716,6 +774,27 @@ export function validateCardBenefitExtraction(
             validateCondition(rule.condition, label, errors);
             validateAction(rule.action, label, errors);
             validateLimitConfig(rule.limitConfig, label, errors);
+            if (rule.program !== undefined) {
+                const validation = validateBenefitProgram(rule.program, {
+                    categoryIds: references?.categoryIds,
+                    brandIds: references?.brandIds,
+                });
+                errors.push(...validation.errors.map(error => `${label} DSL ${error}`));
+                if (validation.valid && typeof rule.id === 'string') {
+                    const evidenceNodes = listBenefitProgramEvidenceNodes(
+                        rule.program as unknown as BenefitProgramV1
+                    );
+                    requiredProgramPathsByRule.set(
+                        rule.id,
+                        new Set(evidenceNodes.map(node => node.path)),
+                    );
+                    numericProgramValuesByRule.set(rule.id, new Map(evidenceNodes.flatMap(node => (
+                        typeof node.literalValue === 'number'
+                            ? [[node.path, node.literalValue] as const]
+                            : []
+                    ))));
+                }
+            }
         });
         if (input.card.id === 'shinhan_sol') {
             validateShinhanSolRuleCoverage(value.rules, errors);
@@ -737,9 +816,57 @@ export function validateCardBenefitExtraction(
                 }
             });
         });
+        if (value.rules.every(rule => isRecord(rule))) {
+            errors.push(...validateBenefitProgramSet(value.rules as unknown as BenefitRule[]));
+        }
+    }
+    if (isRecord(value.card) && value.card.performancePolicy !== undefined) {
+        errors.push(...validateCardPerformancePolicy(value.card.performancePolicy, ruleIds));
+        if (isRecord(value.card.performancePolicy) &&
+            Array.isArray(value.card.performancePolicy.exclusionRules)) {
+            const sourceByUrl = new Map(extractionSources(input).map(source => [
+                source.sourceUrl, source,
+            ]));
+            value.card.performancePolicy.exclusionRules.forEach((rule, index) => {
+                if (!isRecord(rule) || typeof rule.sourceUrl !== 'string' ||
+                    typeof rule.quote !== 'string') return;
+                const source = sourceByUrl.get(rule.sourceUrl);
+                if (!source || !sourceContainsQuote(source.sourceText, rule.quote)) {
+                    errors.push(`카드 실적 제외 규칙 ${index + 1}번의 공식 원문 근거가 없습니다.`);
+                } else if (source.mediaType === 'application/pdf' && (
+                    !Number.isSafeInteger(rule.page) ||
+                    !source.pageTexts?.[Number(rule.page) - 1] ||
+                    !sourceContainsQuote(source.pageTexts[Number(rule.page) - 1], rule.quote)
+                )) {
+                    errors.push(`카드 실적 제외 규칙 ${index + 1}번의 PDF 페이지 근거가 없습니다.`);
+                }
+            });
+        }
+    }
+    const hasPerformanceExclusionSection = extractionSources(input).some(source => (
+        /(?:전월\s*)?(?:이용\s*)?실적\s*제외\s*대상/i.test(source.sourceText)
+    ));
+    if (hasPerformanceExclusionSection && isRecord(value.card) &&
+        (value.card.performancePolicy === undefined ||
+            (isRecord(value.card.performancePolicy) &&
+                Array.isArray(value.card.performancePolicy.exclusionRules) &&
+                value.card.performancePolicy.exclusionRules.length === 0)) &&
+        !(
+            Array.isArray(value.unsupportedClauses) &&
+            value.unsupportedClauses.some(clause => isRecord(clause) &&
+                clause.affectsValue === true &&
+                typeof clause.reason === 'string' && /실적/.test(clause.reason))
+        )) {
+        errors.push('공식 전월 실적 제외 조건의 정책 또는 금액 영향 미지원 문구가 없습니다.');
+    }
+    if (input.card.performancePolicy && isRecord(value.card) &&
+        value.card.performancePolicy === undefined) {
+        errors.push('게시 중인 카드 실적 정책을 근거 없이 제거할 수 없습니다.');
     }
 
     const evidencedFieldsByRule = new Map<string, Set<CardBenefitEvidence['fields'][number]>>();
+    const evidencedProgramPathsByRule = new Map<string, Set<string>>();
+    const programEvidenceQuotesByRule = new Map<string, Map<string, string[]>>();
     if (!Array.isArray(value.evidence) || value.evidence.length === 0) {
         errors.push('공식 원문 근거가 없습니다.');
     } else {
@@ -757,10 +884,28 @@ export function validateCardBenefitExtraction(
                     'condition',
                     'action',
                     'limitConfig',
+                    'program',
                 ].includes(String(field))) ||
                 typeof evidence.quote !== 'string') {
                 errors.push(`${label} 형식이 올바르지 않습니다.`);
                 return;
+            }
+            const programPaths = evidence.programPaths;
+            if (programPaths !== undefined && (
+                !Array.isArray(programPaths) ||
+                programPaths.length === 0 ||
+                programPaths.length > BENEFIT_DSL_MAX_NODES + 50 ||
+                programPaths.some(path => (
+                    typeof path !== 'string' || !programEvidencePathPattern.test(path)
+                ))
+            )) {
+                errors.push(`${label}의 DSL 노드 경로가 올바르지 않습니다.`);
+            }
+            if (Array.isArray(programPaths) && !evidence.fields.includes('program')) {
+                errors.push(`${label}의 DSL 노드 경로에 program 필드 표시가 없습니다.`);
+            }
+            if (Array.isArray(programPaths) && new Set(programPaths).size !== programPaths.length) {
+                errors.push(`${label}의 DSL 노드 경로가 중복되었습니다.`);
             }
             if (evidenceIds.has(evidence.id)) errors.push(`근거 ID ${evidence.id}가 중복되었습니다.`);
             evidenceIds.add(evidence.id);
@@ -785,6 +930,24 @@ export function validateCardBenefitExtraction(
                 evidenceFields.forEach(field => fields.add(field));
                 evidencedFieldsByRule.set(ruleId, fields);
                 if (!ruleIds.has(ruleId)) errors.push(`${label}이 알 수 없는 규칙 ${ruleId}를 참조합니다.`);
+                if (Array.isArray(programPaths)) {
+                    const requiredPaths = requiredProgramPathsByRule.get(ruleId);
+                    const evidencedPaths = evidencedProgramPathsByRule.get(ruleId) ?? new Set();
+                    programPaths.forEach(path => {
+                        if (!requiredPaths?.has(path)) {
+                            errors.push(`${label}이 규칙 ${ruleId}의 없는 DSL 노드 ${path}를 참조합니다.`);
+                        } else {
+                            evidencedPaths.add(path);
+                            const quotesByPath = programEvidenceQuotesByRule.get(ruleId) ?? new Map();
+                            quotesByPath.set(path, [
+                                ...(quotesByPath.get(path) ?? []),
+                                quote,
+                            ]);
+                            programEvidenceQuotesByRule.set(ruleId, quotesByPath);
+                        }
+                    });
+                    evidencedProgramPathsByRule.set(ruleId, evidencedPaths);
+                }
             });
             if (evidence.page !== undefined &&
                 (!Number.isSafeInteger(evidence.page) || (evidence.page as number) < 1)) {
@@ -805,6 +968,37 @@ export function validateCardBenefitExtraction(
         if (!fields.has('description') || !fields.has('action')) {
             errors.push(`규칙 ${rule.id}의 혜택·계산 근거가 없습니다.`);
         }
+        if (rule.program !== undefined) {
+            const requiredPaths = requiredProgramPathsByRule.get(rule.id);
+            const evidencedPaths = evidencedProgramPathsByRule.get(rule.id) ?? new Set();
+            if (!fields.has('program') || !requiredPaths) {
+                errors.push(`규칙 ${rule.id}의 DSL 근거가 없습니다.`);
+            } else {
+                const missingPaths = [...requiredPaths].filter(path => !evidencedPaths.has(path));
+                if (missingPaths.length > 0) {
+                    const shown = missingPaths.slice(0, 5).join(', ');
+                    const suffix = missingPaths.length > 5
+                        ? ` 외 ${missingPaths.length - 5}개`
+                        : '';
+                    errors.push(`규칙 ${rule.id}의 DSL 노드 근거가 없습니다: ${shown}${suffix}`);
+                }
+                const quotesByPath = programEvidenceQuotesByRule.get(rule.id) ?? new Map();
+                const unsupportedNumbers = [...(numericProgramValuesByRule.get(rule.id) ?? [])]
+                    .filter(([path, numericValue]) => (
+                        evidencedPaths.has(path) &&
+                        !sourceSupportsDslNumber(numericValue, quotesByPath.get(path) ?? [])
+                    ));
+                if (unsupportedNumbers.length > 0) {
+                    const shown = unsupportedNumbers.slice(0, 5)
+                        .map(([path, numericValue]) => `${path}=${numericValue}`)
+                        .join(', ');
+                    const suffix = unsupportedNumbers.length > 5
+                        ? ` 외 ${unsupportedNumbers.length - 5}개`
+                        : '';
+                    errors.push(`규칙 ${rule.id}의 DSL 숫자 근거가 없습니다: ${shown}${suffix}`);
+                }
+            }
+        }
         if (isRecord(rule.condition) && evidenceRequiredConditionFields.some(field => (
             (rule.condition as Record<string, unknown>)[field] !== undefined
         )) &&
@@ -816,6 +1010,48 @@ export function validateCardBenefitExtraction(
             errors.push(`규칙 ${rule.id}의 한도 근거가 없습니다.`);
         }
     });
+    if (value.unsupportedClauses !== undefined) {
+        if (!Array.isArray(value.unsupportedClauses)) {
+            errors.push('미지원 문구 목록이 올바르지 않습니다.');
+        } else {
+            const unsupportedIds = new Set<string>();
+            const sourceByUrl = new Map(extractionSources(input).map(source => [
+                source.sourceUrl,
+                source,
+            ]));
+            value.unsupportedClauses.forEach((clause, index) => {
+                const label = `미지원 문구 ${index + 1}`;
+                if (!isRecord(clause) ||
+                    typeof clause.id !== 'string' || !clause.id ||
+                    !Array.isArray(clause.ruleIds) ||
+                    clause.ruleIds.some(ruleId => typeof ruleId !== 'string') ||
+                    typeof clause.sourceUrl !== 'string' ||
+                    typeof clause.quote !== 'string' ||
+                    typeof clause.reason !== 'string' || !clause.reason ||
+                    typeof clause.affectsValue !== 'boolean') {
+                    errors.push(`${label} 형식이 올바르지 않습니다.`);
+                    return;
+                }
+                if (unsupportedIds.has(clause.id)) {
+                    errors.push(`미지원 문구 ID ${clause.id}가 중복되었습니다.`);
+                }
+                unsupportedIds.add(clause.id);
+                clause.ruleIds.forEach(ruleId => {
+                    if (!ruleIds.has(ruleId)) {
+                        errors.push(`${label}가 알 수 없는 규칙 ${ruleId}를 참조합니다.`);
+                    }
+                });
+                const source = sourceByUrl.get(clause.sourceUrl);
+                if (!source || clause.quote.length < 3 || clause.quote.length > 500 ||
+                    !sourceContainsQuote(source.sourceText, clause.quote)) {
+                    errors.push(`${label} 문장이 공식 원문에서 확인되지 않습니다.`);
+                }
+                if (clause.affectsValue) {
+                    errors.push(`${label}가 계산값에 영향을 주므로 게시할 수 없습니다.`);
+                }
+            });
+        }
+    }
     if (Array.isArray(value.rules) && Array.isArray(value.evidence) &&
         value.rules.every(ruleRow => isRecord(ruleRow) && isRecord(ruleRow.condition) &&
             isRecord(ruleRow.action) && isRecord(ruleRow.limitConfig)) &&
@@ -1513,6 +1749,139 @@ export function extractShinhanSolTravelWithRules(
 const nullableNonNegativeInteger = z.number().int().nonnegative().nullable();
 const nullableDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable();
 
+const benefitDslValueOpenAISchema = z.union([
+    z.number(),
+    z.string().max(500),
+    z.boolean(),
+    z.null(),
+]);
+
+const rawBenefitDslExpressionOpenAISchema: z.ZodTypeAny = z.lazy(() => (
+    z.discriminatedUnion('op', [
+        z.object({
+            op: z.literal('literal'),
+            value: benefitDslValueOpenAISchema,
+        }).strict(),
+        z.object({
+            op: z.literal('input'),
+            name: z.enum([
+                'PAYMENT_AMOUNT',
+                'REMAINING_PAYMENT_AMOUNT',
+                'ELIGIBLE_ITEM_AMOUNT',
+                'ELIGIBLE_ITEM_AMOUNT_PROVIDED',
+                'CARD_PERFORMANCE',
+                'CARD_BASE_MONTHLY_LIMIT',
+                'CARD_FIRST_BENEFIT_TIER_LIMIT',
+                'CARD_NETWORK',
+                'BRAND_ID',
+                'CATEGORY_ID',
+                'CHANNEL',
+                'CURRENT_DATE',
+                'CURRENT_WEEKDAY',
+                'CURRENT_MINUTE',
+                'NEW_CARD_WINDOW_AVAILABLE',
+                'USAGE_DAILY_COUNT',
+                'USAGE_DAILY_BENEFIT_AMOUNT',
+                'USAGE_MONTHLY_COUNT',
+                'USAGE_MONTHLY_BENEFIT_AMOUNT',
+                'USAGE_YEARLY_COUNT',
+            ]),
+        }).strict(),
+        z.object({
+            op: z.literal('arithmetic'),
+            operator: z.enum(['ADD', 'SUBTRACT', 'MULTIPLY', 'DIVIDE', 'MIN', 'MAX']),
+            operands: z.array(rawBenefitDslExpressionOpenAISchema).min(2).max(20),
+        }).strict(),
+        z.object({
+            op: z.literal('round'),
+            mode: z.enum(['FLOOR', 'CEIL', 'NEAREST']),
+            value: rawBenefitDslExpressionOpenAISchema,
+            unit: z.number().int().positive(),
+        }).strict(),
+        z.object({
+            op: z.literal('compare'),
+            operator: z.enum(['EQ', 'NE', 'GT', 'GTE', 'LT', 'LTE']),
+            left: rawBenefitDslExpressionOpenAISchema,
+            right: rawBenefitDslExpressionOpenAISchema,
+        }).strict(),
+        z.object({
+            op: z.literal('logic'),
+            operator: z.enum(['ALL', 'ANY']),
+            operands: z.array(rawBenefitDslExpressionOpenAISchema).min(1).max(20),
+        }).strict(),
+        z.object({
+            op: z.literal('not'),
+            value: rawBenefitDslExpressionOpenAISchema,
+        }).strict(),
+        z.object({
+            op: z.literal('in'),
+            value: rawBenefitDslExpressionOpenAISchema,
+            options: z.array(benefitDslValueOpenAISchema).min(1).max(100),
+        }).strict(),
+        z.object({
+            op: z.literal('case'),
+            branches: z.array(z.object({
+                when: rawBenefitDslExpressionOpenAISchema,
+                then: rawBenefitDslExpressionOpenAISchema,
+            }).strict()).min(1).max(20),
+            otherwise: rawBenefitDslExpressionOpenAISchema,
+        }).strict(),
+        z.object({
+            op: z.literal('aggregate'),
+            function: z.enum(['SUM', 'COUNT']),
+            period: z.enum(['DAY', 'MONTH', 'YEAR']),
+            field: z.enum(['PAYMENT_AMOUNT', 'BENEFIT_AMOUNT']),
+            where: rawBenefitDslExpressionOpenAISchema.nullable(),
+            includeCurrent: z.boolean().nullable(),
+        }).strict(),
+        z.object({
+            op: z.literal('isTopGroup'),
+            period: z.enum(['DAY', 'MONTH', 'YEAR']),
+            groupBy: z.enum(['BRAND_ID', 'CATEGORY_ID']),
+            metric: z.enum(['PAYMENT_AMOUNT', 'TRANSACTION_COUNT']),
+            where: rawBenefitDslExpressionOpenAISchema.nullable(),
+            includeCurrent: z.boolean().nullable(),
+        }).strict(),
+    ])
+));
+const benefitDslExpressionOpenAISchema = rawBenefitDslExpressionOpenAISchema as unknown as
+    z.ZodType<BenefitDslExpression>;
+
+const rawBenefitProgramV1OpenAISchema = z.object({
+    languageVersion: z.literal(1),
+    target: z.object({
+        includedBrandIds: z.array(z.string()).max(200).nullable(),
+        excludedBrandIds: z.array(z.string()).max(200).nullable(),
+        categoryIds: z.array(z.string()).max(200).nullable(),
+        channels: z.array(z.enum(['ONLINE', 'OFFLINE', 'OFFICIAL_SITE'])).max(3).nullable(),
+        purchaseScenario: z.object({
+            id: z.string().regex(/^[a-z][a-z0-9_]{2,99}$/),
+            label: z.string().min(1).max(120),
+            aliases: z.array(z.string().min(1).max(120)).max(8).nullable(),
+            requiredChecks: z.array(z.string().min(1).max(300)).min(1).max(8),
+        }).strict().nullable(),
+    }).strict().nullable(),
+    eligibility: benefitDslExpressionOpenAISchema,
+    benefit: benefitDslExpressionOpenAISchema,
+    limits: z.object({
+        dailyCount: benefitDslExpressionOpenAISchema.nullable(),
+        dailyBenefitAmount: benefitDslExpressionOpenAISchema.nullable(),
+        monthlyCount: benefitDslExpressionOpenAISchema.nullable(),
+        monthlyBenefitAmount: benefitDslExpressionOpenAISchema.nullable(),
+        yearlyCount: benefitDslExpressionOpenAISchema.nullable(),
+    }).strict().nullable(),
+    usageGroupId: z.string().nullable(),
+    usesCardLimit: z.boolean().nullable(),
+    cardMonthlyLimit: benefitDslExpressionOpenAISchema.nullable(),
+    confirmations: z.array(z.object({
+        when: benefitDslExpressionOpenAISchema,
+        message: z.string().min(1).max(300),
+    }).strict()).max(20).nullable(),
+    reason: z.string().max(300).nullable(),
+}).strict();
+export const benefitProgramV1OpenAISchema = rawBenefitProgramV1OpenAISchema as unknown as
+    z.ZodType<BenefitProgramV1>;
+
 export const cardBenefitOpenAIInventorySchema = z.object({
     confidence: z.number().min(0).max(1),
     sections: z.array(z.object({
@@ -1581,6 +1950,40 @@ const cardBenefitRuleOpenAISchema = z.object({
         }).strict()).nullable(),
         sharedFields: z.array(z.enum(sharedLimitFields)).nullable(),
     }).strict(),
+    program: benefitProgramV1OpenAISchema.nullable(),
+}).strict();
+
+const performancePredicateLeafOpenAISchema = z.discriminatedUnion('op', [
+    z.object({
+        op: z.literal('CARD_DISCOUNT_APPLIED'),
+        ruleIds: z.array(z.string()).max(100).nullable(),
+    }).strict(),
+    z.object({
+        op: z.literal('TRANSACTION_TAG_IN'),
+        tags: z.array(z.enum([
+            'STANDARD_PURCHASE', 'INTEREST_FREE_INSTALLMENT', 'GIFT_CARD_OR_PREPAID',
+            'TAX_OR_PUBLIC_CHARGE', 'HOUSING_OR_EDUCATION', 'INSURANCE_OR_UTILITY',
+            'FEE_OR_INTEREST', 'UNAPPROVED_SLIP',
+        ])).min(1).max(8),
+    }).strict(),
+]);
+const performancePredicateOpenAISchema = z.union([
+    performancePredicateLeafOpenAISchema,
+    z.object({
+        op: z.enum(['ALL', 'ANY']),
+        operands: z.array(performancePredicateLeafOpenAISchema).min(2).max(16),
+    }).strict(),
+]);
+const cardPerformancePolicyOpenAISchema = z.object({
+    version: z.literal(1),
+    exclusionRules: z.array(z.object({
+        id: z.string().regex(/^[a-z0-9][a-z0-9_-]{2,99}$/),
+        when: performancePredicateOpenAISchema,
+        reason: z.string().min(1).max(300),
+        sourceUrl: z.string().url(),
+        quote: z.string().min(3).max(500),
+        page: nullableNonNegativeInteger,
+    }).strict()).max(32),
 }).strict();
 
 export const cardBenefitOpenAIExtractionSchema = z.object({
@@ -1588,6 +1991,11 @@ export const cardBenefitOpenAIExtractionSchema = z.object({
     coverage: z.array(z.object({
         sectionId: z.string(),
         ruleIds: z.array(z.string()).min(1),
+        programEvidence: z.array(z.object({
+            ruleId: z.string(),
+            paths: z.array(z.string().regex(programEvidencePathPattern))
+                .min(1).max(BENEFIT_DSL_MAX_NODES + 50),
+        }).strict()).max(100).nullable(),
     }).strict()).max(100),
     extraction: z.object({
         schemaVersion: z.literal(CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION),
@@ -1601,14 +2009,32 @@ export const cardBenefitOpenAIExtractionSchema = z.object({
                 limit: z.number().int().nonnegative(),
             }).strict()),
             network: z.enum(cardNetworks).nullable(),
+            performancePolicy: cardPerformancePolicyOpenAISchema.nullable(),
         }).strict(),
         rules: z.array(cardBenefitRuleOpenAISchema).min(1).max(100),
+        unsupportedClauses: z.array(z.object({
+            id: z.string().regex(/^[a-z0-9][a-z0-9_-]{2,99}$/),
+            ruleIds: z.array(z.string()).max(100),
+            sourceUrl: z.string().min(1),
+            quote: z.string().min(3).max(500),
+            reason: z.string().min(1).max(500),
+            affectsValue: z.boolean(),
+        }).strict()).max(100),
         notes: z.array(z.string().max(500)).max(100),
     }).strict(),
 }).strict();
 
 type CardBenefitInventory = z.infer<typeof cardBenefitOpenAIInventorySchema>;
-type CardBenefitOpenAIExtraction = z.infer<typeof cardBenefitOpenAIExtractionSchema>;
+type ParsedCardBenefitOpenAIExtraction = z.infer<typeof cardBenefitOpenAIExtractionSchema>;
+type CardBenefitCoverage = Array<{
+    sectionId: string;
+    ruleIds: string[];
+    programEvidence?: Array<{ ruleId: string; paths: string[] }> | null;
+}>;
+type CardBenefitOpenAIExtraction = Omit<
+    ParsedCardBenefitOpenAIExtraction,
+    'coverage'
+> & { coverage: CardBenefitCoverage };
 
 const isReviewSafeExtraction = (value: unknown): value is CardBenefitExtraction => {
     if (!isRecord(value) || !isRecord(value.card) ||
@@ -1630,6 +2056,10 @@ const isReviewSafeExtraction = (value: unknown): value is CardBenefitExtraction 
         isRecord(evidence) &&
         typeof evidence.id === 'string' &&
         Array.isArray(evidence.fields) &&
+        (evidence.programPaths === undefined || (
+            Array.isArray(evidence.programPaths) &&
+            evidence.programPaths.every(path => typeof path === 'string')
+        )) &&
         typeof evidence.quote === 'string' &&
         (evidence.sourceUrl === undefined || typeof evidence.sourceUrl === 'string') &&
         (evidence.page === undefined || typeof evidence.page === 'number')
@@ -1727,6 +2157,7 @@ export const benefitClaimChecklistFrom = (
                 const isContextualRate = contextualBenefitRatePattern.test(line) &&
                     contextHeading.length > 0;
                 const isClaim = line.length >= 8 && line.length <= 500 &&
+                    !/^(?:예시|예)\s*\)?\s*/i.test(line) &&
                     !/(?:제공|적용)되지|제외|유의사항|적용\s*기준|수수료가?\s*부과/i.test(line) && (
                         numericBenefitClaimPattern.test(line) ||
                         namedBenefitHeadlinePattern.test(line) ||
@@ -2284,15 +2715,16 @@ export const normalizeInventoryBackedRuleSemantics = (
         rules: extraction.rules.map(ruleRow => {
             const channelText = channelTextByRule.get(ruleRow.id) ?? '';
             const brandText = brandTextByRule.get(ruleRow.id) ?? '';
+            const isPurchaseScenario = Boolean(ruleRow.program?.target?.purchaseScenario);
             const hasInPersonDiscount = /현장\s*할인/i.test(channelText);
             const hasOnlineChannel = /(?:온라인|모바일\s*(?:앱|웹)|앱\s*\/\s*웹|웹\s*\/\s*앱|홈페이지)/i
                 .test(channelText);
-            const explicitBrands = explicitCatalogBrands(
+            const explicitBrands = isPurchaseScenario ? [] : explicitCatalogBrands(
                 brandText,
                 ruleRow.category,
                 catalogBrands,
             ).map(brand => brand.id);
-            const impliedBrands = impliedCatalogBrandIds(
+            const impliedBrands = isPurchaseScenario ? [] : impliedCatalogBrandIds(
                 [
                     ruleRow.description,
                     ruleRow.condition.eligibleItemSummary ?? '',
@@ -2308,7 +2740,7 @@ export const normalizeInventoryBackedRuleSemantics = (
                 : undefined;
             return {
                 ...ruleRow,
-                includedBrands: unique([
+                includedBrands: isPurchaseScenario ? [] : unique([
                     ...ruleRow.includedBrands.filter(brandId => (
                         catalogBrandIds.has(brandId) ||
                         /^[a-z0-9][a-z0-9_-]*$/i.test(brandId)
@@ -2334,7 +2766,7 @@ export const normalizeInventoryBackedRuleSemantics = (
         ...normalized,
         rules: normalized.rules.map(ruleRow => {
             const isInformationOnly = ruleRow.action.value === 0 &&
-                ruleRow.condition.itemSpecific !== true;
+                ruleRow.condition.itemSpecific !== true && !ruleRow.program;
             if (!isInformationOnly) return ruleRow;
             return {
                 ...ruleRow,
@@ -2621,6 +3053,252 @@ const appendRequiredNote = (current: string | undefined, note: string) => {
 const sameStrings = (left: string[] = [], right: string[] = []) => (
     JSON.stringify([...left].sort()) === JSON.stringify([...right].sort())
 );
+
+const isLiteralTrueExpression = (expression: BenefitDslExpression) => (
+    expression.op === 'literal' && expression.value === true
+);
+
+const expressionUsesInput = (
+    expression: BenefitDslExpression,
+    inputName: string,
+): boolean => {
+    if (expression.op === 'input') return expression.name === inputName;
+    if (expression.op === 'arithmetic' || expression.op === 'logic') {
+        return expression.operands.some(operand => expressionUsesInput(operand, inputName));
+    }
+    if (expression.op === 'round' || expression.op === 'not' || expression.op === 'in') {
+        return expressionUsesInput(expression.value, inputName);
+    }
+    if (expression.op === 'compare') {
+        return expressionUsesInput(expression.left, inputName) ||
+            expressionUsesInput(expression.right, inputName);
+    }
+    if (expression.op === 'case') {
+        return expression.branches.some(branch => (
+            expressionUsesInput(branch.when, inputName) ||
+            expressionUsesInput(branch.then, inputName)
+        )) || expressionUsesInput(expression.otherwise, inputName);
+    }
+    if (expression.op === 'aggregate' || expression.op === 'isTopGroup') {
+        return expression.where ? expressionUsesInput(expression.where, inputName) : false;
+    }
+    return false;
+};
+
+const mergeEligibilityExpressions = (
+    base: BenefitDslExpression,
+    extension: BenefitDslExpression,
+): BenefitDslExpression => {
+    const baseKey = JSON.stringify(base);
+    if (baseKey === JSON.stringify(extension)) return extension;
+    if (isLiteralTrueExpression(base)) return extension;
+    if (isLiteralTrueExpression(extension)) return base;
+    if (extension.op === 'logic' && extension.operator === 'ALL' &&
+        extension.operands.some(operand => JSON.stringify(operand) === baseKey)) {
+        return extension;
+    }
+    return { op: 'logic', operator: 'ALL', operands: [base, extension] };
+};
+
+const guardNewCardLimitByPerformance = (
+    expression: BenefitDslExpression,
+    minimumPerformance: number | undefined,
+): BenefitDslExpression => {
+    if (minimumPerformance === undefined || expression.op !== 'case') return expression;
+    return {
+        ...expression,
+        branches: expression.branches.map(branch => {
+            if (!expressionUsesInput(branch.when, 'NEW_CARD_WINDOW_AVAILABLE') ||
+                expressionUsesInput(branch.when, 'CARD_PERFORMANCE')) return branch;
+            return {
+                ...branch,
+                when: {
+                    op: 'logic',
+                    operator: 'ALL',
+                    operands: [
+                        branch.when,
+                        {
+                            op: 'compare',
+                            operator: 'LT',
+                            left: { op: 'input', name: 'CARD_PERFORMANCE' },
+                            right: { op: 'literal', value: minimumPerformance },
+                        },
+                    ],
+                },
+            };
+        }),
+    };
+};
+
+const normalizeDslPrograms = (extraction: CardBenefitExtraction) => {
+    extraction.rules.forEach(ruleRow => {
+        const extension = ruleRow.program;
+        if (!extension) return;
+        const base = compileLegacyBenefitRule({ ...ruleRow, program: undefined });
+        const hasServiceMonthlyLimit = ruleRow.limitConfig.monthlyAmount !== undefined ||
+            (ruleRow.limitConfig.monthlyAmountByPerformance?.length ?? 0) > 0;
+        let serviceMonthlyLimit = extension.limits?.monthlyBenefitAmount;
+        let cardMonthlyLimit = extension.cardMonthlyLimit;
+        if (ruleRow.usesCardLimit === false && cardMonthlyLimit && hasServiceMonthlyLimit) {
+            serviceMonthlyLimit = cardMonthlyLimit;
+            cardMonthlyLimit = undefined;
+        }
+        if (serviceMonthlyLimit &&
+            ruleRow.condition.performanceWaiver === 'NEW_CARD_REGISTRATION_WINDOW') {
+            serviceMonthlyLimit = guardNewCardLimitByPerformance(
+                serviceMonthlyLimit,
+                ruleRow.condition.minPerformance,
+            );
+            if (serviceMonthlyLimit.op === 'case' &&
+                base.limits?.monthlyBenefitAmount &&
+                (ruleRow.limitConfig.monthlyAmountByPerformance?.length ?? 0) > 1) {
+                serviceMonthlyLimit = {
+                    ...serviceMonthlyLimit,
+                    otherwise: base.limits.monthlyBenefitAmount,
+                };
+            }
+        }
+        const confirmations = [...(base.confirmations ?? []), ...(extension.confirmations ?? [])]
+            .filter((confirmation, index, values) => values.findIndex(candidate => (
+                JSON.stringify(candidate) === JSON.stringify(confirmation)
+            )) === index);
+        const limits = {
+            ...(base.limits ?? {}),
+            ...(extension.limits ?? {}),
+            ...(serviceMonthlyLimit && { monthlyBenefitAmount: serviceMonthlyLimit }),
+        };
+        ruleRow.program = {
+            languageVersion: 1,
+            target: extension.target?.purchaseScenario
+                ? {
+                    purchaseScenario: extension.target.purchaseScenario,
+                    ...((extension.target.channels ?? base.target?.channels) && {
+                        channels: extension.target.channels ?? base.target?.channels,
+                    }),
+                }
+                : base.target,
+            eligibility: mergeEligibilityExpressions(base.eligibility, extension.eligibility),
+            benefit: extension.benefit,
+            ...(Object.keys(limits).length > 0 && { limits }),
+            ...(base.usageGroupId && { usageGroupId: base.usageGroupId }),
+            usesCardLimit: base.usesCardLimit,
+            ...(base.usesCardLimit !== false && cardMonthlyLimit && { cardMonthlyLimit }),
+            ...(confirmations.length > 0 && { confirmations }),
+            reason: extension.reason || ruleRow.description,
+        };
+        ruleRow.action = { type: 'FLAT', value: 0 };
+    });
+};
+
+const evidenceFieldsForProgramPath = (
+    path: string,
+): CardBenefitEvidence['fields'] => {
+    if (path.startsWith('program.target')) {
+        return ['condition', 'description', 'action'];
+    }
+    if (path.startsWith('program.eligibility') ||
+        path.startsWith('program.confirmations')) {
+        return ['condition', 'action', 'description'];
+    }
+    if (path.startsWith('program.benefit')) return ['action', 'description'];
+    if (path.startsWith('program.limits') ||
+        path.startsWith('program.cardMonthlyLimit') ||
+        path === 'program.usageGroupId' || path === 'program.usesCardLimit') {
+        return ['limitConfig', 'condition', 'action'];
+    }
+    return ['description', 'action', 'condition', 'limitConfig'];
+};
+
+const completeDslProgramEvidence = (extraction: CardBenefitExtraction) => {
+    const evidenceIds = new Set(extraction.evidence.map(item => item.id));
+    extraction.rules.forEach(ruleRow => {
+        if (!ruleRow.program) return;
+        const nodes = listBenefitProgramEvidenceNodes(ruleRow.program);
+        const requiredPaths = new Set(nodes.map(node => node.path));
+        extraction.evidence.forEach(item => {
+            if (!item.ruleIds.includes(ruleRow.id) || !item.programPaths) return;
+            const programPaths = item.programPaths.filter(path => requiredPaths.has(path));
+            if (programPaths.length > 0) item.programPaths = unique(programPaths);
+            else delete item.programPaths;
+        });
+        const coveredPaths = new Set(extraction.evidence
+            .filter(item => item.ruleIds.includes(ruleRow.id))
+            .flatMap(item => item.programPaths ?? []));
+        const assignments = new Map<number, string[]>();
+        nodes.filter(node => !coveredPaths.has(node.path)).forEach(node => {
+            const preferredFields = evidenceFieldsForProgramPath(node.path);
+            const candidates = extraction.evidence.map((item, index) => ({ item, index }))
+                .filter(({ item }) => item.ruleIds.includes(ruleRow.id))
+                .filter(({ item }) => (
+                    typeof node.literalValue !== 'number' ||
+                    sourceSupportsDslNumber(node.literalValue, [item.quote])
+                ))
+                .sort((left, right) => {
+                    const score = (item: CardBenefitEvidence) => {
+                        const fieldIndex = preferredFields.findIndex(field => (
+                            item.fields.includes(field)
+                        ));
+                        return fieldIndex < 0 ? preferredFields.length : fieldIndex;
+                    };
+                    return score(left.item) - score(right.item);
+                });
+            const selected = candidates.find(({ item }) => (
+                preferredFields.some(field => item.fields.includes(field))
+            )) ?? candidates[0];
+            if (!selected) return;
+            assignments.set(selected.index, [
+                ...(assignments.get(selected.index) ?? []),
+                node.path,
+            ]);
+        });
+        assignments.forEach((paths, evidenceIndex) => {
+            const source = extraction.evidence[evidenceIndex];
+            if (source.ruleIds.length === 1 && source.ruleIds[0] === ruleRow.id &&
+                source.fields.includes('program')) {
+                source.programPaths = unique([...(source.programPaths ?? []), ...paths]);
+                return;
+            }
+            let suffix = 1;
+            let id = `${source.id}-program-${suffix}`;
+            while (evidenceIds.has(id)) {
+                suffix += 1;
+                id = `${source.id}-program-${suffix}`;
+            }
+            evidenceIds.add(id);
+            extraction.evidence.push({
+                ...source,
+                id,
+                ruleIds: [ruleRow.id],
+                fields: ['program'],
+                programPaths: unique(paths),
+            });
+        });
+    });
+};
+
+const connectExactCatalogBrands = (
+    extraction: CardBenefitExtraction,
+    input: CardBenefitExtractionInput,
+) => {
+    const catalogBrands = input.catalog?.brands ?? [];
+    extraction.rules.forEach(ruleRow => {
+        if (ruleRow.program?.target?.purchaseScenario) return;
+        if ((ruleRow.includedBrands ?? []).length > 0) return;
+        const scopeText = extraction.evidence.filter(item => (
+            item.ruleIds.includes(ruleRow.id) && item.fields.some(field => (
+                field === 'description' || field === 'action' || field === 'condition'
+            ))
+        )).map(item => `${item.location ?? ''}\n${item.quote}`).join('\n');
+        const exactBrands = explicitCatalogBrands(
+            scopeText,
+            ruleRow.category ?? null,
+            catalogBrands,
+        );
+        if (exactBrands.length > 0) {
+            ruleRow.includedBrands = unique(exactBrands.map(brand => brand.id));
+        }
+    });
+};
 
 const regexEscaped = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -4495,11 +5173,14 @@ export const normalizeEvidenceBackedCardBenefitExtraction = (
     // overlapping channel variants such as Starbucks offline/Siren Order.
     normalizeSamsungIdOnRules(extraction, input);
     normalizeShinhanHiPointRules(extraction, input);
+    connectExactCatalogBrands(extraction, input);
+    normalizeDslPrograms(extraction);
 
     // Solo-limit evidence is processed late above. Re-apply the safety rule so
     // informational (0-value) rows cannot accidentally regain monetary caps.
     extraction.rules.forEach(ruleRow => {
-        if (ruleRow.action.value !== 0 || ruleRow.condition.itemSpecific === true) return;
+        if (ruleRow.program || ruleRow.action.value !== 0 ||
+            ruleRow.condition.itemSpecific === true) return;
         const removedLimits: string[] = [];
         if (typeof ruleRow.limitConfig.dailyAmount === 'number') {
             removedLimits.push(`일 ${ruleRow.limitConfig.dailyAmount.toLocaleString()}원`);
@@ -4515,6 +5196,7 @@ export const normalizeEvidenceBackedCardBenefitExtraction = (
             `${removedLimits.join('·')} 한도는 정보로만 표시하고 자동 계산 한도로 사용하지 않습니다.`,
         );
     });
+    completeDslProgramEvidence(extraction);
 
     return extraction;
 };
@@ -4565,15 +5247,24 @@ const buildInventoryEvidence = (
     return coverage.flatMap(item => {
         const section = sectionById.get(item.sectionId);
         if (!section) return [];
-        return [{
-            id: `inventory-${section.id}`,
-            ruleIds: unique(item.ruleIds),
-            fields: inventoryEvidenceFields(section),
+        const common = {
             quote: section.quote,
             sourceUrl: section.sourceUrl,
             location: section.title,
             ...(section.page !== null && { page: section.page }),
-        }];
+        };
+        return [{
+            id: `inventory-${section.id}`,
+            ruleIds: unique(item.ruleIds),
+            fields: inventoryEvidenceFields(section),
+            ...common,
+        }, ...(item.programEvidence ?? []).map((mapping, index) => ({
+            id: `inventory-${section.id}-program-${index + 1}`,
+            ruleIds: [mapping.ruleId],
+            fields: ['program' as const],
+            programPaths: unique(mapping.paths),
+            ...common,
+        }))];
     });
 };
 
@@ -4713,6 +5404,27 @@ const validateInventoryCoverage = (
         item.ruleIds.forEach(ruleId => {
             if (!rules.has(ruleId)) {
                 errors.push(`혜택 인벤토리 ${item.sectionId}가 없는 규칙 ${ruleId}를 참조합니다.`);
+            }
+        });
+        const programEvidenceRules = new Set<string>();
+        (item.programEvidence ?? []).forEach(mapping => {
+            if (programEvidenceRules.has(mapping.ruleId)) {
+                errors.push(
+                    `혜택 인벤토리 ${item.sectionId}의 규칙 ${mapping.ruleId} DSL 근거가 중복되었습니다.`
+                );
+            }
+            programEvidenceRules.add(mapping.ruleId);
+            if (!item.ruleIds.includes(mapping.ruleId)) {
+                errors.push(
+                    `혜택 인벤토리 ${item.sectionId}의 DSL 근거 규칙 ${mapping.ruleId}가 ` +
+                    '같은 coverage의 ruleIds에 없습니다.'
+                );
+            }
+            if (!rules.has(mapping.ruleId)) {
+                errors.push(
+                    `혜택 인벤토리 ${item.sectionId}의 DSL 근거가 없는 규칙 ` +
+                    `${mapping.ruleId}를 참조합니다.`
+                );
             }
         });
     });
@@ -4860,6 +5572,12 @@ export const stabilizeExtractionRuleIds = (
     const repairedCoverage = coverage.map(item => ({
         ...item,
         ruleIds: unique(item.ruleIds.map(repairCandidateId)),
+        ...(item.programEvidence !== undefined && {
+            programEvidence: item.programEvidence?.map(mapping => ({
+                ...mapping,
+                ruleId: repairCandidateId(mapping.ruleId),
+            })) ?? null,
+        }),
     }));
     const availableNewRules = extraction.rules.filter(ruleRow => !baselineIds.has(ruleRow.id));
     const assignedCandidateIds = new Set<string>();
@@ -4915,6 +5633,12 @@ export const stabilizeExtractionRuleIds = (
         coverage: repairedCoverage.map(item => ({
             ...item,
             ruleIds: unique(item.ruleIds.map(stableId)),
+            ...(item.programEvidence !== undefined && {
+                programEvidence: item.programEvidence?.map(mapping => ({
+                    ...mapping,
+                    ruleId: stableId(mapping.ruleId),
+                })) ?? null,
+            }),
         })),
     };
 };
@@ -5183,7 +5907,7 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
             timeoutMs: 180_000,
         });
         this.model = this.client.model;
-        this.cacheKey = `${this.id}:${this.model}:inventory-v33`;
+        this.cacheKey = `${this.id}:${this.model}:inventory-v35:${BENEFIT_DSL_SEMANTICS_VERSION}`;
     }
 
     async extract(input: CardBenefitExtractionInput): Promise<CardBenefitExtractionResult> {
@@ -5249,10 +5973,17 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
             schema: cardBenefitOpenAIExtractionSchema,
             schemaName: 'card_benefit_extraction',
             instructions: [
-                '당신은 한국 카드 상품의 공식 원문을 BenefitRule JSON으로 구조화합니다.',
+                '당신은 한국 카드 상품의 공식 원문을 BenefitRule JSON과 안전한 혜택 DSL로 구조화합니다.',
                 '원문에 명시된 내용만 사용하고 추측하지 마세요.',
-                '응답 extraction 필드: schemaVersion=2, completeness=FULL, card, rules, notes. evidence는 1차 인벤토리와 coverage로 애플리케이션이 생성합니다.',
-                'card 객체의 키는 반드시 id, name, company, limitTable, network입니다. issuer 같은 다른 이름을 사용하지 마세요.',
+                '응답 extraction 필드: schemaVersion=2, completeness=FULL, card, rules, unsupportedClauses, notes. evidence는 1차 인벤토리와 coverage로 애플리케이션이 생성합니다.',
+                '기존 condition/action/limitConfig로 의미를 정확히 표현할 수 있는 규칙은 program=null로 두세요. 비율형 신규회원 한도, n번째 거래, 최다 이용 범주 또는 브랜드·카테고리만으로 판별할 수 없는 구매 상황은 program에 languageVersion=1 DSL을 반드시 넣고 legacy action은 FLAT 0의 안전한 fallback으로 두세요. 애플리케이션은 target·condition·limitConfig의 기존 표현을 안전한 기본 DSL과 합성하므로 두 표현을 서로 모순되게 만들지 마세요.',
+                'DSL은 제공된 literal, input, arithmetic, round, compare, logic, not, in, case, aggregate, isTopGroup op만 조합하세요. 새로운 op·input 이름, 코드, SQL, 정규식, URL 호출을 만들지 마세요.',
+                'DSL target에는 실제 결제처의 허용 브랜드·카테고리 ID와 채널을 넣으세요. 홈경기 입장권·지정 굿즈·구장 내 음식처럼 판매처 자체가 아닌 구매 상황은 가상 브랜드로 만들지 말고 purchaseScenario에 카드 ID 접두사의 안정 ID, 표시명, 검색 별칭, 공식 적용 여부를 사용자에게 확인할 구체적인 질문을 넣으세요. purchaseScenario와 브랜드·카테고리 범위를 동시에 사용하지 마세요. benefit은 원 단위 숫자를 반환해야 합니다. 개별 서비스·규칙의 일·월·연 한도는 limits에 넣고, cardMonthlyLimit은 usesCardLimit=true인 카드 전체 통합 월 한도에만 사용하세요. 그 밖의 사용자 확인 조건은 confirmations에 표현하세요.',
+                '같은 할인율에서 전월 실적에 따라 개별 서비스 월 한도만 달라지면 실적별 규칙을 중복 생성하지 말고 하나의 규칙과 limits.monthlyBenefitAmount의 case로 표현하세요. 신규카드가 전월 실적 미달일 때만 한도를 줄이는 분기는 NEW_CARD_WINDOW_AVAILABLE뿐 아니라 CARD_PERFORMANCE가 최소 실적 미만인지도 함께 검사해야 합니다.',
+                'coverage의 programEvidence에는 해당 인벤토리 문구가 근거로 뒷받침하는 DSL ruleId와 모든 AST 경로를 넣으세요. 예: program.benefit, program.benefit.operands[0], program.cardMonthlyLimit.branches[0].then. DSL이 없는 section의 programEvidence는 null입니다.',
+                '공식 문구가 DSL v1에도 없는 입력이나 의미를 요구하면 추측하거나 누락하지 말고 unsupportedClauses에 원문 URL·연속 인용·관련 ruleIds·사유와 affectsValue를 기록하세요. 금액·조건·한도에 영향을 주면 affectsValue=true입니다.',
+                'card 객체의 키는 반드시 id, name, company, limitTable, network, performancePolicy입니다. issuer 같은 다른 이름을 사용하지 마세요.',
+                '공식 전월 실적 제외 조건이 있으면 performancePolicy.version=1의 제외 규칙으로 구조화하세요. 카드 자체 할인 적용 매출 전체 제외는 CARD_DISCOUNT_APPLIED를 사용하고, 무이자할부·상품권·세금 등 거래 종류 제외는 TRANSACTION_TAG_IN을 사용하세요. 앱이 거래 종류를 모르면 실적을 0원·불확실로 보수 처리합니다. 각 제외 규칙에는 공식 sourceUrl과 원문 그대로의 연속 quote, PDF면 page를 넣으세요. 공식 실적 제외 문구가 없으면 performancePolicy=null입니다. 표현 불가능한 실적 조건은 금액 영향 unsupportedClauses로 남기세요.',
                 '결제금액으로 자동 계산할 수 없는 혜택은 action.type=FLAT, action.value=0으로 두고 manualCheckRequired=true로 표시하세요. FIXED_PRICE 0은 가격이 명시된 특정 상품을 무료 제공하며 itemSpecific=true인 경우에만 사용하세요.',
                 '보험 보장액·수리비 보상액처럼 결제 할인 한도가 아닌 금액은 limitConfig에 넣지 말고 detail과 requiredNote에 문장으로 보존하세요.',
                 '금액으로 환산하기 어려운 한도나 부가 서비스도 생략하지 말고 manualCheckRequired와 requiredNote로 보존하세요.',
@@ -5260,7 +5991,7 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
                 '같은 할인·적립률을 쓰는 서비스 그룹의 신규카드 실적 유예는 카드 통합한도 적용 여부와 관계없이 해당 그룹의 모든 minPerformance 규칙에 performanceWaiver로 반영하세요.',
                 'A 또는 B처럼 대체 가능한 조건을 AND로 바꾸지 마세요. 예를 들어 급여이체만 필요한 혜택에 다른 서비스의 전월 실적을 minPerformance로 추가하지 말고, 계산 모델로 OR를 표현할 수 없으면 manualCheckRequired와 requiredNote에 원문 조건 전체를 보존하세요.',
                 '이번 후보는 카드의 전체 혜택을 교체하므로 공식 페이지의 상시 혜택과 현재 유효한 프로모션을 모두 포함하세요.',
-                'Rule 필드는 id, cardId, category, includedBrands, excludedBrands, platformType, sharedGroupId, usesCardLimit, description, detail, condition, action, limitConfig를 사용하세요.',
+                'Rule 필드는 id, cardId, category, includedBrands, excludedBrands, platformType, sharedGroupId, usesCardLimit, description, detail, condition, action, limitConfig, program을 사용하세요.',
                 'condition에는 minSpend, maxSpend, maxSpendExclusive, minPerformance, startsAt, endsAt, daysOfWeek, timeRanges, requiredCardNetwork, performanceWaiver, confirmationRequired, stackableWithRuleIds, applicationOrder, manualCheckRequired, requiredNote, itemSpecific, eligibleItemSummary를 사용할 수 있습니다. daysOfWeek는 SUN~SAT, timeRanges는 한국시간 HH:mm의 startTime/endTime을 사용하며 자정을 넘길 수 있습니다.',
                 'action에는 type, value, maxDiscount, amountBasis를 사용할 수 있습니다.',
                 '“N원 미만” 구간은 maxSpendExclusive=N, “N원 이하” 구간은 maxSpend=N으로 표현하고 금액 구간별 규칙이 서로 겹치지 않게 하세요.',
@@ -5286,7 +6017,7 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
                 '1차 인벤토리의 모든 section을 coverage에 정확히 한 번 넣고 실제로 표현한 ruleIds와 연결하세요. appliesToSectionIds가 있는 section의 ruleIds는 대상 section들이 연결한 ruleIds의 합집합과 정확히 같아야 합니다.',
                 'LIMIT·CONDITION·EXCLUSION section은 독립 규칙을 새로 만들지 말고 해당 조건이 반영된 실제 혜택 규칙과 연결하세요.',
                 'BENEFIT·PROMOTION section만 새로운 혜택 규칙의 근거가 될 수 있습니다.',
-                '가맹점·사이트 한정 혜택은 반드시 includedBrands로 범위를 제한하세요. category는 그 카테고리의 모든 브랜드에 실제 적용될 때만 단독으로 사용하세요. 선택 가능한 브랜드가 없으면 양수 혜택을 전역 규칙으로 만들지 말고 action.value=0과 manualCheckRequired=true로 보존하세요.',
+                '실제 가맹점·사이트 한정 혜택은 includedBrands로 범위를 제한하세요. category는 그 카테고리의 모든 브랜드에 실제 적용될 때만 단독으로 사용하세요. 구매 상품·경기·장소 등 문맥 범위는 program.target.purchaseScenario와 사용자 확인 질문으로 제한하세요. 실제 브랜드도 안전한 구매 상황도 식별할 수 없으면 양수 혜택을 전역 규칙으로 만들지 말고 action.value=0과 manualCheckRequired=true 또는 affectsValue=true인 unsupportedClauses로 보존하세요.',
                 '선택 필드가 원문상 적용되지 않으면 false, 0, 빈 문자열을 만들지 말고 null을 사용하세요.',
                 'applicationOrder는 원문에 중복 적용 순서가 명시된 경우에만 사용하고, 그 외에는 null로 두세요.',
                 'stackableWithRuleIds는 원문에 중복 또는 동시 적용이 명시된 경우에만 사용하세요. 날짜·결제금액 구간별로 서로 대체되는 할인율은 중복 혜택이 아닙니다.',

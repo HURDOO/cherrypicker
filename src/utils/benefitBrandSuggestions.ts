@@ -12,6 +12,7 @@ import type {
 import { POPULAR_BRAND_IDS } from '@/utils/brandDiscovery';
 import { calculateBestCombinations } from '@/utils/combination';
 import { getCombinationMethodSummary } from '@/utils/combinationPresentation';
+import { matchesBenefitProgramTarget } from '@/utils/benefit-dsl';
 
 const DEFAULT_SAMPLE_AMOUNT = 10_000;
 
@@ -64,7 +65,12 @@ const offerMatchesBrandScope = (offer: PromotionOffer, brand: Brand) => (
     (offer.brandIds.length === 0 && offer.categoryIds.length === 0)
 );
 
-const ruleMatchesBrandScope = (rule: BenefitRule, brand: Brand) => {
+const ruleMatchesBrandScope = (rule: BenefitRule, brand: Brand, isOnline: boolean) => {
+    if (rule.program) return matchesBenefitProgramTarget(rule.program.target, {
+        brandId: brand.id,
+        categoryId: brand.categoryId,
+        channel: isOnline ? 'ONLINE' : 'OFFLINE',
+    });
     if ((rule.excludedBrands ?? []).includes(brand.id)) return false;
     const includedBrandIds = rule.includedBrands ?? [];
     if (includedBrandIds.includes(brand.id)) return true;
@@ -121,12 +127,12 @@ export function rankBenefitBrandSuggestions({
     const candidates = brands.flatMap<BenefitBrandSuggestion>(brand => {
         const scopedRules = rules.filter(rule => (
             cardIds.has(rule.cardId) &&
-            rule.action.value > 0 &&
+            (rule.program !== undefined || rule.action.value > 0) &&
             rule.condition.itemSpecific !== true &&
             (isOnline
                 ? rule.platformType !== 'OFFLINE'
                 : rule.platformType !== 'ONLINE' && rule.platformType !== 'OFFICIAL_SITE') &&
-            ruleMatchesBrandScope(rule, brand)
+            ruleMatchesBrandScope(rule, brand, isOnline)
         ));
         const scopedPromotions = promotions.filter(offer => (
             isCurrentPromotion(offer, now) &&
@@ -167,6 +173,7 @@ export function rankBenefitBrandSuggestions({
                 performanceGoals: [],
                 performanceBenefitMonth,
                 routeVerifications,
+                brandCategoryById: new Map(brands.map(item => [item.id, item.categoryId])),
                 promotionUsage,
                 now,
             });

@@ -158,6 +158,17 @@ describe('combination transaction route', () => {
     });
 
     it('writes the transaction, benefit steps, and current performance atomically', async () => {
+        mocks.recommendation = {
+            combinations: [{
+                ...confirmedCombination,
+                performanceContribution: {
+                    amount: 9_000,
+                    status: 'CONFIRMED',
+                    reason: '카드별 실적 정책에 따라 포함되는 매출',
+                    policyVersion: 1,
+                },
+            }],
+        };
         const response = await POST(new Request('http://localhost/api/transactions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -181,6 +192,52 @@ describe('combination transaction route', () => {
             confirmedValue: 1_000,
             payableAmount: 9_000,
             performanceContributionAmount: 9_000,
+        });
+    });
+
+    it('stores a zero-contribution snapshot without incrementing server performance', async () => {
+        mocks.recommendation = {
+            combinations: [{
+                ...confirmedCombination,
+                performanceContribution: {
+                    amount: 0,
+                    status: 'CONFIRMED',
+                    reason: '할인 매출 전체 실적 제외',
+                    policyVersion: 1,
+                },
+            }],
+        };
+        const response = await POST(new Request('http://localhost/api/transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+        }));
+        expect(response.status).toBe(201);
+        expect(mocks.inserts.map(insert => insert.table)).toEqual([
+            mocks.tables.transactionHistory,
+            mocks.tables.transactionBenefits,
+        ]);
+        await expect(response.json()).resolves.toMatchObject({
+            performanceContributionAmount: 0,
+            performanceContribution: { amount: 0, status: 'CONFIRMED' },
+        });
+    });
+
+    it('increments server performance by default when the card has no exclusion policy', async () => {
+        const response = await POST(new Request('http://localhost/api/transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+        }));
+        expect(response.status).toBe(201);
+        expect(mocks.inserts.map(insert => insert.table)).toEqual([
+            mocks.tables.transactionHistory,
+            mocks.tables.transactionBenefits,
+            mocks.tables.userCardPerformances,
+        ]);
+        await expect(response.json()).resolves.toMatchObject({
+            performanceContributionAmount: 9_000,
+            performanceContribution: { amount: 9_000, status: 'CONFIRMED' },
         });
     });
 

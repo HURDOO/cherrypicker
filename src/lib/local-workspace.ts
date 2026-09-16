@@ -45,6 +45,7 @@ import {
     transactionDone,
 } from '@/lib/local-workspace-database';
 import { getCurrentMonthInKst } from '@/lib/monthly-performance';
+import { calculatePerformanceContribution } from '@/utils/performance-policy';
 import {
     DEFAULT_SMALL_BENEFIT_THRESHOLD,
     MAX_SMALL_BENEFIT_THRESHOLD,
@@ -106,6 +107,7 @@ export type LocalCombinationTransactionInput = {
     amount: number;
     eligibleItemAmount?: number;
     combination: BenefitCombination;
+    card?: Card;
     catalogVersion: string;
 };
 
@@ -1008,7 +1010,7 @@ export const createLocalWorkspaceClient = (
             const id = createId();
             const cardSteps = input.combination.steps.filter(step => step.cardId);
             const cardStep = cardSteps[0];
-            const performanceContributionAmount = input.combination.fundingType === 'CARD' &&
+            const legacyPerformanceContributionAmount = input.combination.fundingType === 'CARD' &&
                 input.combination.cardId
                 ? Math.max(0, Math.floor(
                     input.combination.cardChargeAmount ??
@@ -1016,6 +1018,23 @@ export const createLocalWorkspaceClient = (
                     input.combination.payableAmount
                 ))
                 : 0;
+            const performanceContribution = input.combination.fundingType === 'CARD' &&
+                input.combination.cardId
+                ? input.card && input.card.id === input.combination.cardId
+                    ? calculatePerformanceContribution({
+                        policy: input.card.performancePolicy,
+                        cardId: input.card.id,
+                        cardChargeAmount: legacyPerformanceContributionAmount,
+                        steps: input.combination.steps,
+                    })
+                    : input.combination.performanceContribution ??
+                        calculatePerformanceContribution({
+                            cardId: input.combination.cardId,
+                            cardChargeAmount: legacyPerformanceContributionAmount,
+                            steps: input.combination.steps,
+                        })
+                : undefined;
+            const performanceContributionAmount = performanceContribution?.amount ?? 0;
             const transaction: TransactionHistory = {
                 id,
                 date: timestamp,
@@ -1042,7 +1061,10 @@ export const createLocalWorkspaceClient = (
                 estimatedValue: input.combination.estimatedValue,
                 payableAmount: input.combination.payableAmount,
                 laterReward: input.combination.laterReward,
-                ...(performanceContributionAmount > 0 && { performanceContributionAmount }),
+                ...(performanceContribution && {
+                    performanceContributionAmount,
+                    performanceContribution,
+                }),
                 combinationSnapshot: {
                     ...structuredClone(input.combination),
                     catalogVersion: input.catalogVersion,

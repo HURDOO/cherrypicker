@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
+    BenefitDslExpression,
+    BenefitProgramV1,
     BenefitRule,
     Card,
     CardBenefitEvidence,
@@ -25,6 +27,7 @@ import {
     validateCardBenefitExtraction,
 } from './card-benefit-extraction';
 import { calculateBestCards } from '@/utils/calculation';
+import { listBenefitProgramEvidencePaths } from '@/utils/benefit-dsl';
 import { shinhanSolSourceText } from '@/test/fixtures/shinhan-sol-source';
 
 const card: Card = {
@@ -109,48 +112,125 @@ const openAIResponse = (value: unknown) => ({
 const toOpenAIExtraction = (
     extraction: ReturnType<typeof extractShinhanSolTravelWithRules>['extraction'],
 ) => {
+    const toOpenAIExpression = (expression: BenefitDslExpression): unknown => {
+        switch (expression.op) {
+            case 'literal':
+            case 'input': return expression;
+            case 'arithmetic':
+            case 'logic': return {
+                ...expression,
+                operands: expression.operands.map(toOpenAIExpression),
+            };
+            case 'round': return { ...expression, value: toOpenAIExpression(expression.value) };
+            case 'compare': return {
+                ...expression,
+                left: toOpenAIExpression(expression.left),
+                right: toOpenAIExpression(expression.right),
+            };
+            case 'not': return { ...expression, value: toOpenAIExpression(expression.value) };
+            case 'in': return { ...expression, value: toOpenAIExpression(expression.value) };
+            case 'case': return {
+                ...expression,
+                branches: expression.branches.map(branch => ({
+                    when: toOpenAIExpression(branch.when),
+                    then: toOpenAIExpression(branch.then),
+                })),
+                otherwise: toOpenAIExpression(expression.otherwise),
+            };
+            case 'aggregate':
+            case 'isTopGroup': return {
+                ...expression,
+                where: expression.where ? toOpenAIExpression(expression.where) : null,
+                includeCurrent: expression.includeCurrent ?? null,
+            };
+        }
+    };
+    const toOpenAIProgram = (program: BenefitProgramV1 | undefined) => program ? ({
+        languageVersion: program.languageVersion,
+        target: program.target ? {
+            includedBrandIds: program.target.includedBrandIds ?? null,
+            excludedBrandIds: program.target.excludedBrandIds ?? null,
+            categoryIds: program.target.categoryIds ?? null,
+            channels: program.target.channels ?? null,
+        } : null,
+        eligibility: toOpenAIExpression(program.eligibility),
+        benefit: toOpenAIExpression(program.benefit),
+        limits: program.limits ? {
+            dailyCount: program.limits.dailyCount
+                ? toOpenAIExpression(program.limits.dailyCount)
+                : null,
+            dailyBenefitAmount: program.limits.dailyBenefitAmount
+                ? toOpenAIExpression(program.limits.dailyBenefitAmount)
+                : null,
+            monthlyCount: program.limits.monthlyCount
+                ? toOpenAIExpression(program.limits.monthlyCount)
+                : null,
+            monthlyBenefitAmount: program.limits.monthlyBenefitAmount
+                ? toOpenAIExpression(program.limits.monthlyBenefitAmount)
+                : null,
+            yearlyCount: program.limits.yearlyCount
+                ? toOpenAIExpression(program.limits.yearlyCount)
+                : null,
+        } : null,
+        usageGroupId: program.usageGroupId ?? null,
+        usesCardLimit: program.usesCardLimit ?? null,
+        cardMonthlyLimit: program.cardMonthlyLimit
+            ? toOpenAIExpression(program.cardMonthlyLimit)
+            : null,
+        confirmations: program.confirmations?.map(confirmation => ({
+            when: toOpenAIExpression(confirmation.when),
+            message: confirmation.message,
+        })) ?? null,
+        reason: program.reason ?? null,
+    }) : null;
     return {
         schemaVersion: extraction.schemaVersion,
         completeness: extraction.completeness,
+        unsupportedClauses: extraction.unsupportedClauses ?? [],
         notes: extraction.notes,
-        card: { ...extraction.card, network: extraction.card.network ?? null },
+        card: {
+            ...extraction.card,
+            network: extraction.card.network ?? null,
+            performancePolicy: extraction.card.performancePolicy ?? null,
+        },
         rules: extraction.rules.map(rule => ({
-        ...rule,
-        category: rule.category ?? null,
-        sharedGroupId: rule.sharedGroupId ?? null,
-        condition: {
-            minSpend: rule.condition.minSpend ?? null,
-            maxSpend: rule.condition.maxSpend ?? null,
-            maxSpendExclusive: rule.condition.maxSpendExclusive ?? null,
-            minPerformance: rule.condition.minPerformance ?? null,
-            startsAt: rule.condition.startsAt ?? null,
-            endsAt: rule.condition.endsAt ?? null,
-            daysOfWeek: rule.condition.daysOfWeek ?? null,
-            timeRanges: rule.condition.timeRanges ?? null,
-            requiredCardNetwork: rule.condition.requiredCardNetwork ?? null,
-            performanceWaiver: rule.condition.performanceWaiver ?? null,
-            confirmationRequired: rule.condition.confirmationRequired ?? null,
-            stackableWithRuleIds: rule.condition.stackableWithRuleIds ?? null,
-            applicationOrder: rule.condition.applicationOrder ?? null,
-            manualCheckRequired: rule.condition.manualCheckRequired ?? null,
-            requiredNote: rule.condition.requiredNote ?? null,
-            itemSpecific: rule.condition.itemSpecific ?? null,
-            eligibleItemSummary: rule.condition.eligibleItemSummary ?? null,
-        },
-        action: {
-            ...rule.action,
-            maxDiscount: rule.action.maxDiscount ?? null,
-            amountBasis: rule.action.amountBasis ?? null,
-        },
-        limitConfig: {
-            dailyCount: rule.limitConfig.dailyCount ?? null,
-            dailyAmount: rule.limitConfig.dailyAmount ?? null,
-            monthlyCount: rule.limitConfig.monthlyCount ?? null,
-            yearlyCount: rule.limitConfig.yearlyCount ?? null,
-            monthlyAmount: rule.limitConfig.monthlyAmount ?? null,
-            monthlyAmountByPerformance: rule.limitConfig.monthlyAmountByPerformance ?? null,
-            sharedFields: rule.limitConfig.sharedFields ?? null,
-        },
+            ...rule,
+            program: toOpenAIProgram(rule.program),
+            category: rule.category ?? null,
+            sharedGroupId: rule.sharedGroupId ?? null,
+            condition: {
+                minSpend: rule.condition.minSpend ?? null,
+                maxSpend: rule.condition.maxSpend ?? null,
+                maxSpendExclusive: rule.condition.maxSpendExclusive ?? null,
+                minPerformance: rule.condition.minPerformance ?? null,
+                startsAt: rule.condition.startsAt ?? null,
+                endsAt: rule.condition.endsAt ?? null,
+                daysOfWeek: rule.condition.daysOfWeek ?? null,
+                timeRanges: rule.condition.timeRanges ?? null,
+                requiredCardNetwork: rule.condition.requiredCardNetwork ?? null,
+                performanceWaiver: rule.condition.performanceWaiver ?? null,
+                confirmationRequired: rule.condition.confirmationRequired ?? null,
+                stackableWithRuleIds: rule.condition.stackableWithRuleIds ?? null,
+                applicationOrder: rule.condition.applicationOrder ?? null,
+                manualCheckRequired: rule.condition.manualCheckRequired ?? null,
+                requiredNote: rule.condition.requiredNote ?? null,
+                itemSpecific: rule.condition.itemSpecific ?? null,
+                eligibleItemSummary: rule.condition.eligibleItemSummary ?? null,
+            },
+            action: {
+                ...rule.action,
+                maxDiscount: rule.action.maxDiscount ?? null,
+                amountBasis: rule.action.amountBasis ?? null,
+            },
+            limitConfig: {
+                dailyCount: rule.limitConfig.dailyCount ?? null,
+                dailyAmount: rule.limitConfig.dailyAmount ?? null,
+                monthlyCount: rule.limitConfig.monthlyCount ?? null,
+                yearlyCount: rule.limitConfig.yearlyCount ?? null,
+                monthlyAmount: rule.limitConfig.monthlyAmount ?? null,
+                monthlyAmountByPerformance: rule.limitConfig.monthlyAmountByPerformance ?? null,
+                sharedFields: rule.limitConfig.sharedFields ?? null,
+            },
         })),
     };
 };
@@ -158,6 +238,32 @@ const toOpenAIExtraction = (
 describe('card benefit extraction', () => {
     afterEach(() => {
         vi.unstubAllGlobals();
+    });
+
+    it('requires an evidenced performance policy when the official source lists exclusions', () => {
+        const sourceWithExclusion = `${sourceText}\n전월 이용실적 제외 대상: 할인 적용 매출 전체`;
+        const officialInput = { ...input, sourceText: sourceWithExclusion };
+        const extraction = extractShinhanSolTravelWithRules(input).extraction;
+        expect(validateCardBenefitExtraction(extraction, officialInput, references).errors)
+            .toContain('공식 전월 실적 제외 조건의 정책 또는 금액 영향 미지원 문구가 없습니다.');
+
+        extraction.card.performancePolicy = {
+            version: 1,
+            exclusionRules: [{
+                id: 'discounted_sale',
+                when: { op: 'CARD_DISCOUNT_APPLIED' },
+                reason: '할인 매출 전체 실적 제외',
+                sourceUrl: input.sourceUrl,
+                quote: '할인 적용 매출 전체',
+            }],
+        };
+        const validated = validateCardBenefitExtraction(extraction, officialInput, references);
+        expect(validated.errors).not.toEqual(expect.arrayContaining([
+            expect.stringContaining('실적 제외'),
+        ]));
+        extraction.card.performancePolicy.exclusionRules[0].quote = '원문에 없는 실적 문장';
+        expect(validateCardBenefitExtraction(extraction, officialInput, references).errors)
+            .toContain('카드 실적 제외 규칙 1번의 공식 원문 근거가 없습니다.');
     });
 
     it('tracks active PDF benefit lines and skips expired benefit groups', () => {
@@ -1161,6 +1267,40 @@ describe('card benefit extraction', () => {
         );
 
         expect(validation.errors).toContain('규칙 sol_lounge의 혜택·계산 근거가 없습니다.');
+    });
+
+    it('holds unsafe item scope and unsupported percentage-reduced new-card limits', () => {
+        const result = extractShinhanSolTravelWithRules(input);
+        const lounge = result.extraction.rules.find(rule => rule.id === 'sol_lounge')!;
+        lounge.includedBrands = [];
+        delete lounge.category;
+        lounge.condition.itemSpecific = true;
+        lounge.condition.eligibleItemSummary = '공항 라운지 이용권';
+        lounge.action = { type: 'PERCENT', value: 50 };
+
+        const convenience = result.extraction.rules.find(
+            rule => rule.id === 'sol_domestic_convenience',
+        )!;
+        const waiverQuote = '신규 회원은 월 할인한도 50%까지만 적용';
+        result.extraction.evidence.push({
+            id: 'new-card-half-limit',
+            ruleIds: [convenience.id],
+            fields: ['condition', 'limitConfig'],
+            quote: waiverQuote,
+            sourceUrl: input.sourceUrl,
+        });
+
+        const validation = validateCardBenefitExtraction(result.extraction, {
+            ...input,
+            sourceText: `${input.sourceText}\n${waiverQuote}`,
+        }, references);
+
+        expect(validation.errors).toContain(
+            '특정 상품 양수 혜택에 결제처 범위가 없습니다: 공항 라운지 무료',
+        );
+        expect(validation.errors).toContain(
+            '신규카드 유예의 비율형 월 한도를 자동 계산할 수 없습니다: 국내 편의점 5% 할인',
+        );
     });
 
     it('rejects evidence quotes that are not present in the raw source', () => {
@@ -2923,6 +3063,20 @@ describe('card benefit extraction', () => {
     it('uses two Responses API structured outputs without a JSON-string transport', async () => {
         const extraction = extractShinhanSolTravelWithRules(input).extraction;
         const firstEvidence = extraction.evidence[0];
+        extraction.rules[0].program = {
+            languageVersion: 1,
+            eligibility: { op: 'literal', value: true },
+            benefit: {
+                op: 'arithmetic',
+                operator: 'MIN',
+                operands: [
+                    { op: 'literal', value: 1_000 },
+                    { op: 'input', name: 'PAYMENT_AMOUNT' },
+                ],
+            },
+            usesCardLimit: false,
+            reason: '구조화 응답 DSL 검증',
+        };
         const inventory = {
             confidence: 0.93,
             sections: [{
@@ -2942,6 +3096,10 @@ describe('card benefit extraction', () => {
             coverage: [{
                 sectionId: 'foreign_payment',
                 ruleIds: [firstEvidence.ruleIds[0]],
+                programEvidence: [{
+                    ruleId: extraction.rules[0].id,
+                    paths: listBenefitProgramEvidencePaths(extraction.rules[0].program!),
+                }],
             }],
             extraction: toOpenAIExtraction(extraction),
         };
@@ -2974,12 +3132,16 @@ describe('card benefit extraction', () => {
             .toHaveProperty('extraction');
         expect(extractionRequest.text.format.schema.properties)
             .not.toHaveProperty('extractionJson');
+        expect(extractionRequest.text.format.schema.definitions).toBeDefined();
+        expect(JSON.stringify(extractionRequest.text.format.schema)).toContain('program');
         expect(extractionRequest.instructions).toContain(
             '전월 실적 구간에 따라 할인율·적립률 자체가 달라지는 표는 금액 한도가 아닙니다.',
         );
         expect(extractionRequest.instructions).toContain(
             '“전월 이용금액 N원 이상”을 minSpend로 옮기지 마세요.',
         );
+        expect(extractionRequest.instructions).toContain('program=null');
+        expect(structured.extraction.rules[0].program).not.toBeNull();
         expect(result.extraction.rules).toHaveLength(13);
         expect(result.confidence).toBe(0.91);
         expect(fetchMock).toHaveBeenCalledTimes(2);

@@ -15,6 +15,7 @@ interface MigrationJournal {
 const sqlite = new Database(':memory:');
 const integrationDb = drizzle(sqlite, { schema });
 let onboarding: typeof import('./system-card-onboarding');
+let brandRegistry: typeof import('./system-brand-registry');
 
 const applyMigrations = () => {
     const journal = JSON.parse(
@@ -39,6 +40,7 @@ beforeAll(async () => {
         databasePath: ':memory:',
     }));
     onboarding = await import('./system-card-onboarding');
+    brandRegistry = await import('./system-brand-registry');
 });
 
 afterAll(() => {
@@ -47,6 +49,48 @@ afterAll(() => {
 });
 
 describe('system card onboarding', () => {
+    it('registers new official payment targets without application code changes', () => {
+        integrationDb.insert(schema.categories).values([
+            { id: 'movie', name: '영화/엔터', userId: null, sortOrder: 0 },
+            { id: 'food', name: '외식/패스트푸드', userId: null, sortOrder: 1 },
+        ]).run();
+        const input = brandRegistry.parseSystemBrandDraftBatchInput({
+            brands: [
+                {
+                    id: 'doosan_bears_ticket_goods',
+                    name: '야구 홈경기 티켓/굿즈&용품',
+                    categoryId: 'movie',
+                    iconName: 'Ticket',
+                },
+                {
+                    id: 'doosan_bears_home_stadium_fb',
+                    name: '홈구장 내 F&B',
+                    categoryId: 'food',
+                    iconName: 'Utensils',
+                },
+            ],
+        });
+
+        const created = brandRegistry.createSystemBrandDraftBatch(input);
+
+        expect(created).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                id: 'doosan_bears_ticket_goods',
+                categoryId: 'movie',
+            }),
+            expect.objectContaining({
+                id: 'doosan_bears_home_stadium_fb',
+                categoryId: 'food',
+            }),
+        ]));
+        expect(integrationDb.select().from(schema.brands).all()
+            .filter(brand => brand.id.startsWith('doosan_bears_')))
+            .toHaveLength(2);
+        expect(() => brandRegistry.createSystemBrandDraftBatch(input)).toThrow(
+            '이미 존재합니다.',
+        );
+    });
+
     it('rejects non-public and ambiguous official source URLs', () => {
         const baseInput = {
             id: 'test_card',
@@ -153,6 +197,75 @@ describe('system card onboarding', () => {
                 revisionReviewEnabled: true,
             }),
         );
+    });
+
+    it('registers the requested Doosan Bears credit product as a private draft', () => {
+        const input = onboarding.parseSystemCardDraftInput({
+            id: 'kb_doosan_bears',
+            name: '두산베어스 KB카드',
+            company: 'KB국민카드',
+            color: 'bg-blue-500',
+            issueStatus: 'ACTIVE',
+            issuerProductCode: '02219',
+            catalogCaveat: '홈경기 혜택은 공식 예매·판매처와 가맹점 분류 확인 필요',
+            sources: [{
+                label: '두산베어스 KB카드 공식 상품 페이지',
+                sourceUrl: 'https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?cooperationcode=02219&mainCC=a',
+                sourceKind: 'PRODUCT_PAGE',
+                candidateRole: 'PRIMARY',
+                required: true,
+                discoverLinkedPdfs: false,
+            }],
+        });
+
+        const created = onboarding.createSystemCardDraft(input);
+
+        expect(created).toMatchObject({
+            id: 'kb_doosan_bears',
+            name: '두산베어스 KB카드',
+            issuerProductCode: '02219',
+            catalogStatus: 'DRAFT',
+            activeRevision: undefined,
+        });
+        expect(onboarding.getManagedSystemCardBenefitSources('kb_doosan_bears'))
+            .toMatchObject([{
+                sourceUrl: expect.stringContaining('cooperationcode=02219'),
+                required: true,
+                candidateRole: 'PRIMARY',
+                discoverLinkedPdfs: false,
+            }]);
+        expect(integrationDb.select({ id: schema.cards.id }).from(schema.cards)
+            .where(publishedSystemCard())
+            .all()).not.toContainEqual({ id: 'kb_doosan_bears' });
+    });
+
+    it('does not use issuance status as a published-card visibility filter', () => {
+        const input = onboarding.parseSystemCardDraftInput({
+            id: 'owned_discontinued_card',
+            name: '보유 중인 발급 중단 카드',
+            company: '테스트카드',
+            color: 'bg-gray-700',
+            issueStatus: 'DISCONTINUED',
+            issuerProductCode: 'OWNED-001',
+            sources: [{
+                label: '공식 상품 페이지',
+                sourceUrl: 'https://cards.example.com/owned-discontinued',
+                sourceKind: 'PRODUCT_PAGE',
+                candidateRole: 'PRIMARY',
+                required: true,
+                discoverLinkedPdfs: false,
+            }],
+        });
+
+        onboarding.createSystemCardDraft(input);
+        integrationDb.update(schema.cards)
+            .set({ catalogStatus: 'PUBLISHED' })
+            .where(eq(schema.cards.id, input.id))
+            .run();
+
+        expect(integrationDb.select({ id: schema.cards.id }).from(schema.cards)
+            .where(publishedSystemCard())
+            .all()).toContainEqual({ id: input.id });
     });
 
     it('rejects duplicate IDs and duplicate issuer product codes', () => {

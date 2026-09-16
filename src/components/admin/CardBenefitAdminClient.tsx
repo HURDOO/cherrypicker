@@ -30,6 +30,7 @@ import {
     isCardBenefitBatchItemProblem,
 } from '@/lib/card-benefit-collection-run';
 import { useToastStore } from '@/store/useToastStore';
+import { evaluateBenefitProgram, validateBenefitProgram } from '@/utils/benefit-dsl';
 
 type Candidate = {
     id: string;
@@ -139,9 +140,76 @@ const extractorLabel = (extractor: string) => extractor.startsWith('openai:')
     : '공식 규칙 추출기';
 
 const formatAction = (rule: BenefitRule) => {
+    if (rule.program) return `DSL v${rule.program.languageVersion}`;
     if (rule.action.type === 'PERCENT') return `${rule.action.value}%`;
     if (rule.action.type === 'FLAT') return `${rule.action.value.toLocaleString()}원`;
     return `${rule.action.value.toLocaleString()}원 정가`;
+};
+
+const programSummary = (rule: BenefitRule) => {
+    if (!rule.program) return [];
+    const target = rule.program.target;
+    return [
+        rule.program.reason ?? rule.description,
+        target?.purchaseScenario
+            ? `결제 상황 ${target.purchaseScenario.label} (${target.purchaseScenario.id})`
+            : target?.includedBrandIds?.length
+            ? `브랜드 ${target.includedBrandIds.join(', ')}`
+            : target?.categoryIds?.length
+                ? `카테고리 ${target.categoryIds.join(', ')}`
+                : '모든 결제처',
+        target?.channels?.length ? `채널 ${target.channels.join(', ')}` : '모든 채널',
+        rule.program.usageGroupId ? `공유 한도 ${rule.program.usageGroupId}` : '규칙별 한도',
+        rule.program.cardMonthlyLimit ? '조건별 카드 월 한도 계산' : undefined,
+        ...(target?.purchaseScenario?.requiredChecks ?? []).map(item => `상황 확인: ${item}`),
+        ...(rule.program.confirmations ?? []).map(item => `확인: ${item.message}`),
+    ].filter((item): item is string => Boolean(item));
+};
+
+const programSimulation = (
+    rule: BenefitRule,
+    card: CardBenefitExtraction['card'],
+) => {
+    if (!rule.program) return [];
+    const ordinaryTier = [...card.limitTable]
+        .filter(tier => tier.limit > 0)
+        .sort((left, right) => left.threshold - right.threshold)[0];
+    const firstLimit = ordinaryTier?.limit ?? 999_999_999;
+    const brandId = rule.program.target?.includedBrandIds?.[0] ?? rule.includedBrands?.[0];
+    const categoryId = rule.program.target?.categoryIds?.[0] ?? rule.category;
+    const purchaseScenarioId = rule.program.target?.purchaseScenario?.id;
+    return [10_000, 30_000, 100_000].flatMap(amount => [
+        { label: '일반', newCard: false, performance: ordinaryTier?.threshold ?? 0 },
+        { label: '신규', newCard: true, performance: 0 },
+    ].map(scenario => {
+        const result = evaluateBenefitProgram(rule.program!, {
+            paymentAmount: amount,
+            remainingPaymentAmount: amount,
+            cardPerformance: scenario.performance,
+            cardBaseMonthlyLimit: firstLimit,
+            cardFirstBenefitTierLimit: firstLimit,
+            cardUsedBenefitAmount: 0,
+            ...(card.network && { cardNetwork: card.network }),
+            ...(brandId && { brandId }),
+            ...(categoryId && { categoryId }),
+            ...(purchaseScenarioId && { purchaseScenarioId }),
+            channel: rule.program?.target?.channels?.[0] ?? 'OFFLINE',
+            now: new Date('2026-09-07T03:00:00.000Z'),
+            newCardWindowAvailable: scenario.newCard,
+            usage: {
+                dailyCount: 0,
+                dailyBenefitAmount: 0,
+                monthlyCount: 0,
+                monthlyBenefitAmount: 0,
+                yearlyCount: 0,
+            },
+            history: [],
+        });
+        return {
+            label: `${scenario.label} · ${amount.toLocaleString()}원`,
+            result,
+        };
+    }));
 };
 
 const ruleConditionLabels = (rule: BenefitRule) => [
@@ -211,6 +279,7 @@ const auditFieldLabels: Record<string, string> = {
     'limitConfig.monthlyCount': '월 이용 횟수',
     'limitConfig.yearlyCount': '연 이용 횟수',
     'limitConfig.monthlyAmount': '월 혜택 한도',
+    program: '혜택 DSL',
 };
 
 const auditValue = (value: unknown) => {
@@ -319,6 +388,18 @@ const EvidenceList = ({ evidence }: { evidence: CardBenefitEvidence[] }) => (
                 <p className="mt-1 text-[10px] font-bold leading-relaxed text-gray-700">
                     “{item.quote}”
                 </p>
+                {item.programPaths && item.programPaths.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                        {item.programPaths.map(path => (
+                            <code
+                                key={path}
+                                className="rounded bg-violet-50 px-1.5 py-0.5 text-[8px] font-bold text-violet-700"
+                            >
+                                {path}
+                            </code>
+                        ))}
+                    </div>
+                )}
             </div>
         ))}
     </div>
@@ -727,6 +808,22 @@ export function CardBenefitAdminClient() {
                             </div>
                         )}
 
+                        {(candidate.extraction.unsupportedClauses?.length ?? 0) > 0 && (
+                            <div className="mt-4 rounded-2xl border border-rose-300 bg-rose-50 p-3">
+                                <p className="flex items-center gap-1 text-[10px] font-black text-rose-900">
+                                    <ShieldAlert className="h-3.5 w-3.5" /> DSL 미지원 공식 문구
+                                </p>
+                                <ul className="mt-2 space-y-2 text-[10px] font-bold text-rose-800">
+                                    {candidate.extraction.unsupportedClauses?.map(clause => (
+                                        <li key={clause.id} className="rounded-xl bg-white px-3 py-2">
+                                            <p>{clause.affectsValue ? '게시 차단 · 계산 영향' : '정보 기록'} · {clause.reason}</p>
+                                            <p className="mt-1 font-medium leading-relaxed text-rose-700">“{clause.quote}”</p>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
                         <AuditPanel audit={candidate.audit} />
 
                         <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -751,6 +848,32 @@ export function CardBenefitAdminClient() {
                                                         </span>
                                                     ))}
                                                 </div>
+                                            )}
+                                            {rule.program && (
+                                                <details className="mt-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2">
+                                                    <summary className="cursor-pointer text-[9px] font-black text-violet-900">
+                                                        DSL 의미·대표 계산 확인
+                                                    </summary>
+                                                    <ul className="mt-2 space-y-1 pl-4 text-[9px] font-bold text-violet-800">
+                                                        {programSummary(rule).map(item => (
+                                                            <li key={item} className="list-disc">{item}</li>
+                                                        ))}
+                                                    </ul>
+                                                    <div className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-3">
+                                                        {programSimulation(rule, candidate.extraction.card).map(simulation => (
+                                                            <div key={simulation.label} className="rounded-lg bg-white px-2 py-1.5">
+                                                                <p className="text-[8px] font-black text-gray-400">{simulation.label}</p>
+                                                                <p className="mt-0.5 text-[9px] font-black text-violet-800">
+                                                                    {simulation.result.benefitAmount.toLocaleString()}원 · {simulation.result.certainty === 'CONFIRMED' ? '확정' : '조건부'}
+                                                                </p>
+                                                                <p className="mt-0.5 text-[8px] font-bold text-gray-500">{simulation.result.reason}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <p className="mt-2 text-[8px] font-bold text-violet-700">
+                                                        schema 검사: {validateBenefitProgram(rule.program).valid ? '통과' : '실패'}
+                                                    </p>
+                                                </details>
                                             )}
                                         </div>
                                     ))}

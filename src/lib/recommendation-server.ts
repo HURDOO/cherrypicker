@@ -49,6 +49,14 @@ export function calculateRecommendationForUser(
         .get();
     if (!brand) throw new HttpError(404, '브랜드를 찾을 수 없습니다.');
 
+    const visibleBrandRows = db.select({
+        id: brands.id,
+        categoryId: brands.categoryId,
+    }).from(brands)
+        .where(visibleToUser(brands.userId, userId))
+        .all();
+    const brandCategoryById = new Map(visibleBrandRows.map(row => [row.id, row.categoryId]));
+
     const cardRows = db.select().from(cards)
         .where(cardVisibleToUser(userId))
         .orderBy(asc(cards.name))
@@ -178,6 +186,7 @@ export function calculateRecommendationForUser(
         providers: providerRows.map(toPromotionProvider),
         profile: toBenefitProfile(profileRow),
         routeVerifications: verificationRows.map(toMerchantRouteVerification),
+        brandCategoryById,
         promotionUsage,
     });
 }

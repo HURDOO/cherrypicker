@@ -1,4 +1,6 @@
 import type { BenefitCatalogSnapshot } from '@/types';
+import { validateBenefitProgram } from '@/utils/benefit-dsl';
+import { validateCardPerformancePolicy } from '@/utils/performance-policy';
 
 type BenefitCatalogContent = Omit<
     BenefitCatalogSnapshot,
@@ -115,6 +117,18 @@ export function assertBenefitCatalogReferences(snapshot: BenefitCatalogContent) 
     const cardIds = new Set(snapshot.cards.map(card => card.id));
     const providerIds = new Set(snapshot.providers.map(provider => provider.id));
 
+    snapshot.cards.forEach(card => {
+        if ('performancePolicy' in card) {
+            const ruleIds = new Set(snapshot.rules
+                .filter(rule => rule.cardId === card.id)
+                .map(rule => rule.id));
+            const errors = validateCardPerformancePolicy(card.performancePolicy, ruleIds);
+            if (errors.length > 0) {
+                throw new Error(`공개 카드 ${card.id}의 실적 정책이 올바르지 않습니다: ${errors[0]}`);
+            }
+        }
+    });
+
     snapshot.brands.forEach(brand => {
         if (!categoryIds.has(brand.categoryId)) {
             throw new Error(
@@ -139,6 +153,15 @@ export function assertBenefitCatalogReferences(snapshot: BenefitCatalogContent) 
                 );
             }
         });
+        if (rule.program) {
+            const validation = validateBenefitProgram(rule.program, { brandIds, categoryIds });
+            if (!validation.valid) {
+                throw new Error(
+                    `공개 카드 혜택 ${rule.id}의 DSL이 올바르지 않습니다: ` +
+                    validation.errors.join(', ')
+                );
+            }
+        }
     });
 
     snapshot.subscriptionProducts.forEach(product => {
@@ -201,7 +224,7 @@ export function parseBenefitCatalogSnapshot(value: unknown): BenefitCatalogSnaps
     if (!isRecord(value)) {
         throw new Error('공개 카탈로그 응답이 객체가 아닙니다.');
     }
-    if (value.schemaVersion !== 2) {
+    if (value.schemaVersion !== 2 && value.schemaVersion !== 3) {
         throw new Error('지원하지 않는 공개 카탈로그 schema 버전입니다.');
     }
     if (

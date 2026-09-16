@@ -21,7 +21,7 @@ import type {
 } from '@/types';
 import { assertBenefitCatalogReferences } from './benefit-catalog-contract';
 
-export const BENEFIT_CATALOG_SCHEMA_VERSION = 2 as const;
+export const BENEFIT_CATALOG_SCHEMA_VERSION = 3 as const;
 
 export interface BenefitCatalogSource {
     categories: Category[];
@@ -64,6 +64,7 @@ const toCatalogCard = (card: Card): CatalogCard => ({
     color: card.color,
     limitTable: clone(card.limitTable),
     ...(card.network && { network: card.network }),
+    ...(card.performancePolicy && { performancePolicy: clone(card.performancePolicy) }),
 });
 
 const toCatalogRule = (rule: BenefitRule): CatalogBenefitRule => ({
@@ -80,6 +81,7 @@ const toCatalogRule = (rule: BenefitRule): CatalogBenefitRule => ({
     condition: clone(rule.condition),
     action: clone(rule.action),
     limitConfig: clone(rule.limitConfig),
+    ...(rule.program && { program: clone(rule.program) }),
 });
 
 const toCatalogProvider = (

@@ -46,14 +46,14 @@ export function PerformanceGoalSettings({
                 <div>
                     <h2 className="text-sm font-bold text-gray-900">{performanceMonthLabel} 실적 기준</h2>
                     <p className="text-[10px] text-gray-500">
-                        결제 매장·금액별 예상 혜택을 비교해 {benefitMonthLabel}에 유용한 카드를 자동 판단합니다.
+                        기록한 결제의 예상 실적과 혜택을 비교해 {benefitMonthLabel}에 유용한 카드를 판단합니다.
                     </p>
                 </div>
             </div>
 
             <div className="space-y-5 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
                 <div className="rounded-2xl bg-violet-50 px-4 py-3 text-[10px] font-bold leading-relaxed text-violet-800">
-                    카드별 실적 기준은 자동으로 적용됩니다. 필요하면 목표액을 직접 지정해 해당 카드의 자동 목표를 바꿀 수 있고, 결제를 기록하면 누적액이 반영됩니다.
+                    기록한 카드 결제는 기본적으로 예상 실적에 자동 반영돼요. 앱에 등록된 카드별 제외 조건에 해당하면 그 거래는 반영하지 않습니다. 카드사에서 확인한 누적액으로 보정하거나 목표액을 직접 지정할 수도 있어요.
                 </div>
 
                 {cards.map(card => {

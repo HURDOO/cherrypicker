@@ -66,6 +66,7 @@ import {
 import { derivePerformanceGoals } from '@/utils/performanceGoals';
 import { selectAvailableCards } from '@/utils/availableCards';
 import { rankBenefitBrandSuggestions } from '@/utils/benefitBrandSuggestions';
+import { getPurchaseScenarios, type PurchaseScenario } from '@/utils/purchaseScenario';
 import { getFirstSetupRoute } from '@/utils/firstSetupRoutes';
 import {
     GENERAL_PAYMENT_LABEL,
@@ -366,6 +367,7 @@ function HomePageContent() {
         performanceAfter?: number;
     }>();
     const [isGeneralPaymentSelected, setIsGeneralPaymentSelected] = useState(false);
+    const [selectedPurchaseScenarioId, setSelectedPurchaseScenarioId] = useState('');
     const [generalPaymentLabel, setGeneralPaymentLabel] = useState(GENERAL_PAYMENT_LABEL);
     const recommendationVersion = useRef(0);
     const recordInFlight = useRef(false);
@@ -420,8 +422,31 @@ function HomePageContent() {
 
     const urlBrandId = searchParams.get('brand');
     const urlSelectsGeneralPayment = searchParams.get('general') === '1';
+    const urlPurchaseScenarioId = searchParams.get('scenario');
+    const recommendationCards = useMemo(
+        () => selectAvailableCards({
+            cards,
+            performances,
+            history,
+            selectedSystemCardIds: workspacePreferences.selectedSystemCardIds,
+        }),
+        [cards, history, performances, workspacePreferences.selectedSystemCardIds]
+    );
+    const purchaseScenarios = useMemo(() => getPurchaseScenarios(
+        rules,
+        new Set(recommendationCards.map(card => card.id)),
+    ), [recommendationCards, rules]);
 
     useEffect(() => {
+        if (storageMode === 'guest' && urlPurchaseScenarioId && purchaseScenarios.some(scenario => (
+            scenario.id === urlPurchaseScenarioId
+        ))) {
+            setSelectedBrandId('');
+            setIsGeneralPaymentSelected(false);
+            setSelectedPurchaseScenarioId(urlPurchaseScenarioId);
+            return;
+        }
+        setSelectedPurchaseScenarioId('');
         if (urlSelectsGeneralPayment) {
             setSelectedBrandId('');
             setIsGeneralPaymentSelected(true);
@@ -434,19 +459,29 @@ function HomePageContent() {
                 ? urlBrandId
                 : ''
         );
-    }, [brands, setSelectedBrandId, urlBrandId, urlSelectsGeneralPayment]);
+    }, [brands, purchaseScenarios, setSelectedBrandId, storageMode, urlBrandId,
+        urlPurchaseScenarioId, urlSelectsGeneralPayment]);
 
     const currentBrand = useMemo(
         () => brands.find(brand => brand.id === selectedBrandId),
         [brands, selectedBrandId]
     );
+    const currentPurchaseScenario = useMemo(
+        () => purchaseScenarios.find(scenario => scenario.id === selectedPurchaseScenarioId),
+        [purchaseScenarios, selectedPurchaseScenarioId]
+    );
     const currentPaymentTarget = useMemo<PaymentTarget | undefined>(() => {
         if (currentBrand) return { kind: 'BRAND', brand: currentBrand };
+        if (currentPurchaseScenario) return {
+            kind: 'SCENARIO',
+            scenarioId: currentPurchaseScenario.id,
+            label: currentPurchaseScenario.label,
+        };
         if (isGeneralPaymentSelected) {
             return { kind: 'GENERAL', label: generalPaymentLabel };
         }
         return undefined;
-    }, [currentBrand, generalPaymentLabel, isGeneralPaymentSelected]);
+    }, [currentBrand, currentPurchaseScenario, generalPaymentLabel, isGeneralPaymentSelected]);
     const currentPaymentTargetLabel = currentPaymentTarget?.kind === 'BRAND'
         ? currentPaymentTarget.brand.name
         : currentPaymentTarget?.label;
@@ -455,15 +490,6 @@ function HomePageContent() {
             performance => performance.performanceMonth === performancePeriod.performanceMonth
         ),
         [performances, performancePeriod.performanceMonth]
-    );
-    const recommendationCards = useMemo(
-        () => selectAvailableCards({
-            cards,
-            performances,
-            history,
-            selectedSystemCardIds: workspacePreferences.selectedSystemCardIds,
-        }),
-        [cards, history, performances, workspacePreferences.selectedSystemCardIds]
     );
     const promotionUsage = useMemo(() => buildPromotionUsage(history), [history]);
     const benefitBrandSuggestionResult = useMemo(
@@ -607,6 +633,10 @@ function HomePageContent() {
                             providers: catalog.providers,
                             profile: benefitProfile,
                             routeVerifications: catalog.routeVerifications,
+                            brandCategoryById: new Map(catalog.brands.map(brand => [
+                                brand.id,
+                                brand.categoryId,
+                            ])),
                             promotionUsage,
                         },
                         process.env.NODE_ENV === 'development'
@@ -840,6 +870,7 @@ function HomePageContent() {
         const brand = brands.find(item => item.id === brandId);
         if (!brand) return;
         setIsGeneralPaymentSelected(false);
+        setSelectedPurchaseScenarioId('');
         setGeneralPaymentLabel(GENERAL_PAYMENT_LABEL);
         setSelectedBrandId(brandId);
         setRecommendation(null);
@@ -858,6 +889,7 @@ function HomePageContent() {
 
     const handleSelectGeneralPayment = (label?: string) => {
         setSelectedBrandId('');
+        setSelectedPurchaseScenarioId('');
         setIsGeneralPaymentSelected(true);
         setGeneralPaymentLabel(normalizeGeneralPaymentLabel(label));
         setRecommendation(null);
@@ -873,8 +905,27 @@ function HomePageContent() {
         }), { scroll: false });
     };
 
+    const handleSelectPurchaseScenario = (scenario: PurchaseScenario) => {
+        setSelectedBrandId('');
+        setIsGeneralPaymentSelected(false);
+        setSelectedPurchaseScenarioId(scenario.id);
+        setRecommendation(null);
+        setSelectedCombinationId(undefined);
+        setRecordReceipt(undefined);
+        setAmount(0);
+        setSuggestedSimulationAmount(undefined);
+        setEligibleItemAmount(undefined);
+        setConfirmedConditionIds(new Set());
+        router.push(getPaymentTargetHref(pathname, {
+            kind: 'SCENARIO',
+            scenarioId: scenario.id,
+            label: scenario.label,
+        }), { scroll: false });
+    };
+
     const handleClearPaymentTarget = () => {
         setSelectedBrandId('');
+        setSelectedPurchaseScenarioId('');
         setIsGeneralPaymentSelected(false);
         setGeneralPaymentLabel(GENERAL_PAYMENT_LABEL);
         setSuggestedSimulationAmount(undefined);
@@ -942,6 +993,9 @@ function HomePageContent() {
                     amount,
                     ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
                     combination: selectedCombination,
+                    ...(selectedCombination.cardId && {
+                        card: cards.find(card => card.id === selectedCombination.cardId),
+                    }),
                     catalogVersion: catalog?.catalogVersion ?? 'unknown',
                 })
                     : currentPaymentTarget.kind === 'BRAND'
@@ -972,19 +1026,25 @@ function HomePageContent() {
                 recordBrandVisit(currentPaymentTarget.brand.id);
             }
             const performanceBefore = currentPerformance?.amount ?? 0;
-            const performanceAfter = transaction.performanceContributionAmount
-                ? performanceBefore + transaction.performanceContributionAmount
-                : undefined;
+            const performanceAfter = transaction.performanceContribution?.status === 'UNKNOWN'
+                ? undefined
+                : transaction.performanceContribution
+                ? performanceBefore + transaction.performanceContribution.amount
+                : transaction.performanceContributionAmount
+                    ? performanceBefore + transaction.performanceContributionAmount
+                    : undefined;
             setRecordReceipt({
                 transaction,
-                ...(transaction.performanceContributionAmount && {
+                ...(performanceAfter !== undefined && {
                     performanceBefore,
                     performanceAfter,
                 }),
             });
             addToast(
-                transaction.performanceContributionAmount
-                    ? `기록 완료 · 실적에 ${formatWon(transaction.performanceContributionAmount)} 반영`
+                transaction.performanceContribution?.status === 'UNKNOWN'
+                    ? '결제를 기록했어요 · 카드 실적 반영 여부는 카드사에서 확인해주세요.'
+                    : transaction.performanceContributionAmount
+                    ? `기록 완료 · 예상 실적에 ${formatWon(transaction.performanceContributionAmount)} 반영`
                     : '선택한 혜택 조합을 기록했습니다.',
                 'success'
             );
@@ -1189,8 +1249,10 @@ function HomePageContent() {
                         hasCurrentLocation={hasCurrentLocation}
                         isLocating={isLocating}
                         benefitSuggestions={benefitBrandSuggestions}
+                        purchaseScenarios={storageMode === 'guest' ? purchaseScenarios : []}
                         benefitOpportunityCount={benefitBrandSuggestionResult.opportunityCount}
                         onSelectBrand={brand => handleSelectBrand(brand.id)}
+                        onSelectPurchaseScenario={handleSelectPurchaseScenario}
                         onSelectGeneralPayment={handleSelectGeneralPayment}
                         onSelectBenefitSuggestion={suggestion => handleSelectBrand(
                             suggestion.brand.id,
@@ -1215,7 +1277,9 @@ function HomePageContent() {
                                     <p className="text-[10px] font-black text-gray-400">
                                         {currentPaymentTarget.kind === 'BRAND'
                                             ? '선택한 브랜드'
-                                            : '미지원 결제처'}
+                                            : currentPaymentTarget.kind === 'SCENARIO'
+                                                ? '선택한 결제 상황'
+                                                : '미지원 결제처'}
                                     </p>
                                     <p className="text-lg font-black text-gray-900">
                                         {currentPaymentTargetLabel}
@@ -1223,6 +1287,11 @@ function HomePageContent() {
                                     {currentPaymentTarget.kind === 'GENERAL' && (
                                         <p className="mt-0.5 text-[10px] font-bold text-blue-600">
                                             일반 적용 혜택만 계산해요
+                                        </p>
+                                    )}
+                                    {currentPaymentTarget.kind === 'SCENARIO' && (
+                                        <p className="mt-0.5 text-[10px] font-bold text-blue-600">
+                                            적용 조건을 확인한 뒤 확정 혜택으로 계산해요
                                         </p>
                                     )}
                                 </div>
@@ -1691,9 +1760,18 @@ function HomePageContent() {
                                                 </p>
                                                 {recordReceipt.performanceAfter !== undefined && (
                                                     <p className="mt-1 text-[11px] font-bold text-emerald-800">
-                                                        이번 달 카드 실적{' '}
+                                                        이번 달 예상 카드 실적{' '}
                                                         {formatWon(recordReceipt.performanceBefore ?? 0)} →{' '}
                                                         {formatWon(recordReceipt.performanceAfter)}
+                                                    </p>
+                                                )}
+                                                {recordReceipt.transaction.performanceContribution && (
+                                                    <p className="mt-1 text-[11px] font-bold text-emerald-800">
+                                                        이번 결제 실적 기여{' '}
+                                                        {recordReceipt.transaction.performanceContribution.status === 'UNKNOWN'
+                                                            ? '확인 전 0원으로 보수적 처리'
+                                                            : formatWon(recordReceipt.transaction.performanceContribution.amount)}
+                                                        {' · '}{recordReceipt.transaction.performanceContribution.reason}
                                                     </p>
                                                 )}
                                                 <p className="mt-2 text-[10px] leading-relaxed text-emerald-700">

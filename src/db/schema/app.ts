@@ -12,6 +12,7 @@ import type {
     BenefitCertainty,
     BenefitLayer,
     CardNetwork,
+    CardPerformancePolicyV1,
     FundingType,
     LimitTableItem,
     LimitConfig,
@@ -28,6 +29,7 @@ import type {
     RuleAction,
     RuleCondition,
     BenefitSubscription,
+    BenefitProgramV1,
     CardBenefitCandidateAudit,
     CardBenefitCandidateStatus,
     CardBenefitBatchItem,
@@ -82,6 +84,8 @@ export const cards = sqliteTable('cards', {
         .$type<LimitTableItem[]>()
         .notNull(),
     network: text('network').$type<CardNetwork>(),
+    performancePolicy: text('performance_policy', { mode: 'json' })
+        .$type<CardPerformancePolicyV1>(),
     catalogStatus: text('catalog_status')
         .$type<SystemCardCatalogStatus>()
         .notNull()
@@ -156,6 +160,8 @@ export const benefitRules = sqliteTable('benefit_rules', {
     condition: text('condition', { mode: 'json' }).$type<RuleCondition>().notNull(),
     action: text('action', { mode: 'json' }).$type<RuleAction>().notNull(),
     limitConfig: text('limit_config', { mode: 'json' }).$type<LimitConfig>().notNull(),
+    programVersion: integer('program_version'),
+    program: text('program', { mode: 'json' }).$type<BenefitProgramV1>(),
 }, (table) => [
     index('benefit_rules_card_id_idx').on(table.cardId),
     index('benefit_rules_user_id_idx').on(table.userId),

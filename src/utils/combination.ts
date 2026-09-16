@@ -11,6 +11,7 @@ import type {
     PromotionOffer,
     PromotionProvider,
     PerformanceRecommendationGoal,
+    PerformanceContribution,
     RecommendationRequest,
     RecommendationResponse,
     TransactionHistory,
@@ -18,6 +19,7 @@ import type {
     UserCardPerformance,
 } from '@/types';
 import { calculateBestCards } from './calculation';
+import { calculatePerformanceContribution } from './performance-policy';
 import { normalizeSubscriptionProductName } from './subscriptionProducts';
 import {
     DEFAULT_SMALL_BENEFIT_THRESHOLD,
@@ -58,6 +60,7 @@ export type CombinationEngineInput = Omit<RecommendationRequest, 'brandId'> & {
     performanceGoals?: PerformanceRecommendationGoal[];
     performanceBenefitMonth?: string;
     routeVerifications?: MerchantRouteVerification[];
+    brandCategoryById?: ReadonlyMap<string, string> | Readonly<Record<string, string>>;
     promotionUsage?: Record<string, {
         dailyCount: number;
         dailyAmount?: number;
@@ -559,7 +562,7 @@ const getRouteCertainty = (
     payProviderId?: string,
 ): { eligible: boolean; certainty: BenefitCertainty; warning?: string } => {
     if (!payProviderId) return { eligible: true, certainty: 'CONFIRMED' };
-    if (input.target.kind === 'GENERAL') {
+    if (input.target.kind !== 'BRAND') {
         return {
             eligible: true,
             certainty: 'ESTIMATED',
@@ -665,7 +668,7 @@ const combinationId = (
 
 const getPerformanceProgress = (
     input: CombinationEngineInput,
-    state: WorkingCombination,
+    contribution: PerformanceContribution | undefined,
     card?: Card,
 ) => {
     if (!card || !input.performanceBenefitMonth) {
@@ -676,10 +679,9 @@ const getPerformanceProgress = (
         item.targetAmount !== undefined &&
         item.targetAmount > item.amount
     ));
-    const contributionAmount = Math.max(
-        0,
-        Math.floor(state.confirmedCardChargeAmount ?? 0),
-    );
+    const contributionAmount = contribution?.status === 'CONFIRMED'
+        ? contribution.amount
+        : 0;
     if (!performance?.targetAmount || contributionAmount <= 0) return undefined;
 
     const remainingBefore = performance.targetAmount - performance.amount;
@@ -709,7 +711,15 @@ const toCombination = (
     card: Card | undefined,
     input: CombinationEngineInput,
 ): BenefitCombination => {
-    const performanceProgress = getPerformanceProgress(input, state, card);
+    const performanceContribution = card && fundingType === 'CARD'
+        ? calculatePerformanceContribution({
+            policy: card.performancePolicy,
+            cardId: card.id,
+            cardChargeAmount: state.confirmedCardChargeAmount ?? 0,
+            steps: state.steps,
+        })
+        : undefined;
+    const performanceProgress = getPerformanceProgress(input, performanceContribution, card);
     return {
         id: combinationId(state, payProviderId, fundingType, card?.id),
         ...(payProviderId && { payProviderId }),
@@ -732,7 +742,16 @@ const toCombination = (
             potentialPayableAmount: Math.max(0, state.remainingAmount),
         }),
         ...(performanceProgress && { performanceProgress }),
-        warnings: uniqueStrings(state.warnings),
+        ...(performanceContribution && { performanceContribution }),
+        warnings: uniqueStrings([
+            ...state.warnings,
+            ...(card?.performancePolicy && performanceContribution &&
+                performanceContribution.amount === 0
+                ? [performanceContribution.status === 'UNKNOWN'
+                    ? `이번 결제의 카드 실적 반영은 확인이 필요해요. ${performanceContribution.reason}`
+                    : performanceContribution.reason]
+                : []),
+        ]),
         requiredChecks: uniqueStrings(state.requiredChecks),
     };
 };
@@ -890,7 +909,7 @@ export function calculateBestCombinations(
     const currentDate = now.toISOString().slice(0, 10);
     const cardItemSpecificOffers = input.rules
         .filter(rule => {
-            if (input.target.kind === 'GENERAL') return false;
+            if (input.target.kind !== 'BRAND') return false;
             if (rule.condition.itemSpecific !== true) return false;
             if ((rule.excludedBrands ?? []).includes(input.target.brand.id)) return false;
             const includedBrands = rule.includedBrands ?? [];
@@ -1058,6 +1077,7 @@ export function calculateBestCombinations(
                                 {
                                     confirmedConditionIds,
                                     now: input.now,
+                                    brandCategoryById: input.brandCategoryById,
                                     ...(input.eligibleItemAmount !== undefined && {
                                         eligibleItemAmount: input.eligibleItemAmount,
                                     }),

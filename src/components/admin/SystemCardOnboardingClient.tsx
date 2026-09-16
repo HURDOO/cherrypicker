@@ -53,6 +53,11 @@ type OnboardingData = {
     cards: OnboardingCard[];
 };
 
+type SystemBrandRegistryData = {
+    categories: Array<{ id: string; name: string }>;
+    brands: Array<{ id: string; name: string; categoryId: string }>;
+};
+
 type SystemCardDraftPayload = {
     id: string;
     name: string;
@@ -130,9 +135,10 @@ export function SystemCardOnboardingClient() {
     const addToast = useToastStore(state => state.addToast);
     const formRef = useRef<HTMLFormElement>(null);
     const [data, setData] = useState<OnboardingData>();
+    const [brandRegistry, setBrandRegistry] = useState<SystemBrandRegistryData>();
     const [isLoading, setIsLoading] = useState(true);
     const [busyAction, setBusyAction] = useState<
-        'save' | 'collect' | 'batch-save' | 'batch-collect'
+        'save' | 'collect' | 'batch-save' | 'batch-collect' | 'register-brand'
     >();
     const [batch, setBatch] = useState<SystemCardDraftPayload[]>([]);
     const [editingCardId, setEditingCardId] = useState<string>();
@@ -159,12 +165,26 @@ export function SystemCardOnboardingClient() {
         catalogCaveat: '',
     });
     const [sources, setSources] = useState<SourceDraft[]>(() => [makeSource(true)]);
+    const [brandDraft, setBrandDraft] = useState({
+        id: '',
+        name: '',
+        categoryId: '',
+    });
 
     const load = useCallback(async () => {
         setIsLoading(true);
         try {
-            setData(await request<OnboardingData>('/api/admin/system-cards', {
-                cache: 'no-store',
+            const [nextData, nextBrandRegistry] = await Promise.all([
+                request<OnboardingData>('/api/admin/system-cards', { cache: 'no-store' }),
+                request<SystemBrandRegistryData>('/api/admin/system-brands', {
+                    cache: 'no-store',
+                }),
+            ]);
+            setData(nextData);
+            setBrandRegistry(nextBrandRegistry);
+            setBrandDraft(current => ({
+                ...current,
+                categoryId: current.categoryId || nextBrandRegistry.categories[0]?.id || '',
             }));
         } catch (error) {
             addToast(getErrorMessage(error, '시스템 카드 목록을 불러오지 못했습니다.'), 'error');
@@ -176,6 +196,24 @@ export function SystemCardOnboardingClient() {
     useEffect(() => {
         void load();
     }, [load]);
+
+    const registerSystemBrand = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setBusyAction('register-brand');
+        try {
+            await request('/api/admin/system-brands', {
+                method: 'POST',
+                body: JSON.stringify(brandDraft),
+            });
+            addToast('공식 결제처를 공개 registry에 등록했습니다.', 'success');
+            setBrandDraft(current => ({ ...current, id: '', name: '' }));
+            await load();
+        } catch (error) {
+            addToast(getErrorMessage(error, '공식 결제처를 등록하지 못했습니다.'), 'error');
+        } finally {
+            setBusyAction(undefined);
+        }
+    };
 
     const updateSource = (clientId: string, patch: Partial<SourceDraft>) => {
         setSources(current => current.map(source => (
@@ -767,6 +805,82 @@ export function SystemCardOnboardingClient() {
                 </form>
 
                 <aside className="space-y-5">
+                    <form
+                        onSubmit={registerSystemBrand}
+                        className="rounded-3xl border border-sky-200 bg-sky-50 p-5 shadow-sm"
+                    >
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <h2 className="text-sm font-black text-gray-950">공식 결제처 registry</h2>
+                                <p className="mt-1 text-[10px] font-bold leading-relaxed text-gray-500">
+                                    새 카드의 공식 원문에만 있는 결제 대상을 데이터로 먼저 등록하면 AI가 해당 ID를 DSL에 연결할 수 있습니다.
+                                </p>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-sky-200 px-2.5 py-1 text-[10px] font-black text-sky-800">
+                                {brandRegistry?.brands.length ?? 0}개
+                            </span>
+                        </div>
+                        <label className="mt-4 block text-[10px] font-black text-gray-600">
+                            안정적인 결제처 ID
+                            <input
+                                required
+                                pattern="[a-z][a-z0-9_]{2,63}"
+                                value={brandDraft.id}
+                                onChange={event => setBrandDraft(current => ({
+                                    ...current,
+                                    id: event.target.value.toLocaleLowerCase('en-US'),
+                                }))}
+                                placeholder="card_service_target"
+                                className={fieldClass}
+                            />
+                        </label>
+                        <label className="mt-3 block text-[10px] font-black text-gray-600">
+                            공식 결제처 이름
+                            <input
+                                required
+                                maxLength={120}
+                                value={brandDraft.name}
+                                onChange={event => setBrandDraft(current => ({
+                                    ...current,
+                                    name: event.target.value,
+                                }))}
+                                placeholder="공식 원문과 같은 이름"
+                                className={fieldClass}
+                            />
+                        </label>
+                        <label className="mt-3 block text-[10px] font-black text-gray-600">
+                            카테고리
+                            <select
+                                required
+                                value={brandDraft.categoryId}
+                                onChange={event => setBrandDraft(current => ({
+                                    ...current,
+                                    categoryId: event.target.value,
+                                }))}
+                                className={fieldClass}
+                            >
+                                {(brandRegistry?.categories ?? []).map(category => (
+                                    <option key={category.id} value={category.id}>
+                                        {category.name} · {category.id}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <button
+                            type="submit"
+                            disabled={Boolean(busyAction) || !brandDraft.categoryId}
+                            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-sky-700 px-4 py-3 text-[10px] font-black text-white disabled:opacity-50"
+                        >
+                            {busyAction === 'register-brand'
+                                ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                                : <Plus className="h-3.5 w-3.5" />}
+                            공개 결제처 등록
+                        </button>
+                        <p className="mt-3 text-[9px] font-bold leading-relaxed text-sky-800">
+                            카드명이나 규칙 코드는 추가하지 않습니다. 공개 카탈로그에 즉시 나타나는 데이터이므로 공식 결제 대상만 등록하세요.
+                        </p>
+                    </form>
+
                     {batch.length > 0 && (
                         <section className="rounded-3xl border border-violet-200 bg-violet-50 p-5 shadow-sm">
                             <div className="flex items-start justify-between gap-3">

@@ -294,6 +294,7 @@ const retainUnresolvedProviderErrors = (
     if (recomputedErrors.has(error)) return true;
     if (error.startsWith('공식 혜택 문장이 인벤토리에서 누락됐습니다')) {
         const claim = error.split(':').slice(1).join(':').trim();
+        if (/^(?:예시|예)\s*\)?\s*/i.test(claim)) return false;
         return !claim || !evidenceRepresentsBenefitClaim(extraction.evidence, claim);
     }
     if (error.startsWith('신규·최초 이용 조건이 혜택 인벤토리에서 누락됐습니다') &&
@@ -312,7 +313,7 @@ const retainUnresolvedProviderErrors = (
         return false;
     }
     if (providerInventoryErrorResolved(error, extraction)) return false;
-    if (/^(?:규칙 .* 근거가 없습니다\.|할인율 |최소 결제금액 |최대 결제금액 |배타적 최대 결제금액 |최소 실적 |일 금액 한도 |월 금액 한도 |건별 최대 혜택이 |필수 조건의 공식 근거가 없습니다:|계산 불가 정보성 혜택에 금액 한도가 설정됐습니다:|공식 공지 |공식 혜택 |공식 거래 대상 브랜드가 |특정 상품 혜택이 |동일한 최소 실적 |복수 한도 표의 열 제목이 근거 문장에 없습니다:)/
+    if (/^(?:규칙 .* 근거가 없습니다\.|규칙 .+의 DSL (?:노드|숫자) 근거가 없습니다:|근거 \d+이 규칙 .+의 없는 DSL 노드 |할인율 |최소 결제금액 |최대 결제금액 |배타적 최대 결제금액 |최소 실적 |일 금액 한도 |월 금액 한도 |건별 최대 혜택이 |필수 조건의 공식 근거가 없습니다:|계산 불가 정보성 혜택에 금액 한도가 설정됐습니다:|카드 통합 한도를 쓰지 않는 DSL에 카드 월 한도가 있습니다:|신규카드 유예의 비율형 월 한도를 자동 계산할 수 없습니다:|특정 결제처 DSL 혜택이 카테고리 전체로 설정됐습니다:|공식 공지 |공식 혜택 |공식 거래 대상 브랜드가 |특정 상품 혜택이 |동일한 최소 실적 |복수 한도 표의 열 제목이 근거 문장에 없습니다:)/
         .test(error)) {
         return false;
     }
@@ -882,6 +883,7 @@ const applySnapshot = (
             company: snapshot.card.company,
             limitTable: snapshot.card.limitTable,
             network: snapshot.card.network ?? null,
+            performancePolicy: snapshot.card.performancePolicy ?? null,
         })
         .where(eq(cards.id, snapshot.card.id))
         .run();
@@ -900,6 +902,8 @@ const applySnapshot = (
             condition: ruleRow.condition,
             action: ruleRow.action,
             limitConfig: ruleRow.limitConfig,
+            programVersion: ruleRow.program?.languageVersion ?? null,
+            program: ruleRow.program ?? null,
         };
         tx.insert(benefitRules)
             .values({ id: ruleRow.id, ...values })
@@ -1001,6 +1005,7 @@ export function reviewCardBenefitCandidate(
             company: validation.extraction.card.company,
             limitTable: validation.extraction.card.limitTable,
             network: validation.extraction.card.network,
+            performancePolicy: validation.extraction.card.performancePolicy ?? before.card.performancePolicy,
         },
         rules: validation.extraction.rules.map(ruleRow => ({
             ...ruleRow,

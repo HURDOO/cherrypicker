@@ -53,11 +53,18 @@ export function toCard(row: typeof cards.$inferSelect): Card {
         color: row.color,
         limitTable: row.limitTable,
         ...(row.network && { network: row.network }),
+        ...(row.performancePolicy && { performancePolicy: row.performancePolicy }),
         ...(row.userId && { userId: row.userId }),
     };
 }
 
 export function toRule(row: typeof benefitRules.$inferSelect): BenefitRule {
+    if (row.program && row.programVersion !== row.program.languageVersion) {
+        throw new Error(`혜택 규칙 ${row.id}의 DSL 저장 버전이 일치하지 않습니다.`);
+    }
+    if (!row.program && row.programVersion !== null) {
+        throw new Error(`혜택 규칙 ${row.id}의 DSL 본문이 없습니다.`);
+    }
     return {
         id: row.id,
         cardId: row.cardId,
@@ -73,6 +80,7 @@ export function toRule(row: typeof benefitRules.$inferSelect): BenefitRule {
         condition: row.condition,
         action: row.action,
         limitConfig: row.limitConfig,
+        ...(row.program && { program: row.program }),
     };
 }
 
@@ -89,6 +97,20 @@ export function toPerformance(
 export function toTransaction(
     row: typeof transactionHistory.$inferSelect
 ): TransactionHistory {
+    const performanceContribution = row.combinationSnapshot?.performanceContribution;
+    const validPerformanceContribution = performanceContribution &&
+        typeof performanceContribution === 'object' &&
+        'amount' in performanceContribution &&
+        typeof performanceContribution.amount === 'number' &&
+        Number.isSafeInteger(performanceContribution.amount) &&
+        performanceContribution.amount >= 0 &&
+        'status' in performanceContribution &&
+        (performanceContribution.status === 'CONFIRMED' ||
+            performanceContribution.status === 'UNKNOWN') &&
+        'reason' in performanceContribution &&
+        typeof performanceContribution.reason === 'string'
+        ? performanceContribution as TransactionHistory['performanceContribution']
+        : undefined;
     return {
         id: row.id,
         date: row.createdAt.toISOString(),
@@ -106,6 +128,10 @@ export function toTransaction(
         estimatedValue: row.estimatedValue,
         payableAmount: row.payableAmount,
         laterReward: row.laterReward,
+        ...(validPerformanceContribution && {
+            performanceContributionAmount: validPerformanceContribution.amount,
+            performanceContribution: validPerformanceContribution,
+        }),
         combinationSnapshot: row.combinationSnapshot,
     };
 }

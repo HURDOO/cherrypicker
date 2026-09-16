@@ -34,6 +34,17 @@ const card: Card = {
     limitTable: [],
 };
 
+const verifiedPerformancePolicy: NonNullable<Card['performancePolicy']> = {
+    version: 1,
+    exclusionRules: [{
+        id: 'excluded_discount',
+        when: { op: 'CARD_DISCOUNT_APPLIED', ruleIds: ['excluded_discount_rule'] },
+        reason: '특정 할인 적용 매출은 실적에서 제외됩니다.',
+        sourceUrl: 'https://example.com/card-policy',
+        quote: '특정 할인 적용 매출 전체 실적 제외',
+    }],
+};
+
 const cardRule: BenefitRule = {
     id: 'rule-1',
     cardId: card.id,
@@ -106,6 +117,113 @@ const input = (
 });
 
 describe('calculateBestCombinations', () => {
+    it('shows scenario-only card benefits as conditional until the user checks the facts', () => {
+        const scenarioRule: BenefitRule = {
+            ...cardRule,
+            id: 'scenario-rule',
+            includedBrands: [],
+            category: 'movie',
+            action: { type: 'FLAT', value: 0 },
+            program: {
+                languageVersion: 1,
+                target: {
+                    purchaseScenario: {
+                        id: 'home_game_ticket',
+                        label: '홈경기 입장권',
+                        requiredChecks: ['정규시즌 홈경기인지 확인'],
+                    },
+                },
+                eligibility: { op: 'literal', value: true },
+                benefit: { op: 'literal', value: 5_000 },
+                usesCardLimit: false,
+            },
+        };
+        const scenarioInput = input([], {
+            target: {
+                kind: 'SCENARIO',
+                scenarioId: 'home_game_ticket',
+                label: '홈경기 입장권',
+            },
+            rules: [scenarioRule, cardRule],
+            profile: { ...profile, enabledPayProviderIds: [] },
+        });
+        const pending = calculateBestCombinations(scenarioInput);
+        expect(pending.target).toMatchObject({ kind: 'SCENARIO' });
+        expect(pending.brandId).toBeUndefined();
+        expect(pending.combinations.some(combination => (
+            combination.confirmedValue === 0 &&
+            combination.conditionalValue === 5_000 &&
+            combination.requiredChecks.includes('정규시즌 홈경기인지 확인')
+        ))).toBe(true);
+
+        const checked = calculateBestCombinations({
+            ...scenarioInput,
+            confirmedConditionIds: ['card-rule:scenario-rule'],
+        });
+        expect(checked.combinations.some(combination => (
+            combination.confirmedValue === 5_000 && combination.conditionalValue === 0
+        ))).toBe(true);
+        const generic = calculateBestCombinations({
+            ...scenarioInput,
+            target: { kind: 'GENERAL', label: 'NOL 티켓' },
+        });
+        expect(generic.combinations.some(combination => (
+            combination.steps.some(step => step.ruleId === 'scenario-rule')
+        ))).toBe(false);
+    });
+
+    it('uses the selected purchase-scenario amount for an item-specific rule', () => {
+        const scenarioRule: BenefitRule = {
+            ...cardRule,
+            id: 'scenario-item-rule',
+            includedBrands: [],
+            condition: { itemSpecific: true },
+            action: { type: 'FLAT', value: 0 },
+            program: {
+                languageVersion: 1,
+                target: {
+                    purchaseScenario: {
+                        id: 'home_game_ticket',
+                        label: '홈경기 입장권',
+                        requiredChecks: ['정규시즌 홈경기인지 확인'],
+                    },
+                },
+                eligibility: { op: 'input', name: 'ELIGIBLE_ITEM_AMOUNT_PROVIDED' },
+                benefit: {
+                    op: 'arithmetic',
+                    operator: 'MULTIPLY',
+                    operands: [
+                        { op: 'input', name: 'ELIGIBLE_ITEM_AMOUNT' },
+                        { op: 'literal', value: 0.25 },
+                    ],
+                },
+                usesCardLimit: false,
+            },
+        };
+        const scenarioInput = input([], {
+            target: {
+                kind: 'SCENARIO',
+                scenarioId: 'home_game_ticket',
+                label: '홈경기 입장권',
+            },
+            rules: [scenarioRule],
+            profile: { ...profile, enabledPayProviderIds: [] },
+        });
+        const result = calculateBestCombinations(scenarioInput);
+        expect(result.combinations.some(combination => (
+            combination.conditionalValue === 5_000 &&
+            combination.steps.some(step => step.ruleId === scenarioRule.id)
+        ))).toBe(true);
+        const explicit = calculateBestCombinations({
+            ...scenarioInput,
+            eligibleItemAmount: 6_000,
+        });
+        expect(explicit.combinations.some(combination => (
+            combination.conditionalValue === 1_500 &&
+            combination.steps.some(step => step.ruleId === scenarioRule.id)
+        ))).toBe(true);
+    });
+
     it('calculates only unscoped rules and offers for a general payment', () => {
         const generalRule: BenefitRule = {
             ...cardRule,
@@ -380,7 +498,7 @@ describe('calculateBestCombinations', () => {
             action: { type: 'PERCENT', value: 20 },
         };
         const sharedInput = {
-            cards: [card, highBenefitCard],
+            cards: [{ ...card, performancePolicy: verifiedPerformancePolicy }, highBenefitCard],
             rules: [cardRule, highBenefitRule],
             profile: { ...profile, enabledPayProviderIds: [] },
             performanceGoals: [{
@@ -422,11 +540,70 @@ describe('calculateBestCombinations', () => {
         expect(benefitFirst.combinations[0].performanceProgress).toBeUndefined();
     });
 
+    it('does not promise performance progress for a card whose confirmed discount excludes the sale', () => {
+        const exclusionCard: Card = {
+            ...card,
+            performancePolicy: {
+                version: 1,
+                exclusionRules: [{
+                    id: 'discounted_sale',
+                    when: { op: 'CARD_DISCOUNT_APPLIED' },
+                    reason: '할인 매출 전체 실적 제외',
+                    sourceUrl: 'https://card.kbcard.com/example',
+                    quote: '할인 적용 매출 전체 제외',
+                }],
+            },
+        };
+        const result = calculateBestCombinations(input([], {
+            cards: [exclusionCard, { ...card, id: 'ordinary-card', name: '일반 카드' }],
+            profile: { ...profile, enabledPayProviderIds: [] },
+            performanceGoals: [{
+                cardId: card.id,
+                performanceMonth: '2026-07',
+                amount: 290_000,
+                targetAmount: 300_000,
+                source: 'USER',
+                projectedBenefitAmount: 1_000,
+            }],
+            performanceBenefitMonth: '2026-08',
+        }));
+        expect(result.combinations[0]).toMatchObject({
+            performanceContribution: { amount: 0, status: 'CONFIRMED' },
+        });
+        expect(result.combinations[0].performanceProgress).toBeUndefined();
+        expect(result.combinations.find(combination =>
+            combination.cardId === 'ordinary-card' && combination.fundingType === 'CARD'
+        )?.performanceContribution).toMatchObject({ amount: 20_000, status: 'CONFIRMED' });
+    });
+
+    it('uses the full charge for performance progress without a card-specific exclusion', () => {
+        const result = calculateBestCombinations(input([], {
+            cards: [card],
+            profile: { ...profile, enabledPayProviderIds: [] },
+            performanceGoals: [{
+                cardId: card.id,
+                performanceMonth: '2026-07',
+                amount: 290_000,
+                targetAmount: 300_000,
+                source: 'USER',
+                projectedBenefitAmount: 1_000,
+            }],
+            performanceBenefitMonth: '2026-08',
+            priority: 'PERFORMANCE',
+        }));
+        expect(result.combinations[0]).toMatchObject({
+            performanceContribution: { amount: 20_000, status: 'CONFIRMED' },
+            performanceProgress: { targetReached: true, contributionAmount: 20_000 },
+        });
+        expect(result.combinations[0].warnings).toEqual([]);
+    });
+
     it('prefers goal progress when every immediate benefit is below the user threshold', () => {
         const performanceCard: Card = {
             ...card,
             id: 'performance-card',
             name: '실적 카드',
+            performancePolicy: verifiedPerformancePolicy,
         };
         const smallBenefitCard: Card = {
             ...card,
@@ -484,11 +661,13 @@ describe('calculateBestCombinations', () => {
             ...card,
             id: 'lower-value-card',
             name: '낮은 예상 혜택 카드',
+            performancePolicy: verifiedPerformancePolicy,
         };
         const higherValueCard: Card = {
             ...card,
             id: 'higher-value-card',
             name: '높은 예상 혜택 카드',
+            performancePolicy: verifiedPerformancePolicy,
         };
         const result = calculateBestCombinations(input([], {
             cards: [lowerValueCard, higherValueCard],

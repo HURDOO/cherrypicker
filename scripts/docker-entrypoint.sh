@@ -7,7 +7,7 @@ if [ -z "${BETTER_AUTH_SECRET:-}" ]; then
     exit 1
 fi
 
-BETTER_AUTH_URL="${BETTER_AUTH_URL:-https://cherrypicker-promotion.app.hurdoo.kr}"
+BETTER_AUTH_URL="${BETTER_AUTH_URL:-${APP_BASE_URL:-https://cherrypicker.app.hurdoo.kr}}"
 export BETTER_AUTH_URL
 
 if [ -f "${DATABASE_PATH}" ]; then

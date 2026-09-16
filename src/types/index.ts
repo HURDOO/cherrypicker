@@ -1,3 +1,12 @@
+import type {
+    BenefitProgramV1,
+    CardBenefitUnsupportedClause,
+} from './benefit-dsl';
+import type { CardPerformancePolicyV1, PerformanceContribution } from './performance-policy';
+
+export * from './benefit-dsl';
+export type { CardPerformancePolicyV1, PerformanceContribution } from './performance-policy';
+
 export type CategoryId = string;
 export type BrandId = string;
 export type CardId = string;
@@ -38,6 +47,11 @@ export type PaymentTarget =
     | {
         kind: 'GENERAL';
         label: string;
+    }
+    | {
+        kind: 'SCENARIO';
+        scenarioId: string;
+        label: string;
     };
 
 export type PaymentTargetSnapshot =
@@ -48,6 +62,11 @@ export type PaymentTargetSnapshot =
     }
     | {
         kind: 'GENERAL';
+        label: string;
+    }
+    | {
+        kind: 'SCENARIO';
+        scenarioId: string;
         label: string;
     };
 
@@ -64,6 +83,7 @@ export interface Card {
     color: string; // Tailwind class
     limitTable: LimitTableItem[]; // Ordered by threshold desc usually, or handled in logic
     network?: CardNetwork;
+    performancePolicy?: CardPerformancePolicyV1;
 }
 
 export type FirstSetupStep =
@@ -163,6 +183,8 @@ export interface BenefitRule {
     condition: RuleCondition;
     action: RuleAction;
     limitConfig: LimitConfig;
+    /** Versioned, allow-listed rule program. Present rules use this in preference to legacy fields. */
+    program?: BenefitProgramV1;
 }
 
 export type CardBenefitSourceKind = 'PRODUCT_PAGE' | 'PRODUCT_GUIDE_PDF' | 'NOTICE';
@@ -236,7 +258,8 @@ export interface CardBenefitDocumentMetadata {
 export interface CardBenefitEvidence {
     id: string;
     ruleIds: RuleId[];
-    fields: Array<'description' | 'condition' | 'action' | 'limitConfig'>;
+    fields: Array<'description' | 'condition' | 'action' | 'limitConfig' | 'program'>;
+    programPaths?: string[];
     quote: string;
     sourceUrl?: string;
     location?: string;
@@ -280,9 +303,10 @@ export interface CardBenefitCandidateAudit {
 export interface CardBenefitExtraction {
     schemaVersion: 2;
     completeness: 'FULL';
-    card: Pick<Card, 'id' | 'name' | 'company' | 'limitTable' | 'network'>;
+    card: Pick<Card, 'id' | 'name' | 'company' | 'limitTable' | 'network' | 'performancePolicy'>;
     rules: BenefitRule[];
     evidence: CardBenefitEvidence[];
+    unsupportedClauses?: CardBenefitUnsupportedClause[];
     notes: string[];
 }
 
@@ -325,6 +349,7 @@ export interface TransactionHistory {
     payableAmount?: number;
     laterReward?: number;
     performanceContributionAmount?: number;
+    performanceContribution?: PerformanceContribution;
     combinationSnapshot?: Record<string, unknown>;
 }
 
@@ -663,6 +688,7 @@ export interface BenefitCombination {
     /** Best-case amount when conditional or informational immediate values also apply. */
     potentialPayableAmount?: number;
     performanceProgress?: PerformancePriorityProgress;
+    performanceContribution?: PerformanceContribution;
     warnings: string[];
     requiredChecks: string[];
 }
@@ -755,7 +781,7 @@ export interface BenefitCatalogFreshness {
 }
 
 export interface BenefitCatalogSnapshot {
-    schemaVersion: 2;
+    schemaVersion: 2 | 3;
     catalogVersion: string;
     generatedAt: string;
     freshness?: BenefitCatalogFreshness;

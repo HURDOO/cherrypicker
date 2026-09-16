@@ -16,6 +16,7 @@ import {
     DEFAULT_SMALL_BENEFIT_THRESHOLD,
     MAX_SMALL_BENEFIT_THRESHOLD,
 } from '@/utils/recommendationPreferences';
+import { validateCardPerformancePolicy } from '@/utils/performance-policy';
 
 export const ACCOUNT_WORKSPACE_EXPORT_SCHEMA_VERSION = 1 as const;
 const LEGACY_FIRST_SETUP_COMPLETED_AT = '1970-01-01T00:00:00.000Z';
@@ -391,6 +392,10 @@ const parseCard = (value: unknown): WithoutOwner<Card> => {
     if (network && !CARD_NETWORKS.includes(network as CardNetwork)) {
         throw new Error('계정 workspace의 카드 브랜드가 올바르지 않습니다.');
     }
+    if (row.performancePolicy !== undefined &&
+        validateCardPerformancePolicy(row.performancePolicy).length > 0) {
+        throw new Error('계정 workspace의 카드 실적 정책이 올바르지 않습니다.');
+    }
     return {
         id: requiredText(row.id, '카드 ID', 200),
         name: requiredText(row.name, '카드 이름', 200),
@@ -404,6 +409,9 @@ const parseCard = (value: unknown): WithoutOwner<Card> => {
             };
         }),
         ...(network && { network: network as CardNetwork }),
+        ...(row.performancePolicy !== undefined && {
+            performancePolicy: structuredClone(row.performancePolicy) as Card['performancePolicy'],
+        }),
     };
 };
 
@@ -686,6 +694,29 @@ const parseHistory = (value: unknown): TransactionHistory => {
     const combinationSnapshot = row.combinationSnapshot === undefined
         ? undefined
         : objectValue(row.combinationSnapshot, '추천 조합 snapshot');
+    const performanceContribution = (() => {
+        if (row.performanceContribution === undefined) return undefined;
+        const contribution = objectValue(row.performanceContribution, '실적 기여 snapshot');
+        if (contribution.status !== 'CONFIRMED' && contribution.status !== 'UNKNOWN') {
+            throw new Error('실적 기여 상태가 올바르지 않습니다.');
+        }
+        const amount = safeInteger(contribution.amount, '실적 기여 금액', 0, MAX_MONEY_AMOUNT);
+        if (contribution.status === 'UNKNOWN' && amount !== 0) {
+            throw new Error('불확실한 실적 기여 금액은 0원이어야 합니다.');
+        }
+        if (row.performanceContributionAmount !== undefined &&
+            row.performanceContributionAmount !== amount) {
+            throw new Error('실적 기여 금액과 snapshot이 일치하지 않습니다.');
+        }
+        return {
+            amount,
+            status: contribution.status,
+            reason: requiredText(contribution.reason, '실적 기여 근거', 500),
+            ...(contribution.policyVersion !== undefined && {
+                policyVersion: safeInteger(contribution.policyVersion, '실적 정책 버전', 1, 100),
+            }),
+        } satisfies NonNullable<TransactionHistory['performanceContribution']>;
+    })();
     const paymentTarget = (() => {
         if (row.paymentTarget === undefined) return undefined;
         const target = objectValue(row.paymentTarget, '결제 기록 대상');
@@ -700,6 +731,13 @@ const parseHistory = (value: unknown): TransactionHistory => {
             return {
                 kind: 'GENERAL' as const,
                 label: requiredText(target.label, '일반 결제 표시명', 80),
+            } satisfies PaymentTargetSnapshot;
+        }
+        if (target.kind === 'SCENARIO') {
+            return {
+                kind: 'SCENARIO' as const,
+                scenarioId: requiredText(target.scenarioId, '결제 상황 ID', 100),
+                label: requiredText(target.label, '결제 상황 이름', 120),
             } satisfies PaymentTargetSnapshot;
         }
         throw new Error('결제 기록 대상 종류가 올바르지 않습니다.');
@@ -759,6 +797,7 @@ const parseHistory = (value: unknown): TransactionHistory => {
                 MAX_MONEY_AMOUNT,
             ),
         }),
+        ...(performanceContribution && { performanceContribution }),
         ...(combinationSnapshot && { combinationSnapshot: structuredClone(combinationSnapshot) }),
     };
 };

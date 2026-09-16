@@ -127,6 +127,20 @@
       "when": 1788708249644,
       "tag": "0017_promotion-usage-group",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1788783930362,
+      "tag": "0018_card-benefit-dsl",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1789201109279,
+      "tag": "0019_card-performance-policy",
+      "breakpoints": true
     }
   ]
 }

@@ -375,7 +375,7 @@ export default function HistoryPage() {
                                         <span className="text-xl ml-1 text-gray-400 font-bold">원</span>
                                     </h2>
                                     <p className="mt-1 text-[10px] font-bold text-gray-400">
-                                        직접 입력한 실적과 기록한 카드 승인금액을 반영해요
+                                        직접 입력한 실적과 기록한 결제의 예상 실적을 반영해요. 등록된 카드별 제외 조건에 해당하면 더하지 않아요.
                                     </p>
 
                                     {/* Next Tier Progress */}
@@ -575,10 +575,17 @@ export default function HistoryPage() {
                                                                 </div>
                                                             </div>
 
-                                                            {performanceContribution > 0 && (
+                                                            {tx.performanceContribution ? (
+                                                                <p className="mt-3 flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-[10px] font-bold text-violet-800">
+                                                                    <Target className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                                                    {tx.performanceContribution.status === 'UNKNOWN'
+                                                                        ? `카드 실적 반영 미확인 · ${tx.performanceContribution.reason}`
+                                                                        : `예상 카드 실적 ${performanceContribution.toLocaleString()}원 반영 · ${tx.performanceContribution.reason}`}
+                                                                </p>
+                                                            ) : performanceContribution > 0 && (
                                                                 <p className="mt-3 flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-[10px] font-bold text-violet-800">
                                                                     <Target className="h-3.5 w-3.5" aria-hidden="true" />
-                                                                    카드 실적에 {performanceContribution.toLocaleString()}원 반영
+                                                                    기록 당시 예상 카드 실적 {performanceContribution.toLocaleString()}원
                                                                 </p>
                                                             )}
 

@@ -196,11 +196,37 @@ const createSource = (): BenefitCatalogSource => ({
     }],
 });
 
+describe('card performance policies in the public catalog', () => {
+    it('serializes a validated policy and rejects unknown operators', () => {
+        const source = createSource();
+        source.cards[0].performancePolicy = {
+            version: 1,
+            exclusionRules: [{
+                id: 'discounted_sale',
+                when: { op: 'CARD_DISCOUNT_APPLIED', ruleIds: ['rule-1'] },
+                reason: '할인 매출 실적 제외',
+                sourceUrl: 'https://card.example.com/official',
+                quote: '할인 적용 매출 전체',
+            }],
+        };
+        const snapshot = buildBenefitCatalogSnapshot(source, GENERATED_AT);
+        expect(parseBenefitCatalogSnapshot(snapshot).cards[0].performancePolicy)
+            .toEqual(source.cards[0].performancePolicy);
+        const invalid = structuredClone(snapshot);
+        (invalid.cards[0].performancePolicy!.exclusionRules[0].when as { op: string }).op = 'eval';
+        expect(() => parseBenefitCatalogSnapshot(invalid))
+            .toThrow(/실적 정책/);
+        (invalid.cards[0] as unknown as Record<string, unknown>).performancePolicy = null;
+        expect(() => parseBenefitCatalogSnapshot(invalid))
+            .toThrow(/실적 정책/);
+    });
+});
+
 describe('benefit catalog builder', () => {
     it('publishes only system and active data without internal review metadata', () => {
         const snapshot = buildBenefitCatalogSnapshot(createSource(), GENERATED_AT);
 
-        expect(snapshot.schemaVersion).toBe(2);
+        expect(snapshot.schemaVersion).toBe(3);
         expect(snapshot.generatedAt).toBe(GENERATED_AT);
         expect(snapshot.catalogVersion).toMatch(/^[a-f0-9]{64}$/);
         expect(snapshot.categories.map(item => item.id)).toEqual(['cafe', 'dining']);

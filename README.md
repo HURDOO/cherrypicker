@@ -186,8 +186,11 @@ npm run db:verify-backup -- /mnt/external-backup/cherrypicker.db
 
 ### deployd 관리형 배포
 
-이 worktree의 관리형 앱 ID는 `cherrypicker-promotion`이며 기본 주소는
-`https://cherrypicker-promotion.app.hurdoo.kr`입니다. 일반 사용자 화면은
+기본 개발 브랜치는 `main`이며 관리형 배포의 목표 앱 ID는 `cherrypicker`, 주소는
+`https://cherrypicker.app.hurdoo.kr`입니다. 기존 `cherrypicker-promotion` 앱은
+데이터 보존과 새 주소 검증이 끝날 때까지 유지합니다. 앱 ID 변경은 기존 운영 DB나
+브라우저 데이터를 이전하지 않습니다. 실제 전환 상태와 절차는
+[`docs/cherrypicker-domain-transition.md`](docs/cherrypicker-domain-transition.md)를 따릅니다. 일반 사용자 화면은
 로그인 없이 팀에 공유할 수 있도록 `public` 모드로 운영하고, 관리자·디자인 화면과
 관리자 API는 인증 경계를 유지합니다. SQLite와 WAL 파일은 영속 볼륨의
 `/data/cherrypicker.db`에 저장합니다. 컨테이너 시작 시 기존 DB가 있으면 먼저
@@ -223,8 +226,9 @@ npm run db:verify-backup -- /mnt/external-backup/cherrypicker.db
 경로가 생기기 전까지 이미지의 기본 동작을 사용하며, 이를 secret으로 숨기지
 않습니다.
 
-인증 기준 URL은 로컬·수동 환경에서 `BETTER_AUTH_URL`을 우선 사용하고, 관리형
-배포에서는 deployd가 제공하는 `APP_BASE_URL`을 사용합니다. `APP_BASE_URL`은 플랫폼
+인증 기준 URL은 명시적인 `BETTER_AUTH_URL`, deployd가 제공하는 `APP_BASE_URL`,
+기본 주소 `https://cherrypicker.app.hurdoo.kr` 순서로 entrypoint에서 결정합니다.
+기존 앱에서 같은 이미지를 실행하면 기존 `APP_BASE_URL`을 계속 사용합니다. `APP_BASE_URL`은 플랫폼
 예약 값이므로 `deploy.json`에 다시 선언하지 않습니다. 공개 배포의 쓰기 API는 이
 origin과 브라우저의 `Origin`/`Sec-Fetch-Site`를 함께 검사합니다.
 

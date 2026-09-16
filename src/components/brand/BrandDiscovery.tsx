@@ -8,6 +8,10 @@ import { getBrandLogoUrl } from '@/components/design-lab/brandVisuals';
 import type { Brand, Category, TransactionHistory } from '@/types';
 import type { BenefitBrandSuggestion } from '@/utils/benefitBrandSuggestions';
 import {
+    searchPurchaseScenarios,
+    type PurchaseScenario,
+} from '@/utils/purchaseScenario';
+import {
     rankBrands,
     searchAndRankBrands,
     type BrandDiscoveryViewMode,
@@ -25,7 +29,9 @@ interface BrandDiscoveryProps {
     isLocating: boolean;
     benefitSuggestions?: BenefitBrandSuggestion[];
     benefitOpportunityCount?: number;
+    purchaseScenarios?: PurchaseScenario[];
     onSelectBrand: (brand: Brand) => void;
+    onSelectPurchaseScenario?: (scenario: PurchaseScenario) => void;
     onSelectGeneralPayment: (label?: string) => void;
     onSelectBenefitSuggestion?: (suggestion: BenefitBrandSuggestion) => void;
     onToggleFavorite: (brandId: string) => void;
@@ -86,7 +92,9 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
         history,
         favoriteBrandIds,
         benefitSuggestions = [],
+        purchaseScenarios = [],
         onSelectBrand,
+        onSelectPurchaseScenario,
         onSelectGeneralPayment,
         onSelectBenefitSuggestion,
     } = props;
@@ -137,6 +145,10 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
     const searchResults = useMemo(
         () => searchAndRankBrands(rankedBrands, searchQuery),
         [rankedBrands, searchQuery]
+    );
+    const matchingScenarios = useMemo(
+        () => searchPurchaseScenarios(purchaseScenarios, searchQuery),
+        [purchaseScenarios, searchQuery]
     );
     const scopedBrands = useMemo(() => {
         if (selectedScope === POPULAR_SCOPE) return personalPopularBrands;
@@ -190,7 +202,7 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
                     어디에서 결제하나요?
                 </h2>
                 <p className="mt-1 text-[12px] font-semibold leading-relaxed text-slate-500">
-                    로고와 이름을 보고 브랜드를 빠르게 골라보세요
+                    브랜드나 결제 상황을 검색해 빠르게 골라보세요
                 </p>
             </div>
 
@@ -200,8 +212,8 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
                     ref={searchInputRef}
                     value={searchQuery}
                     onChange={event => changeSearchQuery(event.target.value)}
-                    placeholder="브랜드 이름·별칭·초성 검색"
-                    aria-label="브랜드 검색"
+                    placeholder="브랜드·결제 상황 검색"
+                    aria-label="브랜드·결제 상황 검색"
                     autoComplete="off"
                     enterKeyHint="search"
                     className="h-[52px] w-full rounded-[1.1rem] border border-slate-200 bg-white pl-11 pr-11 text-[15px] font-bold text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
@@ -285,9 +297,28 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
                     )}
                 </div>
                 <span className="shrink-0 text-[11px] font-black text-slate-400">
-                    {visibleBrands.length}개
+                    {visibleBrands.length + (isSearching ? matchingScenarios.length : 0)}개
                 </span>
             </div>
+
+            {isSearching && matchingScenarios.length > 0 && (
+                <div className="mt-3 space-y-2">
+                    <p className="px-1 text-[11px] font-black text-blue-600">결제 상황</p>
+                    {matchingScenarios.map(scenario => (
+                        <button
+                            key={scenario.id}
+                            type="button"
+                            onClick={() => onSelectPurchaseScenario?.(scenario)}
+                            className="flex min-h-14 w-full flex-col justify-center rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-left transition hover:bg-blue-100"
+                        >
+                            <span className="text-sm font-black text-slate-900">{scenario.label}</span>
+                            <span className="mt-0.5 text-[11px] font-semibold text-blue-700">
+                                실제 결제처가 아닌 구매 대상 · 적용 조건 확인 필요
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {visibleBrands.length > 0 ? (
                 <div className="mt-3 grid grid-cols-3 gap-2">
@@ -300,7 +331,7 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
                         />
                     ))}
                 </div>
-            ) : (
+            ) : matchingScenarios.length === 0 ? (
                 <div className="mt-3 rounded-[1.35rem] border border-slate-200 bg-white px-4 py-8 text-center shadow-sm">
                     <p className="text-sm font-black text-slate-700">일치하는 브랜드가 없어요</p>
                     <p className="mt-1 text-[11px] font-semibold text-slate-400">
@@ -317,7 +348,7 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
                             : '일반 결제로 추천받기'}
                     </button>
                 </div>
-            )}
+            ) : null}
 
             {!isSearching && visibleBrands.length < sourceBrands.length && (
                 <button
@@ -329,7 +360,7 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
                 </button>
             )}
 
-            {visibleBrands.length > 0 && (
+            {(visibleBrands.length > 0 || matchingScenarios.length > 0) && (
                 <button
                     type="button"
                     onClick={selectGeneralPayment}

@@ -21,6 +21,20 @@ describe('payment targets', () => {
             .toBe('/?general=1');
     });
 
+    it('keeps purchase situations separate from actual brands and restores their URL', () => {
+        const target = toPaymentTargetSnapshot({
+            kind: 'SCENARIO',
+            scenarioId: 'home_game_ticket',
+            label: '홈경기 입장권',
+        });
+        expect(target).toEqual({
+            kind: 'SCENARIO',
+            scenarioId: 'home_game_ticket',
+            label: '홈경기 입장권',
+        });
+        expect(getPaymentTargetHref('/', target)).toBe('/?scenario=home_game_ticket');
+    });
+
     it('restores legacy brand records as brand targets', () => {
         const transaction = {
             id: 'tx-1',

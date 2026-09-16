@@ -3,7 +3,7 @@
 ## 1. 상태
 
 - 상태: 현재 구현 기준, 비공개 베타 보완 예정 항목 포함
-- 기준일: 2026-09-04
+- 기준일: 2026-09-07
 - 제품 요구사항: `docs/SPEC.md`
 - 수집 정책: `docs/card-benefit-source-policy.md`, `docs/promotion-source-policy.md`
 
@@ -34,7 +34,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
   외부 스케줄러/CLI ----> 수집·원문 보존 ----> AI 후보 구조화
                                   |                    |
                                   v                    v
-                         audit·diff·검증·검수
+                    DSL/legacy 규칙 + audit·simulation·검수
                                   |
                       관리자 승인/rollback
                                   |
@@ -65,10 +65,10 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 1. `useAppData`가 공용 카탈로그와 로컬 workspace를 로드해 Zustand에 결합한다.
 2. 신규 workspace는 `/setup` 소개에서 시작하고 `/setup/cards`, `/setup/benefits`, `/setup/performance`, `/setup/favorites`, `/setup/recommendation` 순서로 App Router client navigation을 사용한다. URL로 이동한 단계와 선택한 시스템 카드 ID를 IndexedDB에 동기화하므로 브라우저 뒤로가기·새로고침 뒤에도 같은 지점에서 이어갈 수 있다.
 3. 완료 전 마지막 경로는 브랜드 선택·금액 입력·결과 공개를 3단계로 안내한다. 브랜드 선택 전에는 `calculateBestCombinations`로 멤버십·구독·페이·카드의 현재 실적·남은 한도·기간·요일·시간·온오프라인 조건을 함께 시뮬레이션한다. 즐겨찾기·사용 이력·인기 브랜드를 우선으로, 확정 혜택을 받을 수 있는 브랜드 수와 예시 결제 금액·혜택 금액을 제안한다. 추천 응답을 확인한 뒤 완료 시각을 저장하며, 조합이 없는 정상 응답도 사용자를 설정 흐름에 가두지 않는다.
-4. 홈 화면은 실제 브랜드를 `BRAND`, 미지원 결제처를 `GENERAL` 결제 대상으로 구분하고 금액, 온라인 여부와 사용자가 확인한 조건을 조합 계산기에 전달한다. 대상 종류와 실제 브랜드 ID만 URL search param에 보존하며 금액과 일반 결제 표시명은 URL에 넣지 않는다.
-5. `src/utils/combination.ts`와 `src/utils/calculation.ts`가 선택한 시스템 카드와 개인 카드를 대상으로 프로모션 계층, 카드 규칙, 한도, 이용 이력과 실적 목표를 비교한다. 확정 혜택만 기본 순위·확정 결제액·실적 기여액에 반영하고, 미확인 조건은 사용자 확인 전 `조건 충족 시`, 승인 경로나 최대치처럼 자동 확정할 수 없는 값은 `정보 제공`으로 분리한다. SKT는 프로필의 등급과 할인형·적립형이 모두 일치할 때만 적용하고, `1천 원당` 혜택은 완성된 1,000원 단위만 계산한다. `GENERAL` 대상은 브랜드·카테고리·상품 범위가 없는 일반 적용 규칙만 후보로 삼으며 공용 카탈로그에 가상 브랜드를 추가하지 않는다.
+4. 홈 화면은 실제 브랜드를 `BRAND`, 미지원 결제처를 `GENERAL`, 공식 상품·경기·장소 등 구매 의도를 `SCENARIO` 결제 대상으로 구분한다. 게시 DSL이 정의한 상황은 선택한 보유 카드에 한해서 검색 결과에 나타난다. 대상 종류와 실제 브랜드 ID 또는 상황 ID만 URL에 보존하며 금액과 일반 결제 표시명은 넣지 않는다. 계정 서버 거래 경로는 아직 브랜드 ID 필수이므로 `SCENARIO` 검색·기록은 로컬 workspace에 한정한다.
+5. `src/utils/combination.ts`와 `src/utils/calculation.ts`가 선택한 시스템 카드와 개인 카드를 대상으로 프로모션 계층, 카드 규칙, 한도, 이용 이력과 실적 목표를 비교한다. DSL program이 있는 규칙은 `src/utils/benefit-dsl.ts`의 결정론적 evaluator를 우선 사용하고, 기존 규칙과 커스텀 카드는 기존 계산 경로를 유지하며 legacy compiler로 동등성을 검증한다. 확정 혜택만 기본 순위·확정 결제액에 반영한다. 카드 실적 기여는 혜택 계산 뒤 `src/utils/performance-policy.ts`가 승인금액 전액을 기본값으로 두고 카드별 공식 제외 정책과 확정 할인 step만 별도로 판정한다. 실제 판정 중인 카드 할인 조건이 불확실하면 0원·`UNKNOWN`으로 기록하고 실적 우선 순위를 부풀리지 않는다. 미확인 혜택은 사용자 확인 전 `조건 충족 시`, 승인 경로나 최대치처럼 자동 확정할 수 없는 값은 `정보 제공`으로 분리한다. SKT는 프로필의 등급과 할인형·적립형이 모두 일치할 때만 적용하고, `1천 원당` 혜택은 완성된 1,000원 단위만 계산한다. `GENERAL` 대상은 일반 적용 규칙만, `SCENARIO` 대상은 일반 적용 규칙과 명시적으로 같은 상황 ID의 DSL 규칙만 후보로 삼으며 공용 카탈로그에 가상 브랜드를 추가하지 않는다.
 6. 현재 추천은 로컬에서 계산하며, 기존 서버 계정 데이터 경로의 `/api/recommendations`도 같은 도메인 계산기를 공유한다.
-7. 사용자가 조건을 모두 확인한 조합만 한 번의 행동으로 기록한다. 로컬 workspace와 계정 API는 결제 기록·확정 혜택 사용량·카드 승인금액 기준 현재 실적을 각각 하나의 트랜잭션에서 갱신하며, 결제 대상 종류·표시명·조합·카탈로그 snapshot을 보존한다. 프로모션 step에는 필요할 때 안정적인 `promotionUsageGroupId`도 저장해, 이후 유형이나 등급이 바뀌어도 같은 공식 혜택의 공유 한도를 과거 snapshot에서 집계한다. 기록 후 같은 입력의 추천은 새 실적과 남은 한도로 다시 계산하고, 과거 snapshot은 다시 계산하지 않는다. 기존 `brandId`만 있는 기록은 `BRAND` 대상으로 계속 읽는다.
+7. 사용자가 조건을 모두 확인한 조합만 한 번의 행동으로 기록한다. 로컬 workspace와 계정 API는 결제 기록·확정 혜택 사용량·공통 정책이 계산한 현재 실적 기여액을 각각 하나의 트랜잭션에서 갱신하며, 결제 대상 종류·표시명·조합·카탈로그·실적 판정 snapshot을 보존한다. 0원·불확실 기여는 실적 합계를 올리지 않는다. 프로모션 step에는 필요할 때 안정적인 `promotionUsageGroupId`도 저장해, 이후 유형이나 등급이 바뀌어도 같은 공식 혜택의 공유 한도를 과거 snapshot에서 집계한다. 기록 후 같은 입력의 추천은 새 실적과 남은 한도로 다시 계산하고, 과거 snapshot은 다시 계산하지 않는다. 기존 `brandId`만 있는 기록은 `BRAND` 대상으로 계속 읽는다.
 
 ### 3.3 선택적 계정 동기화
 
@@ -81,8 +81,8 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 
 1. 카드별 출처 registry 또는 DB 출처 설정으로 허용 host·HTML·PDF를 수집한다.
 2. 원문, extracted text, response metadata, content hash와 source bundle을 보존한다. SKT adapter는 공식 `totalCount`와 이름순 20건 페이지를 기준으로 전체 목록을 검증한 뒤 각 공식 브랜드 ID의 상세를 동시 요청 4개 이하로 수집하고, 시작 목록을 다시 확인해 수집 중 변동도 감지한다.
-3. 카드 혜택은 AI 인벤토리→BenefitRule 후보와 근거 연결 단계를 거친다. 지원되는 일부 adapter는 AI 실패 시 보수적 규칙 추출로 대체한다. SKT는 반대로 규칙 parser를 먼저 적용하고 한 브랜드의 모든 variant가 미해석된 경우에만 해당 공개 목록·상세를 strict schema의 AI 보조 parser에 보낸다. AI 결과는 input hash로 재사용하며 원문 인용·variant 완전성 검증에 실패하면 SKT 출처 전체를 `partial`로 낮춘다.
-4. schema, 근거 인용, 참조 무결성, 숫자·한도, 필드 제거·변경 위험을 audit한다.
+3. 카드 혜택은 AI 인벤토리→BenefitRule 후보와 근거 연결 단계를 거친다. 고정 필드로 충분한 규칙은 `program=null`, 충분하지 않은 계산 규칙은 DSL v1 extension과 0원 legacy fallback을 받는다. 서버는 기존 target·condition·limitConfig를 기본 DSL로 컴파일해 extension과 합성하고, 공식 coverage에서 모든 최종 AST 노드 근거를 재검증한다. 허용 문법 밖 의미는 `unsupportedClauses`로 받는다. 지원되는 일부 adapter는 AI 실패 시 보수적 규칙 추출로 대체한다. SKT는 반대로 규칙 parser를 먼저 적용하고 한 브랜드의 모든 variant가 미해석된 경우에만 해당 공개 목록·상세를 strict schema의 AI 보조 parser에 보낸다. AI 결과는 원문 의미 hash와 DSL·evaluator version을 포함한 key로 재사용하며 원문 인용·variant 완전성 검증에 실패하면 SKT 출처 전체를 `partial`로 낮춘다.
+4. schema, DSL 타입·실행량, 근거 인용, 참조 무결성, 숫자·한도, 필드 제거·변경 위험과 금액 영향 `unsupportedClauses`를 audit한다. 관리자는 DSL 요약·근거·고정 입력 simulation과 차단 사유를 게시 전에 확인한다.
 5. 승인 가능 후보만 사람 관리자가 게시하고, revision snapshot을 활성화한다. 프로모션도 공식 근거·diff·검수 정책을 거친다. SKT 목록·상세가 하나라도 빠진 bundle은 `partial`로 보존하되 성공 출처 집합에는 넣지 않으며 후보 생성·자동 게시·삭제 관측을 수행하지 않는다.
 
 ## 4. 주요 모듈과 책임
@@ -95,7 +95,9 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 | `src/components/settings/`, `performance/` | 카드·혜택 프로필·실적·소액 기준·싱크·JSON 관리 |
 | `src/components/admin/` | 카드 등록, 수집 실행, 후보·diff·근거·오류 검수와 revision 관리 |
 | `src/utils/calculation.ts`, `combination.ts` | 규칙별 혜택 계산, 계층별 조합, 한도·사용량·순위 결정 |
-| `src/utils/paymentTarget.ts` | 실제 브랜드와 일반 결제 대상의 snapshot·URL·레거시 기록 호환 계약 |
+| `src/types/benefit-dsl.ts`, `src/utils/benefit-dsl.ts` | DSL v1 타입, 정적 검증, KST 기간 집계, 결정론적 평가와 legacy compiler |
+| `src/lib/system-brand-registry.ts`, `GET/POST /api/admin/system-brands` | 새 카드의 공식 결제처를 코드 변경 없이 안정 ID의 공개 registry 데이터로 등록하는 관리자 create-only 경로 |
+| `src/utils/paymentTarget.ts`, `purchaseScenario.ts` | 실제 브랜드·일반 결제·구매 상황의 snapshot·URL·검색·레거시 기록 호환 계약 |
 | `src/utils/performanceGoals.ts` | 카드 규칙·사용자 덮어쓰기에서 실적 추천 목표 파생 |
 | `src/utils/benefitBrandSuggestions.ts` | 멤버십·구독·페이·카드 실적·한도와 시점 조건을 금액별로 조합해 첫 추천용 확정 혜택 브랜드 선정 |
 | `src/utils/firstSetupRoutes.ts` | 저장된 첫 설정 단계와 App Router URL의 고정 매핑 |
@@ -113,6 +115,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 
 - `categories`, `brands`, `cards`, `benefit_rules`는 `user_id IS NULL`인 시스템 항목과 사용자 소유 커스텀 항목을 모두 표현한다.
 - 시스템 카드는 `catalog_status`, `issue_status`, 상품 코드와 공개 caveat로 게시·발급 상태를 구분한다.
+- `cards.performance_policy`는 versioned JSON 실적 제외 규칙과 규칙별 공식 URL·인용을 보존한다. 후보에서 정책이 바뀌면 고위험 diff로 검수하고 카드 revision·공개 catalog v3에 함께 보존한다. 정책이 없는 카드·커스텀 카드·구버전 catalog의 새 결제는 승인금액 전액을 예상 실적에 더하며, 과거 기록의 저장된 기여액과 snapshot은 그대로 읽는다.
 - 로컬 workspace는 공용 카탈로그와 서로 다른 저장소에 있으며, 선택한 시스템 카드 ID·첫 설정 진행 상태·실적·프로필·기록과 커스텀 항목을 보존한다. 기존 workspace에 명시적 카드 선택이 없으면 과거 실적·기록·개인 카드에서 관리 카드를 추론해 호환하고, 신규 workspace는 명시적 선택만 추천에 사용한다.
 
 ### 5.2 카드 혜택 수집
@@ -122,6 +125,8 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 - 후보·근거: `card_benefit_candidates`, `card_benefit_candidate_documents`
 - 게시 이력: `card_benefit_revisions`
 - 전체 확인 이력: `card_benefit_collection_runs`
+- `benefit_rules.program_version`과 JSON `program`은 승인된 DSL payload를 보존한다. migration `0018_card-benefit-dsl.sql`은 검증된 백업과 격리 리허설 뒤 실제 로컬 DB에도 적용했다. 운영 배포 DB의 schema 변경은 별도 승인과 백업 검증을 요구한다.
+- migration `0019_card-performance-policy.sql`은 검증된 백업과 격리 리허설 뒤 로컬 DB에 적용했다. 운영 DB에는 적용하거나 배포하지 않았다.
 
 ### 5.3 프로모션 수집
 
@@ -143,7 +148,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 
 ### 6.1 공개 API
 
-- `GET /api/catalog`: 로그인 없는 공용 snapshot. `ETag`/`If-None-Match`로 304를 지원하고 개인·내부 검수 데이터를 제외한다.
+- `GET /api/catalog`: 로그인 없는 공용 snapshot. schema v3에 게시 DSL program을 포함하고, parser는 브라우저에 남은 v2도 계속 읽는다. `ETag`/`If-None-Match`로 304를 지원하고 개인·내부 검수 데이터를 제외한다.
 - `GET /api/health`: SQLite 연결을 확인하고 `ok` 또는 503 `unavailable`을 `no-store`로 반환한다.
 
 ### 6.2 인증 API
@@ -223,6 +228,8 @@ npm run db:seed
 
 ## 11. 배포와 롤백
 
+- 기본 개발 브랜치는 `main`, 배포 계약의 목표 앱 ID는 `cherrypicker`다. 기존 `cherrypicker-promotion` 운영 앱에서의 전환은 `docs/cherrypicker-domain-transition.md`로 관리하며, 계약 변경만으로 기존 앱의 도메인·DB가 이동했다고 간주하지 않는다.
+- Docker entrypoint의 인증 origin은 명시적인 `BETTER_AUTH_URL`, 플랫폼의 `APP_BASE_URL`, `https://cherrypicker.app.hurdoo.kr` 순서로 결정한다. 기존·신규 호스트에서 동일한 이미지의 인증과 mutation origin 검사가 각각의 주소를 따른다.
 - `deploy.json`은 public 접근, `/api/health`, `/data` 영속 볼륨, 필수 `BETTER_AUTH_SECRET`과 선택 `OPENAI_API_KEY`의 names-only 계약을 선언한다.
 - Docker entrypoint는 기존 DB가 있으면 시작 전 snapshot을 만들고 migration·seed를 적용한 뒤 단일 Next.js 프로세스를 실행한다.
 - 이미지 롤백은 `/data` SQLite 상태를 되돌리지 않는다. schema 변경 전에는 일관된 백업과 복구 가능성을 확인한다.

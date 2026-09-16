@@ -15,6 +15,10 @@ import {
     performanceWaiverConsistencyErrors,
 } from './card-benefit-rule-consistency';
 import { diffStructuredValues } from './structured-diff';
+import {
+    listBenefitProgramEvidencePaths,
+    validateBenefitProgramSet,
+} from '@/utils/benefit-dsl';
 
 const conditionCoverageFields = [
     'minSpend',
@@ -44,8 +48,8 @@ const limitCoverageFields = [
     'sharedFields',
 ] as const;
 
-const highRiskRulePath = /^(rule$|category$|includedBrands$|excludedBrands$|platformType$|sharedGroupId$|usesCardLimit$|condition(?:\.|$)|action(?:\.|$)|limitConfig(?:\.|$))/;
-const highRiskCardPath = /^(name$|company$|network$|limitTable(?:\.|$))/;
+const highRiskRulePath = /^(rule$|category$|includedBrands$|excludedBrands$|platformType$|sharedGroupId$|usesCardLimit$|condition(?:\.|$)|action(?:\.|$)|limitConfig(?:\.|$)|program(?:\.|$))/;
+const highRiskCardPath = /^(name$|company$|network$|limitTable(?:\.|$)|performancePolicy(?:\.|$))/;
 
 const unique = <T,>(values: T[]) => [...new Set(values)];
 
@@ -87,15 +91,21 @@ const ruleForDiff = (rule: BenefitRule) => ({
     condition: rule.condition,
     action: rule.action,
     limitConfig: rule.limitConfig,
+    program: rule.program,
 });
 
 const evidenceFieldGroup = (path: string): CardBenefitEvidence['fields'][number] => {
+    if (path.startsWith('program')) return 'program';
     if (path.startsWith('condition.')) return 'condition';
     if (path.startsWith('limitConfig.')) return 'limitConfig';
     return 'action';
 };
 
 const coverageRequirements = (rule: BenefitRule) => [
+    ...(rule.program ? listBenefitProgramEvidencePaths(rule.program).map(path => ({
+        path,
+        value: rule.program,
+    })) : []),
     ...actionCoverageFields.flatMap(field => (
         rule.action[field] !== undefined && !(field === 'value' && rule.action.value === 0)
             ? [{ path: `action.${field}`, value: rule.action[field] }]
@@ -119,7 +129,12 @@ const findCoverage = (
 ): CardBenefitCoverageItem[] => coverageRequirements(rule).map(requirement => {
     const group = evidenceFieldGroup(requirement.path);
     const evidenceIds = evidence
-        .filter(item => item.ruleIds.includes(rule.id) && item.fields.includes(group))
+        .filter(item => (
+            item.ruleIds.includes(rule.id) &&
+            item.fields.includes(group) &&
+            (!requirement.path.startsWith('program') ||
+                item.programPaths?.includes(requirement.path))
+        ))
         .map(item => item.id);
     return {
         ruleId: rule.id,
@@ -219,12 +234,14 @@ export function createCardBenefitCandidateAudit(options: {
             company: options.baseline.card.company,
             network: options.baseline.card.network,
             limitTable: options.baseline.card.limitTable,
+            performancePolicy: options.baseline.card.performancePolicy,
         },
         {
             name: options.extraction.card.name,
             company: options.extraction.card.company,
             network: options.extraction.card.network,
             limitTable: options.extraction.card.limitTable,
+            performancePolicy: options.extraction.card.performancePolicy,
         },
     ).map(change => ({
         scope: 'CARD' as const,
@@ -280,7 +297,7 @@ export function createCardBenefitCandidateAudit(options: {
     const blockingErrors = unique([
         ...(options.baseline.rules.length === 0 &&
             options.extraction.rules.length > 0 &&
-            options.extraction.rules.every(rule => rule.action.value === 0)
+            options.extraction.rules.every(rule => rule.action.value === 0 && !rule.program)
             ? ['신규 카드 후보에 자동 계산 가능한 혜택 금액이 없습니다. 숫자 근거가 있는 공식 상세 출처를 확인해야 합니다.']
             : []),
         ...coverage.flatMap(item => (
@@ -299,6 +316,7 @@ export function createCardBenefitCandidateAudit(options: {
         }),
         ...analyzeAlternativeManualChecks(options.extraction.rules).errors,
         ...informationalRuleErrors(options.extraction.rules),
+        ...validateBenefitProgramSet(options.extraction.rules),
         ...noticeDateErrors(options.extraction, options.noticeDocuments ?? []),
     ]);
 

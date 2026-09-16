@@ -34,6 +34,7 @@ import {
     getStartOfCurrentYearInKst,
 } from '@/lib/monthly-performance';
 import { calculateBestCards } from '@/utils/calculation';
+import { calculatePerformanceContribution } from '@/utils/performance-policy';
 import { calculateRecommendationForUser } from '@/lib/recommendation-server';
 
 export const runtime = 'nodejs';
@@ -87,12 +88,20 @@ export async function POST(request: Request) {
             const cardSteps = selected.steps.filter(step => step.cardId);
             const cardStep = cardSteps[0];
             const createdAt = new Date();
-            const performanceContributionAmount = selected.fundingType === 'CARD' &&
+            const legacyPerformanceContributionAmount = selected.fundingType === 'CARD' &&
                 selected.cardId
                 ? Math.max(0, Math.floor(
                     selected.cardChargeAmount ?? cardStep?.amountBefore ?? selected.payableAmount
                 ))
                 : 0;
+            const performanceContribution = selected.fundingType === 'CARD' && selected.cardId
+                ? selected.performanceContribution ?? calculatePerformanceContribution({
+                    cardId: selected.cardId,
+                    cardChargeAmount: legacyPerformanceContributionAmount,
+                    steps: selected.steps,
+                })
+                : undefined;
+            const performanceContributionAmount = performanceContribution?.amount ?? 0;
             const row = db.transaction(tx => {
                 const inserted = tx.insert(transactionHistory)
                     .values({
@@ -161,7 +170,10 @@ export async function POST(request: Request) {
 
             return Response.json({
                 ...toTransaction(row),
-                ...(performanceContributionAmount > 0 && { performanceContributionAmount }),
+                ...(performanceContribution && {
+                    performanceContributionAmount,
+                    performanceContribution,
+                }),
             }, { status: 201 });
         }
 
@@ -203,6 +215,13 @@ export async function POST(request: Request) {
 
         if (!brand) throw new HttpError(404, '브랜드를 찾을 수 없습니다.');
         if (!card) throw new HttpError(404, '카드를 찾을 수 없습니다.');
+        const brandCategoryById = new Map(db.select({
+            id: brands.id,
+            categoryId: brands.categoryId,
+        }).from(brands)
+            .where(visibleToUser(brands.userId, user.id))
+            .all()
+            .map(row => [row.id, row.categoryId]));
 
         const calculatedCard = calculateBestCards(
             amount,
@@ -214,6 +233,7 @@ export async function POST(request: Request) {
             isOnline,
             {
                 confirmedConditionIds,
+                brandCategoryById,
                 ...(eligibleItemAmount !== undefined && { eligibleItemAmount }),
             },
         ).find(card => card.id === cardId);
@@ -258,6 +278,12 @@ export async function POST(request: Request) {
                 usesCardLimit: benefit.rule.usesCardLimit !== false,
             };
         });
+        const performanceContribution = calculatePerformanceContribution({
+            policy: toCard(card).performancePolicy,
+            cardId,
+            cardChargeAmount: amount,
+            steps: benefitSteps,
+        });
         const createdAt = new Date();
         const row = db.transaction(tx => {
             const inserted = tx.insert(transactionHistory)
@@ -271,7 +297,7 @@ export async function POST(request: Request) {
                     payableAmount: Math.max(0, amount - discountAmount),
                     confirmedValue: discountAmount,
                     conditionalValue,
-                    combinationSnapshot: { steps: benefitSteps },
+                    combinationSnapshot: { steps: benefitSteps, performanceContribution },
                     createdAt,
                 })
                 .returning()
@@ -289,12 +315,12 @@ export async function POST(request: Request) {
                     snapshot: step,
                 }))).run();
             }
-            tx.insert(userCardPerformances)
+            if (performanceContribution.amount > 0) tx.insert(userCardPerformances)
                 .values({
                     userId: user.id,
                     cardId,
                     performanceMonth: getCurrentMonthInKst(createdAt),
-                    amount,
+                    amount: performanceContribution.amount,
                     updatedAt: createdAt,
                 })
                 .onConflictDoUpdate({
@@ -304,7 +330,7 @@ export async function POST(request: Request) {
                         userCardPerformances.performanceMonth,
                     ],
                     set: {
-                        amount: sql`${userCardPerformances.amount} + ${amount}`,
+                        amount: sql`${userCardPerformances.amount} + ${performanceContribution.amount}`,
                         updatedAt: createdAt,
                     },
                 })
@@ -314,7 +340,8 @@ export async function POST(request: Request) {
 
         return Response.json({
             ...toTransaction(row),
-            performanceContributionAmount: amount,
+            performanceContributionAmount: performanceContribution.amount,
+            performanceContribution,
         }, { status: 201 });
     } catch (error) {
         return handleRouteError(error);

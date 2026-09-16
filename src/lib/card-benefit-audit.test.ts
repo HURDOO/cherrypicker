@@ -25,6 +25,32 @@ const baseline = (): CardBenefitRevisionSnapshot => {
 };
 
 describe('card benefit candidate audit', () => {
+    it('marks a new performance policy as a high-risk card change', () => {
+        const candidate = extraction();
+        candidate.card.performancePolicy = {
+            version: 1,
+            exclusionRules: [{
+                id: 'discounted_sale',
+                when: { op: 'CARD_DISCOUNT_APPLIED' },
+                reason: '할인 매출 실적 제외',
+                sourceUrl: 'https://www.shinhancard.com/official',
+                quote: '할인 적용 매출 전체',
+            }],
+        };
+        const audit = createCardBenefitCandidateAudit({
+            extraction: candidate,
+            baseline: baseline(),
+            baselineRevision: 2,
+        });
+        expect(audit.changes).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                scope: 'CARD',
+                path: 'performancePolicy',
+                risk: 'HIGH',
+            }),
+        ]));
+    });
+
     it('fully covers the canonical representative card without noisy changes', () => {
         const audit = createCardBenefitCandidateAudit({
             extraction: extraction(),

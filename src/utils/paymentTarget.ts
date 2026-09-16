@@ -18,16 +18,22 @@ export const normalizeGeneralPaymentLabel = (value?: string) => {
 
 export const toPaymentTargetSnapshot = (
     target: PaymentTarget,
-): PaymentTargetSnapshot => target.kind === 'BRAND'
-    ? {
+): PaymentTargetSnapshot => {
+    if (target.kind === 'BRAND') return {
         kind: 'BRAND',
         brandId: target.brand.id,
         label: target.brand.name,
-    }
-    : {
+    };
+    if (target.kind === 'SCENARIO') return {
+        kind: 'SCENARIO',
+        scenarioId: target.scenarioId,
+        label: target.label,
+    };
+    return {
         kind: 'GENERAL',
         label: normalizeGeneralPaymentLabel(target.label),
     };
+};
 
 export const getTransactionPaymentTarget = (
     transaction: TransactionHistory,
@@ -52,6 +58,7 @@ export const getPaymentTargetHref = (
     const params = new URLSearchParams();
     if (target?.kind === 'BRAND') params.set('brand', target.brandId);
     if (target?.kind === 'GENERAL') params.set('general', '1');
+    if (target?.kind === 'SCENARIO') params.set('scenario', target.scenarioId);
     const query = params.toString();
     return query ? `${pathname}?${query}` : pathname;
 };

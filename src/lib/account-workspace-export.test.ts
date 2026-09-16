@@ -68,6 +68,25 @@ const createExport = () => createAccountWorkspaceExport({
 });
 
 describe('account workspace export', () => {
+    it('preserves a zero-contribution decision through account export and restore', () => {
+        const workspace = createExport();
+        workspace.history[0].performanceContributionAmount = 0;
+        workspace.history[0].performanceContribution = {
+            amount: 0,
+            status: 'CONFIRMED',
+            reason: '할인 매출 전체 실적 제외',
+            policyVersion: 1,
+        };
+        expect(parseAccountWorkspaceExport(workspace).history[0])
+            .toMatchObject({
+                performanceContributionAmount: 0,
+                performanceContribution: { amount: 0, status: 'CONFIRMED' },
+            });
+        workspace.history[0].performanceContributionAmount = 10_000;
+        expect(() => parseAccountWorkspaceExport(workspace))
+            .toThrow('실적 기여 금액과 snapshot이 일치하지 않습니다.');
+    });
+
     it('exports only personal records and removes the server owner field', () => {
         const workspace = createExport();
 
@@ -150,6 +169,27 @@ describe('account workspace export', () => {
         const parsed = parseAccountWorkspaceExport(workspace).history[0];
         expect(parsed).toMatchObject({
             paymentTarget: { kind: 'GENERAL', label: '동네 문구점' },
+        });
+        expect(parsed.brandId).toBeUndefined();
+    });
+
+    it('round-trips a purchase situation without inventing a catalog brand', () => {
+        const workspace = createExport();
+        workspace.history[0] = {
+            ...workspace.history[0],
+            brandId: undefined,
+            paymentTarget: {
+                kind: 'SCENARIO',
+                scenarioId: 'home_game_ticket',
+                label: '홈경기 입장권',
+            },
+        };
+
+        const parsed = parseAccountWorkspaceExport(workspace).history[0];
+        expect(parsed.paymentTarget).toEqual({
+            kind: 'SCENARIO',
+            scenarioId: 'home_game_ticket',
+            label: '홈경기 입장권',
         });
         expect(parsed.brandId).toBeUndefined();
     });

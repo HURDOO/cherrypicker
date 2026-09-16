@@ -65,6 +65,58 @@ const combination: BenefitCombination = {
 };
 
 describe('local workspace', () => {
+    it('records zero performance for a discounted card without changing the monthly total', async () => {
+        const memory = createMemoryStorage();
+        const client = createLocalWorkspaceClient(memory.storage);
+        const card = {
+            id: 'card-placeholder',
+            name: '두산 카드',
+            company: 'KB국민카드',
+            color: 'bg-blue-500',
+            limitTable: [],
+            performancePolicy: {
+                version: 1 as const,
+                exclusionRules: [{
+                    id: 'discounted_sale',
+                    when: { op: 'CARD_DISCOUNT_APPLIED' as const },
+                    reason: '할인 매출 전체 실적 제외',
+                    sourceUrl: 'https://card.kbcard.com/example',
+                    quote: '할인 적용 매출 전체 제외',
+                }],
+            },
+        };
+        const transaction = await client.createTransaction({
+            paymentTarget: { kind: 'GENERAL', label: '테스트 결제' },
+            amount: 10_000,
+            combination,
+            card,
+            catalogVersion: 'catalog-v3',
+        });
+        expect(transaction.performanceContribution).toMatchObject({
+            amount: 0, status: 'CONFIRMED',
+        });
+        expect(transaction.performanceContributionAmount).toBe(0);
+        expect((await client.read()).performances).toEqual([]);
+    });
+
+    it('adds the full charge for a card without modeled exclusions', async () => {
+        const client = createLocalWorkspaceClient(createMemoryStorage().storage);
+        const transaction = await client.createTransaction({
+            paymentTarget: { kind: 'GENERAL', label: '테스트 결제' },
+            amount: 10_000,
+            combination,
+            catalogVersion: 'catalog-v3',
+        });
+        expect(transaction.performanceContribution).toMatchObject({
+            amount: 10_000, status: 'CONFIRMED',
+        });
+        expect(transaction.performanceContributionAmount).toBe(10_000);
+        expect((await client.read()).performances).toMatchObject([{
+            cardId: combination.cardId,
+            amount: 10_000,
+        }]);
+    });
+
     it('creates UUIDs with getRandomValues on an HTTP LAN origin', () => {
         let call = 0;
         vi.stubGlobal('crypto', {
@@ -629,18 +681,56 @@ describe('local workspace', () => {
         expect(transaction.combinationSnapshot).toMatchObject({ catalogVersion: 'catalog-v1' });
     });
 
+    it('records a purchase situation without a synthetic brand ID', async () => {
+        const memory = createMemoryStorage();
+        const client = createLocalWorkspaceClient(memory.storage);
+        const transaction = await client.createTransaction({
+            paymentTarget: {
+                kind: 'SCENARIO',
+                scenarioId: 'home_game_ticket',
+                label: '홈경기 입장권',
+            },
+            amount: 10_000,
+            combination: { ...combination, cardId: undefined, steps: [] },
+            catalogVersion: 'catalog-v1',
+        });
+        expect(transaction.brandId).toBeUndefined();
+        expect(transaction.paymentTarget).toEqual({
+            kind: 'SCENARIO',
+            scenarioId: 'home_game_ticket',
+            label: '홈경기 입장권',
+        });
+        expect(transaction.combinationSnapshot).toMatchObject({
+            paymentTarget: { kind: 'SCENARIO', scenarioId: 'home_game_ticket' },
+        });
+    });
+
     it('adds a recorded card charge to the current performance goal atomically', async () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2026-08-20T03:00:00.000Z'));
         try {
             const memory = createMemoryStorage();
             const client = createLocalWorkspaceClient(memory.storage);
-            const card = await client.createCard({
+            const card = {
+                id: 'verified-performance-card',
                 name: '실적 카드',
                 company: '테스트 카드사',
                 color: 'bg-violet-500',
                 limitTable: [{ threshold: 300000, limit: 10000 }],
-            });
+                performancePolicy: {
+                    version: 1 as const,
+                    exclusionRules: [{
+                        id: 'excluded_discount',
+                        when: {
+                            op: 'CARD_DISCOUNT_APPLIED' as const,
+                            ruleIds: ['unrelated_discount'],
+                        },
+                        reason: '특정 할인 적용 매출은 실적에서 제외됩니다.',
+                        sourceUrl: 'https://example.com/card-policy',
+                        quote: '특정 할인 적용 매출 전체 실적 제외',
+                    }],
+                },
+            };
             await client.updatePerformance(card.id, 250000, '2026-08', 300000);
 
             const transaction = await client.createTransaction({
@@ -669,6 +759,7 @@ describe('local workspace', () => {
                         })),
                     ],
                 },
+                card,
                 catalogVersion: 'catalog-v1',
             });
             const workspace = await client.read();
