@@ -34,7 +34,9 @@
   - 최종 ARM64 이미지를 읽기 전용 rootfs, UID/GID 0:0, capability 제거, no-new-privileges, 768 MiB·128 PID 제한, 임시 `/data`와 `/tmp`로 실행했다. 신규 DB migration 20개, health·catalog·첫 설정 HTTP 200, 관리자 307→로그인, 재시작 뒤 테스트 표식 보존·quick_check `ok`·시작 전 백업 1개를 확인했다. 보안 패치 후 컨테이너의 Chrome 390×844 첫 설정 화면도 정상이고 콘솔 오류는 0건이었다. 테스트 컨테이너는 정상 종료하고 임시 데이터는 보존했다.
   - 로컬 main 작업 폴더에 `1bcff73`까지 fast-forward 병합을 완료했고 main·promotion의 동일 revision을 확인했다. main 폴더의 기존 미추적 `xcrun_db`는 그대로 보존했다.
   - 사용자가 협업자 푸시와 신규 프로필의 빈 DB 시작을 승인했다. `hurdooagent`의 저장소 push 권한과 기존 GHCR 패키지의 저장소 연결을 확인했다. 최초 계약은 private·가입 허용으로 준비하고 첫 계정 이후 가입 종료·공개 전환을 별도 사용자 설정 적용으로 진행한다.
-  - `09def27`을 협업자 권한으로 원격 main에 푸시했고 `git ls-remote`로 같은 revision을 확인했다. 새 계약 반영 후 lint·전체 555개 테스트·production build와 clean revision의 deployctl plan이 통과했다. 공개 GHCR 이미지 게시 명령은 자동 승인 검토에서 실행 전에 차단되어 별도 게시 승인을 요청했다. 새 이미지 게시·새 앱 등록·secret 입력·실주소 검증은 아직 미실행이다.
+  - `09def27`을 협업자 권한으로 원격 main에 푸시했고 `git ls-remote`로 같은 revision을 확인했다. 새 계약 반영 후 lint·전체 555개 테스트·production build와 clean revision의 deployctl plan이 통과했다. 최초 공개 GHCR 게시 시도는 자동 승인 검토에서 실행 전에 차단됐고, 사용자가 2026-09-17 별도 게시를 승인했다.
+  - 2026-09-17 main과 동일한 `e7f09f5fa05ee93219e8c29749d6f6f5e95b17e4`에서 lint·555개 테스트·production build를 다시 통과한 뒤 ARM64 이미지를 게시했다. 원격 manifest 조회로 `ghcr.io/hurdoo/cherrypicker@sha256:d3eb24c2bb1fcedc3370908b65a4be8ceeace2fa5f4358395f513f2022eb555a`를 확인했다. 대시보드 원본 JSON은 `/private/tmp/cherrypicker-release-e7f09f5.j3DpjF/deploy-handoff.json`에 보존했다.
+  - 게시 digest를 임시 빈 DB와 관리형 보안·자원 제한, `ALLOW_SIGN_UP=true`로 실행했다. health·catalog·setup·signup 200, 카드 8장, migration 20개, 관리자 307→로그인, 재시작 후 테스트 표식 보존·quick_check `ok`·백업 1개를 확인했고 테스트 컨테이너를 정상 종료했다. 실제 새 앱 등록·secret 입력·첫 계정 생성·가입 종료·공개 전환·실주소 검증은 아직 사용자 대시보드 단계로 남아 있다.
 
 ## [x] TASK-01 — 첫 설정을 막힘 없이 2~3분 안에 완료
 

@@ -1,6 +1,6 @@
 # Cherrypicker 주소 전환
 
-기준일: 2026-09-16. 사용자가 목표 주소, 협업자 푸시, 새 프로필의 빈 DB 시작을 승인했다. 실제 운영 전환은 아직 완료하지 않았다.
+기준일: 2026-09-17. 사용자가 목표 주소, 협업자 푸시, 새 프로필의 빈 DB 시작과 공개 GHCR 이미지 게시를 승인했다. 이미지 게시는 완료했으며 실제 운영 전환은 아직 완료하지 않았다.
 
 ## 대상
 
@@ -42,6 +42,8 @@
 - 배포 보안 패치: [Next.js 공식 공지](https://github.com/vercel/next.js/security/advisories/GHSA-2xp9-vwfh-vxw4)에 따라 Next.js·eslint-config-next 16.3.3과 sharp 0.35.4를 사용한다. js-yaml·browserslist도 허용 범위에서 갱신했다. npm audit의 critical/high는 0건, moderate 7건은 후속 검토 대상으로 남는다.
 - ARM64 실행 검증: `cherrypicker:main-integration`을 관리형 배포와 같은 읽기 전용 rootfs·권한 제한·768 MiB 메모리·128 PID 조건으로 실행했다. migration 20개, health/catalog/setup 200, 관리자 307→로그인, 재시작 후 테스트 데이터 보존·무결성·시작 전 백업을 확인했다. 보안 패치 후 모바일 첫 설정 화면과 콘솔 오류 0건도 확인했다. 컨테이너는 종료했고 `/private/tmp/cherrypicker-main-runtime.nZWU42`의 테스트 DB·백업은 보존했다. 이는 신규 임시 DB 검증이며 기존 운영 DB의 이전·migration 리허설을 대신하지 않는다.
 - 협업자 푸시·새 프로필·빈 DB 시작: 사용자 승인 완료. 초기 private 프로필을 `09def27`에 기록하고 원격 main에 푸시했으며 원격 revision을 확인했다. 계약 변경 후 lint·전체 555개 테스트·production build·deployctl plan이 통과했다.
-- 새 이미지 게시: 공개 GHCR 게시 명령이 자동 승인 검토에서 실행 전에 차단되어 사용자에게 명시적 게시 승인을 요청했다. 이미지를 게시하거나 새 앱을 등록한 상태가 아니다. 새 앱 등록·secret 입력·첫 계정 생성·공개 전환·실기기 검증도 사용자 대시보드 단계가 남아 있다.
+- 새 이미지 게시: 2026-09-17 사용자의 명시적 승인 뒤 main과 동일한 revision `e7f09f5fa05ee93219e8c29749d6f6f5e95b17e4`를 게시했다. immutable image는 `ghcr.io/hurdoo/cherrypicker@sha256:d3eb24c2bb1fcedc3370908b65a4be8ceeace2fa5f4358395f513f2022eb555a`이며 원격 manifest의 `linux/arm64`와 digest를 확인했다. publish가 다시 수행한 lint·555개 테스트·production build는 모두 통과했다.
+- 게시 이미지 실행 검증: 임시 빈 DB와 관리형 보안·자원 제한, 가입 허용 설정에서 health/catalog/setup/signup 200, 카드 8장, migration 20개, 관리자 307→로그인, 재시작 후 표식 보존·무결성·백업을 확인했다. 테스트 컨테이너는 종료했고 임시 DB·백업과 원본 handoff JSON은 `/private/tmp/cherrypicker-release-e7f09f5.j3DpjF`에 보존했다. secret은 테스트용 placeholder만 사용했다.
+- 다음 사용자 작업: 원본 JSON으로 대시보드 **새 앱 배포**를 제출한다. 필수 secret preflight에서 멈추면 새 앱의 **Secrets**에 `BETTER_AUTH_SECRET`을 입력하고 준비 상태 확인 뒤 배포를 재시도한다. 새 앱 등록·첫 계정 생성·가입 종료·공개 전환·실기기 검증은 아직 미실행이며 이미지 게시를 실제 배포로 간주하지 않는다.
 - 새 앱 상태 조회 결과: `Unknown app: cherrypicker`. 신규 앱 온보딩 대상이며 기존 운영 DB 이전은 이번 범위에서 제외한다.
 - 기존 서비스: 유지. 현재 작업에서 운영 DB·secret·Nginx·DNS는 변경하지 않았다.
