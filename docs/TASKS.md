@@ -27,6 +27,11 @@
   - 기존 운영 버전은 `b2ec3ec`(2026-08-22), health HTTP 200, 공개 카드 8장이다. 로컬 문서의 검수 카드 14장이 운영에 자동 반영되었다고 간주하지 않는다.
   - deployd의 앱 ID·hostname은 수정 불가이므로 계약만 바꿔 기존 앱의 도메인이나 DB가 이동했다고 보고하지 않는다. 구체적 경계와 전환 절차는 `docs/cherrypicker-domain-transition.md`에 기록한다.
   - TASK-10의 두산 후보 게시·계정 상황 호환·실기기 미검증은 그대로 남겨 두며 main 병합을 DSL 작업 완료로 간주하지 않는다. 전환 후 다음 사용자 흐름은 TASK-05의 본인 모바일 실사용 검증이다.
+  - 미커밋 작업은 `f126ff4`에 보존했다. 로컬 main의 `5a04e7a`는 promotion의 `cff2938`과 동일 패치임을 확인해 이력만 병합했고, 원격 main의 GHCR workflow도 내용이 동일했다. 두 이력 병합 후 작업 tree가 `f126ff4`와 동일함을 검증했다.
+  - entrypoint가 `APP_BASE_URL`을 무시하고 이전 도메인을 강제하던 문제를 수정했다. 실제 shell 실행 회귀 4건으로 기존·신규 플랫폼 주소, 명시적 override와 기본 주소를 검증했다.
+  - 배포 후보 확인 중 공식 보안 공지 GHSA-2xp9-vwfh-vxw4를 확인해 Next.js·eslint-config-next를 16.3.3으로, lockfile의 sharp·js-yaml·browserslist를 허용 범위의 수정 버전으로 갱신했다. 최종 npm 검사에서 critical/high는 0건, moderate는 7건이며 나머지 의존성의 일괄 major 갱신은 하지 않았다.
+  - 보안 패치 후 전체 69개 파일·555개 테스트, lint와 production build가 통과했다. 패치 전 Chrome 390×844에서 카드 선택→CU 1만원→조건 확인→확정 혜택 120원→로컬 기록→예상 실적 1만원 반영→재접속 후 내역 보존을 완주하고, 1280×800에서 내역 상세와 가로 넘침 없음을 확인했다. 콘솔 오류는 0건이다. 운영 URL·실제 휴대폰·인증된 관리자 화면은 별도 검증이 필요하다.
+  - 최종 ARM64 이미지를 읽기 전용 rootfs, UID/GID 0:0, capability 제거, no-new-privileges, 768 MiB·128 PID 제한, 임시 `/data`와 `/tmp`로 실행했다. 신규 DB migration 20개, health·catalog·첫 설정 HTTP 200, 관리자 307→로그인, 재시작 뒤 테스트 표식 보존·quick_check `ok`·시작 전 백업 1개를 확인했다. 보안 패치 후 컨테이너의 Chrome 390×844 첫 설정 화면도 정상이고 콘솔 오류는 0건이었다. 테스트 컨테이너는 정상 종료하고 임시 데이터는 보존했다.
 
 ## [x] TASK-01 — 첫 설정을 막힘 없이 2~3분 안에 완료
 

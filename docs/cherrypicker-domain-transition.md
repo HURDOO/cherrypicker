@@ -35,6 +35,10 @@
 
 ## 상태
 
-- 브랜치 통합·로컬 검증: 진행 중, 최종 결과는 TASK-11에 기록한다.
+- 변경 보존과 이력 통합: `f126ff4`, `45ede8d`, `97e0311`에 기록했다. 로컬 main의 중복 SQLite 패치와 원격 main의 동일한 workflow 이력을 보존하고 병합 전후 코드 tree가 동일함을 확인했다. 최종 main 반영·검증 결과는 TASK-11에 기록한다.
+- 로컬 검증: 보안 패치 후 전체 555개 테스트·lint·production build 통과. 패치 전 Chrome 모바일 390×844에서 설정→추천→조건 확인→기록→재접속을 완주하고 데스크톱 1280×800 내역 상세를 확인했다.
+- 배포 보안 패치: [Next.js 공식 공지](https://github.com/vercel/next.js/security/advisories/GHSA-2xp9-vwfh-vxw4)에 따라 Next.js·eslint-config-next 16.3.3과 sharp 0.35.4를 사용한다. js-yaml·browserslist도 허용 범위에서 갱신했다. npm audit의 critical/high는 0건, moderate 7건은 후속 검토 대상으로 남는다.
+- ARM64 실행 검증: `cherrypicker:main-integration`을 관리형 배포와 같은 읽기 전용 rootfs·권한 제한·768 MiB 메모리·128 PID 조건으로 실행했다. migration 20개, health/catalog/setup 200, 관리자 307→로그인, 재시작 후 테스트 데이터 보존·무결성·시작 전 백업을 확인했다. 보안 패치 후 모바일 첫 설정 화면과 콘솔 오류 0건도 확인했다. 컨테이너는 종료했고 `/private/tmp/cherrypicker-main-runtime.nZWU42`의 테스트 DB·백업은 보존했다. 이는 신규 임시 DB 검증이며 기존 운영 DB의 이전·migration 리허설을 대신하지 않는다.
 - 원격 푸시·이미지 게시·새 앱 등록·운영 데이터 이전·새 주소 실기기 검증: 미완료.
+- 새 앱 상태 조회 결과: `Unknown app: cherrypicker`. 기존 앱 도메인 변경으로 간주해 빈 신규 DB를 활성화하지 않는다.
 - 기존 서비스: 유지. 현재 작업에서 운영 DB·secret·Nginx·DNS는 변경하지 않았다.
