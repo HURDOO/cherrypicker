@@ -230,7 +230,7 @@ npm run db:seed
 
 - 기본 개발 브랜치는 `main`, 배포 계약의 목표 앱 ID는 `cherrypicker`다. 기존 `cherrypicker-promotion` 운영 앱에서의 전환은 `docs/cherrypicker-domain-transition.md`로 관리하며, 계약 변경만으로 기존 앱의 도메인·DB가 이동했다고 간주하지 않는다.
 - Docker entrypoint의 인증 origin은 명시적인 `BETTER_AUTH_URL`, 플랫폼의 `APP_BASE_URL`, `https://cherrypicker.app.hurdoo.kr` 순서로 결정한다. 기존·신규 호스트에서 동일한 이미지의 인증과 mutation origin 검사가 각각의 주소를 따른다.
-- `deploy.json`은 public 접근, `/api/health`, `/data` 영속 볼륨, 필수 `BETTER_AUTH_SECRET`과 선택 `OPENAI_API_KEY`의 names-only 계약을 선언한다.
+- `deploy.json`은 최초 계정 bootstrap을 위한 private 접근과 `ALLOW_SIGN_UP=true`, `/api/health`, `/data` 영속 볼륨, 필수 `BETTER_AUTH_SECRET`과 선택 `OPENAI_API_KEY`의 names-only 계약을 선언한다. 첫 계정 생성 후 계약을 `ALLOW_SIGN_UP=false`·public으로 갱신해 설정 전용 handoff로 전환한다. 새 앱은 2026-09-16 승인에 따라 빈 DB에 커밋된 migration·seed를 적용하며 기존 DB를 이전하지 않는다.
 - Docker entrypoint는 기존 DB가 있으면 시작 전 snapshot을 만들고 migration·seed를 적용한 뒤 단일 Next.js 프로세스를 실행한다.
 - 이미지 롤백은 `/data` SQLite 상태를 되돌리지 않는다. schema 변경 전에는 일관된 백업과 복구 가능성을 확인한다.
 - 비공개 베타 전에 새 상시 외부 백업 계층은 추가하지 않지만, 이미 구현된 온라인 backup·verify·restore 런북을 1회 검증한다.

@@ -1,6 +1,6 @@
 # Cherrypicker 주소 전환
 
-기준일: 2026-09-16. 목표 주소는 사용자가 승인했으며 실제 운영 전환은 아직 완료하지 않았다.
+기준일: 2026-09-16. 사용자가 목표 주소, 협업자 푸시, 새 프로필의 빈 DB 시작을 승인했다. 실제 운영 전환은 아직 완료하지 않았다.
 
 ## 대상
 
@@ -15,19 +15,21 @@
 ## 앱 설정 변경만으로 이전할 수 없는 항목
 
 - deployd v0.7.3의 기존 앱 설정은 앱 ID·hostname 변경을 허용하지 않는다. `deploy.json`의 새 ID는 별도 등록 대상을 뜻하며 기존 앱 이름 변경 명령이 아니다.
-- 새 앱에는 별도 영속 데이터와 secret 등록 상태가 생긴다. 기존 DB, 관리자 계정, 검수 revision과 secret 값은 자동으로 따라오지 않는다. 기존 앱을 삭제하거나 빈 DB로 대체하지 않는다.
+- 새 앱에는 별도 영속 데이터와 secret 등록 상태가 생긴다. 이번 승인에 따라 기존 DB, 관리자 계정과 검수 revision을 이전하지 않고 새 DB를 구축한다. 기존 앱 자체를 삭제하거나 기존 DB를 덮어쓰지는 않는다. secret 값은 사용자가 새 앱에 직접 등록한다.
 - 기존 운영 카탈로그는 조회 시 카드 8장이다. 로컬의 검수 카드 14장과 후보·revision은 이미지 빌드에 포함되지 않으므로 운영 데이터 반영 범위를 별도로 검토한다. 미승인 두산 후보는 계속 미게시로 유지한다.
 - 브라우저 IndexedDB와 로그인 쿠키는 origin마다 분리된다. 서버 DB 이전이나 redirect로 개인 workspace가 옮겨지지 않는다.
 
 ## 전환 순서
 
-1. 기존 작업과 main 이력을 보존해 통합하고 lint·전체 테스트·production build를 통과한다. 신규 migration 0018·0019는 nullable 필드 추가이며 기존 운영 버전에 따라 0014 이후 migration도 필요하다. 실제 적용 목록은 운영 백업의 migration 이력으로 확정한다.
-2. 운영 백업·복구 런북에 따라 기존 서버 DB의 일관된 백업과 무결성을 확인한다. 격리 복사본에 migration·seed를 리허설하고 계정·거래·카드·규칙·게시 revision 보존을 확인한다. 운영 데이터 이전·migration은 별도 승인 후 플랫폼 운영 절차로 실행한다.
-3. 새 앱 등록과 데이터 복원 순서를 플랫폼 운영 작업에서 확정한다. 기존 서비스 DB를 사용 중인 두 프로세스에 동시에 연결하지 않는다. 데이터 복원 전 빈 앱의 첫 사용자 관리자 모드나 공개 회원가입을 열지 않는다.
-4. 필요한 secret은 사용자가 대시보드의 Secrets 화면에서 관리한다. 값은 채팅·저장소·handoff에 넣지 않는다. 새 앱의 필수 secret 준비 상태와 기존 계정 보존을 확인한 뒤 새 이미지를 적용한다.
-5. 새 주소에서 health, 비로그인 catalog, 관리자 인증 경계, 추천→기록→재접속을 검증한다. 상태 API에서 실제 revision과 digest를 확인하기 전에는 배포 완료로 표시하지 않는다.
-6. 사용자는 이전 주소를 사용하던 같은 기기·브라우저의 설정에서 JSON을 내보내고 새 주소에서 가져온다. 카드·실적·기록을 확인하고 기존 JSON과 기존 주소를 보존한다. 계정 복원을 선택하면 서버 계정 이전과 동기화 상태를 먼저 확인한다.
-7. 데이터 보존과 새 주소 실사용을 확인한 뒤에만 이전 주소 안내·redirect·기존 앱 종료를 별도로 결정한다. 이 작업에는 자동 redirect나 앱 삭제를 포함하지 않는다.
+1. 기존 작업과 main 이력을 보존해 통합하고 lint·전체 테스트·production build를 통과한다. `hurdooagent` collaborator로 원격 main에 푸시하고 clean revision의 ARM64 이미지를 게시한다.
+2. 최초 계약은 `access=private`, `ADMIN_ACCESS_MODE=FIRST_USER`, `ALLOW_SIGN_UP=true`다. 기존 DB를 복원하지 않고 신규 `/data`에 커밋된 migration 20개와 seed 카드 8장을 적용한다. 로컬 검수 데이터 14장은 자동 반영되지 않는다.
+3. 사용자가 private deployd 대시보드의 **새 앱 배포**에 발행된 원본 JSON을 적용하고 **앱 생성 및 첫 배포**를 제출한다. 필수 secret이 아직 없으면 앱 등록 뒤 첫 배포가 secret preflight에서 멈추는 것이 정상이다.
+4. 사용자가 새 앱의 **Secrets**에서 `BETTER_AUTH_SECRET`을 입력한다. 값은 채팅·저장소·handoff에 넣지 않는다. `OPENAI_API_KEY`는 선택 사항이며 초기 실행에 필요하지 않다. 읽기 전용 상태 조회로 `secretsReady=true`를 확인한 후 사용자가 **배포**에서 첫 이미지 재시도를 제출한다.
+5. private 주소의 health·catalog와 실제 revision·digest를 확인한다. 사용자가 LAN/WireGuard로 `https://cherrypicker.app.hurdoo.kr/signup`에 접속해 의도한 첫 계정을 만든다. 가입이 열린 동안에는 FIRST_USER 관리자 권한도 닫혀 있다.
+6. 첫 계정 생성 직후 `deploy.json`의 `ALLOW_SIGN_UP`을 `false`, `access`를 `public`으로 갱신·커밋한다. 설정 전용 원본 handoff를 사용자가 대시보드 **설정**에서 검토·제출한다. 같은 이미지 재시작 뒤 healthy·가입 화면/API 차단·첫 계정 관리자 접근을 검증한다. 별도 이미지 재빌드는 필요하지 않다.
+7. 새 주소에서 비로그인 추천→기록→재접속과 실제 휴대폰 접근을 검증한다. 필요한 추가 카드·혜택은 공식 수집·검수로 구축하며 미승인 두산 후보를 자동 게시하지 않는다. 온보딩 완료 전 정상적인 후속 release·rollback도 사용자 승인 아래 확인한다.
+8. 이전 브라우저 데이터가 필요하면 사용자가 같은 기기·브라우저의 이전 주소에서 JSON을 내보내고 새 주소에서 가져온다. 새 DB에는 과거 서버 계정이 없으므로 기존 계정 동기화로 복원된다고 안내하지 않는다.
+9. 새 주소 실사용 확인 뒤 이전 주소 안내·redirect·기존 앱 종료를 별도로 결정한다. 이 작업에는 자동 redirect나 앱 삭제를 포함하지 않는다.
 
 ## 코드의 주소 처리
 
@@ -39,6 +41,6 @@
 - 로컬 검증: 보안 패치 후 전체 555개 테스트·lint·production build 통과. 패치 전 Chrome 모바일 390×844에서 설정→추천→조건 확인→기록→재접속을 완주하고 데스크톱 1280×800 내역 상세를 확인했다.
 - 배포 보안 패치: [Next.js 공식 공지](https://github.com/vercel/next.js/security/advisories/GHSA-2xp9-vwfh-vxw4)에 따라 Next.js·eslint-config-next 16.3.3과 sharp 0.35.4를 사용한다. js-yaml·browserslist도 허용 범위에서 갱신했다. npm audit의 critical/high는 0건, moderate 7건은 후속 검토 대상으로 남는다.
 - ARM64 실행 검증: `cherrypicker:main-integration`을 관리형 배포와 같은 읽기 전용 rootfs·권한 제한·768 MiB 메모리·128 PID 조건으로 실행했다. migration 20개, health/catalog/setup 200, 관리자 307→로그인, 재시작 후 테스트 데이터 보존·무결성·시작 전 백업을 확인했다. 보안 패치 후 모바일 첫 설정 화면과 콘솔 오류 0건도 확인했다. 컨테이너는 종료했고 `/private/tmp/cherrypicker-main-runtime.nZWU42`의 테스트 DB·백업은 보존했다. 이는 신규 임시 DB 검증이며 기존 운영 DB의 이전·migration 리허설을 대신하지 않는다.
-- 원격 푸시·이미지 게시·새 앱 등록·운영 데이터 이전·새 주소 실기기 검증: 미완료.
-- 새 앱 상태 조회 결과: `Unknown app: cherrypicker`. 기존 앱 도메인 변경으로 간주해 빈 신규 DB를 활성화하지 않는다.
+- 협업자 푸시·새 프로필·빈 DB 시작: 사용자 승인 완료. 초기 private 프로필을 저장소에 준비했다. 원격 푸시·이미지 게시 결과는 발행 후 기록하고, 새 앱 등록·secret 입력·첫 계정 생성·공개 전환·실기기 검증은 사용자 대시보드 단계가 남아 있다.
+- 새 앱 상태 조회 결과: `Unknown app: cherrypicker`. 신규 앱 온보딩 대상이며 기존 운영 DB 이전은 이번 범위에서 제외한다.
 - 기존 서비스: 유지. 현재 작업에서 운영 DB·secret·Nginx·DNS는 변경하지 않았다.
