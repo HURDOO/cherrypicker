@@ -162,8 +162,8 @@ npm run db:backup -- /mnt/external-backup/cherrypicker.db
 
 ### deployd 관리형 배포
 
-이 worktree의 관리형 앱 ID는 `cherrypicker-promotion`이며 기본 주소는
-`https://cherrypicker-promotion.app.hurdoo.kr`입니다. 일반 사용자 화면은
+이 worktree의 관리형 앱 ID는 `cherrypicker-demo`이며 기본 주소는
+`https://cherrypicker-demo.app.hurdoo.kr`입니다. 일반 사용자 화면은
 로그인 없이 팀에 공유할 수 있도록 `public` 모드로 운영하고, 관리자·디자인 화면과
 관리자 API는 인증 경계를 유지합니다. SQLite와 WAL 파일은 영속 볼륨의
 `/data/cherrypicker.db`에 저장합니다. 컨테이너 시작 시 기존 DB가 있으면 먼저

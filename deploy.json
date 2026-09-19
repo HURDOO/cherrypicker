@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "appId": "cherrypicker-promotion",
+  "appId": "cherrypicker-demo",
   "imageRepository": "ghcr.io/hurdoo/cherrypicker",
-  "displayName": "Cherrypicker Promotion",
-  "description": "Public guest-first credit-card benefit and promotion application",
+  "displayName": "Cherrypicker Demo",
+  "description": "Public guest-first credit-card benefit and promotion demo",
   "containerPort": 3000,
   "healthPath": "/api/health",
   "access": "public",
