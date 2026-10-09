@@ -234,7 +234,7 @@ describe('card benefit DSL extraction gate', () => {
         ]));
     });
 
-    it('fails closed when a value-affecting official clause remains unsupported', () => {
+    it('fails closed when an unregistered value-affecting clause leaves no rule to publish', () => {
         const candidate = extraction();
         candidate.unsupportedClauses = [{
             id: 'unknown-cap-formula',
@@ -245,13 +245,138 @@ describe('card benefit DSL extraction gate', () => {
             affectsValue: true,
         }];
 
-        expect(validateCardBenefitExtraction(candidate, {
+        const validation = validateCardBenefitExtraction(candidate, {
             card,
             sourceUrl,
             sourceText: `${benefitQuote}\n${waiverQuote}`,
         }, {
             brandIds: new Set(['doosan_bears']),
-        }).errors).toContain('미지원 문구 1가 계산값에 영향을 주므로 게시할 수 없습니다.');
+        });
+
+        expect(validation.extraction).toBeUndefined();
+        expect(validation.errors).toContain('미지원 문구를 반영하고 나면 게시할 수 있는 규칙이 남지 않습니다.');
+    });
+
+    describe('rule-level coverage of unsupported clauses', () => {
+        const approvalQuote = '카드사 승인 업종이 아닌 경우 및 PG 결제 시 할인 제외';
+        const fnbQuote = '잠실야구장 F&B 결제 시 20% 할인';
+        const sourceText = `${benefitQuote}\n${waiverQuote}\n${approvalQuote}\n${fnbQuote}`;
+        const withFnbRule = () => {
+            const candidate = extraction();
+            candidate.rules.push({
+                id: 'kb_doosan_bears_fnb',
+                cardId: card.id,
+                includedBrands: ['doosan_bears'],
+                excludedBrands: [],
+                platformType: 'ALL',
+                usesCardLimit: false,
+                description: '잠실야구장 F&B 20% 할인',
+                detail: '',
+                condition: {},
+                action: { type: 'PERCENT', value: 20 },
+                limitConfig: {},
+            });
+            candidate.evidence.push({
+                id: 'doosan-fnb',
+                ruleIds: ['kb_doosan_bears_fnb'],
+                fields: ['description', 'action'],
+                sourceUrl,
+                quote: fnbQuote,
+            });
+            return candidate;
+        };
+        const validate = (candidate: CardBenefitExtraction) => validateCardBenefitExtraction(candidate, {
+            card,
+            sourceUrl,
+            sourceText,
+        }, {
+            brandIds: new Set(['doosan_bears']),
+        });
+
+        it('adds an evidenced confirmation only to the linked DSL rule', () => {
+            const candidate = withFnbRule();
+            candidate.unsupportedClauses = [{
+                id: 'approval-path',
+                ruleIds: ['kb_doosan_bears_ticket_goods'],
+                sourceUrl,
+                quote: approvalQuote,
+                reason: '승인 업종·PG 여부를 앱이 알 수 없음',
+                affectsValue: true,
+                patternId: 'MERCHANT_APPROVAL_PATH',
+            }];
+
+            const validation = validate(candidate);
+            const [ticket, fnb] = validation.extraction?.rules ?? [];
+
+            expect(validation.errors).toEqual([]);
+            expect(ticket.program?.confirmations?.map(item => item.message)).toEqual([
+                '신규회원 혜택 기간인지 확인',
+                '카드사 승인 가맹점(업종)으로 직접 결제되는지 확인',
+            ]);
+            expect(fnb).toEqual(candidate.rules[1]);
+            expect(validation.coverage?.outcomes).toEqual([expect.objectContaining({
+                level: 'CONFIRM',
+                ruleIds: ['kb_doosan_bears_ticket_goods'],
+            })]);
+        });
+
+        it('publishes the other rules when one rule has an unregistered clause', () => {
+            const candidate = withFnbRule();
+            candidate.unsupportedClauses = [{
+                id: 'new-meaning',
+                ruleIds: ['kb_doosan_bears_ticket_goods'],
+                sourceUrl,
+                quote: approvalQuote,
+                reason: '처음 보는 조건',
+                affectsValue: true,
+                patternId: 'NEW',
+            }];
+
+            const validation = validate(candidate);
+
+            expect(validation.errors).toEqual([]);
+            expect(validation.extraction?.rules.map(rule => rule.id)).toEqual(['kb_doosan_bears_fnb']);
+            expect(validation.coverage?.excludedRules).toEqual([{
+                ruleId: 'kb_doosan_bears_ticket_goods',
+                description: '두산베어스 입장권·구단 상품 10% 할인',
+            }]);
+        });
+
+        it('turns the linked rule into a zero-value information note', () => {
+            const candidate = withFnbRule();
+            candidate.unsupportedClauses = [{
+                id: 'multi-rate',
+                ruleIds: ['kb_doosan_bears_ticket_goods'],
+                sourceUrl,
+                quote: approvalQuote,
+                reason: '요율을 하나로 정할 수 없음',
+                affectsValue: true,
+                patternId: 'INFO_MULTI_RATE_UNRESOLVED',
+            }];
+
+            const validation = validate(candidate);
+            const ticket = validation.extraction?.rules[0];
+
+            expect(validation.errors).toEqual([]);
+            expect(ticket?.program).toBeUndefined();
+            expect(ticket?.action).toEqual({ type: 'FLAT', value: 0 });
+            expect(ticket?.condition.manualCheckRequired).toBe(true);
+        });
+
+        it('rejects a malformed pattern ID', () => {
+            const candidate = withFnbRule();
+            candidate.unsupportedClauses = [{
+                id: 'bad-pattern',
+                ruleIds: ['kb_doosan_bears_ticket_goods'],
+                sourceUrl,
+                quote: approvalQuote,
+                reason: '형식 오류',
+                affectsValue: true,
+                patternId: 'merchant approval',
+            }];
+
+            expect(validate(candidate).errors).toContain('미지원 문구 1 형식이 올바르지 않습니다.');
+        });
     });
 
     it('requires official evidence for every DSL AST node path', () => {

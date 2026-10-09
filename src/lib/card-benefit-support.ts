@@ -12,6 +12,8 @@ export interface ActiveCardBenefitRevision {
     cardId: string;
     candidateId?: string | null;
     publishedAt: Date | string;
+    /** Caveats recorded when the active revision was approved with rule-level coverage. */
+    coverageCaveats?: string[];
 }
 
 interface CardBenefitSupportDefinition {
@@ -84,9 +86,11 @@ export function buildCardBenefitSupports(
                     lastVerifiedAt: toIsoString(revision.publishedAt),
                 }),
                 sources: definition?.sources.map(source => ({ ...source })) ?? [],
-                caveats: reviewed
-                    ? [...(definition?.caveats ?? [])]
-                    : [DEFAULT_CAVEAT, ...(definition?.caveats ?? [])],
+                caveats: [
+                    ...(reviewed ? [] : [DEFAULT_CAVEAT]),
+                    ...(definition?.caveats ?? []),
+                    ...(revision?.coverageCaveats ?? []),
+                ],
             } satisfies CatalogCardBenefitSupport;
         })
         .sort((left, right) => left.cardId.localeCompare(right.cardId));

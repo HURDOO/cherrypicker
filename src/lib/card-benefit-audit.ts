@@ -15,6 +15,7 @@ import {
     performanceWaiverConsistencyErrors,
 } from './card-benefit-rule-consistency';
 import { diffStructuredValues } from './structured-diff';
+import { applyBenefitCoveragePatterns } from './benefit-coverage-patterns';
 import {
     listBenefitProgramEvidencePaths,
     validateBenefitProgramSet,
@@ -227,6 +228,12 @@ export function createCardBenefitCandidateAudit(options: {
     asOfDate?: string;
     noticeDocuments?: Array<{ sourceUrl: string; noticeDates: CardBenefitNoticeDates }>;
 }): CardBenefitCandidateAudit {
+    // Audit what would actually be published after rule-level coverage, so a rule kept out
+    // by an unsupported clause still shows up as a high-risk removal of a published rule.
+    options = {
+        ...options,
+        extraction: applyBenefitCoveragePatterns(options.extraction).value,
+    };
     const asOfDate = options.asOfDate ?? new Date().toISOString().slice(0, 10);
     const changes: CardBenefitFieldChange[] = diffStructuredValues(
         {

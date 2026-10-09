@@ -55,7 +55,7 @@ DSL은 JSON으로만 직렬화하며 `languageVersion`을 가진다. v1의 정�
 3. 새 공개 계약은 catalog v3로 올리되, 앱은 IndexedDB에 남은 정상 catalog v2를 adapter로 읽을 수 있어야 한다. 유효한 기존 캐시를 schema 변경만으로 버리지 않는다.
 4. 기존 transaction의 catalog·조합 snapshot은 재계산하거나 일괄 변환하지 않는다. 표시와 이용량 집계에 필요한 기존 rule ID와 snapshot 의미를 보존한다.
 5. 새 후보부터 DSL을 사용한다. AI program은 기존 target·condition·limitConfig를 legacy compiler가 만든 안전한 기본 프로그램과 합성한 뒤 전체 AST로 저장하며, 기존 게시 revision의 물리적 변환은 shadow 동등성이 증명된 뒤에도 필수가 아닌 별도 작업으로 둔다.
-6. 미지원 문구를 무시하거나 0원 규칙으로 숨기지 않는다. 혜택 금액·조건·한도에 영향을 주는 `unsupportedClauses`가 하나라도 있으면 승인 API가 게시를 거부한다.
+6. 미지원 문구를 무시하지 않는다. 2026-10-10 결정에 따라 혜택 금액·조건·한도에 영향을 주는 `unsupportedClauses`는 등록 패턴으로 연결 규칙만 조건 확인·정보 제공으로 낮추고, 미등록 패턴의 규칙은 게시에서 제외하며, 카드 전체를 제한하는 문구만 카드 게시를 거부한다. 기준은 `docs/benefit-coverage-policy.md`를 따른다.
 
 ## 4. 구현 단계와 검증 게이트
 

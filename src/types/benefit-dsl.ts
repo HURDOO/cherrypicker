@@ -148,6 +148,13 @@ export interface BenefitProgramV1 {
     reason?: string;
 }
 
+/** How a value-affecting unsupported clause is reflected; see docs/benefit-coverage-policy.md. */
+export type BenefitCoverageLevel =
+    | 'CONFIRM'
+    | 'INFORMATION'
+    | 'CARD_CAVEAT'
+    | 'BLOCK_CARD';
+
 export interface CardBenefitUnsupportedClause {
     id: string;
     ruleIds: string[];
@@ -155,6 +162,13 @@ export interface CardBenefitUnsupportedClause {
     quote: string;
     reason: string;
     affectsValue: boolean;
+    /** Registered coverage pattern. Missing, `NEW` or unknown IDs keep the linked rules unpublished. */
+    patternId?: string;
+}
+
+export interface CardBenefitCoverageSummary {
+    caveats: string[];
+    excludedRules: Array<{ ruleId: string; description: string }>;
 }
 
 export interface BenefitDslHistoryEntry {

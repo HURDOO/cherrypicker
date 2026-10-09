@@ -1,5 +1,6 @@
 import type {
     BenefitProgramV1,
+    CardBenefitCoverageSummary,
     CardBenefitUnsupportedClause,
 } from './benefit-dsl';
 import type { CardPerformancePolicyV1, PerformanceContribution } from './performance-policy';
@@ -313,6 +314,8 @@ export interface CardBenefitExtraction {
 export interface CardBenefitRevisionSnapshot {
     card: Card;
     rules: BenefitRule[];
+    /** Rule-level coverage applied at approval: card caveats and rules kept out of the catalog. */
+    coverage?: CardBenefitCoverageSummary;
 }
 
 // User Data

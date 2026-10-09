@@ -31,6 +31,18 @@ import {
 } from '@/lib/card-benefit-collection-run';
 import { useToastStore } from '@/store/useToastStore';
 import { evaluateBenefitProgram, validateBenefitProgram } from '@/utils/benefit-dsl';
+import {
+    applyBenefitCoveragePatterns,
+    type BenefitCoverageOutcomeLevel,
+} from '@/lib/benefit-coverage-patterns';
+
+const COVERAGE_LEVEL_LABELS: Record<BenefitCoverageOutcomeLevel, string> = {
+    CONFIRM: '조건 확인으로 반영',
+    INFORMATION: '정보 제공(0원)으로 반영',
+    CARD_CAVEAT: '카드 안내 문구로 반영',
+    BLOCK_CARD: '카드 게시 보류',
+    UNREGISTERED: '패턴 미등록 · 연결 규칙 미게시',
+};
 
 type Candidate = {
     id: string;
@@ -293,6 +305,47 @@ const auditValue = (value: unknown) => {
             : JSON.stringify(value);
     }
     return JSON.stringify(value);
+};
+
+const UnsupportedClausePanel = ({ extraction }: { extraction: CardBenefitExtraction }) => {
+    const { result } = applyBenefitCoveragePatterns(extraction);
+    const outcomeByClause = new Map(result.outcomes.map(outcome => [outcome.clauseId, outcome]));
+    const ruleLabel = new Map(extraction.rules.map(rule => [rule.id, rule.description]));
+
+    return (
+        <div className="mt-4 rounded-2xl border border-rose-300 bg-rose-50 p-3">
+            <p className="flex items-center gap-1 text-[10px] font-black text-rose-900">
+                <ShieldAlert className="h-3.5 w-3.5" /> DSL 미지원 공식 문구
+            </p>
+            <ul className="mt-2 space-y-2 text-[10px] font-bold text-rose-800">
+                {extraction.unsupportedClauses?.map(clause => {
+                    const outcome = outcomeByClause.get(clause.id);
+                    return (
+                        <li key={clause.id} className="rounded-xl bg-white px-3 py-2">
+                            <p>
+                                {outcome ? COVERAGE_LEVEL_LABELS[outcome.level] : '정보 기록'}
+                                {clause.patternId && ` · ${clause.patternId}`} · {clause.reason}
+                            </p>
+                            {outcome && outcome.ruleIds.length > 0 && (
+                                <p className="mt-1 text-rose-600">
+                                    대상 규칙: {outcome.ruleIds.map(ruleId => ruleLabel.get(ruleId) ?? ruleId).join(', ')}
+                                </p>
+                            )}
+                            <p className="mt-1 font-medium leading-relaxed text-rose-700">“{clause.quote}”</p>
+                        </li>
+                    );
+                })}
+            </ul>
+            {result.excludedRules.length > 0 && (
+                <p className="mt-2 text-[10px] font-black text-rose-900">
+                    게시에서 제외될 규칙: {result.excludedRules.map(rule => rule.description).join(', ')}
+                </p>
+            )}
+            {result.blockingErrors.map(error => (
+                <p key={error} className="mt-2 text-[10px] font-black text-rose-900">{error}</p>
+            ))}
+        </div>
+    );
 };
 
 const AuditPanel = ({ audit }: { audit: CardBenefitCandidateAudit }) => {
@@ -809,19 +862,7 @@ export function CardBenefitAdminClient() {
                         )}
 
                         {(candidate.extraction.unsupportedClauses?.length ?? 0) > 0 && (
-                            <div className="mt-4 rounded-2xl border border-rose-300 bg-rose-50 p-3">
-                                <p className="flex items-center gap-1 text-[10px] font-black text-rose-900">
-                                    <ShieldAlert className="h-3.5 w-3.5" /> DSL 미지원 공식 문구
-                                </p>
-                                <ul className="mt-2 space-y-2 text-[10px] font-bold text-rose-800">
-                                    {candidate.extraction.unsupportedClauses?.map(clause => (
-                                        <li key={clause.id} className="rounded-xl bg-white px-3 py-2">
-                                            <p>{clause.affectsValue ? '게시 차단 · 계산 영향' : '정보 기록'} · {clause.reason}</p>
-                                            <p className="mt-1 font-medium leading-relaxed text-rose-700">“{clause.quote}”</p>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
+                            <UnsupportedClausePanel extraction={candidate.extraction} />
                         )}
 
                         <AuditPanel audit={candidate.audit} />

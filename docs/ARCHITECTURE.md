@@ -82,7 +82,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 1. 카드별 출처 registry 또는 DB 출처 설정으로 허용 host·HTML·PDF를 수집한다.
 2. 원문, extracted text, response metadata, content hash와 source bundle을 보존한다. SKT adapter는 공식 `totalCount`와 이름순 20건 페이지를 기준으로 전체 목록을 검증한 뒤 각 공식 브랜드 ID의 상세를 동시 요청 4개 이하로 수집하고, 시작 목록을 다시 확인해 수집 중 변동도 감지한다.
 3. 카드 혜택은 AI 인벤토리→BenefitRule 후보와 근거 연결 단계를 거친다. 고정 필드로 충분한 규칙은 `program=null`, 충분하지 않은 계산 규칙은 DSL v1 extension과 0원 legacy fallback을 받는다. 서버는 기존 target·condition·limitConfig를 기본 DSL로 컴파일해 extension과 합성하고, 공식 coverage에서 모든 최종 AST 노드 근거를 재검증한다. 허용 문법 밖 의미는 `unsupportedClauses`로 받는다. 지원되는 일부 adapter는 AI 실패 시 보수적 규칙 추출로 대체한다. SKT는 반대로 규칙 parser를 먼저 적용하고 한 브랜드의 모든 variant가 미해석된 경우에만 해당 공개 목록·상세를 strict schema의 AI 보조 parser에 보낸다. AI 결과는 원문 의미 hash와 DSL·evaluator version을 포함한 key로 재사용하며 원문 인용·variant 완전성 검증에 실패하면 SKT 출처 전체를 `partial`로 낮춘다.
-4. schema, DSL 타입·실행량, 근거 인용, 참조 무결성, 숫자·한도, 필드 제거·변경 위험과 금액 영향 `unsupportedClauses`를 audit한다. 관리자는 DSL 요약·근거·고정 입력 simulation과 차단 사유를 게시 전에 확인한다.
+4. schema, DSL 타입·실행량, 근거 인용, 참조 무결성, 숫자·한도, 필드 제거·변경 위험을 audit한다. 금액 영향 `unsupportedClauses`는 `src/lib/benefit-coverage-patterns.ts`의 등록 패턴에 따라 연결 규칙만 조건 확인·0원 정보 제공으로 바꾸거나 카드 주의 문구로 남기고, 미등록 패턴의 규칙은 게시에서 제외한다. 검증·audit·승인은 이 변환을 적용한 게시 형태를 기준으로 하고, 주의 문구와 제외 규칙은 revision snapshot의 `coverage`에 저장해 공개 카드 지원 정보로 전달한다. 관리자는 DSL 요약·근거·고정 입력 simulation, 문구별 반영 단계와 차단 사유를 게시 전에 확인한다.
 5. 승인 가능 후보만 사람 관리자가 게시하고, revision snapshot을 활성화한다. 프로모션도 공식 근거·diff·검수 정책을 거친다. SKT 목록·상세가 하나라도 빠진 bundle은 `partial`로 보존하되 성공 출처 집합에는 넣지 않으며 후보 생성·자동 게시·삭제 관측을 수행하지 않는다.
 
 ## 4. 주요 모듈과 책임

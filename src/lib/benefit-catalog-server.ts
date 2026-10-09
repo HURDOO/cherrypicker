@@ -26,6 +26,7 @@ import {
 } from '@/lib/db-mappers';
 import type { BenefitCatalogFreshness, BenefitCatalogSnapshot } from '@/types';
 import { buildBenefitCatalogSnapshot } from './benefit-catalog';
+import { cardBenefitCoverageCaveats } from './benefit-coverage-patterns';
 import { buildCardBenefitSupports } from './card-benefit-support';
 import { publishedSystemCard } from './card-visibility';
 import { getManagedSystemCardBenefitSourceInventory } from './system-card-onboarding';
@@ -77,9 +78,14 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
                 cardId: cardBenefitRevisions.cardId,
                 candidateId: cardBenefitRevisions.candidateId,
                 publishedAt: cardBenefitRevisions.publishedAt,
+                snapshot: cardBenefitRevisions.snapshot,
             }).from(cardBenefitRevisions)
                 .where(eq(cardBenefitRevisions.isActive, true))
-                .all();
+                .all()
+                .map(({ snapshot, ...revision }) => ({
+                    ...revision,
+                    coverageCaveats: cardBenefitCoverageCaveats(snapshot.coverage),
+                }));
 
             return {
                 categories: tx.select().from(categories)

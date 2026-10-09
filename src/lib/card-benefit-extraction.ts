@@ -31,6 +31,13 @@ import {
     validateBenefitProgramSet,
 } from '@/utils/benefit-dsl';
 import { validateCardPerformancePolicy } from '@/utils/performance-policy';
+import {
+    applyBenefitCoveragePatterns,
+    BENEFIT_COVERAGE_PATTERN_IDS,
+    BENEFIT_COVERAGE_PATTERNS,
+    NEW_BENEFIT_COVERAGE_PATTERN_ID,
+    type BenefitCoverageResult,
+} from './benefit-coverage-patterns';
 
 export const CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION = 2 as const;
 export const SHINHAN_SOL_RULESET_VERSION = 'shinhan-sol-v5' as const;
@@ -658,16 +665,28 @@ const validateSourceBackedChannelAndFallbackCoverage = (
 };
 
 export function validateCardBenefitExtraction(
-    value: unknown,
+    rawValue: unknown,
     input: CardBenefitExtractionInput,
     references?: {
         categoryIds?: ReadonlySet<string>;
         brandIds?: ReadonlySet<string>;
         ruleOwners?: ReadonlyMap<string, { cardId: string; userId?: string | null }>;
     },
-): { extraction?: CardBenefitExtraction; errors: string[] } {
+): { extraction?: CardBenefitExtraction; errors: string[]; coverage?: BenefitCoverageResult } {
     const errors: string[] = [];
-    if (!isRecord(value)) return { errors: ['구조화 결과가 객체가 아닙니다.'] };
+    if (!isRecord(rawValue)) return { errors: ['구조화 결과가 객체가 아닙니다.'] };
+    // Unsupported clauses lower only their linked rules; the rest of the candidate is validated as published.
+    const sourceByCoverageUrl = new Map(extractionSources(input).map(source => [source.sourceUrl, source]));
+    const coverage = applyBenefitCoveragePatterns(rawValue, {
+        locatePage: (sourceUrl, quote) => {
+            const pageIndex = sourceByCoverageUrl.get(sourceUrl)?.pageTexts
+                ?.findIndex(pageText => sourceContainsQuote(pageText, quote)) ?? -1;
+            return pageIndex >= 0 ? pageIndex + 1 : undefined;
+        },
+    });
+    const value = coverage.value;
+    errors.push(...coverage.result.blockingErrors);
+    const originalRuleIds = new Set(coverage.result.originalRuleIds);
     if (value.schemaVersion !== CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION) {
         errors.push('지원하지 않는 카드 혜택 schema version입니다.');
     }
@@ -854,8 +873,10 @@ export function validateCardBenefitExtraction(
         !(
             Array.isArray(value.unsupportedClauses) &&
             value.unsupportedClauses.some(clause => isRecord(clause) &&
-                clause.affectsValue === true &&
-                typeof clause.reason === 'string' && /실적/.test(clause.reason))
+                clause.affectsValue === true && (
+                    clause.patternId === 'PERF_EXCLUDE_TRANSACTION_TYPE' ||
+                    (typeof clause.reason === 'string' && /실적/.test(clause.reason))
+                ))
         )) {
         errors.push('공식 전월 실적 제외 조건의 정책 또는 금액 영향 미지원 문구가 없습니다.');
     }
@@ -1028,7 +1049,11 @@ export function validateCardBenefitExtraction(
                     typeof clause.sourceUrl !== 'string' ||
                     typeof clause.quote !== 'string' ||
                     typeof clause.reason !== 'string' || !clause.reason ||
-                    typeof clause.affectsValue !== 'boolean') {
+                    typeof clause.affectsValue !== 'boolean' ||
+                    (clause.patternId !== undefined && (
+                        typeof clause.patternId !== 'string' ||
+                        !/^[A-Z][A-Z0-9_]{1,63}$/.test(clause.patternId)
+                    ))) {
                     errors.push(`${label} 형식이 올바르지 않습니다.`);
                     return;
                 }
@@ -1037,7 +1062,7 @@ export function validateCardBenefitExtraction(
                 }
                 unsupportedIds.add(clause.id);
                 clause.ruleIds.forEach(ruleId => {
-                    if (!ruleIds.has(ruleId)) {
+                    if (!originalRuleIds.has(ruleId)) {
                         errors.push(`${label}가 알 수 없는 규칙 ${ruleId}를 참조합니다.`);
                     }
                 });
@@ -1045,9 +1070,6 @@ export function validateCardBenefitExtraction(
                 if (!source || clause.quote.length < 3 || clause.quote.length > 500 ||
                     !sourceContainsQuote(source.sourceText, clause.quote)) {
                     errors.push(`${label} 문장이 공식 원문에서 확인되지 않습니다.`);
-                }
-                if (clause.affectsValue) {
-                    errors.push(`${label}가 계산값에 영향을 주므로 게시할 수 없습니다.`);
                 }
             });
         }
@@ -1097,6 +1119,7 @@ export function validateCardBenefitExtraction(
     return {
         ...(errors.length === 0 && { extraction: value as unknown as CardBenefitExtraction }),
         errors: unique(errors),
+        coverage: coverage.result,
     };
 }
 
@@ -2019,6 +2042,7 @@ export const cardBenefitOpenAIExtractionSchema = z.object({
             quote: z.string().min(3).max(500),
             reason: z.string().min(1).max(500),
             affectsValue: z.boolean(),
+            patternId: z.enum([...BENEFIT_COVERAGE_PATTERN_IDS, NEW_BENEFIT_COVERAGE_PATTERN_ID]),
         }).strict()).max(100),
         notes: z.array(z.string().max(500)).max(100),
     }).strict(),
@@ -5982,6 +6006,7 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
                 '같은 할인율에서 전월 실적에 따라 개별 서비스 월 한도만 달라지면 실적별 규칙을 중복 생성하지 말고 하나의 규칙과 limits.monthlyBenefitAmount의 case로 표현하세요. 신규카드가 전월 실적 미달일 때만 한도를 줄이는 분기는 NEW_CARD_WINDOW_AVAILABLE뿐 아니라 CARD_PERFORMANCE가 최소 실적 미만인지도 함께 검사해야 합니다.',
                 'coverage의 programEvidence에는 해당 인벤토리 문구가 근거로 뒷받침하는 DSL ruleId와 모든 AST 경로를 넣으세요. 예: program.benefit, program.benefit.operands[0], program.cardMonthlyLimit.branches[0].then. DSL이 없는 section의 programEvidence는 null입니다.',
                 '공식 문구가 DSL v1에도 없는 입력이나 의미를 요구하면 추측하거나 누락하지 말고 unsupportedClauses에 원문 URL·연속 인용·관련 ruleIds·사유와 affectsValue를 기록하세요. 금액·조건·한도에 영향을 주면 affectsValue=true입니다.',
+                `각 unsupportedClauses에는 아래 등록 패턴 중 의미가 정확히 맞는 patternId를 고르고, 맞는 패턴이 없으면 ${NEW_BENEFIT_COVERAGE_PATTERN_ID}를 쓰세요. 애플리케이션이 패턴별로 연결 규칙만 확인 조건·정보 제공으로 낮추거나 카드 안내로 바꾸며, ${NEW_BENEFIT_COVERAGE_PATTERN_ID}인 규칙은 패턴 등록 전까지 게시하지 않습니다. 정보 제공 패턴의 혜택도 규칙과 원문 근거는 그대로 출력하세요. 카드 전체에 적용되는 문구는 ruleIds를 비우세요. 등록 패턴: ${BENEFIT_COVERAGE_PATTERNS.map(pattern => `${pattern.id}=${pattern.summary}`).join('; ')}.`,
                 'card 객체의 키는 반드시 id, name, company, limitTable, network, performancePolicy입니다. issuer 같은 다른 이름을 사용하지 마세요.',
                 '공식 전월 실적 제외 조건이 있으면 performancePolicy.version=1의 제외 규칙으로 구조화하세요. 카드 자체 할인 적용 매출 전체 제외는 CARD_DISCOUNT_APPLIED를 사용하고, 무이자할부·상품권·세금 등 거래 종류 제외는 TRANSACTION_TAG_IN을 사용하세요. 앱이 거래 종류를 모르면 실적을 0원·불확실로 보수 처리합니다. 각 제외 규칙에는 공식 sourceUrl과 원문 그대로의 연속 quote, PDF면 page를 넣으세요. 공식 실적 제외 문구가 없으면 performancePolicy=null입니다. 표현 불가능한 실적 조건은 금액 영향 unsupportedClauses로 남기세요.',
                 '결제금액으로 자동 계산할 수 없는 혜택은 action.type=FLAT, action.value=0으로 두고 manualCheckRequired=true로 표시하세요. FIXED_PRICE 0은 가격이 명시된 특정 상품을 무료 제공하며 itemSpecific=true인 경우에만 사용하세요.',

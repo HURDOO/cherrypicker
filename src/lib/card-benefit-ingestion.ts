@@ -31,6 +31,7 @@ import {
     validateCardBenefitExtraction,
 } from './card-benefit-extraction';
 import { createCardBenefitCandidateAudit } from './card-benefit-audit';
+import { toCardBenefitCoverageSummary } from './benefit-coverage-patterns';
 import {
     isReusableCardBenefitCandidate,
     shouldReplacePendingCardBenefitCandidate,
@@ -998,6 +999,7 @@ export function reviewCardBenefitCandidate(
         throw new CardBenefitIngestionError(400, '검증 오류가 있는 카드 혜택 후보는 승인할 수 없습니다.');
     }
     const before = currentSnapshot(candidate.cardId);
+    const coverage = toCardBenefitCoverageSummary(validation.coverage);
     const publishedSnapshot: CardBenefitRevisionSnapshot = {
         card: {
             ...before.card,
@@ -1011,6 +1013,7 @@ export function reviewCardBenefitCandidate(
             ...ruleRow,
             cardId: candidate.cardId,
         })),
+        ...(coverage && { coverage }),
     };
     let revision = 0;
     db.transaction(tx => {
