@@ -2,6 +2,12 @@
 
 기준일: 2026-09-17. 사용자가 목표 주소, 협업자 푸시, 새 프로필의 빈 DB 시작과 공개 GHCR 이미지 게시를 승인했다. 이미지 게시는 완료했으며 실제 운영 전환은 아직 완료하지 않았다.
 
+## 2026-09-28 변경 사항 — 아래의 기존 bootstrap 절차보다 우선
+
+- 새 앱은 revision `e7f09f5`로 배포되어 healthy·HTTP 200이다. 사용자 설정 적용 후 현재 운영 설정은 public·가입 차단(configRevision 2)이다.
+- 사용자가 첫 계정 생성 생략과 공개 전환을 승인했다. 아래 전환 순서 5~6의 첫 계정 생성 조건을 생략하고 `access=public`, `ALLOW_SIGN_UP=false`를 설정 화면에서 함께 적용한다. 계정 없는 동안 관리자 검수·계정 동기화는 사용하지 않는다.
+- configure 작업 `fffc8173-6d07-4f07-88b4-6d5b927ddd94`는 succeeded이며 오류·rollback은 없다. 기존 이미지 digest `sha256:d3eb24c2bb1fcedc3370908b65a4be8ceeace2fa5f4358395f513f2022eb555a`를 유지하고 previous release는 없다. Mac HTTPS GET에서 홈·health 200, signup·admin 307→login을 확인했다. 외부 모바일 네트워크, 가입 POST API와 모바일 추천→기록→재접속은 아직 미검증이다.
+
 ## 대상
 
 | 항목 | 현재 운영 | 전환 목표 |

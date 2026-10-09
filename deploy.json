@@ -6,11 +6,11 @@
   "description": "Public guest-first credit-card benefit and promotion application",
   "containerPort": 3000,
   "healthPath": "/api/health",
-  "access": "private",
+  "access": "public",
   "dataEnabled": true,
   "environment": {
     "ADMIN_ACCESS_MODE": "FIRST_USER",
-    "ALLOW_SIGN_UP": "true"
+    "ALLOW_SIGN_UP": "false"
   },
   "requiredSecrets": [
     "BETTER_AUTH_SECRET"

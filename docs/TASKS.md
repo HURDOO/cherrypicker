@@ -21,9 +21,12 @@
   - 미커밋 작업과 로컬·원격 main의 고유 이력을 보존하고, 통합된 코드의 lint·전체 테스트·production build를 통과한다.
   - 컨테이너 인증·mutation origin이 실행 환경의 서비스 주소를 따르고 새 주소를 배포 계약에 반영한다.
   - 원격 main 반영은 AGENTS.md의 GitHub 계정·대상 확인 후 수행한다.
-  - 사용자 승인에 따라 새 앱은 빈 DB에 migration·seed를 적용한다. private에서 첫 계정을 만든 뒤 가입을 닫고 public으로 전환한다. seed 카드 8장과 로컬 검수 카드 14장의 차이를 명시하고 필요한 추가 카드는 공식 수집·검수로 구축한다.
+  - 사용자 승인에 따라 새 앱은 빈 DB에 migration·seed를 적용한다. 2026-09-28 승인으로 첫 계정 생성은 생략하고 가입을 닫은 채 public으로 전환한다. seed 카드 8장과 로컬 검수 카드 14장의 차이를 명시하고 필요한 추가 카드는 공식 수집·검수로 구축한다.
   - 사용자 대시보드 적용 후 새 주소의 health·가입 차단·관리자 인증 경계·모바일 추천→기록→재접속을 검증한다. 기존 브라우저 데이터가 필요하면 JSON 내보내기→가져오기를 안내한다.
 - 진행 기록:
+  - 2026-09-28 사용자 설정 제출 후 configure 작업 `fffc8173-6d07-4f07-88b4-6d5b927ddd94`가 succeeded로 종료했다. configRevision 2의 public·`ALLOW_SIGN_UP=false`, runtime healthy·HTTP 200을 확인했다. 이미지는 기존 revision `e7f09f5`, digest `sha256:d3eb24c2bb1fcedc3370908b65a4be8ceeace2fa5f4358395f513f2022eb555a`를 유지하며 previous release는 없고 오류·자동 rollback도 없다. Mac의 HTTPS GET에서 홈·health 200, signup·admin 307→login을 확인했다. 실제 외부 모바일 네트워크·가입 POST API·추천→기록→재접속은 미검증이다.
+  - 공개 전환 설정 JSON 생성은 deployctl의 clean worktree 요구로 차단됐다. 기존 미추적 파일과 이번 변경을 임의 커밋·삭제하지 않았다. JSON 파싱, access·ALLOW_SIGN_UP 외 계약 불변 검사와 diff 형식 검사를 통과했다. 대시보드 설정 폼에서 접근을 public, ALLOW_SIGN_UP을 false로 함께 적용할 수 있다. 앱 코드 변경이 없어 lint·전체 테스트·build는 이번 설정 준비에서 재실행하지 않았다.
+  - 2026-09-28 읽기 전용 운영 조회에서 새 앱의 revision `e7f09f5`, runtime healthy·HTTP 200, private·가입 허용 상태를 확인했다. Mac에서 홈·가입·health는 200이었다. 사용자가 첫 계정 생성 없이 공개 전환을 승인해 계약을 public·가입 차단으로 변경했다. 대시보드 적용과 외부 접근·가입 차단·실기기 검증은 아직 미완료이며 TASK-11을 진행 중으로 유지한다. 다음 사용자 흐름은 TASK-05의 모바일 추천→기록→재접속이다.
   - 기존 운영 버전은 `b2ec3ec`(2026-08-22), health HTTP 200, 공개 카드 8장이다. 로컬 문서의 검수 카드 14장이 운영에 자동 반영되었다고 간주하지 않는다.
   - deployd의 앱 ID·hostname은 수정 불가이므로 계약만 바꿔 기존 앱의 도메인이나 DB가 이동했다고 보고하지 않는다. 구체적 경계와 전환 절차는 `docs/cherrypicker-domain-transition.md`에 기록한다.
   - TASK-10의 두산 후보 게시·계정 상황 호환·실기기 미검증은 그대로 남겨 두며 main 병합을 DSL 작업 완료로 간주하지 않는다. 전환 후 다음 사용자 흐름은 TASK-05의 본인 모바일 실사용 검증이다.

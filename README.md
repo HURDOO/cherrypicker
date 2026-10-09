@@ -192,7 +192,7 @@ npm run db:verify-backup -- /mnt/external-backup/cherrypicker.db
 migration·seed를 적용해 시작하며 기존 계정·검수 데이터는 이전하지 않습니다.
 브라우저 데이터도 주소 간 자동 이전되지 않습니다. 실제 전환 상태와 절차는
 [`docs/cherrypicker-domain-transition.md`](docs/cherrypicker-domain-transition.md)를 따릅니다. 일반 사용자 화면은
-최초 관리자 계정을 만드는 동안에는 `private`이며, 가입을 닫은 뒤 로그인 없이
+2026-09-28 승인에 따라 첫 계정 생성 없이 가입을 닫고 로그인 없이
 팀에 공유할 수 있도록 `public`으로 전환합니다. 관리자·디자인 화면과
 관리자 API는 인증 경계를 유지합니다. SQLite와 WAL 파일은 영속 볼륨의
 `/data/cherrypicker.db`에 저장합니다. 컨테이너 시작 시 기존 DB가 있으면 먼저
@@ -215,14 +215,13 @@ migration·seed를 적용해 시작하며 기존 계정·검수 데이터는 이
 `OPENAI_API_KEY`가 없으면 프로모션은 보수적인 규칙 분류기로 계속 동작합니다.
 
 관리형 배포는 비민감 설정 `ADMIN_ACCESS_MODE=FIRST_USER`를 공개된 배포 계약으로
-관리합니다. 최초 배포 계약은 `access=private`, `ALLOW_SIGN_UP=true`입니다.
+관리합니다. 현재 목표 계약은 `access=public`, `ALLOW_SIGN_UP=false`입니다.
 `ALLOW_SIGN_UP`, `ADMIN_EMAILS`, `OPENAI_MODEL`,
 `PROMOTION_AI_MODEL`, `CARD_BENEFIT_AI_MODEL`, `PROMOTION_AI_MAX_CALLS`를 **Secrets**에 넣지 않습니다. 새 데이터베이스의 최초
-온보딩에는 LAN/WireGuard에서만 접속해 `/signup`에서 의도한 첫 계정을 만듭니다.
-직후 저장소 계약을 `ALLOW_SIGN_UP=false`, `access=public`으로 갱신하고 설정 전용
-handoff를 사용자가 대시보드에서 적용합니다. 이미지 재빌드 없이 같은 이미지가
-재시작되며 healthy·가입 차단·관리자 접근을 확인해야 공개 전환이 완료됩니다.
-최초 계정을 만든 뒤 지체 없이 가입을 닫고 그 전에는 공개로 바꾸지 않습니다.
+온보딩에서 첫 계정을 만드는 절차는 2026-09-28 사용자 승인으로 생략합니다.
+설정 전용 handoff를 사용자가 대시보드에서 적용합니다. 이미지 재빌드 없이 같은 이미지가
+재시작되며 healthy·가입 차단·관리자 인증 경계·외부 접근을 확인해야 공개 전환이 완료됩니다.
+계정이 없는 동안에는 비로그인 추천·로컬 기록을 사용하고 관리자 검수·계정 동기화는 사용하지 않습니다.
 회원가입이 닫혀 있고 `ADMIN_EMAILS`가 비어 있으면 가장 먼저 생성된 계정이
 관리자가 됩니다. 가입이 열린 bootstrap 중에는 FIRST_USER 관리자 권한도 닫힙니다.
 `ADMIN_EMAILS`를 설정하는 환경에서는 해당 목록이 항상 우선합니다. `OPENAI_MODEL`,
