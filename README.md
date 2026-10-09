@@ -242,6 +242,17 @@ snapshot은 schema migration 복구 지점을 제공하지만 같은 디스크 �
 설치용 예시이며 deployd가 자동 설치하지 않으므로, 관리형 배포만으로 정기
 프로모션 수집이 활성화되지는 않습니다.
 
+### 공모전 데모 앱
+
+`https://cherrypicker-demo.app.hurdoo.kr`(앱 ID `cherrypicker-demo`)는 공모전 제출
+버전을 시연용으로 계속 배포합니다. 소스는 `main`이 아닌 `contest-demo` 브랜치이며,
+2026-08-22 공모전 릴리스 `b2ec3ec`에 배포 대상과 인증 기준 URL만 바꾼 `f9a5fba`를
+더한 상태입니다. 첫 설정 흐름이 생기기 전 버전으로, 저장 데이터가 없는 첫 방문
+브라우저에 즐겨찾기 브랜드·카드 실적·T멤버십 VIP·Npay·T 우주패스 프로필을 미리
+채워 바로 시연할 수 있습니다. `main`은 2026-08-23 `176f644`에서 이 데모 프로필을
+제거했으므로 `contest-demo`를 `main`에 병합하지 않고, 데모 배포 계약은 해당 브랜치의
+`deploy.json`에서만 관리합니다.
+
 ### 수동 설치 참고
 
 64비트 Raspberry Pi OS와 USB SSD를 권장합니다. 데이터베이스는 네트워크 파일시스템이나 microSD가 아니라 Pi에 직접 연결된 영속 디스크에 두세요. 64비트 OS와 지원 중인 Node.js LTS 조합에는 보통 사전 빌드된 `better-sqlite3` 바이너리가 설치됩니다. `npm ci`가 `node-gyp` 단계에서 실패한다면 Pi에 Python, `make`, C/C++ 컴파일러가 설치되어 있는지 확인하세요. 예:

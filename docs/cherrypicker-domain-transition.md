@@ -12,7 +12,7 @@
 
 | 항목 | 현재 운영 | 전환 목표 |
 | --- | --- | --- |
-| 개발 브랜치 | `promotion`에서 개발 | `main`으로 통합 |
+| 개발 브랜치 | `promotion`에서 개발 | `main`으로 통합 (2026-10-09 `promotion` 제거) |
 | 관리형 앱 ID | `cherrypicker-promotion` | `cherrypicker` |
 | 주소 | `https://cherrypicker-promotion.app.hurdoo.kr` | `https://cherrypicker.app.hurdoo.kr` |
 | 이미지 저장소 | `ghcr.io/hurdoo/cherrypicker` | 동일 |
