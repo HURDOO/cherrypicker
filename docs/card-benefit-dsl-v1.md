@@ -73,7 +73,7 @@ AI가 출력한 program은 기존 필드를 무시하는 임의의 대체물이 
 - 신규 DSL 규칙은 기존 필수 action에 `FLAT 0` 안전 fallback을 두고 `program_version=1`, `program` JSON을 추가 저장한다. 후보 snapshot, revision, rollback도 같은 payload를 보존한다.
 - 새 공개 snapshot은 catalog schema v3로 program을 전달한다. parser는 정상 catalog v2도 계속 읽어 기존 IndexedDB 캐시와 커스텀 카드·과거 결제 snapshot을 유지한다.
 - 의미 hash cache key에는 DSL language version과 evaluator 의미 version을 포함한다. 의미가 바뀌면 과거 AI 구조화 결과를 그대로 재사용하지 않는다.
-- 새 카드에만 있는 실제 공식 결제처는 `/api/admin/system-brands`의 관리자 전용 create-only 경로로 공개 registry 데이터에 등록한다. 경기·상품·장소처럼 결제처가 아닌 범위는 가상 브랜드로 등록하지 않고 근거가 연결된 `purchaseScenario` 후보로 둔다. 미등록 결제처나 특정 구매 상황을 카테고리 전체 혜택으로 넓히면 승인을 차단한다.
+- 새 카드에만 있는 실제 공식 결제처는 AI 후보의 `proposedBrands`로 제안한다. 서버가 기존 브랜드와 이름·별칭을 맞춰 재사용하거나 `official_<hash>` ID를 부여하고, 검증은 ID·카테고리·공식 인용·기존 브랜드 중복을 확인한다. 승인 시 게시 규칙이 참조하는 제안만 검색 전용 브랜드로 등록한다. `/api/admin/system-brands` create-only 경로는 수동 등록용으로 남긴다. 경기·상품·장소처럼 결제처가 아닌 범위는 가상 브랜드로 등록하지 않고 근거가 연결된 `purchaseScenario` 후보로 둔다. 미등록 결제처나 특정 구매 상황을 카테고리 전체 혜택으로 넓히면 승인을 차단한다.
 
 ## Capability matrix
 

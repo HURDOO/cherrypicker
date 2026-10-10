@@ -7,6 +7,7 @@ import type { Brand } from '@/types';
 import {
     BRAND_BROWSE_GROUPS,
     getBrandBrowseGroupId,
+    isBrowsableBrand,
     rankBrands,
     searchAndRankBrands,
     type BrandBrowseGroupId,
@@ -33,16 +34,20 @@ export function FavoriteBrandSelector({
         useState<BrandBrowseGroupId>('convenience');
     const rankedBrands = useMemo(() => rankBrands(brands, [], []), [brands]);
     const selectedIds = useMemo(() => new Set(selectedBrandIds), [selectedBrandIds]);
+    const browsableBrands = useMemo(
+        () => rankedBrands.filter(item => isBrowsableBrand(item, selectedIds)),
+        [rankedBrands, selectedIds]
+    );
     const availableBrandIds = useMemo(() => new Set(brands.map(brand => brand.id)), [brands]);
     const selectedCount = selectedBrandIds.filter(id => availableBrandIds.has(id)).length;
     const groupCounts = useMemo(() => {
         const counts = new Map<BrandBrowseGroupId, number>();
-        brands.forEach(brand => {
+        browsableBrands.forEach(({ brand }) => {
             const groupId = getBrandBrowseGroupId(brand);
             counts.set(groupId, (counts.get(groupId) ?? 0) + 1);
         });
         return counts;
-    }, [brands]);
+    }, [browsableBrands]);
     const visibleGroups = useMemo(
         () => BRAND_BROWSE_GROUPS.filter(group => (groupCounts.get(group.id) ?? 0) > 0),
         [groupCounts]
@@ -52,12 +57,12 @@ export function FavoriteBrandSelector({
     const isSearching = query.trim().length > 0;
     const displayedBrands = useMemo(() => {
         if (isSearching) return searchAndRankBrands(rankedBrands, query).slice(0, 40);
-        if (browseMode === 'popular') return rankedBrands.slice(0, 24);
+        if (browseMode === 'popular') return browsableBrands.slice(0, 24);
         if (!activeGroup) return [];
-        return rankedBrands.filter(item => (
+        return browsableBrands.filter(item => (
             getBrandBrowseGroupId(item.brand) === activeGroup.id
         ));
-    }, [activeGroup, browseMode, isSearching, query, rankedBrands]);
+    }, [activeGroup, browsableBrands, browseMode, isSearching, query, rankedBrands]);
 
     return (
         <div>

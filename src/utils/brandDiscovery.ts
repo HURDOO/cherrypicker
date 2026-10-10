@@ -422,6 +422,20 @@ export function rankBrands(
     );
 }
 
+/**
+ * Search-only brands stay out of browse lists until this user favorites or uses them,
+ * or a personal suggestion points at them. Search always finds them.
+ */
+export function isBrowsableBrand(
+    item: RankedBrand,
+    alsoVisibleIds?: ReadonlySet<string>,
+): boolean {
+    return item.brand.discoveryVisibility !== 'SEARCH_ONLY' ||
+        item.meta.isFavorite ||
+        item.meta.usageCount > 0 ||
+        Boolean(alsoVisibleIds?.has(item.brand.id));
+}
+
 export function searchAndRankBrands(
     rankedBrands: RankedBrand[],
     query: string

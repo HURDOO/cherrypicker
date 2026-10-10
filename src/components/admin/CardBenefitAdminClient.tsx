@@ -865,6 +865,25 @@ export function CardBenefitAdminClient() {
                             <UnsupportedClausePanel extraction={candidate.extraction} />
                         )}
 
+                        {(candidate.extraction.proposedBrands?.length ?? 0) > 0 && (
+                            <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-3">
+                                <p className="text-[10px] font-black text-sky-900">
+                                    새 브랜드 제안 · 승인 시 검색 전용으로 등록
+                                </p>
+                                <ul className="mt-2 space-y-2 text-[10px] font-bold text-sky-800">
+                                    {candidate.extraction.proposedBrands?.map(brand => (
+                                        <li key={brand.id} className="rounded-xl bg-white px-3 py-2">
+                                            <p>{brand.name} · {brand.categoryId} · {brand.id}</p>
+                                            {brand.aliases.length > 0 && (
+                                                <p className="mt-1 text-sky-600">별칭: {brand.aliases.join(', ')}</p>
+                                            )}
+                                            <p className="mt-1 font-medium leading-relaxed text-sky-700">“{brand.quote}”</p>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
                         <AuditPanel audit={candidate.audit} />
 
                         <div className="mt-4 grid gap-4 lg:grid-cols-2">

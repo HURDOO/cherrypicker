@@ -68,6 +68,9 @@ export const brands = sqliteTable('brands', {
     iconName: text('icon_name'),
     userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
     sortOrder: integer('sort_order').notNull().default(0),
+    discoveryVisibility: text('discovery_visibility', { enum: ['BROWSE', 'SEARCH_ONLY'] })
+        .notNull()
+        .default('BROWSE'),
 }, (table) => [
     index('brands_category_id_idx').on(table.categoryId),
     index('brands_user_id_idx').on(table.userId),

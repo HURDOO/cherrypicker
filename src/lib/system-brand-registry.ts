@@ -141,6 +141,7 @@ export function createSystemBrandDraftBatch(inputs: SystemBrandDraftInput[]) {
             iconName: input.iconName ?? 'ShoppingBag',
             userId: null,
             sortOrder,
+            discoveryVisibility: 'SEARCH_ONLY',
         }).returning().get();
     }));
     return rows.map(toBrand);

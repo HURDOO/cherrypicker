@@ -32,6 +32,12 @@ import {
 } from '@/utils/benefit-dsl';
 import { validateCardPerformancePolicy } from '@/utils/performance-policy';
 import {
+    CARD_BRAND_PROPOSAL_REF_PATTERN,
+    referencedProposedBrands,
+    resolveCardBrandProposals,
+} from './card-brand-proposals';
+import { normalizeOfficialBrandName, officialBrandIdFor } from './promotion-parsers';
+import {
     applyBenefitCoveragePatterns,
     BENEFIT_COVERAGE_PATTERN_IDS,
     BENEFIT_COVERAGE_PATTERNS,
@@ -664,12 +670,72 @@ const validateSourceBackedChannelAndFallbackCoverage = (
     return errors;
 };
 
+const validateProposedBrands = (
+    value: unknown,
+    input: CardBenefitExtractionInput,
+    references: {
+        categoryIds?: ReadonlySet<string>;
+        brandIds?: ReadonlySet<string>;
+        brandNames?: ReadonlyMap<string, string>;
+    } | undefined,
+    errors: string[],
+): string[] => {
+    if (value === undefined) return [];
+    if (!Array.isArray(value)) {
+        errors.push('제안 브랜드 목록이 올바르지 않습니다.');
+        return [];
+    }
+    const sourceByUrl = new Map(extractionSources(input).map(source => [source.sourceUrl, source]));
+    const ids: string[] = [];
+    value.forEach((brand, index) => {
+        const label = `제안 브랜드 ${index + 1}`;
+        if (!isRecord(brand) || typeof brand.id !== 'string' ||
+            typeof brand.name !== 'string' || !brand.name.trim() || brand.name.length > 60 ||
+            typeof brand.categoryId !== 'string' ||
+            !Array.isArray(brand.aliases) ||
+            brand.aliases.some(alias => typeof alias !== 'string') || brand.aliases.length > 8 ||
+            typeof brand.sourceUrl !== 'string' || typeof brand.quote !== 'string') {
+            errors.push(`${label} 형식이 올바르지 않습니다.`);
+            return;
+        }
+        if (brand.id !== officialBrandIdFor(brand.name)) {
+            errors.push(`${label} ${brand.name}의 ID는 공식 이름에서 만든 ${officialBrandIdFor(brand.name)}이어야 합니다.`);
+        }
+        if (ids.includes(brand.id)) errors.push(`${label} ${brand.name}이(가) 중복되었습니다.`);
+        if (references?.brandIds?.has(brand.id)) {
+            errors.push(`${label} ${brand.name}은(는) 이미 등록된 브랜드 ${brand.id}입니다.`);
+        }
+        const duplicate = [brand.name, ...(brand.aliases as string[])]
+            .map(name => references?.brandNames?.get(normalizeOfficialBrandName(name)))
+            .find(Boolean);
+        if (duplicate) {
+            errors.push(`${label} ${brand.name}이(가) 기존 브랜드 ${duplicate}와 겹칩니다. 기존 브랜드를 참조하세요.`);
+        }
+        if (references?.categoryIds && !references.categoryIds.has(brand.categoryId)) {
+            errors.push(`${label} ${brand.name}의 카테고리 ${brand.categoryId}가 없습니다.`);
+        }
+        const source = sourceByUrl.get(brand.sourceUrl);
+        if (!source || brand.quote.length < 2 || brand.quote.length > 500 ||
+            !sourceContainsQuote(source.sourceText, brand.quote) ||
+            ![brand.name, ...(brand.aliases as string[])].some(name => (
+                normalizeOfficialBrandName(brand.quote as string)
+                    .includes(normalizeOfficialBrandName(name).slice(0, 2))
+            ))) {
+            errors.push(`${label} ${brand.name}의 공식 원문 근거가 확인되지 않습니다.`);
+        }
+        ids.push(brand.id);
+    });
+    return ids;
+};
+
 export function validateCardBenefitExtraction(
     rawValue: unknown,
     input: CardBenefitExtractionInput,
     references?: {
         categoryIds?: ReadonlySet<string>;
         brandIds?: ReadonlySet<string>;
+        /** Normalized registered brand name → ID, to reject proposals that duplicate a brand. */
+        brandNames?: ReadonlyMap<string, string>;
         ruleOwners?: ReadonlyMap<string, { cardId: string; userId?: string | null }>;
     },
 ): { extraction?: CardBenefitExtraction; errors: string[]; coverage?: BenefitCoverageResult } {
@@ -687,6 +753,10 @@ export function validateCardBenefitExtraction(
     const value = coverage.value;
     errors.push(...coverage.result.blockingErrors);
     const originalRuleIds = new Set(coverage.result.originalRuleIds);
+    const proposedBrandIds = validateProposedBrands(value.proposedBrands, input, references, errors);
+    const brandIds = references?.brandIds
+        ? new Set([...references.brandIds, ...proposedBrandIds])
+        : undefined;
     if (value.schemaVersion !== CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION) {
         errors.push('지원하지 않는 카드 혜택 schema version입니다.');
     }
@@ -772,9 +842,9 @@ export function validateCardBenefitExtraction(
                 const ids = rule[field];
                 if (!Array.isArray(ids) || ids.some(item => typeof item !== 'string')) {
                     errors.push(`${label} ${field} 형식이 올바르지 않습니다.`);
-                } else if (references?.brandIds) {
+                } else if (brandIds) {
                     ids.forEach(id => {
-                        if (!references.brandIds?.has(id)) {
+                        if (!brandIds.has(id)) {
                             errors.push(`${label}이 존재하지 않는 브랜드 ${id}를 참조합니다.`);
                         }
                     });
@@ -796,7 +866,7 @@ export function validateCardBenefitExtraction(
             if (rule.program !== undefined) {
                 const validation = validateBenefitProgram(rule.program, {
                     categoryIds: references?.categoryIds,
-                    brandIds: references?.brandIds,
+                    brandIds,
                 });
                 errors.push(...validation.errors.map(error => `${label} DSL ${error}`));
                 if (validation.valid && typeof rule.id === 'string') {
@@ -2044,6 +2114,14 @@ export const cardBenefitOpenAIExtractionSchema = z.object({
             affectsValue: z.boolean(),
             patternId: z.enum([...BENEFIT_COVERAGE_PATTERN_IDS, NEW_BENEFIT_COVERAGE_PATTERN_ID]),
         }).strict()).max(100),
+        proposedBrands: z.array(z.object({
+            ref: z.string().regex(CARD_BRAND_PROPOSAL_REF_PATTERN),
+            name: z.string().min(1).max(60),
+            categoryId: z.string().min(1),
+            aliases: z.array(z.string().min(1).max(60)).max(8),
+            sourceUrl: z.string().min(1),
+            quote: z.string().min(2).max(500),
+        }).strict()).max(20),
         notes: z.array(z.string().max(500)).max(100),
     }).strict(),
 }).strict();
@@ -6042,6 +6120,7 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
                 '1차 인벤토리의 모든 section을 coverage에 정확히 한 번 넣고 실제로 표현한 ruleIds와 연결하세요. appliesToSectionIds가 있는 section의 ruleIds는 대상 section들이 연결한 ruleIds의 합집합과 정확히 같아야 합니다.',
                 'LIMIT·CONDITION·EXCLUSION section은 독립 규칙을 새로 만들지 말고 해당 조건이 반영된 실제 혜택 규칙과 연결하세요.',
                 'BENEFIT·PROMOTION section만 새로운 혜택 규칙의 근거가 될 수 있습니다.',
+                '허용 브랜드 목록에 없는 실제 매장·온라인몰이 혜택 대상이면 proposedBrands에 new_로 시작하는 ref, 공식 표기 이름, 허용 카테고리 ID, 다른 표기 별칭, 그 이름이 나오는 원문 URL·연속 인용을 넣고 includedBrands·excludedBrands·program.target에서는 그 ref를 참조하세요. 이미 허용 목록에 있는 브랜드는 제안하지 말고 기존 ID를 쓰세요. 경기·상품·장소 같은 구매 상황, 카드사 업종 분류, 열거되지 않은 판매처 묶음은 브랜드로 제안하지 마세요.',
                 '실제 가맹점·사이트 한정 혜택은 includedBrands로 범위를 제한하세요. category는 그 카테고리의 모든 브랜드에 실제 적용될 때만 단독으로 사용하세요. 구매 상품·경기·장소 등 문맥 범위는 program.target.purchaseScenario와 사용자 확인 질문으로 제한하세요. 실제 브랜드도 안전한 구매 상황도 식별할 수 없으면 양수 혜택을 전역 규칙으로 만들지 말고 action.value=0과 manualCheckRequired=true 또는 affectsValue=true인 unsupportedClauses로 보존하세요.',
                 '선택 필드가 원문상 적용되지 않으면 false, 0, 빈 문자열을 만들지 말고 null을 사용하세요.',
                 'applicationOrder는 원문에 중복 적용 순서가 명시된 경우에만 사용하고, 그 외에는 null로 두세요.',
@@ -6063,11 +6142,22 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
             ),
             maxOutputTokens: 32_000,
         });
+        // New merchants become proposals with shared official IDs; downstream steps treat them as known brands.
+        const { proposedBrands: brandDrafts, ...parsedExtraction } = structured.extraction;
+        const brandProposals = resolveCardBrandProposals(parsedExtraction, brandDrafts, catalog.brands);
+        const proposalCatalog = {
+            ...catalog,
+            brands: [
+                ...catalog.brands,
+                ...brandProposals.proposedBrands.map(({ id, name, categoryId }) => ({ id, name, categoryId })),
+            ],
+        };
+        const proposalInput = { ...input, catalog: proposalCatalog };
         const semanticsNormalized = normalizeInventoryBackedRuleSemantics(
-            structured.extraction,
+            { ...brandProposals.extraction, proposedBrands: [] },
             inventory,
             structured.coverage,
-            catalog.brands,
+            proposalCatalog.brands,
         );
         const stabilized = stabilizeExtractionRuleIds(
             semanticsNormalized,
@@ -6093,9 +6183,9 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
             normalizeOpenAIExtraction(
                 enrichedExtraction,
                 buildInventoryEvidence(inventory, normalizedCoverage),
-                input,
+                proposalInput,
             ),
-            input,
+            proposalInput,
         );
         const enrichedStructured: CardBenefitOpenAIExtraction = {
             ...normalizedStructured,
@@ -6104,9 +6194,16 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
         if (!isReviewSafeExtraction(extraction)) {
             throw new Error('OpenAI 카드 혜택 결과를 검수 화면에 안전하게 표시할 수 없습니다.');
         }
+        const proposedBrands = referencedProposedBrands(extraction.rules, brandProposals.proposedBrands);
+        if (proposedBrands.length > 0) {
+            extraction.proposedBrands = proposedBrands;
+        } else {
+            delete extraction.proposedBrands;
+        }
         extraction.notes = unique([
             `OpenAI 1차 인벤토리 ${inventory.sections.length}개 섹션을 2차 구조화와 대조했습니다.`,
             ...inventory.notes,
+            ...brandProposals.notes,
             ...extraction.notes,
         ]);
         return {
@@ -6121,7 +6218,7 @@ export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractio
                 ...validateInventoryMappingSemantics(
                     inventory,
                     enrichedStructured,
-                    catalog.brands,
+                    proposalCatalog.brands,
                 ),
             ]),
         };

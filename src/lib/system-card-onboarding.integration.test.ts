@@ -77,10 +77,12 @@ describe('system card onboarding', () => {
             expect.objectContaining({
                 id: 'doosan_bears_ticket_goods',
                 categoryId: 'movie',
+                discoveryVisibility: 'SEARCH_ONLY',
             }),
             expect.objectContaining({
                 id: 'doosan_bears_home_stadium_fb',
                 categoryId: 'food',
+                discoveryVisibility: 'SEARCH_ONLY',
             }),
         ]));
         expect(integrationDb.select().from(schema.brands).all()

@@ -32,6 +32,8 @@ import {
 } from './card-benefit-extraction';
 import { createCardBenefitCandidateAudit } from './card-benefit-audit';
 import { toCardBenefitCoverageSummary } from './benefit-coverage-patterns';
+import { brandNameIndex, referencedProposedBrands } from './card-brand-proposals';
+import { brandCategoryIcon } from './promotion-parsers';
 import {
     isReusableCardBenefitCandidate,
     shouldReplacePendingCardBenefitCandidate,
@@ -324,6 +326,9 @@ const retainUnresolvedProviderErrors = (
 const currentReferences = () => ({
     categoryIds: new Set(db.select({ id: categories.id }).from(categories).all().map(row => row.id)),
     brandIds: new Set(db.select({ id: brands.id }).from(brands).all().map(row => row.id)),
+    brandNames: brandNameIndex(db.select({ id: brands.id, name: brands.name }).from(brands)
+        .where(isNull(brands.userId))
+        .all()),
     ruleOwners: new Map(db.select({
         id: benefitRules.id,
         cardId: benefitRules.cardId,
@@ -1038,6 +1043,18 @@ export function reviewCardBenefitCandidate(
             .set({ isActive: false })
             .where(eq(cardBenefitRevisions.cardId, candidate.cardId))
             .run();
+        // Proposed merchants join the public registry search-only, only when a published rule uses them.
+        referencedProposedBrands(publishedSnapshot.rules, validation.extraction?.proposedBrands)
+            .forEach(brand => {
+                tx.insert(brands).values({
+                    id: brand.id,
+                    name: brand.name,
+                    categoryId: brand.categoryId,
+                    iconName: brandCategoryIcon(brand.categoryId),
+                    userId: null,
+                    discoveryVisibility: 'SEARCH_ONLY',
+                }).onConflictDoNothing().run();
+            });
         applySnapshot(tx, publishedSnapshot);
         tx.insert(cardBenefitRevisions).values({
             id: randomUUID(),

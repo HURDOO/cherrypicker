@@ -42,6 +42,7 @@ export function toBrand(row: typeof brands.$inferSelect): Brand {
         ...(row.iconName && { iconName: row.iconName }),
         ...(row.userId && { userId: row.userId }),
         order: row.sortOrder,
+        ...(row.discoveryVisibility === 'SEARCH_ONLY' && { discoveryVisibility: 'SEARCH_ONLY' as const }),
     };
 }
 

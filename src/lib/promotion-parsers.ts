@@ -197,6 +197,17 @@ const canonicalBrandName = (name: string) => name
     .replace(/\s+/g, ' ')
     .trim();
 
+/** Normalized official merchant name shared by promotion and card brand discovery. */
+export const normalizeOfficialBrandName = (name: string) => normalizeBrand(canonicalBrandName(name));
+
+/** Stable public brand ID for an official merchant name, so every source resolves it to one brand. */
+export const officialBrandIdFor = (name: string) => `official_${createHash('sha256')
+    .update(normalizeOfficialBrandName(name))
+    .digest('hex')
+    .slice(0, 16)}`;
+
+export const brandCategoryIcon = (categoryId: string) => categoryIcon[categoryId] ?? categoryIcon.etc;
+
 const categoryIcon: Record<string, string> = {
     cafe: 'Coffee',
     convenience: 'Store',
@@ -236,10 +247,7 @@ export const resolveOfficialBrand = (
     if (knownId) return { id: knownId };
     if (!name || (!allowGeneric && genericPromotionName.test(name))) return undefined;
     const categoryId = inferBrandCategory(name, hint);
-    const id = `official_${createHash('sha256')
-        .update(normalizeBrand(name))
-        .digest('hex')
-        .slice(0, 16)}`;
+    const id = officialBrandIdFor(name);
     return {
         id,
         discoveredBrand: {

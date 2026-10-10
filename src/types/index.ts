@@ -31,6 +31,9 @@ export interface Category {
     order?: number;
 }
 
+/** New public brands start search-only; see docs/benefit-coverage-policy.md. */
+export type BrandDiscoveryVisibility = 'BROWSE' | 'SEARCH_ONLY';
+
 export interface Brand {
     id: BrandId;
     name: string;
@@ -38,6 +41,8 @@ export interface Brand {
     iconName?: string; // e.g. 'Coffee'
     userId?: string;
     order?: number;
+    /** Omitted means `BROWSE`. */
+    discoveryVisibility?: BrandDiscoveryVisibility;
 }
 
 export type PaymentTarget =
@@ -301,6 +306,17 @@ export interface CardBenefitCandidateAudit {
     blockingErrors: string[];
 }
 
+/** An official merchant a card candidate needs that is not in the public brand registry yet. */
+export interface CardBenefitProposedBrand {
+    /** `officialBrandIdFor(name)`, shared with promotion-discovered brands. */
+    id: BrandId;
+    name: string;
+    categoryId: CategoryId;
+    aliases: string[];
+    sourceUrl: string;
+    quote: string;
+}
+
 export interface CardBenefitExtraction {
     schemaVersion: 2;
     completeness: 'FULL';
@@ -308,6 +324,8 @@ export interface CardBenefitExtraction {
     rules: BenefitRule[];
     evidence: CardBenefitEvidence[];
     unsupportedClauses?: CardBenefitUnsupportedClause[];
+    /** Registered search-only, together with the rules that reference them, when approved. */
+    proposedBrands?: CardBenefitProposedBrand[];
     notes: string[];
 }
 

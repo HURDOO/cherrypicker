@@ -8,6 +8,7 @@ import {
     getBrandIndexKeys,
     getKoreanInitials,
     getNearbyBrandIds,
+    isBrowsableBrand,
     LATIN_BRAND_INDEX_KEYS,
     normalizeBrandSearch,
     parseBrandDiscoveryPreferences,
@@ -152,6 +153,36 @@ describe('brand discovery ranking', () => {
         expect(ranked[0].meta.score).toBe(110);
         expect(ranked[1].meta.score).toBe(70);
         expect(ranked[2].meta.score).toBe(15);
+    });
+});
+
+describe('search-only brands', () => {
+    const searchOnly: Brand = {
+        id: 'official_new_merchant',
+        name: '새 제휴 매장',
+        categoryId: 'life',
+        discoveryVisibility: 'SEARCH_ONLY',
+    };
+
+    it('keeps new search-only brands out of browse lists but findable by search', () => {
+        const ranked = rankBrands([...brands, searchOnly], [], []);
+
+        expect(ranked.filter(item => isBrowsableBrand(item)).map(item => item.brand.id))
+            .not.toContain(searchOnly.id);
+        expect(ranked.filter(item => isBrowsableBrand(item)).map(item => item.brand.id))
+            .toEqual(expect.arrayContaining(brands.map(brand => brand.id)));
+        expect(searchAndRankBrands(ranked, '새 제휴')[0]?.brand.id).toBe(searchOnly.id);
+    });
+
+    it('shows a search-only brand once this user favorites, uses or is suggested it', () => {
+        const favorite = rankBrands([searchOnly], [], [searchOnly.id])[0];
+        const used = rankBrands([searchOnly], [transaction(searchOnly.id, '2026-10-01T00:00:00.000Z', 1)], [])[0];
+        const unused = rankBrands([searchOnly], [], [])[0];
+
+        expect(isBrowsableBrand(favorite)).toBe(true);
+        expect(isBrowsableBrand(used)).toBe(true);
+        expect(isBrowsableBrand(unused)).toBe(false);
+        expect(isBrowsableBrand(unused, new Set([searchOnly.id]))).toBe(true);
     });
 });
 

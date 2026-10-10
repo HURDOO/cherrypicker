@@ -12,6 +12,7 @@ import {
     type PurchaseScenario,
 } from '@/utils/purchaseScenario';
 import {
+    isBrowsableBrand,
     rankBrands,
     searchAndRankBrands,
     type BrandDiscoveryViewMode,
@@ -111,8 +112,12 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
         () => new Map(rankedBrands.map(item => [item.brand.id, item])),
         [rankedBrands]
     );
+    const browsableBrands = useMemo(() => {
+        const suggestedBrandIds = new Set(benefitSuggestions.map(item => item.brand.id));
+        return rankedBrands.filter(item => isBrowsableBrand(item, suggestedBrandIds));
+    }, [benefitSuggestions, rankedBrands]);
     const personalPopularBrands = useMemo(() => {
-        const sortedBrands = [...rankedBrands].sort(comparePersonalPopularity);
+        const sortedBrands = [...browsableBrands].sort(comparePersonalPopularity);
         if (benefitSuggestions.length === 0) return sortedBrands;
 
         const suggestedBrandIds = new Set(benefitSuggestions.map(item => item.brand.id));
@@ -124,20 +129,20 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
             ...suggestedBrands,
             ...sortedBrands.filter(item => !suggestedBrandIds.has(item.brand.id)),
         ];
-    }, [benefitSuggestions, rankedBrands, rankedById]);
+    }, [benefitSuggestions, browsableBrands, rankedById]);
     const nameSortedBrands = useMemo(
-        () => [...rankedBrands].sort((left, right) => (
+        () => [...browsableBrands].sort((left, right) => (
             left.brand.name.localeCompare(right.brand.name, 'ko-KR')
         )),
-        [rankedBrands]
+        [browsableBrands]
     );
     const brandCounts = useMemo(() => {
         const counts = new Map<string, number>();
-        brands.forEach(brand => {
+        browsableBrands.forEach(({ brand }) => {
             counts.set(brand.categoryId, (counts.get(brand.categoryId) || 0) + 1);
         });
         return counts;
-    }, [brands]);
+    }, [browsableBrands]);
     const populatedCategories = useMemo(
         () => categories.filter(category => (brandCounts.get(category.id) || 0) > 0),
         [brandCounts, categories]

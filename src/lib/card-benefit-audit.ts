@@ -16,6 +16,7 @@ import {
 } from './card-benefit-rule-consistency';
 import { diffStructuredValues } from './structured-diff';
 import { applyBenefitCoveragePatterns } from './benefit-coverage-patterns';
+import { referencedProposedBrands } from './card-brand-proposals';
 import {
     listBenefitProgramEvidencePaths,
     validateBenefitProgramSet,
@@ -257,6 +258,17 @@ export function createCardBenefitCandidateAudit(options: {
         risk: highRiskCardPath.test(change.path) ? 'HIGH' as const : 'NORMAL' as const,
         ...change,
     }));
+
+    referencedProposedBrands(options.extraction.rules, options.extraction.proposedBrands)
+        .forEach(brand => changes.push({
+            scope: 'CARD',
+            entityId: options.extraction.card.id,
+            entityLabel: options.extraction.card.name,
+            path: `proposedBrands.${brand.id}`,
+            kind: 'ADDED',
+            risk: 'HIGH',
+            after: { name: brand.name, categoryId: brand.categoryId, aliases: brand.aliases },
+        }));
 
     const baselineRules = new Map(options.baseline.rules.map(rule => [rule.id, rule]));
     const candidateRules = new Map(options.extraction.rules.map(rule => [rule.id, rule]));

@@ -1,0 +1,1 @@
+ALTER TABLE `brands` ADD `discovery_visibility` text DEFAULT 'BROWSE' NOT NULL;

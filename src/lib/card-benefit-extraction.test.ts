@@ -187,6 +187,7 @@ const toOpenAIExtraction = (
         schemaVersion: extraction.schemaVersion,
         completeness: extraction.completeness,
         unsupportedClauses: extraction.unsupportedClauses ?? [],
+        proposedBrands: [],
         notes: extraction.notes,
         card: {
             ...extraction.card,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BenefitProgramV1, Card, CardBenefitExtraction } from '@/types';
 import { createCardBenefitCandidateAudit } from './card-benefit-audit';
+import { normalizeOfficialBrandName, officialBrandIdFor } from './promotion-parsers';
 import {
     normalizeEvidenceBackedCardBenefitExtraction,
     validateCardBenefitExtraction,
@@ -255,6 +256,82 @@ describe('card benefit DSL extraction gate', () => {
 
         expect(validation.extraction).toBeUndefined();
         expect(validation.errors).toContain('미지원 문구를 반영하고 나면 게시할 수 있는 규칙이 남지 않습니다.');
+    });
+
+    describe('proposed brands', () => {
+        const shopQuote = '위팬샵 공식 온라인몰 결제 시 20% 할인';
+        const shopId = officialBrandIdFor('위팬샵');
+        const withProposal = (overrides: Partial<NonNullable<CardBenefitExtraction['proposedBrands']>[number]> = {}) => {
+            const candidate = extraction();
+            candidate.rules.push({
+                id: 'kb_doosan_bears_wefan',
+                cardId: card.id,
+                includedBrands: [shopId],
+                excludedBrands: [],
+                platformType: 'ALL',
+                usesCardLimit: false,
+                description: '위팬샵 20% 할인',
+                detail: '',
+                condition: {},
+                action: { type: 'PERCENT', value: 20 },
+                limitConfig: {},
+            });
+            candidate.evidence.push({
+                id: 'doosan-wefan',
+                ruleIds: ['kb_doosan_bears_wefan'],
+                fields: ['description', 'action'],
+                sourceUrl,
+                quote: shopQuote,
+            });
+            candidate.proposedBrands = [{
+                id: shopId,
+                name: '위팬샵',
+                categoryId: 'shopping',
+                aliases: ['WE FAN'],
+                sourceUrl,
+                quote: shopQuote,
+                ...overrides,
+            }];
+            return candidate;
+        };
+        const validate = (
+            candidate: CardBenefitExtraction,
+            brandNames = new Map<string, string>(),
+        ) => validateCardBenefitExtraction(candidate, {
+            card,
+            sourceUrl,
+            sourceText: `${benefitQuote}\n${waiverQuote}\n${shopQuote}`,
+        }, {
+            brandIds: new Set(['doosan_bears']),
+            categoryIds: new Set(['shopping', 'movie']),
+            brandNames,
+        });
+
+        it('lets rules reference a well-formed new merchant proposal', () => {
+            expect(validate(withProposal()).errors).toEqual([]);
+        });
+
+        it('rejects a proposal that duplicates a registered brand name', () => {
+            const errors = validate(withProposal(), new Map([[normalizeOfficialBrandName('WE FAN'), 'wefan']])).errors;
+
+            expect(errors).toContain('제안 브랜드 1 위팬샵이(가) 기존 브랜드 wefan와 겹칩니다. 기존 브랜드를 참조하세요.');
+        });
+
+        it('rejects an invented ID, unknown category or missing official mention', () => {
+            expect(validate(withProposal({ id: 'official_0000000000000000' })).errors.join('\n'))
+                .toContain(`ID는 공식 이름에서 만든 ${shopId}`);
+            expect(validate(withProposal({ categoryId: 'unknown' })).errors)
+                .toContain('제안 브랜드 1 위팬샵의 카테고리 unknown가 없습니다.');
+            expect(validate(withProposal({ quote: benefitQuote })).errors)
+                .toContain('제안 브랜드 1 위팬샵의 공식 원문 근거가 확인되지 않습니다.');
+        });
+
+        it('still rejects rules that reference an unknown merchant without a proposal', () => {
+            const candidate = withProposal();
+            delete candidate.proposedBrands;
+
+            expect(validate(candidate).errors.join('\n')).toContain(`존재하지 않는 브랜드 ${shopId}`);
+        });
     });
 
     describe('rule-level coverage of unsupported clauses', () => {
