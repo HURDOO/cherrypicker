@@ -2073,7 +2073,8 @@ const cardPerformancePolicyOpenAISchema = z.object({
         id: z.string().regex(/^[a-z0-9][a-z0-9_-]{2,99}$/),
         when: performancePredicateOpenAISchema,
         reason: z.string().min(1).max(300),
-        sourceUrl: z.string().url(),
+        // OpenAI strict outputs reject format "uri"; the validator matches it to a stored source.
+        sourceUrl: z.string().min(1),
         quote: z.string().min(3).max(500),
         page: nullableNonNegativeInteger,
     }).strict()).max(32),
