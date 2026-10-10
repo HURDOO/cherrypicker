@@ -1,14 +1,14 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import type { z } from 'zod';
+import type {
+    StructuredReasoningEffort,
+    StructuredResponseClient,
+    StructuredResponseRequest,
+    StructuredResponseUsageListener,
+} from './structured-response';
 
-export type OpenAIReasoningEffort =
-    | 'none'
-    | 'low'
-    | 'medium'
-    | 'high'
-    | 'xhigh'
-    | 'max';
+export type OpenAIReasoningEffort = StructuredReasoningEffort;
 
 const reasoningEfforts: OpenAIReasoningEffort[] = [
     'none',
@@ -38,15 +38,18 @@ export const resolveOpenAIReasoningEffort = (
     return effort as OpenAIReasoningEffort;
 };
 
-export class OpenAIStructuredResponseClient {
+export class OpenAIStructuredResponseClient implements StructuredResponseClient {
+    readonly provider = 'openai';
     readonly model: string;
     private readonly client: OpenAI;
+    private readonly onUsage?: StructuredResponseUsageListener;
 
     constructor(options: {
         apiKey: string;
         model?: string;
         timeoutMs?: number;
         maxRetries?: number;
+        onUsage?: StructuredResponseUsageListener;
     }) {
         const apiKey = options.apiKey.trim();
         if (!apiKey) throw new Error('OpenAI API key가 비어 있습니다.');
@@ -56,16 +59,13 @@ export class OpenAIStructuredResponseClient {
             timeout: options.timeoutMs ?? 90_000,
             maxRetries: options.maxRetries ?? 2,
         });
+        this.onUsage = options.onUsage;
     }
 
-    async parse<Schema extends z.ZodType>(options: {
-        schema: Schema;
-        schemaName: string;
-        instructions: string;
-        input: string;
-        reasoningEffort: OpenAIReasoningEffort;
-        maxOutputTokens: number;
-    }): Promise<z.output<Schema>> {
+    async parse<Schema extends z.ZodType>(
+        options: StructuredResponseRequest<Schema>,
+    ): Promise<z.output<Schema>> {
+        const startedAt = Date.now();
         try {
             const response = await this.client.responses.parse({
                 model: this.model,
@@ -77,6 +77,17 @@ export class OpenAIStructuredResponseClient {
                 text: {
                     format: zodTextFormat(options.schema, options.schemaName),
                 },
+            });
+            this.onUsage?.({
+                provider: this.provider,
+                model: this.model,
+                schemaName: options.schemaName,
+                inputTokens: response.usage?.input_tokens ?? 0,
+                outputTokens: response.usage?.output_tokens ?? 0,
+                cacheReadInputTokens: response.usage?.input_tokens_details?.cached_tokens ?? 0,
+                cacheCreationInputTokens: 0,
+                attempts: 1,
+                durationMs: Date.now() - startedAt,
             });
             if (response.status !== 'completed') {
                 const reason = response.incomplete_details?.reason;

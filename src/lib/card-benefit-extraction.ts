@@ -16,6 +16,7 @@ import {
     OpenAIStructuredResponseClient,
     resolveOpenAIReasoningEffort,
 } from './openai-responses';
+import type { StructuredResponseClient } from './structured-response';
 import {
     analyzeAlternativeManualChecks,
     analyzeSharedLimitGroups,
@@ -5998,17 +5999,19 @@ const enrichExtractionDetails = (
 };
 
 export class OpenAICardBenefitExtractionProvider implements CardBenefitExtractionProvider {
-    readonly id = 'openai';
+    readonly id: string;
     readonly model: string;
     readonly cacheKey: string;
-    private readonly client: OpenAIStructuredResponseClient;
+    private readonly client: StructuredResponseClient;
 
-    constructor(options: { apiKey: string; model?: string }) {
-        this.client = new OpenAIStructuredResponseClient({
+    /** Defaults to OpenAI; another structured client (e.g. Claude) runs the same prompts and checks. */
+    constructor(options: { apiKey: string; model?: string } | { client: StructuredResponseClient }) {
+        this.client = 'client' in options ? options.client : new OpenAIStructuredResponseClient({
             apiKey: options.apiKey,
             model: options.model,
             timeoutMs: 180_000,
         });
+        this.id = this.client.provider;
         this.model = this.client.model;
         this.cacheKey = `${this.id}:${this.model}:inventory-v35:${BENEFIT_DSL_SEMANTICS_VERSION}`;
     }

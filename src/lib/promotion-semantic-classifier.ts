@@ -9,6 +9,7 @@ import {
     OpenAIStructuredResponseClient,
     resolveOpenAIReasoningEffort,
 } from './openai-responses';
+import type { StructuredResponseClient } from './structured-response';
 import type { ParsedPromotion } from './promotion-parsers';
 
 export type PromotionSemanticInput = {
@@ -350,16 +351,17 @@ const validateOpenAIClassification = (
 };
 
 export class OpenAIPromotionSemanticProvider implements PromotionSemanticProvider {
-    readonly id = 'openai';
+    readonly id: string;
     readonly model: string;
-    private readonly client: OpenAIStructuredResponseClient;
+    private readonly client: StructuredResponseClient;
 
-    constructor(options: { apiKey: string; model?: string }) {
-        this.client = new OpenAIStructuredResponseClient({
+    constructor(options: { apiKey: string; model?: string } | { client: StructuredResponseClient }) {
+        this.client = 'client' in options ? options.client : new OpenAIStructuredResponseClient({
             apiKey: options.apiKey,
             model: options.model,
             timeoutMs: 45_000,
         });
+        this.id = this.client.provider;
         this.model = this.client.model;
     }
 

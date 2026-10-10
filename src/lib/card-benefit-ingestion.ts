@@ -935,6 +935,51 @@ const applySnapshot = (
     }
 };
 
+/**
+ * Re-runs AI structuring on the documents of a card's latest candidate and validates and audits
+ * the result against the current catalog, without writing anything. Used to compare models on
+ * identical inputs; the published rules (not a pending candidate) are the baseline.
+ */
+export async function dryRunCardBenefitExtraction(
+    cardId: string,
+    provider: CardBenefitExtractionProvider,
+) {
+    const cardRow = db.select().from(cards)
+        .where(and(eq(cards.id, cardId), isNull(cards.userId)))
+        .get();
+    const candidate = db.select().from(cardBenefitCandidates)
+        .where(eq(cardBenefitCandidates.cardId, cardId))
+        .orderBy(desc(cardBenefitCandidates.createdAt))
+        .get();
+    if (!cardRow || !candidate) {
+        throw new CardBenefitIngestionError(404, '비교할 카드 또는 기존 후보 문서가 없습니다.');
+    }
+    const documents = getCandidateDocuments(candidate);
+    const baseline = currentSnapshot(cardId);
+    const input: CardBenefitExtractionInput = {
+        ...createExtractionInputFromDocuments(toCard(cardRow), candidate, documents),
+        baselineRules: baseline.rules,
+    };
+    const startedAt = Date.now();
+    const result = await provider.extract(input);
+    const durationMs = Date.now() - startedAt;
+    const validation = validateCardBenefitExtraction(result.extraction, input, currentReferences());
+    const audit = createCardBenefitCandidateAudit({
+        extraction: result.extraction,
+        baseline,
+        baselineRevision: activeRevisionNumber(cardId),
+        noticeDocuments: noticeDocumentsFrom(documents.map(item => item.document)),
+    });
+    return {
+        result,
+        validation,
+        audit,
+        durationMs,
+        previousCandidate: candidate,
+        sourceCharacters: (input.sources ?? []).reduce((sum, source) => sum + source.sourceText.length, 0),
+    };
+}
+
 export function reviewCardBenefitCandidate(
     candidateId: string,
     status: Exclude<CardBenefitCandidateStatus, 'PENDING'>,

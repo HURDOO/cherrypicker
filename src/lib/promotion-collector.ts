@@ -235,7 +235,7 @@ const responseMetadata = (
     ...(response.url && response.url !== requestedUrl && { finalUrl: response.url }),
 });
 
-async function fetchHtml(url: string) {
+export async function fetchHtml(url: string) {
     const response = await fetchResponse(url, 'text/html,application/xhtml+xml');
     const bytes = await responseBytes(response);
     const mediaType = response.headers.get('content-type') ?? 'text/html';
@@ -618,7 +618,8 @@ export async function collectSktMembershipSource(
     };
 }
 
-async function parseSource(
+/** Fetches and parses one source without persisting anything; collection and model comparison share it. */
+export async function parseSource(
     source: PromotionSource,
     sktAiParser: SktPromotionAiParser,
 ): Promise<ParsedSource> {
