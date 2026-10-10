@@ -226,6 +226,11 @@
   - 검증: 새 단위·검증기·audit·지원 정보 테스트를 포함해 전체 70개 파일·572개 테스트, lint, production build가 통과했다. 의존성은 main 폴더의 오래된 `node_modules`를 `npm ci`로 다시 설치했다. 현재 DB에는 미지원 문구가 있는 후보·revision이 없어 관리자 화면과 공개 주의 문구의 실제 브라우저 표시는 확인하지 못했다. 로컬·운영 DB, 두산 후보, 배포는 변경하지 않았다.
   - ④ 구현: `brands.discovery_visibility`(migration 0020)와 공통 `isBrowsableBrand`를 추가해 새 공용 브랜드를 검색 전용으로 시작하게 했다. 프로모션 자동 발견·관리자 승인·관리자 결제처 등록·카드 후보 제안 경로가 모두 `SEARCH_ONLY`로 저장하고, 사용자 커스텀 브랜드와 seed·기존 브랜드는 `BROWSE`다. 카드 AI 후보는 `proposedBrands`(임시 `new_` 참조)로 새 매장을 제안하며, `src/lib/card-brand-proposals.ts`가 기존 브랜드 이름·별칭과 맞춰 재사용하거나 프로모션과 같은 `official_<hash>` ID를 부여한다. 검증기는 ID·카테고리·공식 인용·기존 브랜드 중복을 확인하고, 감사는 제안을 고위험 추가로 표시하며, 승인 트랜잭션은 게시 규칙이 참조하는 제안만 검색 전용으로 등록한다. 관리자 후보 화면에 제안 목록을 표시한다.
   - 검증: 제안 해석·검증기·검색 전용 탐색 테스트와 함께, 메모리 DB에서 실제 승인 함수를 실행해 미등록 패턴 규칙 제외·카드 주의 문구 저장·참조된 제안 브랜드만 검색 전용 등록·카드 게시를 한 번에 확인하는 통합 테스트를 추가했다. 전체 72개 파일·582개 테스트, lint, production build가 통과했다. migration 0020은 53,501,952-byte 온라인 백업의 quick/integrity check `ok`와 격리 복사본 리허설(migration 21개, 브랜드 324개 `BROWSE`, 규칙 220개·카드 15장 유지)을 확인한 뒤 로컬 DB에만 적용했고, 적용 후 quick check `ok`·외래키 위반 0건이다. 검색 전용 브랜드가 아직 없어 탐색 화면 변화와 관리자 제안 패널의 실제 브라우저 표시는 확인하지 못했다. 운영 DB, 두산 후보, 배포는 변경하지 않았다.
+- 진행 기록 (2026-10-11, AI 모델 비교):
+  - 사용자 요청과 비용 승인에 따라 카드 15장과 프로모션 AI를 Claude Opus 5.5로, 두산과 프로모션을 luna로 읽기 전용 비교했다. 공통 `StructuredResponseClient`와 Claude 클라이언트(devDependency `@anthropic-ai/sdk`)를 추가했지만 운영 수집 경로는 그대로 OpenAI다. Claude 비용은 약 $21이다. 결과와 판정은 `docs/ai-model-comparison-2026-10-11.md`에 기록했고, 현재 파이프라인에서는 luna를 유지한다.
+  - 비교 중 `performancePolicy.sourceUrl`의 `format: uri` 때문에 OpenAI strict 출력이 400을 내는 2026-09-12 이후의 잠복 버그를 찾아 수정하고, 앱이 OpenAI에 보내는 4개 schema의 문자열 형식을 검사하는 회귀 테스트를 추가했다.
+  - Claude는 실제 매장 11개를 새 브랜드로 제안해 제안 경로를 실제 모델 출력으로 확인했다. 반면 할인 제외 거래에 카드 보류 패턴을 붙이는 오용이 3장에서 나와 패턴 registry 보정이 필요하다.
+  - 검증: 전체 74개 파일·589개 테스트, lint, production build가 통과했다. 측정은 DB를 쓰지 않았고 실행 전후 후보 54·revision 30·규칙 220·브랜드 324건이 같았다.
 
 ## [ ] TASK-05 — 실제 모바일 브라우저에서 실사용 흐름 검증
 
