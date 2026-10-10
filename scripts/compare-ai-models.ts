@@ -1,11 +1,14 @@
 import './load-env';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { and, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '../src/db';
 import { cardBenefitCandidates, cards } from '../src/db/schema';
 import { AnthropicStructuredResponseClient } from '../src/lib/anthropic-responses';
-import { OpenAICardBenefitExtractionProvider } from '../src/lib/card-benefit-extraction';
+import {
+    OpenAICardBenefitExtractionProvider,
+    type CardBenefitExtractionProvider,
+} from '../src/lib/card-benefit-extraction';
 import { dryRunCardBenefitExtraction } from '../src/lib/card-benefit-ingestion';
 import { OpenAIStructuredResponseClient } from '../src/lib/openai-responses';
 import {
@@ -39,7 +42,8 @@ import type {
  *     [--concurrency=3] --out=<dir>
  */
 
-type ProviderName = 'openai' | 'anthropic';
+// `previous` replays each card's latest stored candidate through today's checks without any AI call.
+type ProviderName = 'openai' | 'anthropic' | 'previous';
 
 const argument = (name: string) => process.argv.find(item => item.startsWith(`--${name}=`))
     ?.slice(name.length + 3);
@@ -131,17 +135,38 @@ const comparableCardIds = () => {
         .sort();
 };
 
+const replayLatestCandidate = (cardId: string): CardBenefitExtractionProvider => ({
+    id: 'previous',
+    async extract() {
+        const candidate = db.select().from(cardBenefitCandidates)
+            .where(eq(cardBenefitCandidates.cardId, cardId))
+            .orderBy(desc(cardBenefitCandidates.createdAt))
+            .get();
+        if (!candidate) throw new Error('저장된 후보가 없습니다.');
+        return {
+            extraction: candidate.extraction,
+            extractor: candidate.extractor,
+            confidence: candidate.confidence,
+            validationErrors: candidate.validationErrors,
+        };
+    },
+});
+
 async function runCard(provider: ProviderName, cardId: string) {
     if (provider === 'anthropic' && anthropicSpendUsd >= maxUsd) {
         return { cardId, provider, ok: false, skipped: `예산 ${maxUsd}달러 도달` };
     }
     const usage: StructuredResponseUsage[] = [];
-    const client = createClient(provider, 'card', usage);
+    const client = provider === 'previous'
+        ? { provider: 'previous', model: 'stored-candidate' }
+        : createClient(provider, 'card', usage);
     const startedAt = Date.now();
     try {
         const run = await dryRunCardBenefitExtraction(
             cardId,
-            new OpenAICardBenefitExtractionProvider({ client }),
+            provider === 'previous'
+                ? replayLatestCandidate(cardId)
+                : new OpenAICardBenefitExtractionProvider({ client: client as StructuredResponseClient }),
         );
         const { extraction } = run.result;
         const clauses = extraction.unsupportedClauses ?? [];
