@@ -8,6 +8,7 @@
 - 맥락: Claude Opus 5.5와 비교한 결과 luna가 검증 통과율·속도·SKT 완전 수집에서 앞섰다. Claude는 재귀 규칙 schema를 constrained decoding으로 받지 못했고, 카드 15장 측정에 약 $21이 들었다. 근거는 [`docs/ai-model-comparison-2026-10-11.md`](./ai-model-comparison-2026-10-11.md)에 있다.
 - 결정: 카드 혜택 추출, SKT 보조 파서, 프로모션 적용 범위 분류는 `gpt-5.6-luna`를 쓴다. Claude 클라이언트는 운영 경로에 연결하지 않고 `scripts/compare-ai-models.ts` 측정에만 남긴다. 이 스크립트는 provider 기본값이 없고 Claude 호출에는 `--max-usd` 예산을 명시해야 한다.
 - 변경 조건: 모델을 바꾸려면 같은 스크립트로 1장 시범 측정 후 예상 비용을 사용자에게 승인받고 비교한다.
+- 같은 날 `gpt-6-luna`를 카드 3장으로 비교했지만 느리고 DSL·패턴 사용이 불안정해 바꾸지 않았다.
 
 ## 2026-10-10: 미지원 규칙·브랜드를 과대 계산 방지 기준으로 처리
 

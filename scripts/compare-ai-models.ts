@@ -195,6 +195,7 @@ async function runCard(provider: ProviderName, cardId: string) {
             )).length,
             extractorErrors: run.result.validationErrors?.length ?? 0,
             validationErrors: run.validation.errors.length,
+            blockingErrors: run.blockingErrors.length,
             auditBlockingErrors: run.audit.blockingErrors.length,
             highRiskChanges: run.audit.changes.filter(change => change.risk === 'HIGH').length,
             unsupportedClauses: clauses.length,
@@ -216,6 +217,7 @@ async function runCard(provider: ProviderName, cardId: string) {
             summary,
             extractorErrors: run.result.validationErrors,
             validationErrors: run.validation.errors,
+            blockingErrors: run.blockingErrors,
             auditBlockingErrors: run.audit.blockingErrors,
             highRiskChanges: run.audit.changes.filter(change => change.risk === 'HIGH'),
             coverage,
@@ -223,7 +225,7 @@ async function runCard(provider: ProviderName, cardId: string) {
             usage,
         });
         console.log(`[card] ${provider} ${cardId} ok ${Math.round(run.durationMs / 1000)}s ` +
-            `rules=${summary.rules} errors=${summary.validationErrors} cost=$${summary.usage.costUsd}`);
+            `rules=${summary.rules} errors=${summary.blockingErrors} cost=$${summary.usage.costUsd}`);
         return summary;
     } catch (error) {
         const summary = {

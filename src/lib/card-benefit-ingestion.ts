@@ -289,7 +289,7 @@ const providerInventoryErrorResolved = (
     ));
 };
 
-const retainUnresolvedProviderErrors = (
+export const retainUnresolvedProviderErrors = (
     errors: string[],
     extraction: CardBenefitExtraction,
     recomputedErrors: Set<string>,
@@ -970,10 +970,16 @@ export async function dryRunCardBenefitExtraction(
         baselineRevision: activeRevisionNumber(cardId),
         noticeDocuments: noticeDocumentsFrom(documents.map(item => item.document)),
     });
+    const recomputedErrors = new Set([...validation.errors, ...audit.blockingErrors]);
     return {
         result,
         validation,
         audit,
+        // The same set a stored candidate would carry, so a dry run counts what blocks approval.
+        blockingErrors: [...new Set([
+            ...retainUnresolvedProviderErrors(result.validationErrors ?? [], result.extraction, recomputedErrors),
+            ...recomputedErrors,
+        ])],
         durationMs,
         previousCandidate: candidate,
         sourceCharacters: (input.sources ?? []).reduce((sum, source) => sum + source.sourceText.length, 0),
