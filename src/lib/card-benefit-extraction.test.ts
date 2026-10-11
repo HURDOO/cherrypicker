@@ -2820,7 +2820,7 @@ describe('card benefit extraction', () => {
         // published card in the card-agnostic audit.
         const unrepairedAudit = createCardBenefitCandidateAudit({
             extraction,
-            baseline: { card: normalized.card, rules: normalized.rules },
+            baseline: { card: { ...normalized.card, color: 'bg-blue-500' }, rules: normalized.rules },
             baselineRevision: 1,
             asOfDate: '2026-08-21',
         });
