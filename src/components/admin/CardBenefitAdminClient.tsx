@@ -147,9 +147,11 @@ const batchItemStatusLabel = {
     failed: '실패',
 };
 
-const extractorLabel = (extractor: string) => extractor.startsWith('openai:')
-    ? 'OpenAI 2단계 구조화'
-    : '공식 규칙 추출기';
+const extractorLabel = (extractor: string) => {
+    if (extractor.startsWith('openai:')) return 'OpenAI 2단계 구조화';
+    if (extractor.startsWith('revision:')) return '검토된 수정안';
+    return '공식 규칙 추출기';
+};
 
 const formatAction = (rule: BenefitRule) => {
     if (rule.program) return `DSL v${rule.program.languageVersion}`;
@@ -607,9 +609,9 @@ export function CardBenefitAdminClient() {
 
     return (
         <main className="min-h-screen bg-gray-50 pb-24">
-            <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-5 py-3 backdrop-blur">
-                <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
+            <header className="z-20 border-b border-gray-200 bg-white/95 px-5 py-3 backdrop-blur sm:sticky sm:top-0">
+                <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex shrink-0 items-center gap-3">
                         <Link
                             href="/admin"
                             aria-label="관리자 콘솔로 돌아가기"
@@ -618,13 +620,13 @@ export function CardBenefitAdminClient() {
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
                         <div>
-                            <h1 className="text-lg font-black text-gray-950">카드 혜택 카탈로그</h1>
-                            <p className="text-[10px] font-bold text-gray-400">
+                            <h1 className="whitespace-nowrap text-lg font-black text-gray-950">카드 혜택 카탈로그</h1>
+                            <p className="whitespace-nowrap text-[10px] font-bold text-gray-400">
                                 공식 원문 → 구조화 → 검증 → revision 게시
                             </p>
                         </div>
                     </div>
-                    <div className="flex flex-wrap justify-end gap-2">
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
                         <Link
                             href="/admin/cards/new"
                             className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-black text-gray-700"
