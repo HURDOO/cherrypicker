@@ -174,6 +174,7 @@ const programSummary = (rule: BenefitRule) => {
         rule.program.usageGroupId ? `공유 한도 ${rule.program.usageGroupId}` : '규칙별 한도',
         rule.program.cardMonthlyLimit ? '조건별 카드 월 한도 계산' : undefined,
         ...(target?.purchaseScenario?.requiredChecks ?? []).map(item => `상황 확인: ${item}`),
+        ...(target?.purchaseScenario?.notes ?? []).map(item => `상황 안내: ${item}`),
         ...(rule.program.confirmations ?? []).map(item => `확인: ${item.message}`),
     ].filter((item): item is string => Boolean(item));
 };

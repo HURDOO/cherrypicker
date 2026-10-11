@@ -119,7 +119,10 @@ export interface BenefitDslTarget {
         id: string;
         label: string;
         aliases?: string[];
+        /** Questions the user confirms before the benefit counts; empty when choosing the scenario is enough. */
         requiredChecks: string[];
+        /** Official scope and exclusions shown as text without a confirmation step. */
+        notes?: string[];
     };
 }
 

@@ -318,7 +318,9 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
                         >
                             <span className="text-sm font-black text-slate-900">{scenario.label}</span>
                             <span className="mt-0.5 text-[11px] font-semibold text-blue-700">
-                                실제 결제처가 아닌 구매 대상 · 적용 조건 확인 필요
+                                {scenario.requiredChecks.length > 0
+                                    ? '실제 결제처가 아닌 구매 대상 · 적용 조건 확인 필요'
+                                    : '실제 결제처가 아닌 구매 대상'}
                             </span>
                         </button>
                     ))}

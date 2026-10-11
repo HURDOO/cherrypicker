@@ -1263,9 +1263,9 @@ function HomePageContent() {
                     />
                 ) : (
                     <section className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex min-w-0 items-center gap-3">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                                     <IconByName
                                         name={currentPaymentTarget.kind === 'BRAND'
                                             ? currentPaymentTarget.brand.iconName || 'Store'
@@ -1290,16 +1290,26 @@ function HomePageContent() {
                                         </p>
                                     )}
                                     {currentPaymentTarget.kind === 'SCENARIO' && (
-                                        <p className="mt-0.5 text-[10px] font-bold text-blue-600">
-                                            적용 조건을 확인한 뒤 확정 혜택으로 계산해요
-                                        </p>
+                                        currentPurchaseScenario?.requiredChecks.length === 0 ? (
+                                            <ul className="mt-1 space-y-0.5">
+                                                {(currentPurchaseScenario.notes ?? []).map(note => (
+                                                    <li key={note} className="text-[10px] font-bold text-gray-500">
+                                                        {note}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : (
+                                            <p className="mt-0.5 text-[10px] font-bold text-blue-600">
+                                                적용 조건을 확인한 뒤 확정 혜택으로 계산해요
+                                            </p>
+                                        )
                                     )}
                                 </div>
                             </div>
                             <button
                                 type="button"
                                 onClick={handleClearPaymentTarget}
-                                className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-black text-gray-600"
+                                className="shrink-0 whitespace-nowrap rounded-xl bg-gray-100 px-3 py-2 text-xs font-black text-gray-600"
                             >
                                 변경
                             </button>

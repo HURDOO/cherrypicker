@@ -235,6 +235,7 @@ describe('benefit coverage patterns', () => {
             [
                 clause('installment', ['rule_a', 'rule_b'], 'DISCOUNT_EXCLUDE_TRANSACTION_TYPE'),
                 clause('stacking', [], 'CARD_OFFER_NO_STACKING'),
+                clause('hosted', ['rule_a', 'rule_b'], 'HOSTED_STORE_EXCLUSION'),
             ],
         );
         const { value, result } = applyBenefitCoveragePatterns(input);
@@ -243,10 +244,12 @@ describe('benefit coverage patterns', () => {
         expect(result.outcomes.map(outcome => [outcome.level, outcome.ruleIds])).toEqual([
             ['CARD_CAVEAT', []],
             ['CARD_CAVEAT', []],
+            ['CARD_CAVEAT', []],
         ]);
         expect(result.caveats).toEqual([
             '일부 거래 종류는 이 카드의 할인·적립에서 제외됩니다. 공식 조건: “공식 문구 installment”',
             '카드사의 다른 할인 행사와는 중복되지 않을 수 있습니다. 공식 조건: “공식 문구 stacking”',
+            '역·백화점·대형마트 등에 입점한 매장에서는 할인이 제외될 수 있습니다. 공식 조건: “공식 문구 hosted”',
         ]);
         expect(result.excludedRules).toEqual([]);
         expect(result.blockingErrors).toEqual([]);

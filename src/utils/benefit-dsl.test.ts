@@ -11,6 +11,7 @@ import {
     compileLegacyBenefitRule,
     evaluateBenefitProgram,
     evaluateBenefitProgramCardMonthlyLimit,
+    listBenefitProgramEvidencePaths,
     validateBenefitProgram,
     validateBenefitProgramSet,
 } from './benefit-dsl';
@@ -125,6 +126,41 @@ describe('benefit DSL validation and evaluation', () => {
                 },
             },
         }])).toEqual([]);
+    });
+
+    it('confirms a scenario without questions on selection and keeps its notes as evidenced text', () => {
+        const program: BenefitProgramV1 = {
+            ...fixedBenefitProgram(5_000),
+            target: {
+                purchaseScenario: {
+                    id: 'home_game_ticket',
+                    label: '홈경기 입장권',
+                    requiredChecks: [],
+                    notes: ['정규시즌 홈경기만 대상', '시범경기·포스트시즌 제외'],
+                },
+            },
+        };
+        const selected = context({
+            purchaseScenarioId: 'home_game_ticket',
+            brandId: undefined,
+            categoryId: undefined,
+        });
+
+        expect(validateBenefitProgram(program).valid).toBe(true);
+        expect(evaluateBenefitProgram(program, selected)).toMatchObject({
+            eligible: true,
+            benefitAmount: 5_000,
+            certainty: 'CONFIRMED',
+            requiredChecks: [],
+        });
+        expect(listBenefitProgramEvidencePaths(program)).toEqual(expect.arrayContaining([
+            'program.target.purchaseScenario.notes[0]',
+            'program.target.purchaseScenario.notes[1]',
+        ]));
+        expect(validateBenefitProgram({
+            ...program,
+            target: { purchaseScenario: { ...program.target!.purchaseScenario!, notes: [] } },
+        }).errors.join('\n')).toContain('1~8개의 안내 문구');
     });
 
     it('rejects unknown operators, input names, nested aggregates, and oversized programs', () => {

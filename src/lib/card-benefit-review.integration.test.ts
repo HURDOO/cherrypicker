@@ -249,4 +249,71 @@ describe('card benefit review with rule-level coverage', () => {
         expect(active?.snapshot.coverage?.excludedRules).toEqual([]);
         expect(active?.snapshot.rules.map(rule => rule.id)).toEqual(['coverage_card_wefan']);
     });
+
+    it('replaces a stale candidate of an unpublished card only with an approvable one', () => {
+        const draftExtraction: CardBenefitExtraction = {
+            ...structuredClone(extraction),
+            card: { ...extraction.card, id: 'draft_card', name: '초안 카드' },
+            rules: extraction.rules.map(rule => ({ ...rule, id: rule.id.replace('coverage_card', 'draft_card'), cardId: 'draft_card' })),
+            evidence: extraction.evidence.map(item => ({
+                ...item,
+                ruleIds: item.ruleIds.map(ruleId => ruleId.replace('coverage_card', 'draft_card')),
+            })),
+            unsupportedClauses: extraction.unsupportedClauses!.map(clause => ({
+                ...clause,
+                ruleIds: clause.ruleIds.map(ruleId => ruleId.replace('coverage_card', 'draft_card')),
+            })),
+        };
+        integrationDb.insert(schema.cards).values({
+            id: 'draft_card',
+            name: '초안 카드',
+            company: '테스트카드',
+            color: 'bg-gray-400',
+            limitTable: [],
+            catalogStatus: 'DRAFT',
+        }).run();
+        integrationDb.insert(schema.cardBenefitDocuments).values({
+            id: 'draft-document',
+            cardId: 'draft_card',
+            sourceUrl,
+            sourceKind: 'PRODUCT_PAGE',
+            mediaType: 'text/html',
+            contentHash: 'draft-hash',
+            version: 1,
+            rawContent: '<html></html>',
+            extractedText: [wefanQuote, bearsQuote, pgQuote, installmentQuote].join('\n'),
+        }).run();
+        integrationDb.insert(schema.cardBenefitCandidates).values({
+            id: 'stale-candidate',
+            documentId: 'draft-document',
+            cardId: 'draft_card',
+            schemaVersion: 2,
+            extractor: 'test',
+            confidence: 0.9,
+            extraction: draftExtraction,
+            validationErrors: ['오래된 오류'],
+        }).run();
+        const patch = {
+            note: 'PG 문구를 등록 패턴으로 재분류',
+            unsupportedClauses: { 'pg-new-meaning': { patternId: 'MERCHANT_APPROVAL_PATH' } },
+        };
+
+        expect(() => ingestion.createCardBenefitRevisionCandidate('draft_card', patch))
+            .toThrow('기준 구조화 결과');
+        expect(() => ingestion.createCardBenefitRevisionCandidate('draft_card', patch, {
+            baseExtraction: draftExtraction,
+        })).toThrow('stale-candidate');
+
+        const { candidate, validationErrors } = ingestion.createCardBenefitRevisionCandidate('draft_card', patch, {
+            baseExtraction: draftExtraction,
+            replacePending: true,
+        });
+        const statuses = Object.fromEntries(integrationDb.select().from(schema.cardBenefitCandidates)
+            .where(eq(schema.cardBenefitCandidates.cardId, 'draft_card')).all()
+            .map(row => [row.id, row.status]));
+
+        expect(validationErrors).toEqual([]);
+        expect(candidate).toMatchObject({ baseRevision: 0, documentId: 'draft-document' });
+        expect(statuses).toEqual({ 'stale-candidate': 'REJECTED', [candidate!.id]: 'PENDING' });
+    });
 });

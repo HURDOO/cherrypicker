@@ -26,7 +26,7 @@ export const BENEFIT_COVERAGE_PATTERNS = [
     {
         id: 'MERCHANT_APPROVAL_PATH',
         level: 'CONFIRM',
-        summary: '카드사 승인 업종·PG·간편결제·입점 매장·사이트 직접 접속 등 결제 경로에 따라 적용 여부가 달라지는 조건',
+        summary: '특정 혜택에 붙은 카드사 승인 업종·PG·간편결제·입점 매장·사이트 직접 접속 등 결제 경로 조건(카드 전체 공통 입점 매장 제외는 HOSTED_STORE_EXCLUSION)',
         userMessage: '카드사 승인 가맹점(업종)으로 직접 결제되는지 확인',
     },
     {
@@ -52,6 +52,12 @@ export const BENEFIT_COVERAGE_PATTERNS = [
         level: 'CARD_CAVEAT',
         summary: '앱이 거래 종류를 판정할 수 없는 할인·적립 제외 거래(무이자할부·상품권·선불카드 구입·충전·취소·세금·해외 이용 등)',
         userMessage: '일부 거래 종류는 이 카드의 할인·적립에서 제외됩니다.',
+    },
+    {
+        id: 'HOSTED_STORE_EXCLUSION',
+        level: 'CARD_CAVEAT',
+        summary: '카드 전체 혜택에 공통으로 붙은 호텔·백화점·대형마트·철도역사 등 입점 매장 제외 문구',
+        userMessage: '역·백화점·대형마트 등에 입점한 매장에서는 할인이 제외될 수 있습니다.',
     },
     {
         id: 'CARD_OFFER_NO_STACKING',

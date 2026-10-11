@@ -990,81 +990,115 @@ export async function dryRunCardBenefitExtraction(
 export const CARD_BENEFIT_REVISION_EXTRACTOR = 'revision:deterministic-v1';
 
 /**
- * Creates a pending candidate from the active revision's approved extraction plus a reviewed
- * patch, without collecting sources or calling AI. The candidate keeps the approved source
- * documents, so validation, audit and approval run exactly as for a collected candidate.
+ * Creates a pending candidate from a reviewed patch without collecting sources or calling AI.
+ * A published card starts from the approved extraction of its active revision. A card that was
+ * never published starts from a saved extraction made from its latest candidate's documents
+ * (for example a model comparison run) and may replace that stale pending candidate. Validation,
+ * audit and approval then run exactly as for a collected candidate.
  */
 export function createCardBenefitRevisionCandidate(
     cardId: string,
     patch: CardBenefitRevisionPatch,
-    options: { dryRun?: boolean } = {},
+    options: {
+        dryRun?: boolean;
+        baseExtraction?: CardBenefitExtraction;
+        replacePending?: boolean;
+    } = {},
 ) {
     const activeRevision = db.select().from(cardBenefitRevisions)
         .where(and(eq(cardBenefitRevisions.cardId, cardId), eq(cardBenefitRevisions.isActive, true)))
         .get();
-    const approved = activeRevision?.candidateId
-        ? db.select().from(cardBenefitCandidates)
-            .where(eq(cardBenefitCandidates.id, activeRevision.candidateId))
-            .get()
-        : undefined;
     const cardRow = db.select().from(cards)
         .where(and(eq(cards.id, cardId), isNull(cards.userId)))
         .get();
-    if (!activeRevision || !approved || !cardRow) {
-        throw new CardBenefitIngestionError(404, '승인 후보로 게시된 시스템 카드가 아닙니다.');
+    if (!cardRow) throw new CardBenefitIngestionError(404, '시스템 카드를 찾을 수 없습니다.');
+    if (activeRevision && options.baseExtraction) {
+        throw new CardBenefitIngestionError(409, '게시된 카드는 활성 revision의 승인 후보를 기준으로 수정합니다.');
     }
-    const pending = db.select({ id: cardBenefitCandidates.id }).from(cardBenefitCandidates)
+    const source = activeRevision
+        ? activeRevision.candidateId
+            ? db.select().from(cardBenefitCandidates)
+                .where(eq(cardBenefitCandidates.id, activeRevision.candidateId))
+                .get()
+            : undefined
+        : db.select().from(cardBenefitCandidates)
+            .where(eq(cardBenefitCandidates.cardId, cardId))
+            .orderBy(desc(cardBenefitCandidates.createdAt))
+            .get();
+    if (!source || (!activeRevision && !options.baseExtraction)) {
+        throw new CardBenefitIngestionError(
+            404,
+            activeRevision
+                ? '승인 후보로 게시된 시스템 카드가 아닙니다.'
+                : '게시 전 카드는 공식 문서가 있는 후보와 기준 구조화 결과가 필요합니다.',
+        );
+    }
+    const pendingIds = db.select({ id: cardBenefitCandidates.id }).from(cardBenefitCandidates)
         .where(and(eq(cardBenefitCandidates.cardId, cardId), eq(cardBenefitCandidates.status, 'PENDING')))
-        .get();
-    if (pending) {
-        throw new CardBenefitIngestionError(409, `검수 대기 후보 ${pending.id}를 먼저 처리해야 합니다.`);
+        .all()
+        .map(row => row.id);
+    if (pendingIds.length > 0 && !options.replacePending) {
+        throw new CardBenefitIngestionError(409, `검수 대기 후보 ${pendingIds[0]}를 먼저 처리해야 합니다.`);
     }
-    const documents = getCandidateDocuments(approved);
-    const input = createExtractionInputFromDocuments(toCard(cardRow), approved, documents);
+    const baseRevision = activeRevision?.revision ?? 0;
+    const documents = getCandidateDocuments(source);
+    const input = createExtractionInputFromDocuments(toCard(cardRow), source, documents);
     const baseline = currentSnapshot(cardId);
     const notices = noticeDocumentsFrom(documents.map(item => item.document));
-    // The patch must start from what is published; otherwise it would silently undo later edits.
-    const drift = createCardBenefitCandidateAudit({
-        extraction: approved.extraction,
-        baseline,
-        baselineRevision: activeRevision.revision,
-        noticeDocuments: notices,
-    }).changes.filter(change => change.scope === 'RULE');
-    if (drift.length > 0) {
-        throw new CardBenefitIngestionError(
-            409,
-            `게시 규칙이 승인 후보와 다릅니다: ${drift.slice(0, 5)
-                .map(change => `${change.entityId} ${change.path}`).join(', ')}`,
-        );
+    if (activeRevision) {
+        // The patch must start from what is published; otherwise it would silently undo later edits.
+        const drift = createCardBenefitCandidateAudit({
+            extraction: source.extraction,
+            baseline,
+            baselineRevision: baseRevision,
+            noticeDocuments: notices,
+        }).changes.filter(change => change.scope === 'RULE');
+        if (drift.length > 0) {
+            throw new CardBenefitIngestionError(
+                409,
+                `게시 규칙이 승인 후보와 다릅니다: ${drift.slice(0, 5)
+                    .map(change => `${change.entityId} ${change.path}`).join(', ')}`,
+            );
+        }
     }
     // Brands proposed by the approved candidate were registered on approval; only new ones remain proposals.
     const references = currentReferences();
-    const { proposedBrands, ...approvedExtraction } = approved.extraction;
+    const { proposedBrands, ...baseExtraction } = options.baseExtraction ?? source.extraction;
     const pendingProposals = (proposedBrands ?? []).filter(brand => !references.brandIds.has(brand.id));
     const extraction = applyCardBenefitRevisionPatch({
-        ...approvedExtraction,
+        ...baseExtraction,
         ...(pendingProposals.length > 0 && { proposedBrands: pendingProposals }),
     }, patch);
     const validation = validateCardBenefitExtraction(extraction, input, references);
     const audit = createCardBenefitCandidateAudit({
         extraction,
         baseline,
-        baselineRevision: activeRevision.revision,
+        baselineRevision: baseRevision,
         noticeDocuments: notices,
     });
     const validationErrors = [...new Set([...validation.errors, ...audit.blockingErrors])];
     if (options.dryRun) return { candidate: undefined, validationErrors, audit };
     const candidate = db.transaction(tx => {
+        // A stale pending candidate is replaced only by a candidate that can be approved.
+        if (validationErrors.length === 0 && pendingIds.length > 0) {
+            tx.update(cardBenefitCandidates)
+                .set({ status: 'REJECTED', reviewedAt: new Date() })
+                .where(and(
+                    eq(cardBenefitCandidates.cardId, cardId),
+                    eq(cardBenefitCandidates.status, 'PENDING'),
+                ))
+                .run();
+        }
         const inserted = tx.insert(cardBenefitCandidates).values({
             id: randomUUID(),
-            documentId: approved.documentId,
+            documentId: source.documentId,
             cardId,
             schemaVersion: CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION,
-            baseRevision: activeRevision.revision,
-            sourceBundleHash: approved.sourceBundleHash,
+            baseRevision,
+            sourceBundleHash: source.sourceBundleHash,
             extractor: CARD_BENEFIT_REVISION_EXTRACTOR,
             model: null,
-            confidence: approved.confidence,
+            confidence: source.confidence,
             extraction,
             audit,
             validationErrors,

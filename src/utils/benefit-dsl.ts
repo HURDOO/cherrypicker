@@ -446,7 +446,7 @@ export function validateBenefitProgram(
                 if (!isRecord(scenario)) {
                     error('program.target.purchaseScenario', '객체여야 합니다.');
                 } else {
-                    unknownKeys(scenario, ['id', 'label', 'aliases', 'requiredChecks'])
+                    unknownKeys(scenario, ['id', 'label', 'aliases', 'requiredChecks', 'notes'])
                         .forEach(key => error(`program.target.purchaseScenario.${key}`, '허용되지 않은 필드입니다.'));
                     if (typeof scenario.id !== 'string' ||
                         !/^[a-z][a-z0-9_]{2,99}$/.test(scenario.id)) {
@@ -464,12 +464,16 @@ export function validateBenefitProgram(
                     )) {
                         error('program.target.purchaseScenario.aliases', '중복 없는 8개 이하의 별칭이어야 합니다.');
                     }
-                    if (!Array.isArray(scenario.requiredChecks) ||
-                        scenario.requiredChecks.length < 1 || scenario.requiredChecks.length > 8 ||
-                        scenario.requiredChecks.some(check => typeof check !== 'string' ||
-                            !check.trim() || check.length > 300) ||
-                        new Set(scenario.requiredChecks).size !== scenario.requiredChecks.length) {
-                        error('program.target.purchaseScenario.requiredChecks', '중복 없는 1~8개의 확인 문구가 필요합니다.');
+                    const isTextList = (value: unknown, min: number) => Array.isArray(value) &&
+                        value.length >= min && value.length <= 8 &&
+                        value.every(item => typeof item === 'string' && item.trim() && item.length <= 300) &&
+                        new Set(value).size === value.length;
+                    // Choosing a scenario is itself an explicit user statement, so questions may be empty.
+                    if (!isTextList(scenario.requiredChecks, 0)) {
+                        error('program.target.purchaseScenario.requiredChecks', '중복 없는 8개 이하의 확인 문구여야 합니다.');
+                    }
+                    if (scenario.notes !== undefined && !isTextList(scenario.notes, 1)) {
+                        error('program.target.purchaseScenario.notes', '중복 없는 1~8개의 안내 문구여야 합니다.');
                     }
                 }
                 if (['includedBrandIds', 'excludedBrandIds', 'categoryIds'].some(field => (
@@ -619,6 +623,9 @@ export function listBenefitProgramEvidenceNodes(
         nodes.push({ path: 'program.target.purchaseScenario.label' });
         program.target.purchaseScenario.requiredChecks.forEach((_, index) => {
             nodes.push({ path: `program.target.purchaseScenario.requiredChecks[${index}]` });
+        });
+        program.target.purchaseScenario.notes?.forEach((_, index) => {
+            nodes.push({ path: `program.target.purchaseScenario.notes[${index}]` });
         });
     }
     visitExpression(program.eligibility, 'program.eligibility', 1);

@@ -107,6 +107,47 @@ describe('applyCardBenefitRevisionPatch', () => {
         expect(extraction.rules[0].condition.manualCheckRequired).toBe(true);
     });
 
+    it('patches or drops existing evidence by ID', () => {
+        const next = applyCardBenefitRevisionPatch(extraction, {
+            note: '근거 경로 정리',
+            evidence: {
+                shared: { fields: ['condition', 'program'], programPaths: ['program.target.purchaseScenario.notes[0]'] },
+                'only-unmapped': null,
+            },
+        });
+
+        expect(next.evidence).toEqual([expect.objectContaining({
+            id: 'shared',
+            fields: ['condition', 'program'],
+            programPaths: ['program.target.purchaseScenario.notes[0]'],
+        })]);
+        expect(() => applyCardBenefitRevisionPatch(extraction, {
+            note: '오타',
+            evidence: { missing: null },
+        })).toThrow('missing');
+    });
+
+    it('patches or drops existing unsupported clauses by ID', () => {
+        const next = applyCardBenefitRevisionPatch(extraction, {
+            note: '문구 재분류',
+            unsupportedClauses: {
+                linked: { patternId: 'HOSTED_STORE_EXCLUSION', ruleIds: [] },
+                'card-wide': null,
+            },
+        });
+
+        expect(next.unsupportedClauses).toEqual([expect.objectContaining({
+            id: 'linked',
+            ruleIds: [],
+            patternId: 'HOSTED_STORE_EXCLUSION',
+            quote: '미매핑',
+        })]);
+        expect(() => applyCardBenefitRevisionPatch(extraction, {
+            note: '오타',
+            unsupportedClauses: { missing: null },
+        })).toThrow('missing');
+    });
+
     it('refuses rule IDs that are not in the approved extraction', () => {
         expect(() => applyCardBenefitRevisionPatch(extraction, {
             note: '오타',
