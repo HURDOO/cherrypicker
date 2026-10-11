@@ -807,6 +807,88 @@ describe('calculateBestCombinations', () => {
             .find(step => step.ruleId === 'card-item')?.benefitAmount).toBe(8_000);
     });
 
+    it('lists unpriced card benefits for the named merchant without pricing them', () => {
+        const infoRule: BenefitRule = {
+            ...cardRule,
+            id: 'card-fuel-info',
+            description: '주말 리터당 60원 할인',
+            condition: { requiredNote: '주유량 기준이라 금액을 계산하지 않습니다.' },
+            action: { type: 'FLAT', value: 0 },
+        };
+        const categoryInfoRule: BenefitRule = {
+            ...infoRule,
+            id: 'card-category-info',
+            includedBrands: [],
+            category: 'cafe',
+            description: '상해보험',
+        };
+        const unlinkedItemInfo: BenefitRule = {
+            ...infoRule,
+            id: 'card-item-info',
+            includedBrands: [],
+            category: 'cafe',
+            condition: { itemSpecific: true, eligibleItemSummary: '제휴 상품' },
+        };
+        const expired: BenefitRule = {
+            ...infoRule,
+            id: 'card-expired-info',
+            condition: { endsAt: '2026-07-01' },
+        };
+        const otherNetwork: BenefitRule = {
+            ...infoRule,
+            id: 'card-visa-info',
+            condition: { requiredCardNetwork: 'VISA' },
+        };
+        const onlineOnly: BenefitRule = {
+            ...infoRule,
+            id: 'card-online-info',
+            platformType: 'ONLINE',
+            description: '제휴 사이트 쿠폰 8% 할인',
+            condition: {},
+        };
+
+        const result = calculateBestCombinations(input([], {
+            cards: [{ ...card, network: 'MASTERCARD' }],
+            rules: [infoRule, categoryInfoRule, unlinkedItemInfo, expired, otherNetwork, onlineOnly],
+        }));
+
+        expect(result.cardInformationRules).toEqual([{
+            id: 'card-fuel-info',
+            cardName: '테스트 카드',
+            description: '주말 리터당 60원 할인',
+            note: '주유량 기준이라 금액을 계산하지 않습니다.',
+        }, {
+            id: 'card-online-info',
+            cardName: '테스트 카드',
+            description: '제휴 사이트 쿠폰 8% 할인',
+        }]);
+        expect(result.itemSpecificOffers).toEqual([]);
+        expect(result.combinations.flatMap(item => item.steps)
+            .some(step => step.ruleId?.startsWith('card-'))).toBe(false);
+    });
+
+    it('lists a yearly-date item benefit only on its Korea Standard Time day', () => {
+        const holidayRule: BenefitRule = {
+            ...cardRule,
+            id: 'holiday-item',
+            condition: { itemSpecific: true, annualDates: ['10-01'] },
+            action: { type: 'PERCENT', value: 30 },
+        };
+        const everydayRule: BenefitRule = {
+            ...holidayRule,
+            id: 'everyday-item',
+            condition: { itemSpecific: true, excludedAnnualDates: ['10-01'] },
+            action: { type: 'PERCENT', value: 10 },
+        };
+        const offersAt = (now: string) => calculateBestCombinations(input([], {
+            rules: [holidayRule, everydayRule],
+            now: new Date(now),
+        })).itemSpecificOffers.map(offer => offer.id);
+
+        expect(offersAt('2026-09-30T15:30:00.000Z')).toEqual(['holiday-item']);
+        expect(offersAt('2026-10-01T15:30:00.000Z')).toEqual(['everyday-item']);
+    });
+
     it('shows an up-to item offer as information but never applies it to the maximum', () => {
         const result = calculateBestCombinations(input([
             offer('seveneleven-wine', {

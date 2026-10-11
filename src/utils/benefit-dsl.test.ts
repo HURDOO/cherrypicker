@@ -340,6 +340,39 @@ describe('benefit DSL validation and evaluation', () => {
         },
     );
 
+    it('compiles yearly dates and exclusions against the Korea Standard Time day', () => {
+        const base: BenefitRule = {
+            id: 'yearly',
+            cardId: 'card',
+            includedBrands: ['merchant'],
+            excludedBrands: [],
+            platformType: 'ALL',
+            usesCardLimit: false,
+            description: '기념일 할인',
+            detail: '',
+            condition: {},
+            action: { type: 'PERCENT', value: 10 },
+            limitConfig: {},
+        };
+        const onlyHolidays = compileLegacyBenefitRule({
+            ...base,
+            condition: { annualDates: ['06-06', '10-01'] },
+        });
+        const exceptHolidays = compileLegacyBenefitRule({
+            ...base,
+            condition: { excludedAnnualDates: ['06-06', '10-01'] },
+        });
+        const holiday = context({ now: new Date('2026-09-30T15:30:00.000Z') });
+        const nextDay = context({ now: new Date('2026-10-01T15:30:00.000Z') });
+
+        expect(validateBenefitProgram(onlyHolidays)).toMatchObject({ valid: true });
+        expect(validateBenefitProgram(exceptHolidays)).toMatchObject({ valid: true });
+        expect(evaluateBenefitProgram(onlyHolidays, holiday, true).benefitAmount).toBe(1_000);
+        expect(evaluateBenefitProgram(onlyHolidays, nextDay, true).benefitAmount).toBe(0);
+        expect(evaluateBenefitProgram(exceptHolidays, holiday, true).benefitAmount).toBe(0);
+        expect(evaluateBenefitProgram(exceptHolidays, nextDay, true).benefitAmount).toBe(1_000);
+    });
+
     it('runs the Doosan-style dynamic cap through the public card calculator', () => {
         const doosanCard: Card = {
             id: 'kb_doosan_bears',

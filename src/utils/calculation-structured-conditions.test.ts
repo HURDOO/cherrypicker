@@ -92,6 +92,35 @@ describe('structured card benefit conditions', () => {
         });
     });
 
+    it('applies yearly dates and their exclusions on the Korea Standard Time calendar day', () => {
+        vi.useFakeTimers();
+        const holiday = rule({
+            id: 'holiday',
+            condition: { annualDates: ['06-06', '10-01'] },
+            action: { type: 'PERCENT', value: 30 },
+        });
+        const everyday = rule({
+            id: 'everyday',
+            condition: { excludedAnnualDates: ['06-06', '10-01'] },
+            action: { type: 'PERCENT', value: 10 },
+        });
+
+        // 2026-10-01 00:30 KST is still 2026-09-30 in UTC.
+        vi.setSystemTime(new Date('2026-09-30T15:30:00.000Z'));
+        expect(calculate(10_000, [holiday]).calculatedDiscount).toBe(3_000);
+        expect(calculate(10_000, [everyday])).toMatchObject({
+            calculatedDiscount: 0,
+            reason: '혜택 제외일',
+        });
+
+        vi.setSystemTime(new Date('2026-10-01T15:30:00.000Z'));
+        expect(calculate(10_000, [holiday])).toMatchObject({
+            calculatedDiscount: 0,
+            reason: '혜택 적용일 아님',
+        });
+        expect(calculate(10_000, [everyday]).calculatedDiscount).toBe(1_000);
+    });
+
     it('shares only the tiered monthly amount while keeping per-rule counts separate', () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2026-09-05T13:00:00.000Z'));

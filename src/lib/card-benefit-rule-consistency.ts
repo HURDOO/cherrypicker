@@ -34,6 +34,7 @@ type AlternativeConditionRule = {
     description: string;
     condition: {
         manualCheckRequired?: boolean | null;
+        annualDates?: string[] | null;
     };
 };
 
@@ -174,8 +175,10 @@ const sameBrandSet = (left: string[] = [], right: string[] = []) => (
 export const analyzeAlternativeManualChecks = (rules: AlternativeConditionRule[]) => {
     const specialDatePattern = /국군의\s*날|현충일|특별일|기념일/;
     const missingBaseRuleIds = new Set<string>();
+    // A special day stated as yearly dates is decided by the calculator, not by the user.
     rules.filter(rule => (
-        specialDatePattern.test(rule.description) && rule.condition.manualCheckRequired === true
+        specialDatePattern.test(rule.description) && rule.condition.manualCheckRequired === true &&
+        !rule.condition.annualDates?.length
     )).forEach(specialRule => {
         rules.filter(baseRule => (
             baseRule.id !== specialRule.id &&

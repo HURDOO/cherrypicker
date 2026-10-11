@@ -1502,6 +1502,31 @@ function HomePageContent() {
                             </section>
                         ) : null}
 
+                        {recommendation?.cardInformationRules.length ? (
+                            <section className="rounded-3xl border border-sky-200 bg-sky-50 p-4">
+                                <p className="text-xs font-black text-sky-900">
+                                    내 카드의 다른 혜택 {recommendation.cardInformationRules.length}개
+                                </p>
+                                <p className="mt-1 text-[10px] text-sky-800/70">
+                                    금액을 계산할 수 없는 카드 혜택이라 혜택 금액과 순위에 포함하지 않았어요.
+                                </p>
+                                <div className="mt-3 space-y-1 border-t border-sky-200 pt-3">
+                                    {recommendation.cardInformationRules.map(rule => (
+                                        <div key={rule.id} className="rounded-xl bg-white/70 px-3 py-2">
+                                            <p className="text-[10px] font-black text-sky-900">
+                                                {rule.cardName} · {rule.description}
+                                            </p>
+                                            {rule.note && (
+                                                <p className="mt-1 text-[9px] font-bold text-sky-800/65">
+                                                    {rule.note}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        ) : null}
+
                         {isRecommending && (
                             <div className="flex items-center justify-center gap-2 py-8 text-xs font-black text-gray-400">
                                 <LoaderCircle className="h-4 w-4 animate-spin" />

@@ -15,6 +15,7 @@ export type BenefitDslInputName =
     | 'CATEGORY_ID'
     | 'CHANNEL'
     | 'CURRENT_DATE'
+    | 'CURRENT_MONTH_DAY'
     | 'CURRENT_WEEKDAY'
     | 'CURRENT_MINUTE'
     | 'NEW_CARD_WINDOW_AVAILABLE'

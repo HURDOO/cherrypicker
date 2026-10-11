@@ -181,6 +181,12 @@ const getConditionEndsAt = (rule: BenefitRule) =>
 const getConditionDaysOfWeek = (rule: BenefitRule) =>
     getSnakeOrCamel<BenefitWeekday[]>(rule.condition, 'daysOfWeek', 'days_of_week', []);
 
+const getConditionAnnualDates = (rule: BenefitRule) =>
+    getSnakeOrCamel<string[]>(rule.condition, 'annualDates', 'annual_dates', []);
+
+const getConditionExcludedAnnualDates = (rule: BenefitRule) =>
+    getSnakeOrCamel<string[]>(rule.condition, 'excludedAnnualDates', 'excluded_annual_dates', []);
+
 const getConditionTimeRanges = (rule: BenefitRule) =>
     getSnakeOrCamel<NonNullable<BenefitRule['condition']['timeRanges']>>(
         rule.condition,
@@ -567,6 +573,29 @@ const getCurrentKstDateString = (date: Date) => {
     return `${now.year}-${String(now.month + 1).padStart(2, '0')}-${String(now.day).padStart(2, '0')}`;
 };
 
+/**
+ * A published 0-value rule records a benefit the engine cannot price (lounge, per-liter
+ * fuel, coupon-only partner offer). A free item (FIXED_PRICE 0) is still calculated.
+ */
+export const isInformationalCardRule = (rule: BenefitRule) => (
+    rule.program === undefined &&
+    rule.action.value === 0 &&
+    rule.action.type !== 'FIXED_PRICE'
+);
+
+/** Whether the rule's validity period and yearly dates allow it on the given KST day. */
+export const isRuleAvailableOnDate = (rule: BenefitRule, now: Date) => {
+    const currentDate = getCurrentKstDateString(now);
+    const monthDay = currentDate.slice(5);
+    const startsAt = getConditionStartsAt(rule);
+    const endsAt = getConditionEndsAt(rule);
+    const annualDates = getConditionAnnualDates(rule);
+    return (!startsAt || currentDate >= startsAt) &&
+        (!endsAt || currentDate <= endsAt) &&
+        (annualDates.length === 0 || annualDates.includes(monthDay)) &&
+        !getConditionExcludedAnnualDates(rule).includes(monthDay);
+};
+
 const getFirstBenefitTierLimit = (card: Card) => {
     if (!card.limitTable || card.limitTable.length === 0) return INFINITE_LIMIT;
     return [...card.limitTable]
@@ -777,6 +806,15 @@ const evaluateRule = ({
     const daysOfWeek = getConditionDaysOfWeek(rule);
     if (daysOfWeek.length > 0 && !daysOfWeek.includes(currentKst.weekday)) {
         result.reason = '혜택 적용 요일 아님';
+        return result;
+    }
+    const annualDates = getConditionAnnualDates(rule);
+    if (annualDates.length > 0 && !annualDates.includes(currentDate.slice(5))) {
+        result.reason = '혜택 적용일 아님';
+        return result;
+    }
+    if (getConditionExcludedAnnualDates(rule).includes(currentDate.slice(5))) {
+        result.reason = '혜택 제외일';
         return result;
     }
     const timeRanges = getConditionTimeRanges(rule);

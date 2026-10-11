@@ -18,7 +18,11 @@ import type {
     UserBenefitProfile,
     UserCardPerformance,
 } from '@/types';
-import { calculateBestCards } from './calculation';
+import {
+    calculateBestCards,
+    isInformationalCardRule,
+    isRuleAvailableOnDate,
+} from './calculation';
 import { calculatePerformanceContribution } from './performance-policy';
 import { normalizeSubscriptionProductName } from './subscriptionProducts';
 import {
@@ -906,23 +910,29 @@ export function calculateBestCombinations(
                 requiredNote: offer.condition.requiredNote,
             }),
         }));
-    const currentDate = now.toISOString().slice(0, 10);
-    const cardItemSpecificOffers = input.rules
-        .filter(rule => {
-            if (input.target.kind !== 'BRAND') return false;
-            if (rule.condition.itemSpecific !== true) return false;
-            if ((rule.excludedBrands ?? []).includes(input.target.brand.id)) return false;
-            const includedBrands = rule.includedBrands ?? [];
-            const matches = includedBrands.includes(input.target.brand.id) ||
-                (includedBrands.length === 0 && rule.category === input.target.brand.categoryId);
-            if (!matches) return false;
+    const isCardRuleAvailableHere = (rule: BenefitRule, options: { anyChannel?: boolean } = {}) => {
+        if (!options.anyChannel) {
             if (rule.platformType === 'ONLINE' || rule.platformType === 'OFFICIAL_SITE') {
                 if (!input.isOnline) return false;
             }
             if (rule.platformType === 'OFFLINE' && input.isOnline) return false;
-            if (rule.condition.startsAt && rule.condition.startsAt > currentDate) return false;
-            if (rule.condition.endsAt && rule.condition.endsAt < currentDate) return false;
-            return input.cards.some(card => card.id === rule.cardId);
+        }
+        if (!isRuleAvailableOnDate(rule, now)) return false;
+        const card = input.cards.find(item => item.id === rule.cardId);
+        return Boolean(card) && !(
+            rule.condition.requiredCardNetwork && card?.network &&
+            card.network !== rule.condition.requiredCardNetwork
+        );
+    };
+    const cardItemSpecificOffers = input.rules
+        .filter(rule => {
+            if (input.target.kind !== 'BRAND') return false;
+            if (rule.condition.itemSpecific !== true || isInformationalCardRule(rule)) return false;
+            if ((rule.excludedBrands ?? []).includes(input.target.brand.id)) return false;
+            const includedBrands = rule.includedBrands ?? [];
+            const matches = includedBrands.includes(input.target.brand.id) ||
+                (includedBrands.length === 0 && rule.category === input.target.brand.categoryId);
+            return matches && isCardRuleAvailableHere(rule);
         })
         .map(rule => ({
             id: rule.id,
@@ -944,6 +954,25 @@ export function calculateBestCombinations(
         ...promotionItemSpecificOffers,
         ...cardItemSpecificOffers,
     ];
+    // Unpriced card benefits are shown only where the card names this merchant, not category-wide.
+    // They never change an amount, so an online-only partner offer still shows for a store payment.
+    const cardInformationRules = input.target.kind === 'BRAND'
+        ? input.rules
+            .filter(rule => (
+                input.target.kind === 'BRAND' &&
+                isInformationalCardRule(rule) &&
+                (rule.includedBrands ?? []).includes(input.target.brand.id) &&
+                isCardRuleAvailableHere(rule, { anyChannel: true })
+            ))
+            .map(rule => ({
+                id: rule.id,
+                cardName: input.cards.find(card => card.id === rule.cardId)?.name ?? rule.cardId,
+                description: rule.description,
+                ...((rule.condition.requiredNote || rule.condition.eligibleItemSummary) && {
+                    note: rule.condition.requiredNote || rule.condition.eligibleItemSummary,
+                }),
+            }))
+        : [];
     const informationalOffers = currentOffers
         .filter(isInformationOnly)
         .map(offer => ({
@@ -1160,5 +1189,6 @@ export function calculateBestCombinations(
         combinations: deduplicated,
         itemSpecificOffers,
         informationalOffers,
+        cardInformationRules,
     };
 }

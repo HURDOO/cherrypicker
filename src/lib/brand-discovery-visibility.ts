@@ -1,4 +1,5 @@
 import type { BenefitRule, Brand, PromotionOffer } from '@/types';
+import { isInformationalCardRule } from '@/utils/calculation';
 
 /** Everyday payment categories (PROJECT_BRIEF §8) whose brands may surface in browse lists on their own. */
 export const EVERYDAY_DISCOVERY_CATEGORY_IDS: ReadonlySet<string> = new Set([
@@ -17,8 +18,6 @@ const isLive = (offer: PromotionOffer, today: string) => (
     (!offer.endsAt || offer.endsAt >= today)
 );
 
-/** Information-only card rules (0 won without a program) do not make a brand worth browsing. */
-const hasComputedBenefit = (rule: BenefitRule) => rule.action.value > 0 || rule.program !== undefined;
 
 /**
  * Brands stored as `AUTO` appear in browse lists while they carry a benefit worth finding: a
@@ -33,7 +32,7 @@ export function autoBrowsableBrandIds(input: {
     today: string;
 }): Set<string> {
     const cardBenefitBrandIds = new Set(input.rules
-        .filter(rule => input.publishedCardIds.has(rule.cardId) && hasComputedBenefit(rule))
+        .filter(rule => input.publishedCardIds.has(rule.cardId) && !isInformationalCardRule(rule))
         .flatMap(rule => rule.includedBrands ?? []));
     const promotedBrandIds = new Set(input.promotions
         .filter(offer => isLive(offer, input.today))

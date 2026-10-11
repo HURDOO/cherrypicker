@@ -30,6 +30,8 @@ const conditionCoverageFields = [
     'startsAt',
     'endsAt',
     'daysOfWeek',
+    'annualDates',
+    'excludedAnnualDates',
     'timeRanges',
     'requiredCardNetwork',
     'performanceWaiver',

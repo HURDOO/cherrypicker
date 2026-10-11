@@ -138,6 +138,8 @@ export interface RuleCondition {
     startsAt?: string; // Inclusive YYYY-MM-DD validity boundary
     endsAt?: string; // Inclusive YYYY-MM-DD validity boundary
     daysOfWeek?: BenefitWeekday[];
+    annualDates?: string[]; // MM-DD (KST); applies only on these dates every year
+    excludedAnnualDates?: string[]; // MM-DD (KST); never applies on these dates
     timeRanges?: BenefitTimeRange[];
     requiredCardNetwork?: CardNetwork;
     performanceWaiver?: 'NEW_CARD_REGISTRATION_WINDOW';
@@ -747,6 +749,13 @@ export interface RecommendationResponse {
         actionValue: number;
         eligibleItemSummary?: string;
         requiredNote?: string;
+    }>;
+    /** The user's unpriced card benefits that name this merchant; never part of totals. */
+    cardInformationRules: Array<{
+        id: RuleId;
+        cardName: string;
+        description: string;
+        note?: string;
     }>;
 }
 

@@ -38,6 +38,7 @@ const inputTypes: Record<BenefitDslInputName, ExpressionValueType> = {
     CATEGORY_ID: 'string',
     CHANNEL: 'string',
     CURRENT_DATE: 'string',
+    CURRENT_MONTH_DAY: 'string',
     CURRENT_WEEKDAY: 'string',
     CURRENT_MINUTE: 'number',
     NEW_CARD_WINDOW_AVAILABLE: 'boolean',
@@ -122,6 +123,7 @@ const inputValue = (
         case 'CATEGORY_ID': return historyEntry?.categoryId ?? context.categoryId ?? null;
         case 'CHANNEL': return historyEntry?.channel ?? context.channel;
         case 'CURRENT_DATE': return dateString(transactionDate);
+        case 'CURRENT_MONTH_DAY': return dateString(transactionDate).slice(5);
         case 'CURRENT_WEEKDAY': return parts.weekday;
         case 'CURRENT_MINUTE': return parts.minutes;
         case 'NEW_CARD_WINDOW_AVAILABLE': return context.newCardWindowAvailable;
@@ -1128,6 +1130,23 @@ export function compileLegacyBenefitRule(rule: BenefitRule): BenefitProgramV1 {
             op: 'in',
             value: input('CURRENT_WEEKDAY'),
             options: condition.daysOfWeek,
+        });
+    }
+    if (condition.annualDates?.length) {
+        eligibility.push({
+            op: 'in',
+            value: input('CURRENT_MONTH_DAY'),
+            options: condition.annualDates,
+        });
+    }
+    if (condition.excludedAnnualDates?.length) {
+        eligibility.push({
+            op: 'not',
+            value: {
+                op: 'in',
+                value: input('CURRENT_MONTH_DAY'),
+                options: condition.excludedAnnualDates,
+            },
         });
     }
     if (condition.timeRanges?.length) {

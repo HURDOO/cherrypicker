@@ -139,6 +139,8 @@ const isIsoCalendarDate = (value: unknown): value is string => {
     const parsed = new Date(`${value}T00:00:00Z`);
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 };
+// A yearly date checked against a leap year so 02-29 stays valid.
+const isAnnualMonthDay = (value: unknown) => isIsoCalendarDate(`2024-${value}`);
 
 const extractionSources = (input: CardBenefitExtractionInput): CardBenefitExtractionSource[] => (
     input.sources && input.sources.length > 0
@@ -181,6 +183,8 @@ const evidenceRequiredConditionFields: Array<keyof RuleCondition> = [
     'startsAt',
     'endsAt',
     'daysOfWeek',
+    'annualDates',
+    'excludedAnnualDates',
     'timeRanges',
     'requiredCardNetwork',
     'performanceWaiver',
@@ -248,6 +252,15 @@ const validateCondition = (value: unknown, label: string, errors: string[]) => {
     )) {
         errors.push(`${label} daysOfWeek 값이 올바르지 않습니다.`);
     }
+    (['annualDates', 'excludedAnnualDates'] as const).forEach(field => {
+        const dates = value[field];
+        if (dates !== undefined && (
+            !Array.isArray(dates) || dates.length === 0 || dates.length > 31 ||
+            dates.some(date => typeof date !== 'string' || !isAnnualMonthDay(date))
+        )) {
+            errors.push(`${label} ${field} 값은 MM-DD 날짜 목록이어야 합니다.`);
+        }
+    });
     if (value.timeRanges !== undefined && (
         !Array.isArray(value.timeRanges) ||
         value.timeRanges.length === 0 ||
@@ -1729,6 +1742,7 @@ const rawBenefitDslExpressionOpenAISchema: z.ZodTypeAny = z.lazy(() => (
                 'CATEGORY_ID',
                 'CHANNEL',
                 'CURRENT_DATE',
+                'CURRENT_MONTH_DAY',
                 'CURRENT_WEEKDAY',
                 'CURRENT_MINUTE',
                 'NEW_CARD_WINDOW_AVAILABLE',
