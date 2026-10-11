@@ -83,7 +83,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 2. 원문, extracted text, response metadata, content hash와 source bundle을 보존한다. SKT adapter는 공식 `totalCount`와 이름순 20건 페이지를 기준으로 전체 목록을 검증한 뒤 각 공식 브랜드 ID의 상세를 동시 요청 4개 이하로 수집하고, 시작 목록을 다시 확인해 수집 중 변동도 감지한다.
 3. 카드 혜택은 AI 인벤토리→BenefitRule 후보와 근거 연결 단계를 거친다. 고정 필드로 충분한 규칙은 `program=null`, 충분하지 않은 계산 규칙은 DSL v1 extension과 0원 legacy fallback을 받는다. 서버는 기존 target·condition·limitConfig를 기본 DSL로 컴파일해 extension과 합성하고, 공식 coverage에서 모든 최종 AST 노드 근거를 재검증한다. 허용 문법 밖 의미는 `unsupportedClauses`로 받는다. 지원되는 일부 adapter는 AI 실패 시 보수적 규칙 추출로 대체한다. SKT는 반대로 규칙 parser를 먼저 적용하고 한 브랜드의 모든 variant가 미해석된 경우에만 해당 공개 목록·상세를 strict schema의 AI 보조 parser에 보낸다. AI 결과는 원문 의미 hash와 DSL·evaluator version을 포함한 key로 재사용하며 원문 인용·variant 완전성 검증에 실패하면 SKT 출처 전체를 `partial`로 낮춘다.
 4. schema, DSL 타입·실행량, 근거 인용, 참조 무결성, 숫자·한도, 필드 제거·변경 위험을 audit한다. 금액 영향 `unsupportedClauses`는 `src/lib/benefit-coverage-patterns.ts`의 등록 패턴에 따라 연결 규칙만 조건 확인·0원 정보 제공으로 바꾸거나 카드 주의 문구로 남기고, 미등록 패턴의 규칙은 게시에서 제외한다. 검증·audit·승인은 이 변환을 적용한 게시 형태를 기준으로 하고, 주의 문구와 제외 규칙은 revision snapshot의 `coverage`에 저장해 공개 카드 지원 정보로 전달한다. 관리자는 DSL 요약·근거·고정 입력 simulation, 문구별 반영 단계와 차단 사유를 게시 전에 확인한다.
-5. 승인 가능 후보만 사람 관리자가 게시하고, revision snapshot을 활성화한다. 프로모션도 공식 근거·diff·검수 정책을 거친다. SKT 목록·상세가 하나라도 빠진 bundle은 `partial`로 보존하되 성공 출처 집합에는 넣지 않으며 후보 생성·자동 게시·삭제 관측을 수행하지 않는다.
+5. 승인 가능 후보만 사람 관리자가 게시하고, revision snapshot을 활성화한다. 원문을 다시 읽지 않는 반영 단계·결제처 정정은 `scripts/revise-card-benefits.ts`가 활성 revision의 승인 후보에 검토된 수정안(`docs/card-benefit-revisions/`)만 적용한 후보를 만들어 같은 검증·audit·승인을 거친다. 프로모션도 공식 근거·diff·검수 정책을 거친다. SKT 목록·상세가 하나라도 빠진 bundle은 `partial`로 보존하되 성공 출처 집합에는 넣지 않으며 후보 생성·자동 게시·삭제 관측을 수행하지 않는다.
 
 ## 4. 주요 모듈과 책임
 
@@ -116,7 +116,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 
 - `categories`, `brands`, `cards`, `benefit_rules`는 `user_id IS NULL`인 시스템 항목과 사용자 소유 커스텀 항목을 모두 표현한다.
 - 시스템 카드는 `catalog_status`, `issue_status`, 상품 코드와 공개 caveat로 게시·발급 상태를 구분한다.
-- `brands.discovery_visibility`는 `BROWSE`(항상 노출, 기본), `SEARCH_ONLY`(항상 검색 전용), `AUTO`(자동)를 저장한다. 프로모션 자동 발견·관리자 등록·카드 후보 제안으로 새로 생기는 공용 브랜드는 `AUTO`다. 공개 catalog를 만들 때 `src/lib/brand-discovery-visibility.ts`가 게시 카드의 금액 계산 혜택이나 일상 카테고리의 진행 중 프로모션이 있는 `AUTO` 브랜드만 노출로 판정하고, 나머지는 `discoveryVisibility: SEARCH_ONLY`로 싣는다. catalog는 요청마다 다시 계산되므로 프로모션 종료·새 혜택에 따라 노출이 바뀐다. 탐색 화면은 검색 전용 브랜드를 카테고리·전체·기본 인기 목록에서 빼고 검색·즐겨찾기·이용 기록·개인 혜택 제안으로만 보여준다. migration 0021이 기존 `official_` 브랜드를 `AUTO`로 바꿨다.
+- `brands.discovery_visibility`는 `BROWSE`(항상 노출, 기본), `SEARCH_ONLY`(항상 검색 전용), `AUTO`(자동)를 저장한다. 프로모션 자동 발견·관리자 등록·카드 후보 제안으로 새로 생기는 공용 브랜드는 `AUTO`다. 공개 catalog를 만들 때 `src/lib/brand-discovery-visibility.ts`가 게시 카드의 금액 계산 혜택이나 일상 카테고리의 진행 중 프로모션이 있는 `AUTO` 브랜드만 노출로 판정하고, 나머지는 `discoveryVisibility: SEARCH_ONLY`로 싣는다. catalog는 요청마다 다시 계산되므로 프로모션 종료·새 혜택에 따라 노출이 바뀐다. 로그인 사용자의 `/api/app-data`도 `src/lib/brand-discovery-server.ts`로 같은 판정을 적용한다. 탐색 화면은 검색 전용 브랜드를 카테고리·전체·기본 인기 목록에서 빼고 검색·즐겨찾기·이용 기록·개인 혜택 제안으로만 보여준다. migration 0021이 기존 `official_` 브랜드를 `AUTO`로 바꿨다.
 - `cards.performance_policy`는 versioned JSON 실적 제외 규칙과 규칙별 공식 URL·인용을 보존한다. 후보에서 정책이 바뀌면 고위험 diff로 검수하고 카드 revision·공개 catalog v3에 함께 보존한다. 정책이 없는 카드·커스텀 카드·구버전 catalog의 새 결제는 승인금액 전액을 예상 실적에 더하며, 과거 기록의 저장된 기여액과 snapshot은 그대로 읽는다.
 - 로컬 workspace는 공용 카탈로그와 서로 다른 저장소에 있으며, 선택한 시스템 카드 ID·첫 설정 진행 상태·실적·프로필·기록과 커스텀 항목을 보존한다. 기존 workspace에 명시적 카드 선택이 없으면 과거 실적·기록·개인 카드에서 관리 카드를 추론해 호환하고, 신규 workspace는 명시적 선택만 추천에 사용한다.
 
