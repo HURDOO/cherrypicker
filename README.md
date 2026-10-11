@@ -151,7 +151,7 @@ npm run cards:verify
 npm run cards:verify:scheduled
 ```
 
-`cards:collect`는 기본 SOL트래블 또는 `--card=<카드 ID>` 한 장을 확인하고, `cards:verify`는 지원 카드 전체를 순차 확인합니다. 전체 확인은 원문 의미 해시가 같은 카드의 AI 호출을 생략하며, 변경 카드가 실행당 상한을 넘으면 나머지를 다음 실행으로 미룹니다. `--max-ai-cards=0`을 붙이면 비용 없이 원문 변경 여부만 확인할 수 있습니다. `cards:verify:scheduled`는 cron·systemd timer 같은 외부 스케줄러에서 호출할 명령이며 실행 이력에 `SCHEDULED`로 기록됩니다. 일부 실패·미룸·검증 오류가 있으면 종료 코드 2를 반환하므로 운영 경고 조건으로 사용할 수 있습니다.
+`cards:collect`는 기본 SOL트래블 또는 `--card=<카드 ID>` 한 장을 확인하고, `cards:verify`는 지원 카드 전체를 순차 확인합니다. 카드 AI 상한(`CARD_BENEFIT_BATCH_MAX_AI_CARDS`, `--max-ai-cards`) 기본값은 0이라 AI API를 호출하지 않고 공식 원문만 비교합니다. 원문이 바뀐 카드는 게시 규칙을 새 원문으로 검증한 `수정안 필요` 후보로 남습니다. 반영은 직접 연 AI 세션에서 `npm run cards:sources -- --card=<카드 ID> --out=<폴더>`로 원문 차이를 보고, `npm run cards:revise -- --spec=<수정안 JSON>`으로 검증·승인합니다(`docs/card-benefit-source-policy.md`). 상한을 1 이상으로 두면 원문이 바뀐 카드를 실행당 그 수만큼 AI로 구조화하고 나머지는 다음 실행으로 미룹니다. `cards:verify:scheduled`는 cron·systemd timer 같은 외부 스케줄러에서 호출할 명령이며 실행 이력에 `SCHEDULED`로 기록됩니다. 일부 실패·미룸·검증 오류가 있으면 종료 코드 2를 반환하므로 운영 경고 조건으로 사용할 수 있습니다.
 
 카드 전체 확인 결과는 `card_benefit_collection_runs`에 카드별 상태, AI 구조화 수, 검증 오류와 출처 실패를 보존합니다. 관리자 카드 혜택 화면은 최근 20회 실행과 두 번 이상 연속 문제가 발생한 카드를 표시합니다. 정기 실행 주기는 배포 환경의 단일 외부 스케줄러에서 관리합니다. 단, 삭제 감지 직후의 1회성 5분 재확인은 예외입니다. CLI 수집은 같은 프로세스에서 기다렸다가 다시 수집하고, 관리자 화면의 수동 수집은 단일 앱 프로세스 안에서 중복 방지 타이머를 예약합니다. 앱이 재시작되면 정확한 예약 시각은 보장하지 않지만 삭제 후보가 SQLite에 남아 다음 완전 수집에서 이어서 판정됩니다.
 

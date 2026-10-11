@@ -4,7 +4,7 @@
 
 Phase 7의 첫 수직 흐름은 시스템 카드 `shinhan_sol`(신한 SOL트래블 체크카드)로 검증했다. 현재는 같은 source bundle·검증·검수·revision·rollback 계약을 유지하면서 `hana_nara`(하나 나라사랑카드)를 첫 범용 AI 우선 adapter 대상으로 추가했다. 카드사 페이지별 혜택 parser를 새로 만들지 않고 허용 출처와 문서 역할만 adapter에 선언한다.
 
-관리자는 `/admin/cards/new`에서 카드 기본정보와 1~8개의 공식 출처를 등록할 수 있다. 새 시스템 카드는 `DRAFT`로 저장되고 공개 카탈로그·추천·거래 입력에서 제외된다. 등록한 출처는 기존의 범용 AI 구조화 흐름으로 수집하며, 검증 후보를 관리자가 승인해 revision을 게시하는 시점에만 `PUBLISHED`로 전환한다. 코드에 선언된 기존 source adapter는 하위 호환용 기본값으로 유지하고, DB에 출처가 등록된 카드는 DB 설정을 우선한다.
+관리자는 `/admin/cards/new`에서 카드 기본정보와 1~8개의 공식 출처를 등록할 수 있다. 새 시스템 카드는 `DRAFT`로 저장되고 공개 카탈로그·추천·거래 입력에서 제외된다. 등록한 출처의 원문을 수집해 `수정안 필요` 후보로 보관하고, 사용자가 연 AI 세션이 기준 구조화 결과와 수정안으로 첫 혜택을 작성한다(아래 `AI 없는 원문 수집과 검토된 수정안`). 검증 후보를 관리자가 승인해 revision을 게시하는 시점에만 `PUBLISHED`로 전환한다. 코드에 선언된 기존 source adapter는 하위 호환용 기본값으로 유지하고, DB에 출처가 등록된 카드는 DB 설정을 우선한다.
 
 2026-08-24에 시스템 카드 8장·게시 규칙 88개의 공식 원문 대조를 시작해 카드별 공식 출처와 알려진 계산 차이를 인벤토리에 등록했다. 이 수동 대조는 source adapter의 승인 revision을 대신하지 않으며, 상세 결과와 다음 adapter 우선순위는 [시스템 카드 혜택 공식 원문 대조](./system-card-benefit-audit-2026-08-24.md)에 기록한다.
 
@@ -22,13 +22,19 @@ Phase 7의 첫 수직 흐름은 시스템 카드 `shinhan_sol`(신한 SOL트래�
 
 `card_benefit_documents`는 응답 원문, 사람이 읽을 수 있게 정리한 텍스트, URL, media type, SHA-256 content hash, 응답 ETag/Last-Modified, 수집 시각과 출처별 단조 증가 version을 보존한다. 같은 URL과 hash는 새 문서 version을 만들지 않는다. `card_benefit_candidate_documents`는 후보와 대표·보조 문서를 연결하고, 정렬한 URL·content hash 집합의 bundle hash로 같은 문서 묶음의 중복 후보 생성을 막는다. 공개 카탈로그 API에는 원문과 내부 후보를 포함하지 않는다.
 
-AI 재구조화 여부는 원문 bytes hash가 아니라 정리된 텍스트의 의미 hash로 판단한다. 조회수, 중복 신청 버튼, 카드사 공통 메뉴명과 신한 상품 페이지의 카드 디자인 영역처럼 혜택과 무관한 화면 장식 변화는 정규화한다. 할인율·금액·조건·한도와 이벤트의 진행·종료 상태처럼 계산 또는 유효성에 영향을 주는 문구는 정규화 대상에서 제외하며 회귀 테스트로 변경 감지를 고정한다. 원문 bytes와 문서 version은 의미 hash와 관계없이 그대로 보존한다.
+원문 변경 여부는 원문 bytes hash가 아니라 정리된 텍스트의 의미 hash로 판단한다. 의미 hash는 카드사별 본문 범위만 비교한다. 신한은 상단 `주요 혜택 상세 목록`과 `혜택 안내` 상세를 카드 디자인 영역 없이, KB국민카드 상품은 `주요혜택 상세혜택` 탭부터 신청 안내 팝업 전까지, KB 공지·KB국민은행 새소식은 제목·등록일부터 이전글·목록 전까지, 하나카드는 전체메뉴 뒤부터 `카드 비교하기`·`목록으로 이동` 전까지, 롯데카드는 메뉴 뒤부터 하단 공지 목록 전까지, NH농협카드는 카드상세 제목부터 신청 전 확인 팝업 전까지 비교한다. 표지가 없으면 전체 원문을 비교한다. 2026-10-11 게시 카드 15장의 승인 근거 인용은 모두 이 범위 안에 있었다. 조회수, 중복 신청 버튼, 카드사 공통 메뉴명처럼 범위 안에 남는 장식 변화도 정규화한다. 할인율·금액·조건·한도와 이벤트의 진행·종료 상태처럼 계산 또는 유효성에 영향을 주는 문구는 정규화 대상에서 제외하며 회귀 테스트로 변경 감지를 고정한다. 원문 bytes와 문서 version은 의미 hash와 관계없이 그대로 보존한다.
 
 원문은 현재 SQLite에 저장한다. 단일 공개 HTML은 2 MiB, PDF는 8 MiB·200쪽·추출 텍스트 100만 자로 제한한다. HTML은 UTF-8 문자열로, PDF 원본 bytes는 base64로 보존한다. PDF.js가 추출한 텍스트에는 페이지 경계를 넣고 page count와 문서 제목을 metadata에 기록한다. 텍스트 층이 없는 스캔 PDF는 추측이나 자동 OCR 없이 수집 실패로 처리한다. 별도 object storage 전환은 실제 카드 수와 백업 크기를 측정한 뒤 결정한다.
 
 ## 구조화와 검증
 
-`OPENAI_API_KEY`가 있으면 기본 `gpt-5.6-luna`를 OpenAI Responses API로 호출한다. 첫 호출은 공식 문서의 상시 혜택·유효 프로모션·실적·한도·제외 조건을 혜택 section 인벤토리로 전수 목록화하고, 두 번째 호출은 이를 중첩 JSON Schema의 `CardBenefitExtraction`과 section별 rule coverage로 직접 구조화한다. 고정 필드로 충분한 규칙은 `program=null`, 충분하지 않은 규칙은 허용 목록 DSL v1 program과 `FLAT 0` fallback을 출력한다. 서버는 기존 target·condition·limitConfig의 legacy DSL을 안전한 기본값으로 합성하며 개별 서비스 기간 한도와 카드 통합 한도를 분리한다. DSL로도 표현할 수 없는 문구는 근거·영향 rule ID·계산값 영향 여부를 `unsupportedClauses`에 반환한다. 두 결과 모두 원문 URL·인용 문장·PDF 페이지를 애플리케이션 validator가 다시 확인한다. 인벤토리 section이 규칙이나 근거에 연결되지 않으면 후보 승인을 차단한다. 키가 없거나 호출·파싱이 실패하면 SOL트래블만 기존 보수적 규칙 추출기를 사용하고, 범용 AI 우선 adapter는 불완전한 후보를 만들지 않고 수집 실패로 남긴다.
+`OPENAI_API_KEY`가 있으면 기본 `gpt-5.6-luna`를 OpenAI Responses API로 호출한다. 첫 호출은 공식 문서의 상시 혜택·유효 프로모션·실적·한도·제외 조건을 혜택 section 인벤토리로 전수 목록화하고, 두 번째 호출은 이를 중첩 JSON Schema의 `CardBenefitExtraction`과 section별 rule coverage로 직접 구조화한다. 고정 필드로 충분한 규칙은 `program=null`, 충분하지 않은 규칙은 허용 목록 DSL v1 program과 `FLAT 0` fallback을 출력한다. 서버는 기존 target·condition·limitConfig의 legacy DSL을 안전한 기본값으로 합성하며 개별 서비스 기간 한도와 카드 통합 한도를 분리한다. DSL로도 표현할 수 없는 문구는 근거·영향 rule ID·계산값 영향 여부를 `unsupportedClauses`에 반환한다. 두 결과 모두 원문 URL·인용 문장·PDF 페이지를 애플리케이션 validator가 다시 확인한다. 인벤토리 section이 규칙이나 근거에 연결되지 않으면 후보 승인을 차단한다. 키가 없거나 호출·파싱이 실패하면 SOL트래블만 기존 보수적 규칙 추출기를 사용하고, 범용 AI 우선 adapter는 불완전한 후보를 만들지 않고 수집 실패로 남긴다. 이 자동 구조화는 2026-10-11부터 기본으로 꺼져 있고 `CARD_BENEFIT_BATCH_MAX_AI_CARDS`를 1 이상으로 둘 때만 실행한다.
+
+### AI 없는 원문 수집과 검토된 수정안
+
+카드 AI 상한 기본값은 0이다. 이때 정기 실행(`cards:verify:scheduled`), 관리자 `확인` 버튼, `cards:collect`는 공식 원문만 수집·보존하고 AI API를 호출하지 않는다. 승인 후보와 같은 문서 묶음이면 기존처럼 `원문 동일`로 끝난다. 원문이 바뀌면 게시된 승인 후보의 구조화 결과를 새 원문으로 다시 검증한 결과를 `source:awaiting-revision-v1` 후보(`수정안 필요`)로 보관한다. 이 후보는 사라진 근거 인용을 검증 오류로 보여 주고, 원문 변경 안내 오류를 항상 포함해 그대로 승인할 수 없다. 승인된 구조화 결과가 없는 카드(게시 전 카드, seed만 있는 카드)는 빈 구조화 결과로, 원문은 같지만 승인 후보가 현재 검증 기준을 통과하지 못하는 카드도 같은 후보로 남긴다. 같은 묶음을 다시 확인하면 새 후보를 만들지 않고, 더 새로운 묶음이 오거나 승인 후보와 같은 원문으로 돌아오면 이전 `수정안 필요` 후보를 반려한다. 관리자 화면은 `수정안 필요` 배너로, 정기 실행은 종료 코드 2로 알린다. 사용자 화면에는 별도 표시를 하지 않는다.
+
+반영은 사용자가 직접 연 AI 세션에서 한다. `npm run cards:sources -- --card=<카드 ID> --out=<폴더>`가 게시 근거 원문(`published/`)과 새 원문(`current/`), 승인 구조화 결과와 문서 묶음 hash를 남기면, 세션이 원문 차이를 비교해 `docs/card-benefit-revisions/*.json` 수정안을 만들고 `sourceBundleHash`에 읽은 묶음을 고정한다. `npm run cards:revise -- --spec=<파일>`은 새 원문으로 근거를 검증하고 `수정안 필요` 후보를 대체한다. 규칙 변경이 필요 없는 원문 변경도 메모만 있는 수정안으로 확인해 새 원문에 연결한다. 게시 전 카드의 첫 혜택은 같은 폴더에 둔 기준 구조화 결과(`base`)로 작성한다. 구독형 AI는 사람이 연 세션에서만 쓰고 서버 정기 실행에 연결하지 않는다.
 
 - 카드 ID 고정 및 전체 교체 후보(`completeness: FULL`)
 - 규칙 ID 중복, 숫자 범위, 할인율, 실적·건별·일·월·연 한도 검증
@@ -59,7 +65,7 @@ AI 재구조화 여부는 원문 bytes hash가 아니라 정리된 텍스트의 
 
 승인 전에는 라이브 `cards`와 `benefit_rules`를 변경하지 않는다. 최초 승인 시 기존 시스템 카드와 규칙을 기준 revision으로 먼저 저장하고, 승인 후보를 다음 revision으로 게시한다. 이후 seed 실행은 활성 revision이 있는 카드를 덮어쓰지 않는다.
 
-원문이 바뀌지 않은 반영 단계·결제처 정정은 AI 재구조화 없이 수정 후보로 반영할 수 있다. `scripts/revise-card-benefits.ts`는 활성 revision을 만든 승인 후보에 검토된 수정안(`docs/card-benefit-revisions/*.json`, 규칙별 JSON merge patch·근거·미지원 문구·브랜드 제안)만 적용하고, 같은 공식 문서 묶음으로 일반 후보와 동일한 검증·audit·승인을 거친다. 게시 규칙이 승인 후보와 다르거나 검수 대기 후보가 있으면 만들지 않는다. 기본 실행은 dry run이고, 승인은 사용자 확인을 받은 수정안에만 쓴다.
+반영 단계·결제처 정정과 원문 변경 반영은 AI 재구조화 없이 수정 후보로 한다. `scripts/revise-card-benefits.ts`(`cards:revise`)는 활성 revision을 만든 승인 후보에 검토된 수정안(`docs/card-benefit-revisions/*.json`, 규칙별 JSON merge patch·근거·미지원 문구·브랜드 제안)만 적용하고, `수정안 필요` 후보가 있으면 그 새 문서 묶음으로, 없으면 승인 후보의 문서 묶음으로 일반 후보와 동일한 검증·audit·승인을 거친다. 게시 규칙이 승인 후보와 다르거나 `수정안 필요` 외의 검수 대기 후보가 있으면 만들지 않는다. 기본 실행은 dry run이고, 승인은 사용자 확인을 받은 수정안에만 쓴다.
 
 Rollback은 과거 revision을 활성 상태로 직접 되돌리는 대신, 해당 snapshot을 내용으로 하는 새 revision을 만든다. 따라서 revision 번호는 항상 증가하고 어떤 과거 상태로 되돌렸는지 `rollback_of_revision`으로 추적할 수 있다. 사용자 커스텀 규칙은 게시와 rollback 대상에서 제외한다.
 
