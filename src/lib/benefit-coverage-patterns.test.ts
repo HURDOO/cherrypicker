@@ -212,6 +212,29 @@ describe('benefit coverage patterns', () => {
         expect(result.blockingErrors).toEqual([]);
     });
 
+    it('keeps rules confirmed when discount exclusions and stacking limits become card caveats', () => {
+        const input = extraction(
+            [rule('rule_a'), rule('rule_b')],
+            [
+                clause('installment', ['rule_a', 'rule_b'], 'DISCOUNT_EXCLUDE_TRANSACTION_TYPE'),
+                clause('stacking', [], 'CARD_OFFER_NO_STACKING'),
+            ],
+        );
+        const { value, result } = applyBenefitCoveragePatterns(input);
+
+        expect(value.rules).toEqual(input.rules);
+        expect(result.outcomes.map(outcome => [outcome.level, outcome.ruleIds])).toEqual([
+            ['CARD_CAVEAT', []],
+            ['CARD_CAVEAT', []],
+        ]);
+        expect(result.caveats).toEqual([
+            '일부 거래 종류는 이 카드의 할인·적립에서 제외됩니다. 공식 조건: “공식 문구 installment”',
+            '카드사의 다른 할인 행사와는 중복되지 않을 수 있습니다. 공식 조건: “공식 문구 stacking”',
+        ]);
+        expect(result.excludedRules).toEqual([]);
+        expect(result.blockingErrors).toEqual([]);
+    });
+
     it('keeps rules of unregistered patterns unpublished, with their fallbacks', () => {
         const input = extraction(
             [

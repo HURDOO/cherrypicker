@@ -36,9 +36,21 @@ export const BENEFIT_COVERAGE_PATTERNS = [
         userMessage: '일부 거래는 카드사 전월 실적에서 제외되어 예상 실적과 다를 수 있습니다.',
     },
     {
+        id: 'DISCOUNT_EXCLUDE_TRANSACTION_TYPE',
+        level: 'CARD_CAVEAT',
+        summary: '앱이 거래 종류를 판정할 수 없는 할인·적립 제외 거래(무이자할부·상품권·선불카드 구입·충전·취소·세금·해외 이용 등)',
+        userMessage: '일부 거래 종류는 이 카드의 할인·적립에서 제외됩니다.',
+    },
+    {
+        id: 'CARD_OFFER_NO_STACKING',
+        level: 'CARD_CAVEAT',
+        summary: '이 카드 혜택 목록 밖의 카드사 청구할인·프로모션과 중복되지 않고 큰 혜택 하나만 적용된다는 문구',
+        userMessage: '카드사의 다른 할인 행사와는 중복되지 않을 수 있습니다.',
+    },
+    {
         id: 'CARD_WIDE_LIMIT_UNMODELED',
         level: 'BLOCK_CARD',
-        summary: '카드의 모든 계산 혜택을 제한하지만 표현할 수 없는 통합 한도·조건',
+        summary: '모든 계산 혜택이 함께 쓰는 통합 할인·적립 한도를 DSL 카드 한도로 표현할 수 없을 때만. 거래 종류 제외·중복 적용 문구에는 쓰지 않음',
         userMessage: '카드 전체 혜택 한도를 계산할 수 없어 게시를 보류합니다.',
     },
     {
