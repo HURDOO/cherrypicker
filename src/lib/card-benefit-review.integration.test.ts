@@ -210,4 +210,43 @@ describe('card benefit review with rule-level coverage', () => {
         expect(integrationDb.select().from(schema.cards)
             .where(eq(schema.cards.id, 'coverage_card')).get()?.catalogStatus).toBe('PUBLISHED');
     });
+
+    it('revises the published extraction without AI and approves it through the normal path', () => {
+        const candidateCount = () => integrationDb.select().from(schema.cardBenefitCandidates).all().length;
+        const unsupported = ingestion.createCardBenefitRevisionCandidate('coverage_card', {
+            note: '근거 없는 할인율',
+            rules: { coverage_card_wefan: { action: { value: 25 } } },
+        }, { dryRun: true });
+
+        expect(unsupported.validationErrors)
+            .toContain('할인율 25%의 공식 숫자 근거가 없습니다: 위팬샵 20% 할인');
+        expect(candidateCount()).toBe(1);
+
+        const { candidate, validationErrors } = ingestion.createCardBenefitRevisionCandidate('coverage_card', {
+            note: '베어스하우스 규칙 정리',
+            removeRuleIds: ['coverage_card_bears'],
+        });
+
+        expect(validationErrors).toEqual([]);
+        expect(candidate).toMatchObject({
+            status: 'PENDING',
+            baseRevision: 2,
+            extractor: ingestion.CARD_BENEFIT_REVISION_EXTRACTOR,
+        });
+        expect(candidate?.extraction.unsupportedClauses?.map(clause => clause.id)).toEqual(['installment']);
+        expect(() => ingestion.createCardBenefitRevisionCandidate('coverage_card', { note: '중복' }))
+            .toThrow('검수 대기 후보');
+
+        ingestion.reviewCardBenefitCandidate(candidate!.id, 'APPROVED', 'reviewer');
+        const active = integrationDb.select().from(schema.cardBenefitRevisions)
+            .where(and(
+                eq(schema.cardBenefitRevisions.cardId, 'coverage_card'),
+                eq(schema.cardBenefitRevisions.isActive, true),
+            ))
+            .get();
+
+        expect(active).toMatchObject({ revision: 3, candidateId: candidate!.id });
+        expect(active?.snapshot.coverage?.excludedRules).toEqual([]);
+        expect(active?.snapshot.rules.map(rule => rule.id)).toEqual(['coverage_card_wefan']);
+    });
 });

@@ -522,7 +522,13 @@ const validateRuleSemanticEvidence = (
             errors.push(`연 횟수 한도의 공식 근거가 없습니다: ${label}`);
         }
         const evidenceTiers = performanceLimitTiersIn(limitEvidence);
-        if (evidenceTiers.length >= 2 && JSON.stringify(
+        // The card-wide integrated limit table is modeled on the card, not on each rule.
+        const isCardLimitTable = ruleRow.usesCardLimit === true && JSON.stringify(evidenceTiers) ===
+            JSON.stringify(baselineLimitTable
+                .filter(tier => tier.threshold > 0 && tier.limit > 0)
+                .sort((left, right) => left.threshold - right.threshold)
+                .map(tier => ({ threshold: tier.threshold, limit: tier.limit })));
+        if (evidenceTiers.length >= 2 && !isCardLimitTable && JSON.stringify(
             ruleRow.limitConfig.monthlyAmountByPerformance ?? []
         ) !== JSON.stringify(evidenceTiers)) {
             errors.push(`실적별 서비스 월 한도 표가 구조화되지 않았습니다: ${label}`);
@@ -583,7 +589,7 @@ const validateRuleSemanticEvidence = (
             errors.push(`특정 결제처 DSL 혜택이 카테고리 전체로 설정됐습니다: ${label}`);
         }
         if (ruleRow.condition.performanceWaiver === 'NEW_CARD_REGISTRATION_WINDOW' &&
-            /월\s*할인한도[^\n]{0,30}\d+(?:\.\d+)?\s*%[^\n]{0,20}(?:적용|제공)/i
+            /월\s*할인한도(?!\s*초과)[^\n]{0,30}\d+(?:\.\d+)?\s*%[^\n]{0,20}(?:적용|제공)/i
                 .test(conditionEvidence) && (
                 ruleRow.limitConfig.monthlyAmount !== undefined ||
                 (ruleRow.limitConfig.monthlyAmountByPerformance?.length ?? 0) > 0

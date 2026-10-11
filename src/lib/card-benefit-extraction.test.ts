@@ -1305,6 +1305,53 @@ describe('card benefit extraction', () => {
         );
     });
 
+    it('does not read a cap-exceeded fallback rate or the card-wide limit table as a rule limit', () => {
+        const result = extractShinhanSolTravelWithRules(input);
+        const convenience = result.extraction.rules.find(
+            rule => rule.id === 'sol_domestic_convenience',
+        )!;
+        const fallbackQuote = '월 할인한도 초과 시 다음 결제건부터 1% 할인 적용';
+        const cardLimitQuote = '지난달 이용실적 10만원 이상 5천원 20만원 이상 1만원';
+        result.extraction.evidence.push({
+            id: 'over-limit-fallback',
+            ruleIds: [convenience.id],
+            fields: ['condition', 'limitConfig'],
+            quote: fallbackQuote,
+            sourceUrl: input.sourceUrl,
+        }, {
+            id: 'card-limit-table',
+            ruleIds: [convenience.id],
+            fields: ['limitConfig'],
+            quote: cardLimitQuote,
+            sourceUrl: input.sourceUrl,
+        });
+        const validate = (usesCardLimit: boolean) => {
+            convenience.usesCardLimit = usesCardLimit;
+            return validateCardBenefitExtraction(result.extraction, {
+                ...input,
+                card: {
+                    ...input.card,
+                    limitTable: [
+                        { threshold: 0, limit: 0 },
+                        { threshold: 100_000, limit: 5_000 },
+                        { threshold: 200_000, limit: 10_000 },
+                    ],
+                },
+                sourceText: `${input.sourceText}\n${fallbackQuote}\n${cardLimitQuote}`,
+            }, references).errors;
+        };
+
+        expect(validate(true)).not.toContain(
+            '신규카드 유예의 비율형 월 한도를 자동 계산할 수 없습니다: 국내 편의점 5% 할인',
+        );
+        expect(validate(true)).not.toContain(
+            '실적별 서비스 월 한도 표가 구조화되지 않았습니다: 국내 편의점 5% 할인',
+        );
+        expect(validate(false)).toContain(
+            '실적별 서비스 월 한도 표가 구조화되지 않았습니다: 국내 편의점 5% 할인',
+        );
+    });
+
     it('rejects evidence quotes that are not present in the raw source', () => {
         const result = extractShinhanSolTravelWithRules(input);
         result.extraction.evidence[0] = {

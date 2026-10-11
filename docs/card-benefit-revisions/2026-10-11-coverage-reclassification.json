@@ -1,0 +1,687 @@
+{
+  "note": "2026-10-11 반영 단계 재분류(사용자 승인, AI 미사용): 계산에 반영된 실적·한도 메모만 있던 조건 확인 해제, 할인 제외 거래는 카드 주의 문구로 이동, 영화 티켓·매점 구분 확인, 국군의날·현충일 날짜 조건, 미매핑 결제처 연결.",
+  "cards": {
+    "kb_nori2_student": {
+      "rules": {
+        "kb_nori2_convenience": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "kb_nori2_delivery": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "kb_nori2_ott": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "kb_nori2_cgv": {
+          "condition": {
+            "requiredNote": "CGV 영화 티켓 결제인지 확인해야 합니다. 상품권 구매와 매점 이용금액은 할인에서 제외됩니다."
+          }
+        }
+      },
+      "addEvidence": [
+        {
+          "id": "revision-cgv-concession",
+          "ruleIds": [
+            "kb_nori2_cgv"
+          ],
+          "fields": [
+            "condition"
+          ],
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?cooperationcode=07998&mainCC=a",
+          "quote": "CGV 4,000원 전월 이용실적 20만원 이상 시 제공 건당 1만원 이상 이용 시 제공 현장 결제, 공식 홈페이지 및 모바일(앱) 결제 시 제공 할인 제외 : 상품권 구매 및 매점 이용금액"
+        }
+      ],
+      "addUnsupportedClauses": [
+        {
+          "id": "revision-performance-exclusions",
+          "ruleIds": [],
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?cooperationcode=07998&mainCC=a",
+          "quote": "이용실적 제외 대상 후불교통요금, 무승인금액(자판기, 터널통행료, 기차/고속버스 취소 반환 수수료 등), 정부지원금 이용금액(보육료, 유치원보조비, 바우처 이용금액 등)",
+          "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+          "affectsValue": true,
+          "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+        }
+      ]
+    },
+    "shinhan_hi_point": {
+      "rules": {
+        "shinhan_hi_point_favorite_overseas_1": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_hi_point_favorite_overseas_2": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_hi_point_favorite_overseas_3": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_hi_point_favorite_overseas_4": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_hi_point_general_1": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_hi_point_general_2": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_hi_point_general_3": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_hi_point_general_4": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_hi_point_favorite_cj_onstyle_1": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_hi_point_favorite_cj_onstyle_2": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_hi_point_favorite_cj_onstyle_3": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_hi_point_favorite_cj_onstyle_4": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        }
+      },
+      "addUnsupportedClauses": [
+        {
+          "id": "revision-cj-giftcard",
+          "ruleIds": [
+            "shinhan_hi_point_favorite_cj_onstyle_1",
+            "shinhan_hi_point_favorite_cj_onstyle_2",
+            "shinhan_hi_point_favorite_cj_onstyle_3",
+            "shinhan_hi_point_favorite_cj_onstyle_4"
+          ],
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/credit/1187943_2207.html",
+          "quote": "CJ온스타일 상품권 구매건 제외(0.2~2% 적립률 적용)",
+          "reason": "앱이 거래 종류를 판정할 수 없는 할인·적립 제외 거래",
+          "affectsValue": true,
+          "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+        },
+        {
+          "id": "revision-interest-free-installment",
+          "ruleIds": [],
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/credit/1187943_2207.html",
+          "quote": "무이자할부(슬림할부 등 부분 무이자 포함) 이용거래는 포인트 적립이 되지 않습니다.",
+          "reason": "앱이 거래 종류를 판정할 수 없는 할인·적립 제외 거래",
+          "affectsValue": true,
+          "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+        }
+      ]
+    },
+    "shinhan_mr_life": {
+      "rules": {
+        "shinhan_mr_life_all_day_convenience": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_mr_life_all_day_laundry": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_mr_life_all_day_medical": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_mr_life_monthly_utility": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_mr_life_night_taxi": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        },
+        "shinhan_mr_life_weekend_mart": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        }
+      },
+      "addUnsupportedClauses": [
+        {
+          "id": "revision-mart-giftcard",
+          "ruleIds": [
+            "shinhan_mr_life_weekend_mart"
+          ],
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/credit/1187937_2207.html",
+          "quote": "할인마트 이마트, 롯데마트, 홈플러스 기업형 슈퍼마켓, 온라인몰 포함( 상품권 제외 )",
+          "reason": "앱이 거래 종류를 판정할 수 없는 할인·적립 제외 거래",
+          "affectsValue": true,
+          "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+        }
+      ]
+    },
+    "shinhan_nara": {
+      "rules": {
+        "sh_nara_px_over_30000": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        }
+      }
+    },
+    "shinhan_deep_dream": {
+      "rules": {
+        "dd_dream_overseas": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null
+          }
+        }
+      },
+      "addUnsupportedClauses": [
+        {
+          "id": "revision-giftcard-prepaid",
+          "ruleIds": [],
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1188313_2206.html",
+          "quote": "상품권 구입, 선불카드 충전은 적립 제외",
+          "reason": "앱이 거래 종류를 판정할 수 없는 할인·적립 제외 거래",
+          "affectsValue": true,
+          "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+        }
+      ]
+    },
+    "kb_nara": {
+      "rules": {
+        "kb_nara_cgv": {
+          "condition": {
+            "manualCheckRequired": true,
+            "requiredNote": "CGV 영화 티켓 결제인지 확인해야 합니다. 상품권 구매와 매점 이용분은 할인에서 제외됩니다."
+          }
+        }
+      },
+      "addEvidence": [
+        {
+          "id": "revision-cgv-concession",
+          "ruleIds": [
+            "kb_nara_cgv"
+          ],
+          "fields": [
+            "condition"
+          ],
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04120",
+          "quote": "인터넷 예매 시 영화관 직영 홈페이지 (www.cgv.co.kr) 및 스마트폰 CGV 어플리케이션을 통해 결제한 경우만 할인 적용 상품권 구매 및 매점 이용분은 제외"
+        }
+      ]
+    },
+    "hana_nara": {
+      "rules": {
+        "hana_nara_cu_event": {
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null,
+            "excludedAnnualDates": [
+              "06-06",
+              "10-01"
+            ]
+          }
+        },
+        "hana_nara_cu_event_special": {
+          "includedBrands": [
+            "cu_event"
+          ],
+          "action": {
+            "value": 30
+          },
+          "condition": {
+            "confirmationRequired": null,
+            "manualCheckRequired": null,
+            "requiredNote": null,
+            "annualDates": [
+              "06-06",
+              "10-01"
+            ]
+          }
+        },
+        "hana_nara_delivery_special": {
+          "condition": {
+            "annualDates": [
+              "06-06",
+              "10-01"
+            ],
+            "requiredNote": "군 급여이체 조건을 확인해야 합니다."
+          }
+        }
+      },
+      "addEvidence": [
+        {
+          "id": "revision-holiday-dates",
+          "ruleIds": [
+            "hana_nara_delivery_special"
+          ],
+          "fields": [
+            "condition"
+          ],
+          "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CARD_CDOE=15475&CD_PD_SEQ=18813&title=STEP0",
+          "quote": "구분 할인 한도 할인율 매월 월 5천원 20% 국군의날·현충일 일 1만원"
+        }
+      ],
+      "addUnsupportedClauses": [
+        {
+          "id": "revision-performance-exclusions",
+          "ruleIds": [],
+          "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CARD_CDOE=15475&CD_PD_SEQ=18813&title=STEP0",
+          "quote": "실적 제외 대상 국세, 지방세, 수도/전기요금, 그외 공과금(우편요금, 과태료, 범칙금, 벌금, 국가/공공기관/공공단체가 부과하는 부담금), 도시가스 요금, 아파트 관리비",
+          "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+          "affectsValue": true,
+          "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+        }
+      ]
+    },
+    "samsung_id_on": {
+      "rules": {
+        "samsung_id_on_b1_coffee": {
+          "includedBrands": [
+            "starbucks",
+            "ediya",
+            "coffeebean",
+            "twosome",
+            "official_ff71aa484b0ada48"
+          ]
+        },
+        "samsung_id_on_b1_deli": {
+          "includedBrands": [
+            "subway",
+            "paris_baguette",
+            "baskin_robbins",
+            "dunkin",
+            "official_a784162bdd01f6d7"
+          ]
+        },
+        "samsung_id_on_b2_streaming": {
+          "includedBrands": [
+            "netflix",
+            "tving",
+            "official_0362ad03bc8c5218",
+            "official_ee47ad6a8622d0ea",
+            "official_875845411b04a8c3",
+            "official_31a036196f9075d6"
+          ],
+          "condition": {
+            "requiredNote": "본인카드와 가족카드의 이용실적 및 할인한도는 합산합니다. 정기결제인지, 간편결제나 앱스토어(인앱) 결제가 아닌지 확인해야 합니다."
+          }
+        }
+      },
+      "removeRuleIds": [
+        "samsung_id_on_b1_unmapped",
+        "samsung_id_on_b2_unmapped"
+      ],
+      "addEvidence": [
+        {
+          "id": "revision-streaming-exclusions",
+          "ruleIds": [
+            "samsung_id_on_b2_streaming"
+          ],
+          "fields": [
+            "condition"
+          ],
+          "sourceUrl": "https://static11.samsungcard.com/wcms/svc/1347289_38558.html",
+          "quote": "스트리밍은 간편결제건 및 앱스토어를 통한 결제건(인앱 결제) 제외"
+        }
+      ],
+      "addProposedBrands": [
+        {
+          "id": "official_ff71aa484b0ada48",
+          "name": "블루보틀",
+          "categoryId": "cafe",
+          "aliases": [],
+          "sourceUrl": "https://static11.samsungcard.com/wcms/svc/1347284_38558.html",
+          "quote": "영역 \n할인 대상 \n\n커피전문점 \n스타벅스, 이디야커피, 커피빈, 투썸플레이스, 블루보틀 \n\n배달앱 \n배달의민족, 요기요 \n\n델리 \n쉐이크쉑, 써브웨이, 파리바게뜨, 배스킨라빈스, 던킨"
+        },
+        {
+          "id": "official_a784162bdd01f6d7",
+          "name": "쉐이크쉑",
+          "categoryId": "food",
+          "aliases": [],
+          "sourceUrl": "https://static11.samsungcard.com/wcms/svc/1347284_38558.html",
+          "quote": "영역 \n할인 대상 \n\n커피전문점 \n스타벅스, 이디야커피, 커피빈, 투썸플레이스, 블루보틀 \n\n배달앱 \n배달의민족, 요기요 \n\n델리 \n쉐이크쉑, 써브웨이, 파리바게뜨, 배스킨라빈스, 던킨"
+        },
+        {
+          "id": "official_0362ad03bc8c5218",
+          "name": "웨이브",
+          "categoryId": "subscription",
+          "aliases": [],
+          "sourceUrl": "https://static11.samsungcard.com/wcms/svc/1347289_38558.html",
+          "quote": "업종 \n할인 대상 \n\n교통 \n대중교통(버스, 지하철), 택시 \n\n이동통신 \nSKT, KT, LG U+, 알뜰폰 이동통신요금 정기결제건 \n\n스트리밍 \n넷플릭스, 웨이브, 티빙, 왓챠, 멜론, FLO 정기결제건"
+        },
+        {
+          "id": "official_ee47ad6a8622d0ea",
+          "name": "왓챠",
+          "categoryId": "subscription",
+          "aliases": [],
+          "sourceUrl": "https://static11.samsungcard.com/wcms/svc/1347289_38558.html",
+          "quote": "업종 \n할인 대상 \n\n교통 \n대중교통(버스, 지하철), 택시 \n\n이동통신 \nSKT, KT, LG U+, 알뜰폰 이동통신요금 정기결제건 \n\n스트리밍 \n넷플릭스, 웨이브, 티빙, 왓챠, 멜론, FLO 정기결제건"
+        },
+        {
+          "id": "official_875845411b04a8c3",
+          "name": "멜론",
+          "categoryId": "subscription",
+          "aliases": [],
+          "sourceUrl": "https://static11.samsungcard.com/wcms/svc/1347289_38558.html",
+          "quote": "업종 \n할인 대상 \n\n교통 \n대중교통(버스, 지하철), 택시 \n\n이동통신 \nSKT, KT, LG U+, 알뜰폰 이동통신요금 정기결제건 \n\n스트리밍 \n넷플릭스, 웨이브, 티빙, 왓챠, 멜론, FLO 정기결제건"
+        },
+        {
+          "id": "official_31a036196f9075d6",
+          "name": "FLO",
+          "categoryId": "subscription",
+          "aliases": [],
+          "sourceUrl": "https://static11.samsungcard.com/wcms/svc/1347289_38558.html",
+          "quote": "업종 \n할인 대상 \n\n교통 \n대중교통(버스, 지하철), 택시 \n\n이동통신 \nSKT, KT, LG U+, 알뜰폰 이동통신요금 정기결제건 \n\n스트리밍 \n넷플릭스, 웨이브, 티빙, 왓챠, 멜론, FLO 정기결제건"
+        }
+      ]
+    },
+    "shinhan_heyoung": {
+      "rules": {
+        "hy_cgv": {
+          "condition": {
+            "manualCheckRequired": true,
+            "requiredNote": "CGV 영화 예매(티켓) 결제인지 확인해야 합니다. 기프트콘·상품권·온라인 매점은 제외되고, 예매 전에 영화관 매점에서 결제하면 그 결제에 먼저 적용될 수 있습니다."
+          }
+        },
+        "shinhan_heyoung_qatar": {
+          "includedBrands": [
+            "official_29725203d54181fb"
+          ],
+          "condition": {
+            "requiredNote": "쿠폰 코드와 적용 대상 항공권을 확인해야 합니다."
+          }
+        },
+        "shinhan_heyoung_avis": {
+          "includedBrands": [
+            "official_010a4e39b015b568"
+          ],
+          "condition": {
+            "requiredNote": "프로모션 적용 사이트와 예약 대상, VISA Platinum 자격을 확인해야 합니다."
+          }
+        },
+        "shinhan_heyoung_hotelscom": {
+          "includedBrands": [
+            "official_478e0fe49a1d855b"
+          ],
+          "condition": {
+            "requiredNote": "쿠폰 코드와 적용 대상 예약을 확인해야 합니다."
+          }
+        },
+        "shinhan_heyoung_booking": {
+          "includedBrands": [
+            "official_b84eec02ff618ea8"
+          ],
+          "condition": {
+            "requiredNote": "예약 대상과 캐시백 제공 조건을 확인해야 합니다."
+          }
+        },
+        "shinhan_heyoung_expedia": {
+          "includedBrands": [
+            "official_2d1215e8e47c3135"
+          ],
+          "condition": {
+            "requiredNote": "쿠폰 코드와 적용 대상 예약을 확인해야 합니다."
+          }
+        },
+        "shinhan_heyoung_ihg": {
+          "includedBrands": [
+            "official_9497b64e66b77cfe"
+          ],
+          "condition": {
+            "requiredNote": "아시아태평양 지역 참여 호텔 여부와 VISA Platinum 자격을 확인해야 합니다."
+          }
+        },
+        "shinhan_heyoung_movv_airport": {
+          "includedBrands": [
+            "official_7c7d39f1d55c1d26"
+          ],
+          "condition": {
+            "requiredNote": "쿠폰 코드와 인천공항 이동 서비스 적용 여부를 확인해야 합니다."
+          }
+        },
+        "shinhan_heyoung_movv_overseas": {
+          "includedBrands": [
+            "official_7c7d39f1d55c1d26"
+          ],
+          "condition": {
+            "requiredNote": "쿠폰 코드와 해외공항·해외 자유여행 이동 서비스 적용 여부를 확인해야 합니다."
+          }
+        },
+        "shinhan_heyoung_tbr": {
+          "includedBrands": [
+            "official_55d45cff68875f3e"
+          ],
+          "condition": {
+            "requiredNote": "프로모션 전용 사이트 예약과 VISA Platinum 자격을 확인해야 합니다."
+          }
+        },
+        "shinhan_heyoung_goodluck": {
+          "includedBrands": [
+            "official_505076af93782a73"
+          ],
+          "condition": {
+            "requiredNote": "굿럭 앱 예약과 VISA Platinum 자격을 확인해야 합니다."
+          }
+        },
+        "shinhan_heyoung_goodluck_disabled": {
+          "includedBrands": [
+            "official_505076af93782a73"
+          ],
+          "condition": {
+            "requiredNote": "장애인용 서비스 대상 여부를 확인해야 합니다."
+          }
+        },
+        "shinhan_heyoung_goodluck_mobility": {
+          "includedBrands": [
+            "official_505076af93782a73"
+          ],
+          "condition": {
+            "requiredNote": "장애인 외 교통약자용 서비스 대상 여부를 확인해야 합니다."
+          }
+        },
+        "shinhan_heyoung_hyundai_dutyfree": {
+          "includedBrands": [
+            "official_37014fd31e7bc4d6"
+          ],
+          "condition": {
+            "requiredNote": "골드 멤버십 제공 및 할인 적용 조건을 확인해야 합니다."
+          }
+        },
+        "shinhan_heyoung_trip_hotel": {
+          "includedBrands": [
+            "official_2ff4f8ccf3bff527"
+          ],
+          "condition": {
+            "requiredNote": "Trip.com 호텔 예약의 적용 조건을 확인해야 합니다. 트립닷컴의 세부 거래 유형을 현재 브랜드로 구분할 수 없어 자동 계산에서 제외됩니다."
+          }
+        },
+        "shinhan_heyoung_trip_air": {
+          "includedBrands": [
+            "official_2ff4f8ccf3bff527"
+          ],
+          "condition": {
+            "requiredNote": "Trip.com 항공 예약의 적용 조건을 확인해야 합니다. 트립닷컴의 세부 거래 유형을 현재 브랜드로 구분할 수 없어 자동 계산에서 제외됩니다."
+          }
+        },
+        "shinhan_heyoung_trip_activity": {
+          "includedBrands": [
+            "official_2ff4f8ccf3bff527"
+          ],
+          "condition": {
+            "requiredNote": "Trip.com 액티비티 예약의 적용 조건을 확인해야 합니다. 트립닷컴의 세부 거래 유형을 현재 브랜드로 구분할 수 없어 자동 계산에서 제외됩니다."
+          }
+        }
+      },
+      "addEvidence": [
+        {
+          "id": "revision-cgv-booking-only",
+          "ruleIds": [
+            "hy_cgv"
+          ],
+          "fields": [
+            "condition"
+          ],
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1233237_2206.html",
+          "quote": "CGV사이트/앱 직접 접속이용 또는 현장 결제 시에 한하여 적용됩니다. 기프트콘, 상품권 구매 또는 온라인 매점 등 영화 예매 이외의 건에 대해서는 서비스 적용되지 않습니다. 영화 예매 전 영화관 내 매점 이용 시 할인서비스가 적용될 수 있으므로 유의하시기 바랍니다."
+        }
+      ],
+      "addProposedBrands": [
+        {
+          "id": "official_29725203d54181fb",
+          "name": "카타르항공",
+          "categoryId": "transport",
+          "aliases": [],
+          "sourceUrl": "https://www.shinhancard.com/pconts/download/card/MO_26_01204_visa_platinum_basic.pdf",
+          "quote": "카타르항공 쿠폰 코드 입력 시 최대 15% 할인 (1. 1 ~ 10. 31)"
+        },
+        {
+          "id": "official_010a4e39b015b568",
+          "name": "AVIS",
+          "categoryId": "transport",
+          "aliases": [],
+          "sourceUrl": "https://www.shinhancard.com/pconts/download/card/MO_26_01204_visa_platinum_basic.pdf",
+          "quote": "해외 렌터카 할인 - AVIS\n• AVIS 렌터카 프로모션 적용 사이트에서 예약 시 혜택 제공\n• 플래티늄 등급 : 10% ~ 20%"
+        },
+        {
+          "id": "official_478e0fe49a1d855b",
+          "name": "호텔스닷컴",
+          "categoryId": "transport",
+          "aliases": [],
+          "sourceUrl": "https://www.shinhancard.com/pconts/download/card/MO_26_01204_visa_platinum_basic.pdf",
+          "quote": "호텔스닷컴 쿠폰 코드 입력 시 최대 8% 할인"
+        },
+        {
+          "id": "official_b84eec02ff618ea8",
+          "name": "부킹닷컴",
+          "categoryId": "transport",
+          "aliases": [],
+          "sourceUrl": "https://www.shinhancard.com/pconts/download/card/MO_26_01204_visa_platinum_basic.pdf",
+          "quote": "부킹닷컴 예약 시 최대 10% 캐시백 서비스"
+        },
+        {
+          "id": "official_2d1215e8e47c3135",
+          "name": "익스피디아",
+          "categoryId": "transport",
+          "aliases": [],
+          "sourceUrl": "https://www.shinhancard.com/pconts/download/card/MO_26_01204_visa_platinum_basic.pdf",
+          "quote": "익스피디아 쿠폰 코드 입력 시 8% 할인"
+        },
+        {
+          "id": "official_9497b64e66b77cfe",
+          "name": "IHG",
+          "categoryId": "transport",
+          "aliases": [],
+          "sourceUrl": "https://www.shinhancard.com/pconts/download/card/MO_26_01204_visa_platinum_basic.pdf",
+          "quote": "IHG Hotel & Resorts 20% 할인"
+        },
+        {
+          "id": "official_7c7d39f1d55c1d26",
+          "name": "movv",
+          "categoryId": "transport",
+          "aliases": [],
+          "sourceUrl": "https://www.shinhancard.com/pconts/download/card/MO_26_01204_visa_platinum_basic.pdf",
+          "quote": "프라이빗 이동 서비스 - movv\n• movv 모바일 앱, 또는 웹사이트(movv.com)에서 쿠폰 코드 ‘visamovv2026’ 입력 시\n혜택 제공\n• 인천공항 이동 : 이용금액에서 2만 5천원 할인\n• 해외공항 및 해외 자유 여행 이동 : 이용금액의 8% 할인"
+        },
+        {
+          "id": "official_55d45cff68875f3e",
+          "name": "TBR Global",
+          "categoryId": "transport",
+          "aliases": [],
+          "sourceUrl": "https://www.shinhancard.com/pconts/download/card/MO_26_01204_visa_platinum_basic.pdf",
+          "quote": "아시아 태평양 지역 공항 픽업 서비스 -TBR Global\n• 프로모션 전용 사이트에서 TBR Global 픽업 서비스 예약 시 할인 혜택 제공\n• 플래티늄 등급 : 10%"
+        },
+        {
+          "id": "official_505076af93782a73",
+          "name": "굿럭",
+          "categoryId": "transport",
+          "aliases": [],
+          "sourceUrl": "https://www.shinhancard.com/pconts/download/card/MO_26_01204_visa_platinum_basic.pdf",
+          "quote": "짐 배송/보관 할인 서비스 - 굿럭\n• 굿럭앱(goodlugg)에서 제공하는 짐 배송 및 보관 서비스 할인 혜택 제공\n• 플래티늄 등급 : 10%"
+        },
+        {
+          "id": "official_37014fd31e7bc4d6",
+          "name": "현대백화점면세점",
+          "categoryId": "shopping",
+          "aliases": [],
+          "sourceUrl": "https://www.shinhancard.com/pconts/download/card/MO_26_01204_visa_platinum_basic.pdf",
+          "quote": "현대백화점 면세점 멤버십 혜택 제공\n• 플래티늄 등급 : 골드 멤버십 제공(오프라인 매장 최대 15% 할인)"
+        }
+      ]
+    }
+  }
+}
