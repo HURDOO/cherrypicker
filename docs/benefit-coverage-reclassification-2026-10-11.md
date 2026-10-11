@@ -45,9 +45,9 @@
 
 ## 반영 단계 변경 후보 (승인 필요)
 
-1. **불필요한 조건부 19개.** 확인 사유가 이미 계산된 실적·횟수·한도 메모뿐이다. 확인 질문을 빼면 확정 계산이 된다. 다만 `sh_nara_lg_membership`은 연 10만 포인트 한도를 계산하지 않고, `sh_nara_px_z_life_convenience_fallback`은 군마트 한도 초과 여부를 묻는 실제 질문이라 유지 후보다.
+1. **불필요한 조건부 19개.** 확인 사유가 이미 계산된 실적·횟수·한도 메모뿐이다. 확인 질문을 빼면 확정 계산이 된다. 다만 `sh_nara_lg_membership`은 연 10만 포인트 한도를 계산하지 않고, `sh_nara_px_z_life_convenience_fallback`은 군마트 한도 초과 여부를, `shinhan_hi_point_caribbean`은 본인 입장권 1매인지를 묻는 실제 질문이라 유지 후보다. 할인 제외 거래로 잘못 분류된 `shinhan_mr_life_night_taxi`(후불교통·비교통 모두 적용이라는 안내)도 이 묶음에 속한다.
    - `kb_nori2_convenience`, `kb_nori2_delivery`, `kb_nori2_ott`, `shinhan_hi_point_caribbean`, `shinhan_hi_point_favorite_overseas_1`~`_4`, `shinhan_hi_point_general_3`, `shinhan_hi_point_general_4`, `shinhan_hi_point_movie_online_1500`, `shinhan_hi_point_movie_online_3000`, `shinhan_mr_life_all_day_convenience`, `shinhan_mr_life_all_day_laundry`, `shinhan_mr_life_all_day_medical`, `shinhan_mr_life_monthly_utility`, `sh_nara_lg_membership`, `sh_nara_px_over_30000`, `sh_nara_px_z_life_convenience_fallback`
-2. **할인 제외 거래만 확인하는 12개.** 상품권·무이자할부 같은 제외는 카드 주의 문구로 옮기고 규칙은 확정 후보로 둔다. 후불교통 RF·컨택리스처럼 결제 방식 자체가 조건인 규칙(`hy_transport`, `sol_domestic_transport`, `sol_overseas_transport`, `shinhan_mr_life_night_taxi`)은 조건 확인을 유지한다.
+2. **할인 제외 거래만 확인하는 12개.** 상품권·무이자할부 같은 제외는 카드 주의 문구로 옮기고 규칙은 확정 후보로 둔다(2026-10-11 사용자: 일상 거래가 아니므로 문구로 충분). 후불교통 RF·컨택리스처럼 결제 방식 자체가 조건인 규칙(`hy_transport`, `sol_domestic_transport`, `sol_overseas_transport`)은 조건 확인을 유지한다.
    - `dd_dream_overseas`, `shinhan_hi_point_favorite_cj_onstyle_1`~`_4`, `shinhan_hi_point_general_1`, `shinhan_hi_point_general_2`, `shinhan_mr_life_weekend_mart`
 3. **DSL 자동 계산 후보 9개.** 엔진이 이미 지원하는 조건이다. 카드 재수집 또는 수동 DSL 작성 후 재검수가 필요하다.
    - 최다 이용 영역: `samsung_id_on_b1_coffee`, `samsung_id_on_b1_deli`, `samsung_id_on_b1_delivery`, `samsung_id_on_b1_starbucks_siren`, `dd_challenge_dream`
