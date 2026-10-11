@@ -31,8 +31,11 @@ export interface Category {
     order?: number;
 }
 
-/** New public brands start search-only; see docs/benefit-coverage-policy.md. */
+/** Whether a public brand appears in browse lists or only in search; see docs/benefit-coverage-policy.md. */
 export type BrandDiscoveryVisibility = 'BROWSE' | 'SEARCH_ONLY';
+
+/** Stored setting: `AUTO` brands are resolved to a visibility from their current benefits. */
+export type BrandDiscoveryMode = BrandDiscoveryVisibility | 'AUTO';
 
 export interface Brand {
     id: BrandId;

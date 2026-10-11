@@ -5,6 +5,7 @@ import {
     parseParisMembershipHtml,
     parseSktMembershipHtml,
     parseTousLesJoursHtml,
+    resolveOfficialBrand,
 } from './promotion-parsers';
 import {
     applyPromotionSemanticAnalysis,
@@ -12,6 +13,21 @@ import {
 } from './promotion-semantic-classifier';
 
 describe('promotion source parsers', () => {
+    it.each([
+        ['롯데면세점', '', 'shopping'],
+        ['롯데하이마트', '', 'shopping'],
+        ['전자랜드', '문화/여가', 'shopping'],
+        ['수원 아쿠아플라넷', '쇼핑', 'movie'],
+        ['IPTV', '구독', 'subscription'],
+        ['알 수 없는 상호', '', 'etc'],
+    ])('infers the category of a discovered brand %s from its name before the source hint', (
+        name,
+        hint,
+        categoryId,
+    ) => {
+        expect(resolveOfficialBrand(name, hint)?.discoveredBrand?.categoryId).toBe(categoryId);
+    });
+
     it('splits an SKT brand into tier-specific structured discounts', () => {
         const html = `
             <a class="benefit-box" data-id="146">

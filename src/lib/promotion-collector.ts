@@ -1115,7 +1115,7 @@ function upsertAutoPromotion(
 ) {
     if (parsed.discoveredBrand) {
         db.insert(brands)
-            .values({ ...parsed.discoveredBrand, discoveryVisibility: 'SEARCH_ONLY' })
+            .values({ ...parsed.discoveredBrand, discoveryVisibility: 'AUTO' })
             .onConflictDoNothing()
             .run();
     }

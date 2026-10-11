@@ -42,7 +42,8 @@ export function toBrand(row: typeof brands.$inferSelect): Brand {
         ...(row.iconName && { iconName: row.iconName }),
         ...(row.userId && { userId: row.userId }),
         order: row.sortOrder,
-        ...(row.discoveryVisibility === 'SEARCH_ONLY' && { discoveryVisibility: 'SEARCH_ONLY' as const }),
+        // AUTO stays search-only unless the catalog resolves it from current benefits.
+        ...(row.discoveryVisibility !== 'BROWSE' && { discoveryVisibility: 'SEARCH_ONLY' as const }),
     };
 }
 

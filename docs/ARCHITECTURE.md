@@ -96,8 +96,8 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 | `src/components/admin/` | 카드 등록, 수집 실행, 후보·diff·근거·오류 검수와 revision 관리 |
 | `src/utils/calculation.ts`, `combination.ts` | 규칙별 혜택 계산, 계층별 조합, 한도·사용량·순위 결정 |
 | `src/types/benefit-dsl.ts`, `src/utils/benefit-dsl.ts` | DSL v1 타입, 정적 검증, KST 기간 집계, 결정론적 평가와 legacy compiler |
-| `src/lib/system-brand-registry.ts`, `GET/POST /api/admin/system-brands` | 새 카드의 공식 결제처를 코드 변경 없이 안정 ID의 공개 registry 데이터로 등록하는 관리자 create-only 경로. 등록 브랜드는 검색 전용으로 시작한다 |
-| `src/lib/card-brand-proposals.ts` | AI 카드 후보가 제안한 새 결제처를 기존 브랜드와 이름·별칭으로 맞추고, 새 매장에는 프로모션과 같은 `official_<hash>` ID를 부여한다. 승인 시 게시 규칙이 참조하는 제안만 검색 전용 브랜드로 등록한다 |
+| `src/lib/system-brand-registry.ts`, `GET/POST /api/admin/system-brands` | 새 카드의 공식 결제처를 코드 변경 없이 안정 ID의 공개 registry 데이터로 등록하는 관리자 create-only 경로. 등록 브랜드는 자동 노출(`AUTO`)로 시작한다 |
+| `src/lib/card-brand-proposals.ts` | AI 카드 후보가 제안한 새 결제처를 기존 브랜드와 이름·별칭으로 맞추고, 새 매장에는 프로모션과 같은 `official_<hash>` ID를 부여한다. 승인 시 게시 규칙이 참조하는 제안만 자동 노출 브랜드로 등록한다 |
 | `src/utils/paymentTarget.ts`, `purchaseScenario.ts` | 실제 브랜드·일반 결제·구매 상황의 snapshot·URL·검색·레거시 기록 호환 계약 |
 | `src/utils/performanceGoals.ts` | 카드 규칙·사용자 덮어쓰기에서 실적 추천 목표 파생 |
 | `src/utils/benefitBrandSuggestions.ts` | 멤버십·구독·페이·카드 실적·한도와 시점 조건을 금액별로 조합해 첫 추천용 확정 혜택 브랜드 선정 |
@@ -116,7 +116,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 
 - `categories`, `brands`, `cards`, `benefit_rules`는 `user_id IS NULL`인 시스템 항목과 사용자 소유 커스텀 항목을 모두 표현한다.
 - 시스템 카드는 `catalog_status`, `issue_status`, 상품 코드와 공개 caveat로 게시·발급 상태를 구분한다.
-- `brands.discovery_visibility`는 `BROWSE`(기본)와 `SEARCH_ONLY`를 구분한다. 프로모션 자동 발견·관리자 등록·카드 후보 제안으로 새로 생기는 공용 브랜드는 `SEARCH_ONLY`이며, 공개 catalog에는 이 값일 때만 `discoveryVisibility`를 싣는다. 탐색 화면은 검색 전용 브랜드를 카테고리·전체·기본 인기 목록에서 빼고 검색·즐겨찾기·이용 기록·개인 혜택 제안으로만 보여준다. 기존 브랜드는 migration 0020에서 모두 `BROWSE`로 유지했다.
+- `brands.discovery_visibility`는 `BROWSE`(항상 노출, 기본), `SEARCH_ONLY`(항상 검색 전용), `AUTO`(자동)를 저장한다. 프로모션 자동 발견·관리자 등록·카드 후보 제안으로 새로 생기는 공용 브랜드는 `AUTO`다. 공개 catalog를 만들 때 `src/lib/brand-discovery-visibility.ts`가 게시 카드의 금액 계산 혜택이나 일상 카테고리의 진행 중 프로모션이 있는 `AUTO` 브랜드만 노출로 판정하고, 나머지는 `discoveryVisibility: SEARCH_ONLY`로 싣는다. catalog는 요청마다 다시 계산되므로 프로모션 종료·새 혜택에 따라 노출이 바뀐다. 탐색 화면은 검색 전용 브랜드를 카테고리·전체·기본 인기 목록에서 빼고 검색·즐겨찾기·이용 기록·개인 혜택 제안으로만 보여준다. migration 0021이 기존 `official_` 브랜드를 `AUTO`로 바꿨다.
 - `cards.performance_policy`는 versioned JSON 실적 제외 규칙과 규칙별 공식 URL·인용을 보존한다. 후보에서 정책이 바뀌면 고위험 diff로 검수하고 카드 revision·공개 catalog v3에 함께 보존한다. 정책이 없는 카드·커스텀 카드·구버전 catalog의 새 결제는 승인금액 전액을 예상 실적에 더하며, 과거 기록의 저장된 기여액과 snapshot은 그대로 읽는다.
 - 로컬 workspace는 공용 카탈로그와 서로 다른 저장소에 있으며, 선택한 시스템 카드 ID·첫 설정 진행 상태·실적·프로필·기록과 커스텀 항목을 보존한다. 기존 workspace에 명시적 카드 선택이 없으면 과거 실적·기록·개인 카드에서 관리 카드를 추론해 호환하고, 신규 workspace는 명시적 선택만 추천에 사용한다.
 

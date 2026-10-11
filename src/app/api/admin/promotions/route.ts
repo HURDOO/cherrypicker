@@ -155,7 +155,7 @@ function reviewCandidate(
                     name: row.name,
                     categoryId: row.categoryId,
                     iconName: row.iconName,
-                    discoveryVisibility: 'SEARCH_ONLY',
+                    discoveryVisibility: 'AUTO',
                 }).onConflictDoNothing().run();
             }
         }

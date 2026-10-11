@@ -204,7 +204,7 @@ describe('card benefit review with rule-level coverage', () => {
                 name: '위팬샵',
                 categoryId: 'shopping',
                 userId: null,
-                discoveryVisibility: 'SEARCH_ONLY',
+                discoveryVisibility: 'AUTO',
             }),
         ]);
         expect(integrationDb.select().from(schema.cards)

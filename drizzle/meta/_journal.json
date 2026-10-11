@@ -148,6 +148,13 @@
       "when": 1791598043294,
       "tag": "0020_brand-discovery-visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1791699052801,
+      "tag": "0021_brand-auto-discovery",
+      "breakpoints": true
     }
   ]
 }

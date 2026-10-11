@@ -1103,7 +1103,7 @@ export function reviewCardBenefitCandidate(
                     categoryId: brand.categoryId,
                     iconName: brandCategoryIcon(brand.categoryId),
                     userId: null,
-                    discoveryVisibility: 'SEARCH_ONLY',
+                    discoveryVisibility: 'AUTO',
                 }).onConflictDoNothing().run();
             });
         applySnapshot(tx, publishedSnapshot);

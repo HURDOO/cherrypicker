@@ -221,19 +221,26 @@ const categoryIcon: Record<string, string> = {
     etc: 'Store',
 };
 
-const inferBrandCategory = (name: string, hint = '') => {
-    const text = `${name} ${hint}`;
-    if (/커피|카페|베이커리|도넛|아이스크림|디저트|백미당/.test(text)) return 'cafe';
-    if (/편의점|마트|프레시|GS25|CU|이마24|세븐일레븐/.test(text)) return 'convenience';
-    if (/치킨|피자|버거|레스토랑|식당|외식|요리|갈비|닭갈비|면소|빕수/.test(text)) return 'food';
-    if (/배달|요기요|컬리|오아시스마켓|식봄/.test(text)) return 'delivery';
-    if (/영화|시네|롯데월드|에버랜드|서울랜드|레고랜드|테마파크|놀이공원|아쿠아|리조트|스파|미술관|박물관|티켓|공연|전시|문화|여가/.test(text)) return 'movie';
-    if (/항공|트립|호텔|렌터카|렌트카|카셰어링|여행|면세점/.test(text)) return 'transport';
-    if (/뮤직|웹툰|멤버십|오피스|영상|구독/.test(text)) return 'subscription';
-    if (/피부|네일|안경|헬스|휘트니스|펫|반려|병원|클리닉|의원|뷰티|화장품|이니스프리|생활/.test(text)) return 'life';
-    if (/쇼핑|몰|스토어|샵|백화점|아울렛|전자랜드|하이마트|가구|면세점|식품관/.test(text)) return 'shopping';
-    return 'etc';
-};
+const brandCategoryPatterns: Array<[RegExp, string]> = [
+    // Retailers whose names contain other categories' words (하이마트 → 마트, 면세점 → 여행).
+    [/하이마트|전자랜드|면세점|백화점|아울렛/, 'shopping'],
+    [/커피|카페|베이커리|도넛|아이스크림|디저트|백미당/, 'cafe'],
+    [/편의점|마트|프레시|GS25|CU|이마24|세븐일레븐/, 'convenience'],
+    [/치킨|피자|버거|레스토랑|식당|외식|요리|갈비|닭갈비|면소|빕수/, 'food'],
+    [/배달|요기요|컬리|오아시스마켓|식봄/, 'delivery'],
+    [/영화|시네|롯데월드|에버랜드|서울랜드|레고랜드|테마파크|놀이공원|아쿠아|리조트|스파|미술관|박물관|티켓|공연|전시|문화|여가/, 'movie'],
+    [/항공|트립|호텔|렌터카|렌트카|카셰어링|여행/, 'transport'],
+    [/뮤직|웹툰|멤버십|오피스|영상|구독/, 'subscription'],
+    [/피부|네일|안경|헬스|휘트니스|펫|반려|병원|클리닉|의원|뷰티|화장품|이니스프리|생활/, 'life'],
+    [/쇼핑|몰|스토어|샵|가구|식품관/, 'shopping'],
+];
+
+const categoryFromText = (text: string) => brandCategoryPatterns
+    .find(([pattern]) => pattern.test(text))?.[1];
+
+// The brand name decides first; a source's broad category hint only fills in when the name is silent.
+const inferBrandCategory = (name: string, hint = '') =>
+    categoryFromText(name) ?? categoryFromText(hint) ?? 'etc';
 
 const genericPromotionName = /(이벤트|미션|프로모션|가맹점|기획전|페이백|카드사|카드할인|스탬프|럭키볼|등록 이벤트|포인트 잘 쓰는 법)/;
 

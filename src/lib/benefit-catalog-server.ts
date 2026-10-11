@@ -27,6 +27,7 @@ import {
 import type { BenefitCatalogFreshness, BenefitCatalogSnapshot } from '@/types';
 import { buildBenefitCatalogSnapshot } from './benefit-catalog';
 import { cardBenefitCoverageCaveats } from './benefit-coverage-patterns';
+import { autoBrowsableBrandIds } from './brand-discovery-visibility';
 import { buildCardBenefitSupports } from './card-benefit-support';
 import { publishedSystemCard } from './card-visibility';
 import { getManagedSystemCardBenefitSourceInventory } from './system-card-onboarding';
@@ -36,6 +37,13 @@ type CatalogServerGlobal = typeof globalThis & {
 };
 
 const catalogServerGlobal = globalThis as CatalogServerGlobal;
+
+const koreaDate = (date = new Date()) => new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+}).format(date);
 
 export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
     const cached = catalogServerGlobal.cherryPickerBenefitCatalog;
@@ -86,6 +94,35 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
                     ...revision,
                     coverageCaveats: cardBenefitCoverageCaveats(snapshot.coverage),
                 }));
+            const brandRows = tx.select().from(brands)
+                .where(isNull(brands.userId))
+                .orderBy(asc(brands.sortOrder), asc(brands.name), asc(brands.id))
+                .all();
+            const rules = tx.select().from(benefitRules)
+                .where(isNull(benefitRules.userId))
+                .orderBy(
+                    asc(benefitRules.cardId),
+                    asc(benefitRules.description),
+                    asc(benefitRules.id)
+                )
+                .all()
+                .map(toRule);
+            const promotions = tx.select().from(promotionOffers)
+                .where(eq(promotionOffers.status, 'PUBLISHED'))
+                .orderBy(
+                    asc(promotionOffers.layer),
+                    asc(promotionOffers.title),
+                    asc(promotionOffers.id)
+                )
+                .all()
+                .map(toPromotionOffer);
+            const browsableAutoBrandIds = autoBrowsableBrandIds({
+                brands: brandRows.filter(row => row.discoveryVisibility === 'AUTO'),
+                publishedCardIds: new Set(systemCards.map(card => card.id)),
+                rules,
+                promotions,
+                today: koreaDate(),
+            });
 
             return {
                 categories: tx.select().from(categories)
@@ -93,21 +130,11 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
                     .orderBy(asc(categories.sortOrder), asc(categories.name), asc(categories.id))
                     .all()
                     .map(toCategory),
-                brands: tx.select().from(brands)
-                    .where(isNull(brands.userId))
-                    .orderBy(asc(brands.sortOrder), asc(brands.name), asc(brands.id))
-                    .all()
-                    .map(toBrand),
+                brands: brandRows.map(row => toBrand(browsableAutoBrandIds.has(row.id)
+                    ? { ...row, discoveryVisibility: 'BROWSE' }
+                    : row)),
                 cards: systemCards,
-                rules: tx.select().from(benefitRules)
-                    .where(isNull(benefitRules.userId))
-                    .orderBy(
-                        asc(benefitRules.cardId),
-                        asc(benefitRules.description),
-                        asc(benefitRules.id)
-                    )
-                    .all()
-                    .map(toRule),
+                rules,
                 providers: tx.select().from(promotionProviders)
                     .where(eq(promotionProviders.isActive, true))
                     .orderBy(asc(promotionProviders.sortOrder), asc(promotionProviders.id))
@@ -118,15 +145,7 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
                     .orderBy(asc(subscriptionProducts.name), asc(subscriptionProducts.id))
                     .all()
                     .map(toSubscriptionProduct),
-                promotions: tx.select().from(promotionOffers)
-                    .where(eq(promotionOffers.status, 'PUBLISHED'))
-                    .orderBy(
-                        asc(promotionOffers.layer),
-                        asc(promotionOffers.title),
-                        asc(promotionOffers.id)
-                    )
-                    .all()
-                    .map(toPromotionOffer),
+                promotions,
                 routeVerifications: tx.select().from(merchantRouteVerifications)
                     .orderBy(
                         asc(merchantRouteVerifications.brandId),
