@@ -1,5 +1,7 @@
 # 두산베어스 KB카드 결제 상황 후보 검토 — 2026-09-12
 
+> 2026-10-11 갱신: 이 문서의 남은 게이트는 해소되어 카드를 게시했다. 공식 실적 제외는 카드 실적 정책과 카드 주의 문구로, 신규회원 절반 한도는 공식 한도×50% DSL로 표현했고, 사용자 결정에 따라 결제 상황 질문 대신 안내 문구를 쓴다. 근거는 [`docs/card-benefit-revisions/2026-10-11-doosan.json`](./card-benefit-revisions/2026-10-11-doosan.json)과 `docs/TASKS.md` TASK-10 진행 기록에 있다.
+
 ## 판정
 
 `TASK-10`의 실제 `kb_doosan_bears` 후보는 아직 게시할 수 없다. 저장된 공식 원문과 [현재 KB국민카드 상품 페이지](https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?cooperationcode=02219&mainCC=a)를 대조해 결제 상황의 범위·요율·한도를 격리 제안으로 재구성했다. 할인받은 거래 전체를 전월 이용실적에서 제외하는 공통 계산기는 이후 구현했으나, 실제 후보에는 아직 정책·공식 근거를 반영하지 않았다. 금액 영향 `unsupportedClauses`는 그대로 두고 게시를 차단한다.
