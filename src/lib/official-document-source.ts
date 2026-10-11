@@ -60,13 +60,56 @@ export interface PdfTextExtraction {
 
 const hashBytes = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 
-const normalizeOfficialDocumentSemantics = (extractedText: string) => {
+// Card company pages wrap the product or article body in site navigation, popups, banners and
+// notice lists that change on their own schedule. Each window keeps the body between markers seen
+// on that site; when a marker is missing the whole text is compared, so detection only gets stricter.
+const OFFICIAL_CONTENT_WINDOWS: Array<{ site: RegExp; start: RegExp; end: RegExp }> = [
+    // KB국민카드 상품: 주요혜택·상세혜택 탭부터 요약 문구 뒤 신청 안내 팝업(없으면 공통 하단) 전까지
+    { site: /KB국민카드/, start: /주요혜택\s+상세혜택/, end: /모바일단독카드 안내|KB국민카드 유튜브/ },
+    // KB국민카드 공지: 제목부터 이전글 링크 전까지
+    { site: /KB국민카드/, start: /제목\s*:/, end: /\[이전글\]/ },
+    // KB국민은행 새소식: 등록일부터 목록 버튼 전까지
+    { site: /KB국민은행/, start: /등록일\s/, end: /\n\s*목록\s*\n/ },
+    // 하나카드 상품: 전체메뉴를 닫은 뒤부터 카드 비교하기 전까지
+    { site: /Hana Card/i, start: /전체메뉴 닫기/, end: /카드 비교하기/ },
+    // 하나카드 이벤트: 제목부터 목록으로 이동 전까지
+    { site: /Hana Card/i, start: /\n\s*제목\s*\n/, end: /목록으로 이동/ },
+    // 롯데카드 상품: 메뉴를 닫은 뒤부터 하단 공지사항 목록 전까지
+    { site: /롯데카드/, start: /메뉴 닫기/, end: /공지사항\s+\[공지사항\]/ },
+    // NH농협카드 상품: 카드상세 제목부터 신청 전 확인 팝업 전까지
+    { site: /NH농협카드/, start: /카드상세 이 페이지를 즐겨찾기에 추가/, end: /카드신청 전, 확인해보세요/ },
+];
+
+const officialContentWindow = (text: string) => {
+    for (const contentWindow of OFFICIAL_CONTENT_WINDOWS) {
+        if (!contentWindow.site.test(text)) continue;
+        const start = text.search(contentWindow.start);
+        if (start < 0) continue;
+        const end = text.slice(start).search(contentWindow.end);
+        if (end > 0) return text.slice(start, start + end);
+    }
+    return text;
+};
+
+export const normalizeOfficialDocumentSemantics = (extractedText: string) => {
     let normalized = extractedText.normalize('NFKC');
     const shinhanBenefitStart = normalized.indexOf('혜택 안내');
     if (shinhanBenefitStart >= 0 && /회사명:\s*신한카드\s+상품명:/.test(normalized)) {
-        normalized = normalized.slice(shinhanBenefitStart);
-        const cardDesignStart = normalized.indexOf('카드 디자인');
-        if (cardDesignStart >= 0) normalized = normalized.slice(0, cardDesignStart);
+        // The summary list above the details also carries benefit wording; card designs are skipped.
+        const summaryStart = normalized.indexOf('주요 혜택 상세 목록');
+        const segment = (start: number) => {
+            const designStart = normalized.indexOf('카드 디자인', start);
+            return [start, designStart >= 0 ? designStart : normalized.length] as const;
+        };
+        const [summaryFrom, summaryTo] = summaryStart >= 0 && summaryStart < shinhanBenefitStart
+            ? segment(summaryStart)
+            : [shinhanBenefitStart, shinhanBenefitStart] as const;
+        const [detailFrom, detailTo] = segment(shinhanBenefitStart);
+        normalized = summaryTo > shinhanBenefitStart
+            ? normalized.slice(summaryFrom, Math.max(summaryTo, detailTo))
+            : `${normalized.slice(summaryFrom, summaryTo)}\n${normalized.slice(detailFrom, detailTo)}`;
+    } else {
+        normalized = officialContentWindow(normalized);
     }
     return normalized
         // View counters and shared navigation/application chrome change independently of benefits.

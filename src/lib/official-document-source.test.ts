@@ -265,6 +265,79 @@ describe('official document source adapter', () => {
         ));
     });
 
+    it('compares only the product or article body of each card company page', () => {
+        const pages = [
+            {
+                name: 'KB국민카드 상품',
+                page: (menu: string, benefit: string, popup: string) => [
+                    `KB국민카드 ${menu}`, '주요혜택 상세혜택 연회비', benefit, '통크게 최대 50% 할인',
+                    `모바일단독카드 안내 ${popup}`, 'KB국민카드 유튜브',
+                ],
+            },
+            {
+                name: 'KB국민카드 공지',
+                page: (menu: string, benefit: string, popup: string) => [
+                    `KB국민카드 ${menu}`, '제목 : 약관 개정 안내 조회수 : 1,115', benefit, `[이전글] ${popup}`,
+                ],
+            },
+            {
+                name: 'KB국민은행 새소식',
+                page: (menu: string, benefit: string, popup: string) => [
+                    `KB국민은행 ${menu}`, '새소식 등록일 2015.12.21', benefit, '\n목록\n', `이벤트기간 ${popup}`,
+                ],
+            },
+            {
+                name: '하나카드 상품',
+                page: (menu: string, benefit: string, popup: string) => [
+                    menu, '전체메뉴 닫기', benefit, '카드 출시 시기 : 2025.12.15', `카드 비교하기 ${popup}`,
+                    'COPYRIGHT 2017 Hana Card',
+                ],
+            },
+            {
+                name: '하나카드 이벤트',
+                page: (menu: string, benefit: string, popup: string) => [
+                    menu, '\n제목\n', benefit, `목록으로 이동 ${popup}`, 'COPYRIGHT 2017 Hana Card',
+                ],
+            },
+            {
+                name: '롯데카드 상품',
+                page: (menu: string, benefit: string, popup: string) => [
+                    `롯데카드 ${menu}`, '메뉴 닫기', benefit, `공지사항 [공지사항] ${popup}`,
+                ],
+            },
+            {
+                name: 'NH농협카드 상품',
+                page: (menu: string, benefit: string, popup: string) => [
+                    `NH농협카드 ${menu}`, '카드상세 이 페이지를 즐겨찾기에 추가', benefit,
+                    `카드신청 전, 확인해보세요. ${popup}`,
+                ],
+            },
+        ];
+        pages.forEach(({ name, page }) => {
+            const hash = (menu: string, benefit: string, popup: string) => (
+                createOfficialDocumentSemanticHash(page(menu, benefit, popup).join('\n'))
+            );
+            const before = hash('보험 K-패스카드환급금', '편의점 5% 할인 월 최대 5천원', '대한항공 안내');
+            expect(hash('모두의카드 환급금', '편의점 5% 할인 월 최대 5천원', 'SKYPASS 안내'), name).toBe(before);
+            expect(hash('보험 K-패스카드환급금', '편의점 10% 할인 월 최대 5천원', '대한항공 안내'), name)
+                .not.toBe(before);
+        });
+        // Without the page markers the whole text is compared.
+        expect(createOfficialDocumentSemanticHash('KB국민카드 보험 편의점 5% 할인'))
+            .not.toBe(createOfficialDocumentSemanticHash('KB국민카드 편의점 5% 할인'));
+    });
+
+    it('keeps the Shinhan benefit summary while skipping its card design area', () => {
+        const shinhan = (summary: string, design: string) => [
+            '신한카드 Hi-Point 메뉴', '주요 혜택 상세 목록', summary, `카드 디자인 ${design}`,
+            '회사명: 신한카드 상품명: 신한카드 Hi-Point', '혜택 안내 주유 적립 상세', '카드 디자인 목록',
+        ].join(' ');
+        expect(createOfficialDocumentSemanticHash(shinhan('리터당 60원 적립', '캐릭터형(이전)')))
+            .toBe(createOfficialDocumentSemanticHash(shinhan('리터당 60원 적립', '캐릭터형(신규)')));
+        expect(createOfficialDocumentSemanticHash(shinhan('리터당 60원 적립', '캐릭터형(이전)')))
+            .not.toBe(createOfficialDocumentSemanticHash(shinhan('리터당 40원 적립', '캐릭터형(이전)')));
+    });
+
     it('still detects an official event moving from ongoing to ended', () => {
         expect(createOfficialDocumentSemanticHash(
             '혜택>이벤트>진행중인 이벤트>상세 학생증 발급 이벤트'
