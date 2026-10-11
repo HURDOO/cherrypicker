@@ -38,8 +38,11 @@ import type {
  * writes results to an output directory; it never writes the database or publishes anything.
  *
  *   tsx scripts/compare-ai-models.ts --providers=anthropic,openai --cards=all|id,id \
- *     [--card-providers=anthropic] [--promotions] [--model=claude-opus-5-5] [--max-usd=40] \
+ *     [--card-providers=anthropic] [--promotions] [--model=claude-opus-5-5] [--max-usd=<budget>] \
  *     [--concurrency=3] --out=<dir>
+ *
+ * Production uses luna only. Providers have no default and an Anthropic run needs an explicit
+ * --max-usd, so paid Claude calls happen only when a run names both.
  */
 
 // `previous` replays each card's latest stored candidate through today's checks without any AI call.
@@ -47,12 +50,17 @@ type ProviderName = 'openai' | 'anthropic' | 'previous';
 
 const argument = (name: string) => process.argv.find(item => item.startsWith(`--${name}=`))
     ?.slice(name.length + 3);
-const providers = (argument('providers') ?? 'anthropic').split(',') as ProviderName[];
+const providerArgument = argument('providers');
+if (!providerArgument) throw new Error('--providers=openai|anthropic|previous를 지정하세요.');
+const providers = providerArgument.split(',') as ProviderName[];
 // Cards can run on a subset of providers while promotions compare every listed provider.
 const cardProviders = (argument('card-providers')?.split(',') ?? providers) as ProviderName[];
 const cardArgument = argument('cards');
 const outDir = resolve(argument('out') ?? `../../experiments/cherrypicker-model-compare-${new Date().toISOString().slice(0, 10)}`);
-const maxUsd = Number(argument('max-usd') ?? 40);
+const maxUsd = Number(argument('max-usd'));
+if ([...providers, ...cardProviders].includes('anthropic') && !(maxUsd > 0)) {
+    throw new Error('Anthropic 호출에는 --max-usd 예산을 지정하세요.');
+}
 const concurrency = Number(argument('concurrency') ?? 3);
 const anthropicModel = argument('model');
 
