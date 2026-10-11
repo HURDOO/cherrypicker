@@ -119,6 +119,23 @@ describe('benefit coverage patterns', () => {
         expect(input.rules[0].condition).toEqual({});
     });
 
+    it.each([
+        ['RECURRING_PAYMENT', '자동이체·정기결제로 납부하는 요금인지 확인'],
+        ['CARDHOLDER_CONDITION', '카드 종류·결제계좌 등 이용 조건을 충족하는지 확인'],
+    ])('keeps a %s rule conditional with its user question', (patternId, question) => {
+        const { value, result } = applyBenefitCoveragePatterns(extraction(
+            [rule('rule_a')],
+            [clause('check', ['rule_a'], patternId)],
+        ));
+
+        expect(value.rules[0].condition).toMatchObject({
+            confirmationRequired: true,
+            requiredNote: question,
+        });
+        expect(value.rules[0].action).toEqual({ type: 'PERCENT', value: 10 });
+        expect(result.outcomes[0]).toMatchObject({ level: 'CONFIRM', ruleIds: ['rule_a'] });
+    });
+
     it('adds an evidenced DSL confirmation so the benefit stays conditional until checked', () => {
         const input = extraction(
             [rule('rule_a', { action: { type: 'FLAT', value: 0 }, program })],

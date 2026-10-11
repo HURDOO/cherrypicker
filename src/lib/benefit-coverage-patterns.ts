@@ -26,8 +26,20 @@ export const BENEFIT_COVERAGE_PATTERNS = [
     {
         id: 'MERCHANT_APPROVAL_PATH',
         level: 'CONFIRM',
-        summary: '카드사 승인 업종·PG·결제 경로에 따라 적용 여부가 달라지는 조건',
+        summary: '카드사 승인 업종·PG·간편결제·입점 매장·사이트 직접 접속 등 결제 경로에 따라 적용 여부가 달라지는 조건',
         userMessage: '카드사 승인 가맹점(업종)으로 직접 결제되는지 확인',
+    },
+    {
+        id: 'RECURRING_PAYMENT',
+        level: 'CONFIRM',
+        summary: '자동이체·정기결제로 납부한 요금에만 적용되는 조건',
+        userMessage: '자동이체·정기결제로 납부하는 요금인지 확인',
+    },
+    {
+        id: 'CARDHOLDER_CONDITION',
+        level: 'CONFIRM',
+        summary: '해외겸용 여부·결제계좌·급여이체·간편결제 등록처럼 카드 보유자가 답할 수 있는 이용 조건(국제브랜드만으로 정해지면 카드 조건으로 표현)',
+        userMessage: '카드 종류·결제계좌 등 이용 조건을 충족하는지 확인',
     },
     {
         id: 'PERF_EXCLUDE_TRANSACTION_TYPE',

@@ -26,6 +26,7 @@ import {
     stabilizeExtractionRuleIds,
     validateCardBenefitExtraction,
 } from './card-benefit-extraction';
+import { createCardBenefitCandidateAudit } from './card-benefit-audit';
 import { calculateBestCards } from '@/utils/calculation';
 import { listBenefitProgramEvidencePaths } from '@/utils/benefit-dsl';
 import { shinhanSolSourceText } from '@/test/fixtures/shinhan-sol-source';
@@ -1385,25 +1386,50 @@ describe('card benefit extraction', () => {
         );
     });
 
-    it('rejects a FULL candidate that omits an official representative benefit', () => {
+    // Omissions and changes against the published card are caught by the card-agnostic
+    // baseline audit for human review, not by a card-specific expected ruleset.
+    const publishedBaseline = () => ({
+        card,
+        rules: extractShinhanSolTravelWithRules(input).extraction.rules,
+    });
+
+    it('surfaces an omitted published benefit as a high-risk removal', () => {
         const result = extractShinhanSolTravelWithRules(input);
         result.extraction.rules = result.extraction.rules
             .filter(rule => rule.id !== 'sol_overseas_atm');
         result.extraction.evidence = result.extraction.evidence
             .filter(item => !item.ruleIds.includes('sol_overseas_atm'));
 
-        expect(validateCardBenefitExtraction(result.extraction, input, references).errors)
-            .toContain('공식 혜택 sol_overseas_atm 규칙이 누락되었습니다.');
+        const audit = createCardBenefitCandidateAudit({
+            extraction: result.extraction,
+            baseline: publishedBaseline(),
+            baselineRevision: 1,
+            asOfDate: '2026-08-21',
+        });
+        expect(audit.changes).toContainEqual(expect.objectContaining({
+            entityId: 'sol_overseas_atm',
+            kind: 'REMOVED',
+            risk: 'HIGH',
+        }));
     });
 
-    it('rejects a representative rule whose official amount is changed', () => {
+    it('surfaces a changed official amount as a high-risk change', () => {
         const result = extractShinhanSolTravelWithRules(input);
         const promotion = result.extraction.rules
             .find(rule => rule.id === 'sol_japan_convenience')!;
         promotion.limitConfig.monthlyAmount = 50_000;
 
-        expect(validateCardBenefitExtraction(result.extraction, input, references).errors)
-            .toContain('공식 혜택 sol_japan_convenience의 계산 조건·한도가 공식 기준과 다릅니다.');
+        const audit = createCardBenefitCandidateAudit({
+            extraction: result.extraction,
+            baseline: publishedBaseline(),
+            baselineRevision: 1,
+            asOfDate: '2026-08-21',
+        });
+        expect(audit.changes).toContainEqual(expect.objectContaining({
+            entityId: 'sol_japan_convenience',
+            path: 'limitConfig.monthlyAmount',
+            risk: 'HIGH',
+        }));
     });
 
     it('rejects impossible calendar dates in a period condition', () => {
@@ -2790,22 +2816,19 @@ describe('card benefit extraction', () => {
             item.location === 'GS25 해군마트 군마트 한도 초과 후 Life 편의점 적용'
         ))).toBe(true);
 
-        const sourceCoverageErrors = validateCardBenefitExtraction(
+        // Without the repair, the missing fallback shows up as a high-risk removal against the
+        // published card in the card-agnostic audit.
+        const unrepairedAudit = createCardBenefitCandidateAudit({
             extraction,
-            normalizationInput,
-        ).errors;
-        expect(sourceCoverageErrors).toEqual(expect.arrayContaining([
-            '스타벅스 사이렌 오더 예외가 온라인 조건부 규칙으로 구조화되지 않았습니다.',
-            'GS25 해군마트의 군마트 한도 초과 후 Life 편의점 전환 규칙이 누락됐습니다.',
-        ]));
-        const repairedCoverageErrors = validateCardBenefitExtraction(
-            normalized,
-            normalizationInput,
-        ).errors;
-        expect(repairedCoverageErrors).not.toEqual(expect.arrayContaining([
-            expect.stringContaining('사이렌 오더 예외'),
-            expect.stringContaining('해군마트의 군마트 한도 초과'),
-        ]));
+            baseline: { card: normalized.card, rules: normalized.rules },
+            baselineRevision: 1,
+            asOfDate: '2026-08-21',
+        });
+        expect(unrepairedAudit.changes).toContainEqual(expect.objectContaining({
+            entityId: 'px_low_z_life_convenience_fallback',
+            kind: 'REMOVED',
+            risk: 'HIGH',
+        }));
 
         const calculationCard: Card = {
             id: 'shinhan_nara',

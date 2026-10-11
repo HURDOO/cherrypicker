@@ -627,50 +627,6 @@ const validateRuleSemanticEvidence = (
     return unique(errors);
 };
 
-const validateSourceBackedChannelAndFallbackCoverage = (
-    rules: BenefitRule[],
-    input: CardBenefitExtractionInput,
-) => {
-    const errors: string[] = [];
-    const sourceText = normalizeText(extractionSources(input)
-        .map(source => source.sourceText)
-        .join('\n'));
-    const catalogBrands = input.catalog?.brands ?? [];
-
-    if (/스타벅스\s*사이렌\s*오더\s*제외/i.test(sourceText)) {
-        const starbucksIds = new Set(catalogBrands
-            .filter(brand => /스타벅스/i.test(brand.name))
-            .map(brand => brand.id));
-        const hasOnlineSirenRule = rules.some(ruleRow => (
-            (ruleRow.platformType === 'ONLINE' || ruleRow.platformType === 'OFFICIAL_SITE') &&
-            ruleRow.includedBrands?.some(brandId => starbucksIds.has(brandId)) &&
-            /사이렌\s*오더/i.test(`${ruleRow.description}\n${ruleRow.detail}`) &&
-            ruleRow.condition.manualCheckRequired === true
-        ));
-        if (!hasOnlineSirenRule) {
-            errors.push('스타벅스 사이렌 오더 예외가 온라인 조건부 규칙으로 구조화되지 않았습니다.');
-        }
-    }
-
-    if (/GS25\s*해군마트[\s\S]{0,180}횟수\s*및\s*한도\s*초과\s*시[\s\S]{0,120}Life\s*서비스[\s\S]{0,100}편의점\s*20\s*%/i
-        .test(sourceText)) {
-        const hasNavyMartFallback = rules.some(ruleRow => (
-            ruleRow.usesCardLimit === true &&
-            ruleRow.action.type === 'PERCENT' &&
-            ruleRow.action.value === 20 &&
-            /GS25\s*해군마트[\s\S]*Life\s*편의점/i.test(
-                `${ruleRow.description}\n${ruleRow.detail}`
-            ) &&
-            ruleRow.condition.manualCheckRequired === true
-        ));
-        if (!hasNavyMartFallback) {
-            errors.push('GS25 해군마트의 군마트 한도 초과 후 Life 편의점 전환 규칙이 누락됐습니다.');
-        }
-    }
-
-    return errors;
-};
-
 const validateProposedBrands = (
     value: unknown,
     input: CardBenefitExtractionInput,
@@ -794,15 +750,6 @@ export function validateCardBenefitExtraction(
             !cardNetworks.includes(value.card.network as CardNetwork)) {
             errors.push('카드 브랜드가 올바르지 않습니다.');
         }
-        if (input.card.id === 'shinhan_sol' && (
-            value.card.name !== '신한카드 SOL트래블 체크' ||
-            value.card.company !== '신한카드' ||
-            !Array.isArray(value.card.limitTable) ||
-            value.card.limitTable.length !== 0 ||
-            value.card.network !== 'MASTERCARD'
-        )) {
-            errors.push('신한 SOL트래블 공식 카드 기본 정보와 다릅니다.');
-        }
     }
 
     const ruleIds = new Set<string>();
@@ -886,9 +833,6 @@ export function validateCardBenefitExtraction(
                 }
             }
         });
-        if (input.card.id === 'shinhan_sol') {
-            validateShinhanSolRuleCoverage(value.rules, errors);
-        }
         value.rules.forEach((rule, index) => {
             if (!isRecord(rule) || !isRecord(rule.condition)) return;
             const stackableIds = rule.condition.stackableWithRuleIds;
@@ -1155,10 +1099,6 @@ export function validateCardBenefitExtraction(
             value.rules as unknown as BenefitRule[],
             value.evidence as unknown as CardBenefitEvidence[],
             input.card.limitTable,
-        ));
-        errors.push(...validateSourceBackedChannelAndFallbackCoverage(
-            value.rules as unknown as BenefitRule[],
-            input,
         ));
         errors.push(...analyzeSharedLimitGroups(
             value.rules as unknown as BenefitRule[],
@@ -1458,88 +1398,6 @@ const buildShinhanSolRules = (cardId: string): BenefitRule[] => [
             usesCardLimit: false,
         }),
     ];
-
-const normalizedRuleSignature = (value: Partial<BenefitRule>) => JSON.stringify({
-    description: value.description,
-    detail: value.detail,
-    category: value.category ?? null,
-    includedBrands: [...(value.includedBrands ?? [])].sort(),
-    excludedBrands: [...(value.excludedBrands ?? [])].sort(),
-    platformType: value.platformType ?? 'ALL',
-    usesCardLimit: value.usesCardLimit ?? true,
-    condition: {
-        ...(value.condition?.minSpend !== undefined && {
-            minSpend: value.condition.minSpend,
-        }),
-        ...(value.condition?.maxSpend !== undefined && {
-            maxSpend: value.condition.maxSpend,
-        }),
-        ...(value.condition?.maxSpendExclusive !== undefined && {
-            maxSpendExclusive: value.condition.maxSpendExclusive,
-        }),
-        ...(value.condition?.minPerformance !== undefined && {
-            minPerformance: value.condition.minPerformance,
-        }),
-        ...(value.condition?.startsAt !== undefined && {
-            startsAt: value.condition.startsAt,
-        }),
-        ...(value.condition?.endsAt !== undefined && {
-            endsAt: value.condition.endsAt,
-        }),
-        ...(value.condition?.requiredCardNetwork !== undefined && {
-            requiredCardNetwork: value.condition.requiredCardNetwork,
-        }),
-        ...(value.condition?.performanceWaiver !== undefined && {
-            performanceWaiver: value.condition.performanceWaiver,
-        }),
-        ...(value.condition?.confirmationRequired !== undefined && {
-            confirmationRequired: value.condition.confirmationRequired,
-        }),
-        ...(value.condition?.stackableWithRuleIds !== undefined && {
-            stackableWithRuleIds: [...value.condition.stackableWithRuleIds].sort(),
-        }),
-        ...(value.condition?.fallbackAfterRuleIds !== undefined && {
-            fallbackAfterRuleIds: [...value.condition.fallbackAfterRuleIds].sort(),
-        }),
-        ...(value.condition?.applicationOrder !== undefined && {
-            applicationOrder: value.condition.applicationOrder,
-        }),
-        ...(value.condition?.manualCheckRequired !== undefined && {
-            manualCheckRequired: value.condition.manualCheckRequired,
-        }),
-        ...(value.condition?.requiredNote !== undefined && {
-            requiredNote: value.condition.requiredNote,
-        }),
-        ...(value.condition?.itemSpecific !== undefined && {
-            itemSpecific: value.condition.itemSpecific,
-        }),
-        ...(value.condition?.eligibleItemSummary !== undefined && {
-            eligibleItemSummary: value.condition.eligibleItemSummary,
-        }),
-    },
-    action: value.action,
-    limitConfig: value.limitConfig,
-});
-
-function validateShinhanSolRuleCoverage(values: unknown[], errors: string[]) {
-    const actualById = new Map<string, Partial<BenefitRule>>();
-    values.forEach(value => {
-        if (isRecord(value) && typeof value.id === 'string') {
-            actualById.set(value.id, value as Partial<BenefitRule>);
-        }
-    });
-    const expectedRules = buildShinhanSolRules('shinhan_sol');
-    expectedRules.forEach(expected => {
-        const actual = actualById.get(expected.id);
-        if (!actual) {
-            errors.push(`공식 혜택 ${expected.id} 규칙이 누락되었습니다.`);
-            return;
-        }
-        if (normalizedRuleSignature(actual) !== normalizedRuleSignature(expected)) {
-            errors.push(`공식 혜택 ${expected.id}의 계산 조건·한도가 공식 기준과 다릅니다.`);
-        }
-    });
-}
 
 export function extractShinhanSolTravelWithRules(
     input: CardBenefitExtractionInput,
