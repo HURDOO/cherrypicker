@@ -49,12 +49,16 @@
    - `kb_nori2_convenience`, `kb_nori2_delivery`, `kb_nori2_ott`, `shinhan_hi_point_caribbean`, `shinhan_hi_point_favorite_overseas_1`~`_4`, `shinhan_hi_point_general_3`, `shinhan_hi_point_general_4`, `shinhan_hi_point_movie_online_1500`, `shinhan_hi_point_movie_online_3000`, `shinhan_mr_life_all_day_convenience`, `shinhan_mr_life_all_day_laundry`, `shinhan_mr_life_all_day_medical`, `shinhan_mr_life_monthly_utility`, `sh_nara_lg_membership`, `sh_nara_px_over_30000`, `sh_nara_px_z_life_convenience_fallback`
 2. **할인 제외 거래만 확인하는 12개.** 상품권·무이자할부 같은 제외는 카드 주의 문구로 옮기고 규칙은 확정 후보로 둔다(2026-10-11 사용자: 일상 거래가 아니므로 문구로 충분). 후불교통 RF·컨택리스처럼 결제 방식 자체가 조건인 규칙(`hy_transport`, `sol_domestic_transport`, `sol_overseas_transport`)은 조건 확인을 유지한다.
    - `dd_dream_overseas`, `shinhan_hi_point_favorite_cj_onstyle_1`~`_4`, `shinhan_hi_point_general_1`, `shinhan_hi_point_general_2`, `shinhan_mr_life_weekend_mart`
-3. **DSL 자동 계산 후보 9개.** 엔진이 이미 지원하는 조건이다. 카드 재수집 또는 수동 DSL 작성 후 재검수가 필요하다.
+3. **DSL 자동 계산 후보 9개 (TODO).** 엔진이 이미 지원하는 조건이지만 앱이 이 규칙들을 정확히 판정하는 경로는 아직 검증하지 않았다. 2026-10-11 사용자 결정으로 지금은 조건 확인을 유지하고 TODO로 남긴다.
    - 최다 이용 영역: `samsung_id_on_b1_coffee`, `samsung_id_on_b1_deli`, `samsung_id_on_b1_delivery`, `samsung_id_on_b1_starbucks_siren`, `dd_challenge_dream`
    - n번째 거래: `dd_taxi_day`, `sh_nara_telecom`
    - 특정 날짜: `hana_nara_cu_event`, `hana_nara_delivery_special`
 4. **0원에서 조건 확인으로 올릴 후보 2개.** `hana_nara_cu_event_special`은 행사상품 금액 입력, `kb_nara_kt_phone`은 자동이체 확인으로 계산할 수 있다.
 5. **미등록 결제처와 제휴 프로모션 26개.** 결정이 필요하다. 삼성 iD ON 3개는 카드 후보의 새 브랜드 제안으로 결제처를 등록하면 조건 확인으로 계산할 수 있다. Hey Young 제휴 프로모션 23개는 쿠폰 코드·카드 등급 조건이 붙은 해외 여행 혜택이라, 브랜드 제안과 조건 확인으로 올리거나 정보 제공 패턴을 새로 둘 수 있다.
+
+## 영화관 티켓·매점 구분 점검
+
+CGV·메가박스·롯데시네마를 참조하는 게시 규칙 10개를 확인했다. 관람권·팝콘처럼 대상 상품이 정해진 규칙은 특정 상품 혜택(`itemSpecific`)이고, Deep Dream 영화·커피 적립은 매장 전체 적립이라 구분이 필요 없다. 반면 공식 조건에 매점 제외가 있는 Hey Young `CGV 영화 예매 5천원 캐시백`과 KB 나라사랑 `CGV 35% 환급 할인`은 제외 조건이 상세 문구에만 있어 CGV 매점 결제에도 확정 할인으로 계산된다. KB 노리2 `CGV 4,000원 할인`은 조건 확인이지만 질문이 매점 제외를 묻지 않는다. Hi-Point 앱·홈페이지 예매 할인은 결제 경로가 공식 앱·홈페이지인지 앱이 알 수 없으므로 조건 확인을 유지한다.
 
 ## 패턴 등록과 엔진 확장 검토
 
