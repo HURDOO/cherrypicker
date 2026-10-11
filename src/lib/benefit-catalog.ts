@@ -55,6 +55,7 @@ const toCatalogBrand = (brand: Brand): CatalogBrand => ({
     categoryId: brand.categoryId,
     ...(brand.iconName && { iconName: brand.iconName }),
     ...(brand.order !== undefined && { order: brand.order }),
+    ...(brand.discoveryVisibility === 'SEARCH_ONLY' && { discoveryVisibility: 'SEARCH_ONLY' as const }),
 });
 
 const toCatalogCard = (card: Card): CatalogCard => ({

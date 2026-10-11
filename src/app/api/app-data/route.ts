@@ -10,6 +10,7 @@ import {
     userCardPerformances,
 } from '@/db/schema';
 import { handleRouteError, requireUser } from '@/lib/api-server';
+import { loadAutoBrowsableBrandIds, withResolvedDiscovery } from '@/lib/brand-discovery-server';
 import { cardVisibleToUser } from '@/lib/card-visibility';
 import {
     toBrand,
@@ -36,6 +37,7 @@ export async function GET(request: Request) {
             .where(or(isNull(brands.userId), eq(brands.userId, user.id)))
             .orderBy(asc(brands.sortOrder), asc(brands.name))
             .all();
+        const browsableAutoBrandIds = loadAutoBrowsableBrandIds(brandRows);
         const cardRows = db.select().from(cards)
             .where(cardVisibleToUser(user.id))
             .orderBy(asc(cards.name))
@@ -59,7 +61,7 @@ export async function GET(request: Request) {
         return Response.json({
             userId: user.id,
             categories: categoryRows.map(toCategory),
-            brands: brandRows.map(toBrand),
+            brands: brandRows.map(row => toBrand(withResolvedDiscovery(row, browsableAutoBrandIds))),
             cards: cardRows.map(toCard),
             rules: ruleRows.map(toRule),
             performances: performanceRows.map(toPerformance),

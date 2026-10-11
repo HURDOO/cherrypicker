@@ -28,6 +28,7 @@ import type { BenefitCatalogFreshness, BenefitCatalogSnapshot } from '@/types';
 import { buildBenefitCatalogSnapshot } from './benefit-catalog';
 import { cardBenefitCoverageCaveats } from './benefit-coverage-patterns';
 import { autoBrowsableBrandIds } from './brand-discovery-visibility';
+import { koreaDate, withResolvedDiscovery } from './brand-discovery-server';
 import { buildCardBenefitSupports } from './card-benefit-support';
 import { publishedSystemCard } from './card-visibility';
 import { getManagedSystemCardBenefitSourceInventory } from './system-card-onboarding';
@@ -37,13 +38,6 @@ type CatalogServerGlobal = typeof globalThis & {
 };
 
 const catalogServerGlobal = globalThis as CatalogServerGlobal;
-
-const koreaDate = (date = new Date()) => new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-}).format(date);
 
 export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
     const cached = catalogServerGlobal.cherryPickerBenefitCatalog;
@@ -130,9 +124,7 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
                     .orderBy(asc(categories.sortOrder), asc(categories.name), asc(categories.id))
                     .all()
                     .map(toCategory),
-                brands: brandRows.map(row => toBrand(browsableAutoBrandIds.has(row.id)
-                    ? { ...row, discoveryVisibility: 'BROWSE' }
-                    : row)),
+                brands: brandRows.map(row => toBrand(withResolvedDiscovery(row, browsableAutoBrandIds))),
                 cards: systemCards,
                 rules,
                 providers: tx.select().from(promotionProviders)

@@ -223,6 +223,27 @@ describe('card performance policies in the public catalog', () => {
 });
 
 describe('benefit catalog builder', () => {
+    it('keeps the search-only marker so browse lists can hide those brands', () => {
+        const source = createSource();
+        source.brands = source.brands.map(brand => brand.id === 'restaurant'
+            ? { ...brand, discoveryVisibility: 'SEARCH_ONLY' as const }
+            : brand);
+
+        const snapshot = buildBenefitCatalogSnapshot(source, GENERATED_AT);
+
+        expect(snapshot.brands).toEqual([
+            { id: 'coffee', name: '커피', categoryId: 'cafe', order: 1 },
+            {
+                id: 'restaurant',
+                name: '식당',
+                categoryId: 'dining',
+                order: 2,
+                discoveryVisibility: 'SEARCH_ONLY',
+            },
+        ]);
+        expect(parseBenefitCatalogSnapshot(snapshot).brands[1].discoveryVisibility).toBe('SEARCH_ONLY');
+    });
+
     it('publishes only system and active data without internal review metadata', () => {
         const snapshot = buildBenefitCatalogSnapshot(createSource(), GENERATED_AT);
 
