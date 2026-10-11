@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => {
         reviewData: vi.fn(),
         review: vi.fn(),
         rollback: vi.fn(),
+        maxAiCards: vi.fn(),
     };
 });
 
@@ -43,7 +44,7 @@ vi.mock('@/lib/card-benefit-ingestion', () => ({
 vi.mock('@/lib/card-benefit-batch', () => ({
     collectAllSystemCardBenefits: mocks.collectAll,
     collectSelectedSystemCardBenefits: mocks.collectSelected,
-    resolveCardBenefitBatchMaxAiCards: () => 2,
+    resolveCardBenefitBatchMaxAiCards: mocks.maxAiCards,
 }));
 
 import { GET, PATCH, POST } from './route';
@@ -68,6 +69,7 @@ describe('admin card benefit route', () => {
         mocks.collectSelected.mockResolvedValue({ totals: { targets: 3 } });
         mocks.review.mockReturnValue({ revision: 2 });
         mocks.rollback.mockReturnValue({ revision: 3 });
+        mocks.maxAiCards.mockReturnValue(2);
     });
 
     it('returns the private review queue after admin authentication', async () => {
@@ -107,6 +109,19 @@ describe('admin card benefit route', () => {
 
         const unsupported = await POST(jsonRequest('POST', { action: 'collect-other' }));
         expect(unsupported.status).toBe(400);
+    });
+
+    it('collects only official sources for a single card while card AI is off', async () => {
+        mocks.maxAiCards.mockReturnValue(0);
+
+        await POST(jsonRequest('POST', { action: 'collect-card', cardId: 'hana_nara' }));
+        await POST(jsonRequest('POST', { action: 'collect-shinhan-sol' }));
+
+        expect(mocks.collectSystem).toHaveBeenCalledWith('hana_nara', {
+            forceExtraction: false,
+            sourcesOnly: true,
+        });
+        expect(mocks.collect).toHaveBeenCalledWith({ sourcesOnly: true });
     });
 
     it('checks all supported cards through the budgeted batch collector', async () => {

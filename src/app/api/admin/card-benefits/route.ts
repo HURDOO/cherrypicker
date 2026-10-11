@@ -27,15 +27,17 @@ const routeError = (error: unknown) => handleRouteError(
         : error
 );
 
+const configuredMaxAiCards = () => resolveCardBenefitBatchMaxAiCards(
+    process.env.CARD_BENEFIT_BATCH_MAX_AI_CARDS,
+);
+
 export async function GET(request: Request) {
     try {
         await requireAdmin(request);
         return Response.json({
             ...getCardBenefitReviewData(),
             batchPolicy: {
-                maxAiCards: resolveCardBenefitBatchMaxAiCards(
-                    process.env.CARD_BENEFIT_BATCH_MAX_AI_CARDS,
-                ),
+                maxAiCards: configuredMaxAiCards(),
             },
         });
     } catch (error) {
@@ -47,12 +49,18 @@ export async function POST(request: Request) {
     try {
         await requireAdmin(request);
         const input = await readJsonObject(request);
+        // Single-card checks follow the batch policy: with no card AI budget they only collect sources.
+        const sourcesOnly = configuredMaxAiCards() === 0;
         if (input.action === 'collect-shinhan-sol') {
-            return Response.json(await collectShinhanSolTravelBenefits(), { status: 201 });
+            return Response.json(
+                await collectShinhanSolTravelBenefits(sourcesOnly ? { sourcesOnly } : {}),
+                { status: 201 },
+            );
         }
         if (input.action === 'collect-card' && typeof input.cardId === 'string') {
             return Response.json(await collectSystemCardBenefits(input.cardId, {
                 forceExtraction: input.forceExtraction === true,
+                ...(sourcesOnly && { sourcesOnly }),
             }), { status: 201 });
         }
         if (input.action === 'collect-all-cards') {

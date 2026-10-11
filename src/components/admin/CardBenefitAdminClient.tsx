@@ -29,6 +29,7 @@ import {
     cardBenefitProblemStreaks,
     isCardBenefitBatchItemProblem,
 } from '@/lib/card-benefit-collection-run';
+import { isSourceChangeCardBenefitCandidate } from '@/lib/card-benefit-candidate-selection';
 import { useToastStore } from '@/store/useToastStore';
 import { evaluateBenefitProgram, validateBenefitProgram } from '@/utils/benefit-dsl';
 import {
@@ -147,11 +148,21 @@ const batchItemStatusLabel = {
     failed: '실패',
 };
 
+const batchItemLabel = (item: CardBenefitCollectionRun['items'][number]) => (
+    item.revisionRequired ? '수정안 필요' : batchItemStatusLabel[item.status]
+);
+
 const extractorLabel = (extractor: string) => {
     if (extractor.startsWith('openai:')) return 'OpenAI 2단계 구조화';
     if (extractor.startsWith('revision:')) return '검토된 수정안';
+    if (isSourceChangeCardBenefitCandidate(extractor)) return '원문 보관 · 수정안 필요';
     return '공식 규칙 추출기';
 };
+
+// Only automatic structuring reports a confidence; reviewed and source-only candidates do not.
+const hasExtractionConfidence = (extractor: string) => (
+    !extractor.startsWith('revision:') && !isSourceChangeCardBenefitCandidate(extractor)
+);
 
 const formatAction = (rule: BenefitRule) => {
     if (rule.program) return `DSL v${rule.program.languageVersion}`;
@@ -496,6 +507,7 @@ export function CardBenefitAdminClient() {
                 candidatePreserved?: boolean;
                 cacheHit?: boolean;
                 localRepair?: boolean;
+                revisionRequired?: boolean;
             }>({
                 method: 'POST',
                 body: JSON.stringify({
@@ -505,7 +517,9 @@ export function CardBenefitAdminClient() {
                 }),
             });
             addToast(
-                result.localRepair
+                result.revisionRequired
+                    ? '공식 원문을 보관했습니다. 검토된 수정안으로 반영해야 게시할 수 있습니다. AI API는 호출하지 않았습니다.'
+                    : result.localRepair
                     ? '기존 후보를 공식 근거 기반 규칙으로 로컬 보정했습니다. AI API는 호출하지 않았습니다.'
                     : result.cacheHit
                     ? '공식 원문이 같아 기존 검증 통과 후보를 사용했습니다. AI API는 호출하지 않았습니다.'
@@ -517,7 +531,7 @@ export function CardBenefitAdminClient() {
                         (result.sourceFailures.length > 0
                             ? ` 선택 출처 ${result.sourceFailures.length}개는 실패했습니다.`
                             : ''),
-                result.validationErrors.length > 0 ? 'error' : 'success',
+                result.revisionRequired ? 'info' : result.validationErrors.length > 0 ? 'error' : 'success',
             );
             await load();
         } catch (error) {
@@ -534,12 +548,16 @@ export function CardBenefitAdminClient() {
                 method: 'POST',
                 body: JSON.stringify({ action: 'collect-all-cards' }),
             });
+            const revisionRequired = result.items.filter(item => item.revisionRequired).length;
             addToast(
                 `${result.totals.targets}장 확인 · 새 후보 ${result.totals.created} · ` +
                 `원문 동일 ${result.totals.unchanged} · AI 구조화 ${result.totals.aiExtractions}장` +
+                (revisionRequired > 0 ? ` · 수정안 필요 ${revisionRequired}` : '') +
                 (result.totals.deferred > 0 ? ` · 다음 실행으로 미룸 ${result.totals.deferred}` : '') +
                 (result.totals.failed > 0 ? ` · 실패 ${result.totals.failed}` : ''),
-                result.totals.failed > 0 ? 'error' : result.totals.deferred > 0 ? 'info' : 'success',
+                result.totals.failed > 0
+                    ? 'error'
+                    : result.totals.deferred > 0 || revisionRequired > 0 ? 'info' : 'success',
             );
             await load();
         } catch (error) {
@@ -601,6 +619,10 @@ export function CardBenefitAdminClient() {
     };
 
     const pendingCount = data?.candidates.filter(item => item.status === 'PENDING').length ?? 0;
+    const cardAiEnabled = (data?.batchPolicy.maxAiCards ?? 0) > 0;
+    const revisionRequired = data?.candidates.filter(item => (
+        item.status === 'PENDING' && isSourceChangeCardBenefitCandidate(item.extractor)
+    )) ?? [];
     const checkedTargetCount = data?.collectionTargets.filter(target => target.lastCheckedAt).length ?? 0;
     const problemStreaks = cardBenefitProblemStreaks(data?.collectionRuns ?? []);
     const cardName = (cardId: string) => data?.collectionTargets.find(target => (
@@ -658,18 +680,20 @@ export function CardBenefitAdminClient() {
                                         : <DatabaseZap className="h-4 w-4" />}
                                     {target.cardName} 확인
                                 </button>
-                                <button
-                                    type="button"
-                                    title="같은 원문도 AI로 강제 재추출"
-                                    aria-label={`${target.cardName} AI 강제 재추출`}
-                                    onClick={() => collect(target, true)}
-                                    disabled={Boolean(busyKey)}
-                                    className="border-l border-white/20 bg-amber-600 px-3 text-white disabled:opacity-50"
-                                >
-                                    {busyKey === `force-collect:${target.cardId}`
-                                        ? <LoaderCircle className="h-4 w-4 animate-spin" />
-                                        : <RotateCcw className="h-4 w-4" />}
-                                </button>
+                                {cardAiEnabled && (
+                                    <button
+                                        type="button"
+                                        title="같은 원문도 AI로 강제 재추출"
+                                        aria-label={`${target.cardName} AI 강제 재추출`}
+                                        onClick={() => collect(target, true)}
+                                        disabled={Boolean(busyKey)}
+                                        className="border-l border-white/20 bg-amber-600 px-3 text-white disabled:opacity-50"
+                                    >
+                                        {busyKey === `force-collect:${target.cardId}`
+                                            ? <LoaderCircle className="h-4 w-4 animate-spin" />
+                                            : <RotateCcw className="h-4 w-4" />}
+                                    </button>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -697,8 +721,29 @@ export function CardBenefitAdminClient() {
                 </section>
 
                 <section className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-[11px] font-bold leading-relaxed text-violet-900">
-                    전체 변경 확인은 공식 원문이 같은 카드의 AI 호출을 생략합니다. 원문이 바뀐 카드는 한 번에 최대 {data?.batchPolicy.maxAiCards ?? 2}장까지만 AI로 구조화하고, 나머지는 다음 실행으로 미뤄 예상치 못한 비용 증가를 막습니다. 생성된 후보는 검증 후 게시됩니다.
+                    {cardAiEnabled
+                        ? `전체 변경 확인은 공식 원문이 같은 카드의 AI 호출을 생략합니다. 원문이 바뀐 카드는 한 번에 최대 ${data?.batchPolicy.maxAiCards}장까지만 AI로 구조화하고, 나머지는 다음 실행으로 미뤄 예상치 못한 비용 증가를 막습니다. 생성된 후보는 검증 후 게시됩니다.`
+                        : '카드 AI 구조화는 꺼져 있습니다. 변경 확인은 공식 원문만 수집해 비교하고, 바뀐 카드는 기존 규칙을 새 원문으로 검증한 결과와 함께 ‘수정안 필요’로 보관합니다. 반영은 검토된 수정안(cards:sources → cards:revise)으로 하며 같은 검증·승인을 거칩니다.'}
                 </section>
+
+                {revisionRequired.length > 0 && (
+                    <section className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
+                        <p className="flex items-center gap-1 text-[11px] font-black text-amber-900">
+                            <ShieldAlert className="h-3.5 w-3.5" /> 수정안 필요 {revisionRequired.length}장
+                        </p>
+                        <ul className="mt-2 space-y-1 pl-4 text-[10px] font-bold text-amber-800">
+                            {revisionRequired.map(candidate => (
+                                <li key={candidate.id} className="list-disc">
+                                    <a href={`#candidate-${candidate.id}`} className="underline underline-offset-2">
+                                        {cardName(candidate.cardId)}
+                                    </a>
+                                    {' '}· {new Date(candidate.createdAt).toLocaleString('ko-KR')}
+                                    {' '}· 오류 {candidate.validationErrors.length}건 · {candidate.validationErrors[0]}
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                )}
 
                 {!isLoading && (data?.collectionTargets.length ?? 0) > 0 && (
                     <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -767,7 +812,7 @@ export function CardBenefitAdminClient() {
                                                 <ul className="mt-2 space-y-1 pl-4 text-rose-700">
                                                     {problems.map(item => (
                                                         <li key={item.cardId} className="list-disc">
-                                                            {cardName(item.cardId)} · {batchItemStatusLabel[item.status]}
+                                                            {cardName(item.cardId)} · {batchItemLabel(item)}
                                                             {item.validationErrorCount > 0 ? ` · 검증 오류 ${item.validationErrorCount}` : ''}
                                                             {item.sourceFailureCount > 0 ? ` · 출처 실패 ${item.sourceFailureCount}` : ''}
                                                             {item.error ? ` · ${item.error}` : ''}
@@ -799,7 +844,11 @@ export function CardBenefitAdminClient() {
                 )}
 
                 {(data?.candidates ?? []).map(candidate => (
-                    <article key={candidate.id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <article
+                        key={candidate.id}
+                        id={`candidate-${candidate.id}`}
+                        className="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm"
+                    >
                         <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
                                 <div className="flex flex-wrap items-center gap-2">
@@ -816,7 +865,10 @@ export function CardBenefitAdminClient() {
                                     {candidate.extraction.card.name}
                                 </h2>
                                 <p className="mt-1 text-[10px] font-bold text-gray-400">
-                                    schema v{candidate.extraction.schemaVersion} · {candidate.extraction.card.network ?? '브랜드 미지정'} · 추출 신뢰도 {Math.round(candidate.confidence * 100)}% · 규칙 {candidate.extraction.rules.length}개 · 근거 {candidate.extraction.evidence.length}개 · hash {candidate.contentHash.slice(0, 10)}
+                                    schema v{candidate.extraction.schemaVersion} · {candidate.extraction.card.network ?? '브랜드 미지정'}
+                                    {hasExtractionConfidence(candidate.extractor)
+                                        ? ` · 추출 신뢰도 ${Math.round(candidate.confidence * 100)}%`
+                                        : ''} · 규칙 {candidate.extraction.rules.length}개 · 근거 {candidate.extraction.evidence.length}개 · hash {candidate.contentHash.slice(0, 10)}
                                 </p>
                             </div>
                             <div className="flex flex-wrap justify-end gap-1.5">

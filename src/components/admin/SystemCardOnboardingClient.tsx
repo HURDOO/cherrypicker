@@ -76,6 +76,7 @@ type CollectionResult = {
     sourceFailures: Array<unknown>;
     candidatePreserved?: boolean;
     cacheHit?: boolean;
+    revisionRequired?: boolean;
 };
 
 const colors = [
@@ -347,7 +348,9 @@ export function SystemCardOnboardingClient() {
                     sourceFailureCount: result.sourceFailures.length,
                 });
                 addToast(
-                    result.validationErrors.length > 0
+                    result.revisionRequired
+                        ? '공식 원문을 보관했습니다. 검토된 수정안으로 첫 혜택을 작성해야 게시할 수 있습니다.'
+                        : result.validationErrors.length > 0
                         ? `후보를 만들었지만 검증 오류 ${result.validationErrors.length}건을 확인해야 합니다.`
                         : '공식 원문 수집과 검수 후보 생성을 마쳤습니다.',
                     result.validationErrors.length > 0 ? 'info' : 'success',
@@ -403,13 +406,18 @@ export function SystemCardOnboardingClient() {
                     },
                 );
                 setLastBatchResult({ cardIds: savedCardIds, collection });
+                const revisionRequired = collection.items.filter(item => item.revisionRequired).length;
                 const attentionCount = collection.totals.deferred +
                     collection.totals.failed +
-                    collection.totals.validationErrors +
+                    collection.items.reduce((sum, item) => (
+                        item.revisionRequired ? sum : sum + item.validationErrorCount
+                    ), 0) +
                     collection.totals.sourceFailures;
                 addToast(
                     attentionCount > 0
                         ? `배치 수집을 마쳤습니다. 보류·오류 ${attentionCount}건을 확인해주세요.`
+                        : revisionRequired > 0
+                        ? `카드 ${revisionRequired}장의 공식 원문을 보관했습니다. 검토된 수정안으로 첫 혜택을 작성해주세요.`
                         : `카드 ${savedCardIds.length}장의 검수 후보 생성을 마쳤습니다.`,
                     attentionCount > 0 ? 'info' : 'success',
                 );
@@ -752,7 +760,7 @@ export function SystemCardOnboardingClient() {
                     </section>
 
                     <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] font-bold leading-relaxed text-amber-900">
-                        AI 수집은 등록한 공개 공식 문서만 전송하며 사용자·결제 데이터는 보내지 않습니다. API 비용이 발생할 수 있고, 검증 후보를 승인하기 전까지 카드는 공개되지 않습니다.
+                        수집은 등록한 공개 공식 문서만 사용하며 사용자·결제 데이터는 다루지 않습니다. 카드 AI 구조화가 꺼진 기본 운영에서는 원문만 보관하고 혜택은 검토된 수정안으로 작성합니다. 검증 후보를 승인하기 전까지 카드는 공개되지 않습니다.
                     </section>
 
                     {editingCardId && (
@@ -799,7 +807,7 @@ export function SystemCardOnboardingClient() {
                             {busyAction === 'collect'
                                 ? <LoaderCircle className="h-4 w-4 animate-spin" />
                                 : <DatabaseZap className="h-4 w-4" />}
-                            {editingCardId ? '수정 후 AI 수집 시작' : '저장 후 AI 수집 시작'}
+                            {editingCardId ? '수정 후 원문 수집' : '저장 후 원문 수집'}
                         </button>
                     </div>
                 </form>
@@ -813,7 +821,7 @@ export function SystemCardOnboardingClient() {
                             <div>
                                 <h2 className="text-sm font-black text-gray-950">공식 결제처 registry</h2>
                                 <p className="mt-1 text-[10px] font-bold leading-relaxed text-gray-500">
-                                    새 카드의 공식 원문에만 있는 결제 대상을 데이터로 먼저 등록하면 AI가 해당 ID를 DSL에 연결할 수 있습니다.
+                                    새 카드의 공식 원문에만 있는 결제 대상을 데이터로 먼저 등록하면 혜택 규칙이 해당 ID를 DSL에 연결할 수 있습니다.
                                 </p>
                             </div>
                             <span className="shrink-0 rounded-full bg-sky-200 px-2.5 py-1 text-[10px] font-black text-sky-800">
@@ -887,7 +895,7 @@ export function SystemCardOnboardingClient() {
                                 <div>
                                     <h2 className="text-sm font-black text-gray-950">온보딩 배치</h2>
                                     <p className="mt-1 text-[10px] font-bold leading-relaxed text-gray-500">
-                                        최대 5장을 원자적으로 초안 저장하고, AI 예산 범위에서 순서대로 수집합니다.
+                                        최대 5장을 원자적으로 초안 저장하고 순서대로 공식 원문을 수집합니다.
                                     </p>
                                 </div>
                                 <span className="shrink-0 rounded-full bg-violet-200 px-2.5 py-1 text-[10px] font-black text-violet-800">
@@ -942,7 +950,7 @@ export function SystemCardOnboardingClient() {
                                 </button>
                             </div>
                             <p className="mt-3 text-[9px] font-bold leading-relaxed text-violet-700">
-                                AI 상한을 넘긴 카드는 실패시키지 않고 보류합니다. 다음 전체 수집에서 이어서 처리할 수 있습니다.
+                                수집한 원문은 수정안 필요로 보관됩니다. 카드 AI 구조화를 켠 경우 상한을 넘긴 카드는 실패시키지 않고 다음 전체 수집으로 미룹니다.
                             </p>
                         </section>
                     )}
@@ -967,7 +975,7 @@ export function SystemCardOnboardingClient() {
                                             <div className="mt-3 space-y-1.5">
                                                 {lastBatchResult.collection.items.map(item => (
                                                     <p key={item.cardId} className="rounded-xl bg-white/70 px-3 py-2 text-[9px] font-bold text-gray-600">
-                                                        {item.cardId} · {item.status}
+                                                        {item.cardId} · {item.revisionRequired ? '수정안 필요' : item.status}
                                                         {item.aiExtraction ? ' · AI 사용' : ''}
                                                         {item.cacheHit ? ' · 캐시' : ''}
                                                         {item.error ? ` · ${item.error}` : ''}

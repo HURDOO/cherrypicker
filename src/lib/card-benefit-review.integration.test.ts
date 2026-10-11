@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -7,6 +8,8 @@ import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as schema from '@/db/schema';
 import type { CardBenefitExtraction } from '@/types';
+import { CARD_BENEFIT_SOURCE_CHANGE_EXTRACTOR } from './card-benefit-candidate-selection';
+import type { CollectedOfficialDocument } from './official-document-source';
 import { officialBrandIdFor } from './promotion-parsers';
 
 interface MigrationJournal {
@@ -24,6 +27,25 @@ const pgQuote = 'PG 경유 결제 등 일부 거래는 할인 대상에서 제�
 const installmentQuote = '무이자할부 및 상품권 구매 금액은 전월 이용실적에서 제외';
 const wefanId = officialBrandIdFor('위팬샵');
 const bearsId = officialBrandIdFor('베어스하우스');
+
+const collectedPage = (text: string): CollectedOfficialDocument[] => [{
+    definition: {
+        id: 'product',
+        label: '상품 페이지',
+        sourceUrl,
+        sourceKind: 'PRODUCT_PAGE',
+        format: 'html',
+        allowedHosts: ['card.example.com'],
+        required: true,
+        candidateRole: 'PRIMARY',
+    },
+    sourceUrl,
+    mediaType: 'text/html',
+    rawContent: `<html>${text}</html>`,
+    extractedText: text,
+    contentHash: createHash('sha256').update(text).digest('hex'),
+    responseMetadata: {},
+}];
 
 const extraction: CardBenefitExtraction = {
     schemaVersion: 2,
@@ -315,5 +337,144 @@ describe('card benefit review with rule-level coverage', () => {
         expect(validationErrors).toEqual([]);
         expect(candidate).toMatchObject({ baseRevision: 0, documentId: 'draft-document' });
         expect(statuses).toEqual({ 'stale-candidate': 'REJECTED', [candidate!.id]: 'PENDING' });
+    });
+
+    it('keeps a changed official source for a reviewed revision while card AI is off', async () => {
+        const originalText = [wefanQuote, bearsQuote, pgQuote, installmentQuote].join('\n');
+        const changedQuote = '위팬샵 공식 온라인몰 결제 시 30% 할인';
+        const changedText = [changedQuote, bearsQuote, pgQuote, installmentQuote].join('\n');
+        const statuses = () => Object.fromEntries(integrationDb.select().from(schema.cardBenefitCandidates)
+            .where(eq(schema.cardBenefitCandidates.cardId, 'coverage_card')).all()
+            .map(row => [row.id, row.status]));
+        const wefanRule = () => integrationDb.select().from(schema.benefitRules)
+            .where(eq(schema.benefitRules.id, 'coverage_card_wefan')).get();
+
+        const same = await ingestion.collectSystemCardBenefits('coverage_card', {
+            sourcesOnly: true,
+            collectedSources: collectedPage(originalText),
+        });
+        expect(same).toMatchObject({ status: 'unchanged', cacheHit: true });
+        expect(same.revisionRequired).toBeUndefined();
+
+        const changed = await ingestion.collectSystemCardBenefits('coverage_card', {
+            sourcesOnly: true,
+            collectedSources: collectedPage(changedText),
+        });
+        expect(changed).toMatchObject({
+            status: 'created',
+            extractor: CARD_BENEFIT_SOURCE_CHANGE_EXTRACTOR,
+            revisionRequired: true,
+        });
+        expect(changed.validationErrors[0]).toMatch(/^공식 원문이 바뀌었습니다/);
+        expect(changed.validationErrors.length).toBeGreaterThan(1);
+        expect(wefanRule()?.action).toEqual({ type: 'PERCENT', value: 20 });
+
+        const again = await ingestion.collectSystemCardBenefits('coverage_card', {
+            sourcesOnly: true,
+            collectedSources: collectedPage(changedText),
+        });
+        expect(again).toMatchObject({
+            status: 'unchanged',
+            candidateId: changed.candidateId,
+            revisionRequired: true,
+        });
+
+        const reverted = await ingestion.collectSystemCardBenefits('coverage_card', {
+            sourcesOnly: true,
+            collectedSources: collectedPage(originalText),
+        });
+        expect(reverted).toMatchObject({ status: 'unchanged', cacheHit: true });
+        expect(statuses()[changed.candidateId]).toBe('REJECTED');
+        const changedAgain = await ingestion.collectSystemCardBenefits('coverage_card', {
+            sourcesOnly: true,
+            collectedSources: collectedPage(changedText),
+        });
+        expect(changedAgain).toMatchObject({ status: 'created', revisionRequired: true });
+        expect(changedAgain.validationErrors[0]).toMatch(/^공식 원문이 바뀌었습니다/);
+
+        const sources = ingestion.getCardBenefitRevisionSources('coverage_card');
+        expect(sources.current).toMatchObject({ candidateId: changedAgain.candidateId, revisionRequired: true });
+        expect(sources.current.documents.map(document => document.extractedText)).toEqual([changedText]);
+        expect(sources.published?.documents.map(document => document.extractedText)).toEqual([originalText]);
+
+        const patch = {
+            note: '위팬샵 할인율 변경',
+            rules: { coverage_card_wefan: { description: '위팬샵 30% 할인', action: { value: 30 } } },
+            evidence: { wefan: { quote: changedQuote } },
+        };
+        expect(() => ingestion.createCardBenefitRevisionCandidate('coverage_card', patch, {
+            expectedSourceBundleHash: 'reviewed-other-bundle',
+        })).toThrow('공식 문서 묶음');
+        expect(ingestion.createCardBenefitRevisionCandidate('coverage_card', {
+            note: '근거를 바꾸지 않은 수정안',
+            rules: { coverage_card_wefan: { action: { value: 30 } } },
+        }, { dryRun: true }).validationErrors).not.toEqual([]);
+
+        const { candidate, validationErrors } = ingestion.createCardBenefitRevisionCandidate('coverage_card', patch, {
+            expectedSourceBundleHash: sources.current.sourceBundleHash,
+        });
+        expect(validationErrors).toEqual([]);
+        expect(candidate).toMatchObject({
+            documentId: changed.documentId,
+            sourceBundleHash: sources.current.sourceBundleHash,
+        });
+        expect(statuses()[changedAgain.candidateId]).toBe('REJECTED');
+
+        ingestion.reviewCardBenefitCandidate(candidate!.id, 'APPROVED', 'reviewer');
+        expect(wefanRule()?.action).toEqual({ type: 'PERCENT', value: 30 });
+
+        const reviewed = await ingestion.collectSystemCardBenefits('coverage_card', {
+            sourcesOnly: true,
+            collectedSources: collectedPage(changedText),
+        });
+        expect(reviewed).toMatchObject({ status: 'unchanged', cacheHit: true, candidateId: candidate!.id });
+        expect(reviewed.revisionRequired).toBeUndefined();
+    });
+
+    it('stores the first official sources of a new card for a reviewed first revision', async () => {
+        integrationDb.insert(schema.cards).values({
+            id: 'fresh_card',
+            name: '새 카드',
+            company: '테스트카드',
+            color: 'bg-gray-400',
+            limitTable: [],
+            catalogStatus: 'DRAFT',
+        }).run();
+        const text = [wefanQuote, bearsQuote, pgQuote, installmentQuote].join('\n');
+
+        const collected = await ingestion.collectSystemCardBenefits('fresh_card', {
+            sourcesOnly: true,
+            collectedSources: collectedPage(text),
+        });
+        const placeholder = integrationDb.select().from(schema.cardBenefitCandidates)
+            .where(eq(schema.cardBenefitCandidates.id, collected.candidateId)).get();
+        expect(collected).toMatchObject({ status: 'created', revisionRequired: true });
+        expect(collected.validationErrors[0]).toMatch(/^승인된 구조화 결과가 없는 카드의 공식 원문을 보관했습니다/);
+        expect(placeholder?.extraction.rules).toEqual([]);
+        await expect(ingestion.collectSystemCardBenefits('fresh_card', {
+            sourcesOnly: true,
+            forceExtraction: true,
+            collectedSources: collectedPage(text),
+        })).rejects.toThrow('AI 재추출');
+
+        const rename = (value: string) => value.replace('coverage_card', 'fresh_card');
+        const baseExtraction: CardBenefitExtraction = {
+            ...structuredClone(extraction),
+            card: { ...extraction.card, id: 'fresh_card', name: '새 카드' },
+            rules: extraction.rules.map(rule => ({ ...rule, id: rename(rule.id), cardId: 'fresh_card' })),
+            evidence: extraction.evidence.map(item => ({ ...item, ruleIds: item.ruleIds.map(rename) })),
+            unsupportedClauses: extraction.unsupportedClauses!.map(clause => ({
+                ...clause,
+                ruleIds: clause.ruleIds.map(rename),
+            })),
+        };
+        const { candidate, validationErrors } = ingestion.createCardBenefitRevisionCandidate('fresh_card', {
+            note: '첫 혜택 작성',
+        }, { baseExtraction });
+
+        expect(validationErrors).toEqual([]);
+        expect(candidate).toMatchObject({ baseRevision: 0, documentId: collected.documentId });
+        expect(integrationDb.select().from(schema.cardBenefitCandidates)
+            .where(eq(schema.cardBenefitCandidates.id, collected.candidateId)).get()?.status).toBe('REJECTED');
     });
 });

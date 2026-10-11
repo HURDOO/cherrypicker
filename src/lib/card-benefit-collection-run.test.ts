@@ -98,4 +98,17 @@ describe('card benefit collection run', () => {
             latestError: 'timeout',
         }]);
     });
+
+    it('keeps a source change awaiting its revision partial but out of the failure streaks', () => {
+        const awaiting = (status: CardBenefitBatchItem['status']) => item('a', status, {
+            validationErrorCount: 3,
+            revisionRequired: true,
+        });
+
+        expect(summarizeCardBenefitCollectionRun(result([awaiting('created')]))).toBe('PARTIAL');
+        expect(cardBenefitProblemStreaks([
+            run('latest', [awaiting('unchanged')]),
+            run('previous', [awaiting('created')]),
+        ])).toEqual([]);
+    });
 });

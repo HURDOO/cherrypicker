@@ -10,3 +10,13 @@ export const isReusableCardBenefitCandidate = (
 ) => status === 'APPROVED' || (
     status === 'PENDING' && candidateBaseRevision === currentBaseRevision
 );
+
+/**
+ * A candidate that only records a changed official source bundle while card AI is off. It carries
+ * the published extraction (or nothing, before publication) and always awaits a reviewed revision.
+ */
+export const CARD_BENEFIT_SOURCE_CHANGE_EXTRACTOR = 'source:awaiting-revision-v1';
+
+export const isSourceChangeCardBenefitCandidate = (extractor: string) => (
+    extractor === CARD_BENEFIT_SOURCE_CHANGE_EXTRACTOR
+);

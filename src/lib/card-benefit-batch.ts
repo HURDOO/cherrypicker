@@ -27,10 +27,12 @@ type CardBenefitCollector = (
     options: {
         provider?: CardBenefitExtractionProvider;
         forceExtraction?: boolean;
+        sourcesOnly?: boolean;
     },
 ) => Promise<CardBenefitCollectionResult>;
 
-const DEFAULT_MAX_AI_CARDS = 2;
+// Card benefits are written as reviewed revisions in user-run sessions; 0 collects official sources only.
+const DEFAULT_MAX_AI_CARDS = 0;
 const MAX_SELECTED_BATCH_SIZE = 5;
 
 export function resolveCardBenefitBatchMaxAiCards(configured?: string) {
@@ -59,7 +61,8 @@ export async function runCardBenefitCollectionBatch(options: {
 }): Promise<CardBenefitBatchResult> {
     const startedAt = new Date();
     let aiExtractions = 0;
-    const baseProvider = options.provider;
+    const sourcesOnly = options.maxAiCards === 0;
+    const baseProvider = sourcesOnly ? undefined : options.provider;
     const provider = baseProvider ? {
         id: baseProvider.id,
         ...(baseProvider.model && { model: baseProvider.model }),
@@ -78,10 +81,12 @@ export async function runCardBenefitCollectionBatch(options: {
         const started = Date.now();
         const previousAiExtractions = aiExtractions;
         try {
-            const result = await options.collect(cardId, {
-                ...(provider && { provider }),
-                forceExtraction: options.forceExtraction === true,
-            });
+            const result = await options.collect(cardId, sourcesOnly
+                ? { sourcesOnly: true }
+                : {
+                    ...(provider && { provider }),
+                    forceExtraction: options.forceExtraction === true,
+                });
             items.push({
                 cardId,
                 status: result.status,
@@ -91,6 +96,7 @@ export async function runCardBenefitCollectionBatch(options: {
                 validationErrorCount: result.validationErrors.length,
                 sourceFailureCount: result.sourceFailures.length,
                 candidateId: result.candidateId,
+                ...(result.revisionRequired && { revisionRequired: true }),
             });
         } catch (error) {
             const deferred = error instanceof CardBenefitExtractionBudgetError ||
@@ -132,12 +138,16 @@ const collectSystemCardBenefitsByIds = async (cardIds: string[], options: {
     maxAiCards?: number;
     trigger?: CardBenefitCollectionTrigger;
 } = {}) => {
+    const maxAiCards = options.maxAiCards ?? resolveCardBenefitBatchMaxAiCards(
+        process.env.CARD_BENEFIT_BATCH_MAX_AI_CARDS,
+    );
+    if (maxAiCards === 0 && options.forceExtraction) {
+        throw new CardBenefitIngestionError(400, '카드 AI 구조화가 꺼져 있어 AI 재추출을 실행할 수 없습니다.');
+    }
     const result = await runCardBenefitCollectionBatch({
         cardIds,
-        maxAiCards: options.maxAiCards ?? resolveCardBenefitBatchMaxAiCards(
-            process.env.CARD_BENEFIT_BATCH_MAX_AI_CARDS,
-        ),
-        provider: createCardBenefitExtractionProvider(),
+        maxAiCards,
+        provider: maxAiCards > 0 ? createCardBenefitExtractionProvider() : undefined,
         forceExtraction: options.forceExtraction,
         collect: collectSystemCardBenefits,
     });

@@ -101,8 +101,43 @@ describe('card benefit collection batch', () => {
         expect(result.totals.failed).toBe(1);
     });
 
-    it('uses a conservative default and rejects invalid AI card budgets', () => {
-        expect(resolveCardBenefitBatchMaxAiCards()).toBe(2);
+    it('collects only official sources when card AI is off and reports reviewed revisions to make', async () => {
+        const extraction = vi.fn(async () => extractionResult);
+        const collect = vi.fn(async (cardId: string, options: { sourcesOnly?: boolean }) => ({
+            ...collectionResult(cardId, cardId === 'changed' ? 'created' : 'unchanged', cardId !== 'changed'),
+            ...(cardId === 'changed' && options.sourcesOnly && {
+                extractor: 'source:awaiting-revision-v1',
+                validationErrors: ['공식 원문이 바뀌었습니다.'],
+                revisionRequired: true,
+            }),
+        }));
+
+        const result = await runCardBenefitCollectionBatch({
+            cardIds: ['same', 'changed'],
+            maxAiCards: 0,
+            provider: { id: 'test', extract: extraction },
+            forceExtraction: true,
+            collect,
+        });
+
+        expect(collect.mock.calls.map(call => call[1])).toEqual([
+            { sourcesOnly: true },
+            { sourcesOnly: true },
+        ]);
+        expect(extraction).not.toHaveBeenCalled();
+        expect(result.items[0]).not.toHaveProperty('revisionRequired');
+        expect(result.items[1]).toMatchObject({
+            cardId: 'changed',
+            status: 'created',
+            revisionRequired: true,
+            validationErrorCount: 1,
+            aiExtraction: false,
+        });
+        expect(result.totals).toMatchObject({ created: 1, unchanged: 1, deferred: 0, aiExtractions: 0 });
+    });
+
+    it('keeps card AI off by default and rejects invalid AI card budgets', () => {
+        expect(resolveCardBenefitBatchMaxAiCards()).toBe(0);
         expect(resolveCardBenefitBatchMaxAiCards('0')).toBe(0);
         expect(resolveCardBenefitBatchMaxAiCards('3')).toBe(3);
         expect(() => resolveCardBenefitBatchMaxAiCards('-1')).toThrow(/0 이상의 정수/);

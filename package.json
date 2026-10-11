@@ -20,6 +20,8 @@
     "cards:collect": "tsx scripts/collect-card-benefits.ts",
     "cards:verify": "tsx scripts/collect-card-benefits.ts --all",
     "cards:verify:scheduled": "tsx scripts/collect-card-benefits.ts --all --scheduled",
+    "cards:sources": "tsx scripts/card-benefit-sources.ts",
+    "cards:revise": "tsx scripts/revise-card-benefits.ts",
     "logos:collect": "tsx scripts/collect-brand-logos.ts",
     "logos:audit": "tsx scripts/generate-brand-logo-audit.ts"
   },

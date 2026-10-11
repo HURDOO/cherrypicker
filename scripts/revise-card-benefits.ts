@@ -13,7 +13,9 @@ import type { CardBenefitExtraction } from '../src/types';
  * Applies a reviewed revision spec to system cards without AI. A published card is patched from
  * its approved extraction; a card that was never published names a saved extraction of its
  * latest candidate's documents in `base` (path relative to the spec, checked by SHA-256) and
- * replaces its stale pending candidate.
+ * replaces its stale pending candidate. After an official source changed, evidence is checked
+ * against the newer documents; `sourceBundleHash` (printed by `cards:sources`) pins the bundle
+ * the reviewer read.
  *   tsx scripts/revise-card-benefits.ts --spec=<file.json> [--card=<id>]
  *     (dry run: validation errors and audited rule changes only)
  *   tsx scripts/revise-card-benefits.ts --spec=<file.json> --create
@@ -26,6 +28,7 @@ interface RevisionSpec {
     cards: Record<string, Omit<CardBenefitRevisionPatch, 'note'> & {
         note?: string;
         base?: { path: string; sha256: string };
+        sourceBundleHash?: string;
     }>;
 }
 
@@ -57,10 +60,13 @@ function main() {
     };
     const patches = Object.entries(spec.cards)
         .filter(([cardId]) => !onlyCard || cardId === onlyCard)
-        .map(([cardId, { note, base, ...patch }]) => [cardId, {
+        .map(([cardId, { note, base, sourceBundleHash, ...patch }]) => [cardId, {
             ...patch,
             note: note ? `${spec.note} ${note}` : spec.note,
-        }, base ? { baseExtraction: loadBase(base), replacePending: true } : {}] as const);
+        }, {
+            ...(base && { baseExtraction: loadBase(base), replacePending: true }),
+            ...(sourceBundleHash && { expectedSourceBundleHash: sourceBundleHash }),
+        }] as const);
     let failed = false;
     patches.forEach(([cardId, patch, options]) => {
         const { validationErrors, audit } = createCardBenefitRevisionCandidate(cardId, patch, {

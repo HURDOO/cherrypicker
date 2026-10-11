@@ -10,10 +10,10 @@ const maxAiCardsArgument = () => process.argv.find(argument => (
 ))?.slice('--max-ai-cards='.length);
 
 async function main() {
+    const maxAiCards = resolveCardBenefitBatchMaxAiCards(
+        maxAiCardsArgument() ?? process.env.CARD_BENEFIT_BATCH_MAX_AI_CARDS,
+    );
     if (process.argv.includes('--all')) {
-        const maxAiCards = resolveCardBenefitBatchMaxAiCards(
-            maxAiCardsArgument() ?? process.env.CARD_BENEFIT_BATCH_MAX_AI_CARDS,
-        );
         const result = await collectAllSystemCardBenefits({
             forceExtraction: process.argv.includes('--force'),
             maxAiCards,
@@ -27,10 +27,11 @@ async function main() {
         );
         result.items.forEach(item => console.log(
             `- ${item.cardId}: ${item.status}, ${item.durationMs}ms` +
-            `${item.cacheHit ? ', AI cache hit' : ''}` +
+            `${item.cacheHit && !item.revisionRequired ? ', cache hit' : ''}` +
             `${item.aiExtraction ? ', AI extracted' : ''}` +
             `${item.validationErrorCount ? `, ${item.validationErrorCount} validation errors` : ''}` +
             `${item.sourceFailureCount ? `, ${item.sourceFailureCount} source failures` : ''}` +
+            `${item.revisionRequired ? ', reviewed revision required' : ''}` +
             `${item.error ? `, ${item.error}` : ''}`
         ));
         if (result.totals.failed > 0 || result.totals.deferred > 0 ||
@@ -43,6 +44,7 @@ async function main() {
         ?.slice('--card='.length) || 'shinhan_sol';
     const result = await collectSystemCardBenefits(cardId, {
         forceExtraction: process.argv.includes('--force'),
+        ...(maxAiCards === 0 && { sourcesOnly: true }),
     });
 
     console.log(
@@ -50,9 +52,10 @@ async function main() {
         `document v${result.version}, ${result.extractor}, ` +
         `${result.sources.length} sources, ${result.sourceFailures.length} source failures, ` +
         `${result.validationErrors.length} validation errors` +
-        `${result.cacheHit ? ', AI cache hit' : ''}` +
+        `${result.cacheHit && !result.revisionRequired ? ', cache hit' : ''}` +
         `${result.localRepair ? ', local evidence repair' : ''}` +
-        `${result.candidatePreserved ? ', previous clean candidate preserved' : ''}.`
+        `${result.candidatePreserved ? ', previous clean candidate preserved' : ''}` +
+        `${result.revisionRequired ? ', reviewed revision required' : ''}.`
     );
 
     result.sources.forEach(source => console.log(

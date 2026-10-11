@@ -213,6 +213,8 @@ export interface CardBenefitBatchItem {
     validationErrorCount: number;
     sourceFailureCount: number;
     candidateId?: string;
+    /** Card AI is off and the official source changed: a reviewed revision must reflect it. */
+    revisionRequired?: boolean;
     error?: string;
 }
 

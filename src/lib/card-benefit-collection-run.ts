@@ -41,7 +41,8 @@ export function cardBenefitProblemStreaks(
         for (const run of runs) {
             const item = run.items.find(candidate => candidate.cardId === cardId);
             if (!item) continue;
-            if (!isCardBenefitBatchItemProblem(item)) break;
+            // A source change awaiting its reviewed revision is listed on its own, not as a failure.
+            if (!isCardBenefitBatchItemProblem(item) || item.revisionRequired) break;
             latestProblem ??= item;
             count += 1;
         }

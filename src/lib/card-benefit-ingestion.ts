@@ -36,7 +36,9 @@ import { toCardBenefitCoverageSummary } from './benefit-coverage-patterns';
 import { brandNameIndex, referencedProposedBrands } from './card-brand-proposals';
 import { brandCategoryIcon } from './promotion-parsers';
 import {
+    CARD_BENEFIT_SOURCE_CHANGE_EXTRACTOR,
     isReusableCardBenefitCandidate,
+    isSourceChangeCardBenefitCandidate,
     shouldReplacePendingCardBenefitCandidate,
 } from './card-benefit-candidate-selection';
 import {
@@ -78,6 +80,8 @@ export type CardBenefitCollectionResult = {
     candidatePreserved?: boolean;
     cacheHit?: boolean;
     localRepair?: boolean;
+    /** The official source changed while card AI is off; a reviewed revision must reflect it. */
+    revisionRequired?: boolean;
     sources: Array<{
         documentId: string;
         label: string;
@@ -388,6 +392,9 @@ const toCollectionResult = (
     ...(overrides.candidatePreserved && { candidatePreserved: true }),
     ...(overrides.cacheHit && { cacheHit: true }),
     ...(overrides.localRepair && { localRepair: true }),
+    ...(candidate.status === 'PENDING' && isSourceChangeCardBenefitCandidate(candidate.extractor) && {
+        revisionRequired: true,
+    }),
     sources: sources.map(source => ({
         documentId: source.document.id,
         label: source.collected.definition.label,
@@ -406,11 +413,55 @@ const toCollectionResult = (
     sourceFailures,
 });
 
+const SOURCE_CHANGED_ERROR = '공식 원문이 바뀌었습니다. 바뀐 원문을 검토한 수정안으로 반영해야 게시할 수 있습니다.';
+const SOURCE_UNCHANGED_INVALID_ERROR = '공식 원문은 같지만 게시 후보가 현재 검증 기준을 통과하지 못합니다. ' +
+    '검토된 수정안으로 바로잡아야 게시할 수 있습니다.';
+const SOURCE_FIRST_COLLECTION_ERROR = '승인된 구조화 결과가 없는 카드의 공식 원문을 보관했습니다. ' +
+    '검토된 수정안으로 혜택을 작성해야 게시할 수 있습니다.';
+
+// Brands proposed by an approved candidate were registered on approval; only new ones remain proposals.
+const withPendingBrandProposals = (
+    extraction: CardBenefitExtraction,
+    brandIds: Set<string>,
+): CardBenefitExtraction => {
+    const { proposedBrands, ...rest } = extraction;
+    const pending = (proposedBrands ?? []).filter(brand => !brandIds.has(brand.id));
+    return { ...rest, ...(pending.length > 0 && { proposedBrands: pending }) };
+};
+
+const approvedCandidateOf = (cardId: string) => {
+    const candidateId = db.select({ candidateId: cardBenefitRevisions.candidateId })
+        .from(cardBenefitRevisions)
+        .where(and(eq(cardBenefitRevisions.cardId, cardId), eq(cardBenefitRevisions.isActive, true)))
+        .get()?.candidateId;
+    return candidateId
+        ? db.select().from(cardBenefitCandidates).where(eq(cardBenefitCandidates.id, candidateId)).get()
+        : undefined;
+};
+
+const latestSourceChangeCandidate = (cardId: string) => db.select().from(cardBenefitCandidates)
+    .where(and(
+        eq(cardBenefitCandidates.cardId, cardId),
+        eq(cardBenefitCandidates.status, 'PENDING'),
+        eq(cardBenefitCandidates.extractor, CARD_BENEFIT_SOURCE_CHANGE_EXTRACTOR),
+    ))
+    .orderBy(desc(cardBenefitCandidates.createdAt))
+    .get();
+
+/**
+ * @param options.sourcesOnly Card AI is off: official sources are still collected and compared,
+ *   but a changed bundle is stored as a candidate that carries the published extraction and
+ *   awaits a reviewed revision instead of being structured automatically.
+ */
 export async function collectSystemCardBenefits(cardId: string, options: {
     provider?: CardBenefitExtractionProvider;
     collectedSources?: CollectedOfficialDocument[];
     forceExtraction?: boolean;
+    sourcesOnly?: boolean;
 } = {}): Promise<CardBenefitCollectionResult> {
+    if (options.sourcesOnly && (options.forceExtraction || options.provider)) {
+        throw new CardBenefitIngestionError(400, '카드 AI 구조화가 꺼져 있어 AI 재추출을 실행할 수 없습니다.');
+    }
     const cardRow = db.select().from(cards)
         .where(and(eq(cards.id, cardId), isNull(cards.userId)))
         .get();
@@ -464,7 +515,10 @@ export async function collectSystemCardBenefits(cardId: string, options: {
         catalog: currentExtractionCatalog(),
         baselineRules: pendingBaselineCandidate?.extraction.rules ?? publishedSnapshot.rules,
     };
-    const provider = options.provider ?? createCardBenefitExtractionProvider();
+    const provider = options.sourcesOnly
+        ? undefined
+        : options.provider ?? createCardBenefitExtractionProvider();
+    let sourceUnchanged = false;
     if (!options.forceExtraction) {
         const sameSourceCandidates = db.select().from(cardBenefitCandidates)
             .where(and(
@@ -477,10 +531,14 @@ export async function collectSystemCardBenefits(cardId: string, options: {
                 candidate.sourceBundleHash === sourceBundleHash ||
                 candidateDocumentsSemanticallyMatch(candidate, storedSources)
             ));
+        sourceUnchanged = sameSourceCandidates.some(candidate => candidate.status === 'APPROVED');
         let repairCandidate = sameSourceCandidates.find(candidate => (
-            candidate.status === 'PENDING' && candidate.baseRevision === baseRevision
+            candidate.status === 'PENDING' && candidate.baseRevision === baseRevision &&
+            // A recorded source change is obsolete once an approved candidate matches these documents.
+            !(sourceUnchanged && isSourceChangeCardBenefitCandidate(candidate.extractor))
         ));
-        if (!repairCandidate && !provider && sameSourceCandidates.length === 0) {
+        // Without AI a changed source must be reviewed, so an old pending candidate is not re-linked to it.
+        if (!repairCandidate && !provider && !options.sourcesOnly && sameSourceCandidates.length === 0) {
             repairCandidate = db.select().from(cardBenefitCandidates)
                 .where(and(
                     eq(cardBenefitCandidates.cardId, card.id),
@@ -502,9 +560,10 @@ export async function collectSystemCardBenefits(cardId: string, options: {
                 )
             ));
         if (reusableCandidate) {
+            const references = currentReferences();
             const cachedExtraction = applyOfficialNoticeDates(
                 normalizeEvidenceBackedCardBenefitExtraction(
-                    reusableCandidate.extraction,
+                    withPendingBrandProposals(reusableCandidate.extraction, references.brandIds),
                     input,
                 ),
                 noticeDocumentsFrom(storedSources.map(source => source.document)),
@@ -512,7 +571,7 @@ export async function collectSystemCardBenefits(cardId: string, options: {
             const cachedValidation = validateCardBenefitExtraction(
                 cachedExtraction,
                 input,
-                currentReferences(),
+                references,
             );
             const cachedAudit = createCardBenefitCandidateAudit({
                 extraction: cachedExtraction,
@@ -544,6 +603,16 @@ export async function collectSystemCardBenefits(cardId: string, options: {
                             eq(cardBenefitCandidates.cardId, card.id),
                             eq(cardBenefitCandidates.status, 'PENDING'),
                             notInArray(cardBenefitCandidates.id, [cachedCandidate.id]),
+                        ))
+                        .run();
+                } else {
+                    // The source is back to a reviewed bundle, so a recorded change no longer applies.
+                    db.update(cardBenefitCandidates)
+                        .set({ status: 'REJECTED', reviewedAt: new Date() })
+                        .where(and(
+                            eq(cardBenefitCandidates.cardId, card.id),
+                            eq(cardBenefitCandidates.status, 'PENDING'),
+                            eq(cardBenefitCandidates.extractor, CARD_BENEFIT_SOURCE_CHANGE_EXTRACTOR),
                         ))
                         .run();
                 }
@@ -633,6 +702,108 @@ export async function collectSystemCardBenefits(cardId: string, options: {
                 );
             }
         }
+    }
+    if (options.sourcesOnly) {
+        const references = currentReferences();
+        const approved = approvedCandidateOf(card.id);
+        const notices = noticeDocumentsFrom(storedSources.map(source => source.document));
+        const extraction = applyOfficialNoticeDates(
+            normalizeEvidenceBackedCardBenefitExtraction(
+                approved ? withPendingBrandProposals(approved.extraction, references.brandIds) : {
+                    schemaVersion: 2,
+                    completeness: 'FULL',
+                    card: {
+                        id: card.id,
+                        name: card.name,
+                        company: card.company,
+                        limitTable: card.limitTable,
+                        ...(card.network && { network: card.network }),
+                        ...(card.performancePolicy && { performancePolicy: card.performancePolicy }),
+                    },
+                    rules: [],
+                    evidence: [],
+                    notes: [],
+                },
+                input,
+            ),
+            notices,
+        );
+        const validation = validateCardBenefitExtraction(extraction, input, references);
+        const audit = createCardBenefitCandidateAudit({
+            extraction,
+            baseline: publishedSnapshot,
+            baselineRevision: baseRevision,
+            noticeDocuments: notices,
+        });
+        const validationErrors = [...new Set([
+            !approved
+                ? SOURCE_FIRST_COLLECTION_ERROR
+                : sourceUnchanged ? SOURCE_UNCHANGED_INVALID_ERROR : SOURCE_CHANGED_ERROR,
+            ...validation.errors,
+            ...audit.blockingErrors,
+            ...bundle.failures.map(failure => (
+                `공식 보조 출처를 수집하지 못했습니다: ${failure.label} (${failure.message})`
+            )),
+        ])];
+        const now = new Date();
+        // The same bundle seen again (for example after a source reverted) reopens its earlier record.
+        const earlier = db.select({ id: cardBenefitCandidates.id }).from(cardBenefitCandidates)
+            .where(and(
+                eq(cardBenefitCandidates.cardId, card.id),
+                eq(cardBenefitCandidates.sourceBundleHash, sourceBundleHash),
+                eq(cardBenefitCandidates.extractor, CARD_BENEFIT_SOURCE_CHANGE_EXTRACTOR),
+                eq(cardBenefitCandidates.schemaVersion, CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION),
+                eq(cardBenefitCandidates.baseRevision, baseRevision),
+            ))
+            .get();
+        const values = {
+            documentId: primaryStored.document.id,
+            confidence: approved?.confidence ?? 0,
+            extraction,
+            audit,
+            validationErrors,
+            status: 'PENDING' as const,
+            reviewerId: null,
+            reviewedAt: null,
+            createdAt: now,
+        };
+        const candidate = db.transaction(tx => {
+            // A newer changed bundle supersedes an older one that still awaits its revision.
+            tx.update(cardBenefitCandidates)
+                .set({ status: 'REJECTED', reviewedAt: now })
+                .where(and(
+                    eq(cardBenefitCandidates.cardId, card.id),
+                    eq(cardBenefitCandidates.status, 'PENDING'),
+                    eq(cardBenefitCandidates.extractor, CARD_BENEFIT_SOURCE_CHANGE_EXTRACTOR),
+                ))
+                .run();
+            const stored = earlier
+                ? tx.update(cardBenefitCandidates)
+                    .set(values)
+                    .where(eq(cardBenefitCandidates.id, earlier.id))
+                    .returning()
+                    .get()
+                : tx.insert(cardBenefitCandidates).values({
+                    id: randomUUID(),
+                    cardId: card.id,
+                    schemaVersion: CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION,
+                    baseRevision,
+                    sourceBundleHash,
+                    extractor: CARD_BENEFIT_SOURCE_CHANGE_EXTRACTOR,
+                    model: null,
+                    ...values,
+                }).returning().get();
+            tx.delete(cardBenefitCandidateDocuments)
+                .where(eq(cardBenefitCandidateDocuments.candidateId, stored.id))
+                .run();
+            tx.insert(cardBenefitCandidateDocuments).values(storedSources.map(source => ({
+                candidateId: stored.id,
+                documentId: source.document.id,
+                role: source.collected.definition.candidateRole,
+            }))).run();
+            return stored;
+        });
+        return toCollectionResult('created', storedSources, candidate, bundle.failures);
     }
     if (!provider && card.id !== 'shinhan_sol') {
         throw new CardBenefitIngestionError(
@@ -802,6 +973,7 @@ export async function collectSystemCardBenefits(cardId: string, options: {
 export const collectShinhanSolTravelBenefits = (options: {
     provider?: CardBenefitExtractionProvider;
     collectedSources?: CollectedOfficialDocument[];
+    sourcesOnly?: boolean;
 } = {}) => collectSystemCardBenefits('shinhan_sol', options);
 
 function getCandidateDocuments(candidate: typeof cardBenefitCandidates.$inferSelect) {
@@ -993,8 +1165,10 @@ export const CARD_BENEFIT_REVISION_EXTRACTOR = 'revision:deterministic-v1';
  * Creates a pending candidate from a reviewed patch without collecting sources or calling AI.
  * A published card starts from the approved extraction of its active revision. A card that was
  * never published starts from a saved extraction made from its latest candidate's documents
- * (for example a model comparison run) and may replace that stale pending candidate. Validation,
- * audit and approval then run exactly as for a collected candidate.
+ * (for example a model comparison run) and may replace that stale pending candidate. Evidence is
+ * checked against a pending source change's newer documents when one was collected, and that
+ * placeholder is replaced. Validation, audit and approval then run exactly as for a collected
+ * candidate.
  */
 export function createCardBenefitRevisionCandidate(
     cardId: string,
@@ -1003,6 +1177,8 @@ export function createCardBenefitRevisionCandidate(
         dryRun?: boolean;
         baseExtraction?: CardBenefitExtraction;
         replacePending?: boolean;
+        /** The bundle the reviewer read (`cards:sources`); refuses when newer documents arrived since. */
+        expectedSourceBundleHash?: string;
     } = {},
 ) {
     const activeRevision = db.select().from(cardBenefitRevisions)
@@ -1033,16 +1209,29 @@ export function createCardBenefitRevisionCandidate(
                 : '게시 전 카드는 공식 문서가 있는 후보와 기준 구조화 결과가 필요합니다.',
         );
     }
-    const pendingIds = db.select({ id: cardBenefitCandidates.id }).from(cardBenefitCandidates)
+    const pending = db.select({
+        id: cardBenefitCandidates.id,
+        extractor: cardBenefitCandidates.extractor,
+    }).from(cardBenefitCandidates)
         .where(and(eq(cardBenefitCandidates.cardId, cardId), eq(cardBenefitCandidates.status, 'PENDING')))
-        .all()
-        .map(row => row.id);
-    if (pendingIds.length > 0 && !options.replacePending) {
-        throw new CardBenefitIngestionError(409, `검수 대기 후보 ${pendingIds[0]}를 먼저 처리해야 합니다.`);
+        .all();
+    // A recorded source change only holds the newer documents this revision is meant to replace.
+    const blockingPending = pending.filter(row => !isSourceChangeCardBenefitCandidate(row.extractor));
+    if (blockingPending.length > 0 && !options.replacePending) {
+        throw new CardBenefitIngestionError(409, `검수 대기 후보 ${blockingPending[0].id}를 먼저 처리해야 합니다.`);
+    }
+    const documentSource = latestSourceChangeCandidate(cardId) ?? source;
+    if (options.expectedSourceBundleHash !== undefined &&
+        documentSource.sourceBundleHash !== options.expectedSourceBundleHash) {
+        throw new CardBenefitIngestionError(
+            409,
+            `수정안이 검토한 공식 문서 묶음(${options.expectedSourceBundleHash.slice(0, 12)})과 ` +
+            `현재 문서 묶음(${documentSource.sourceBundleHash?.slice(0, 12) ?? '없음'})이 다릅니다.`,
+        );
     }
     const baseRevision = activeRevision?.revision ?? 0;
-    const documents = getCandidateDocuments(source);
-    const input = createExtractionInputFromDocuments(toCard(cardRow), source, documents);
+    const documents = getCandidateDocuments(documentSource);
+    const input = createExtractionInputFromDocuments(toCard(cardRow), documentSource, documents);
     const baseline = currentSnapshot(cardId);
     const notices = noticeDocumentsFrom(documents.map(item => item.document));
     if (activeRevision) {
@@ -1061,14 +1250,11 @@ export function createCardBenefitRevisionCandidate(
             );
         }
     }
-    // Brands proposed by the approved candidate were registered on approval; only new ones remain proposals.
     const references = currentReferences();
-    const { proposedBrands, ...baseExtraction } = options.baseExtraction ?? source.extraction;
-    const pendingProposals = (proposedBrands ?? []).filter(brand => !references.brandIds.has(brand.id));
-    const extraction = applyCardBenefitRevisionPatch({
-        ...baseExtraction,
-        ...(pendingProposals.length > 0 && { proposedBrands: pendingProposals }),
-    }, patch);
+    const extraction = applyCardBenefitRevisionPatch(
+        withPendingBrandProposals(options.baseExtraction ?? source.extraction, references.brandIds),
+        patch,
+    );
     const validation = validateCardBenefitExtraction(extraction, input, references);
     const audit = createCardBenefitCandidateAudit({
         extraction,
@@ -1080,7 +1266,7 @@ export function createCardBenefitRevisionCandidate(
     if (options.dryRun) return { candidate: undefined, validationErrors, audit };
     const candidate = db.transaction(tx => {
         // A stale pending candidate is replaced only by a candidate that can be approved.
-        if (validationErrors.length === 0 && pendingIds.length > 0) {
+        if (validationErrors.length === 0 && pending.length > 0) {
             tx.update(cardBenefitCandidates)
                 .set({ status: 'REJECTED', reviewedAt: new Date() })
                 .where(and(
@@ -1091,11 +1277,11 @@ export function createCardBenefitRevisionCandidate(
         }
         const inserted = tx.insert(cardBenefitCandidates).values({
             id: randomUUID(),
-            documentId: source.documentId,
+            documentId: documentSource.documentId,
             cardId,
             schemaVersion: CARD_BENEFIT_EXTRACTION_SCHEMA_VERSION,
             baseRevision,
-            sourceBundleHash: source.sourceBundleHash,
+            sourceBundleHash: documentSource.sourceBundleHash,
             extractor: CARD_BENEFIT_REVISION_EXTRACTOR,
             model: null,
             confidence: source.confidence,
@@ -1113,6 +1299,55 @@ export function createCardBenefitRevisionCandidate(
         return inserted;
     });
     return { candidate, validationErrors, audit };
+}
+
+/**
+ * The documents a reviewed revision is checked against, next to those behind the published rules,
+ * so a session can compare them and write the revision without AI (`cards:sources`).
+ */
+export function getCardBenefitRevisionSources(cardId: string) {
+    const cardRow = db.select().from(cards)
+        .where(and(eq(cards.id, cardId), isNull(cards.userId)))
+        .get();
+    if (!cardRow) throw new CardBenefitIngestionError(404, '시스템 카드를 찾을 수 없습니다.');
+    const approved = approvedCandidateOf(cardId);
+    const current = latestSourceChangeCandidate(cardId) ?? approved ?? db.select().from(cardBenefitCandidates)
+        .where(eq(cardBenefitCandidates.cardId, cardId))
+        .orderBy(desc(cardBenefitCandidates.createdAt))
+        .get();
+    if (!current) {
+        throw new CardBenefitIngestionError(404, '공식 문서를 수집한 후보가 없습니다. 먼저 원문을 수집해주세요.');
+    }
+    const documentsOf = (candidate: typeof cardBenefitCandidates.$inferSelect) => (
+        getCandidateDocuments(candidate).map(({ document, role }) => ({
+            role,
+            sourceUrl: document.sourceUrl,
+            mediaType: document.mediaType,
+            version: document.version,
+            collectedAt: document.collectedAt.toISOString(),
+            semanticHash: createOfficialDocumentSemanticHash(document.extractedText),
+            extractedText: document.extractedText,
+        }))
+    );
+    return {
+        cardId,
+        cardName: cardRow.name,
+        activeRevision: activeRevisionNumber(cardId) || undefined,
+        published: approved ? {
+            candidateId: approved.id,
+            extraction: approved.extraction,
+            documents: documentsOf(approved),
+        } : undefined,
+        current: {
+            candidateId: current.id,
+            extractor: current.extractor,
+            revisionRequired: current.status === 'PENDING' && isSourceChangeCardBenefitCandidate(current.extractor),
+            sourceBundleHash: current.sourceBundleHash ?? undefined,
+            validationErrors: current.validationErrors,
+            createdAt: current.createdAt.toISOString(),
+            documents: documentsOf(current),
+        },
+    };
 }
 
 export function reviewCardBenefitCandidate(
