@@ -1,0 +1,12 @@
+{
+  "note": "[세션 임시 승인] 2026-10-12 TASK-14 신규 카드 첫 혜택(AI API 미사용).",
+  "cards": {
+    "kakaobank_friends_check": {
+      "sourceBundleHash": "3a762fe4ed1e990b392f6f579a7e586538ac867dd4a94ab45779205b37bfbc3e",
+      "base": {
+        "path": "base/kakaobank_friends_check.json",
+        "sha256": "0e45e0ce12b0b531b19a97b246d454991bfe50d90519b7e9399b91f061e6f09e"
+      }
+    }
+  }
+}

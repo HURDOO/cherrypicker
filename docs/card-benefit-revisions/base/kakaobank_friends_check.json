@@ -1,0 +1,93 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "kakaobank_friends_check",
+      "name": "카카오뱅크 프렌즈 체크카드",
+      "company": "카카오뱅크",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "kakaobank_friends_weekday_cashback",
+        "cardId": "kakaobank_friends_check",
+        "includedBrands": [],
+        "excludedBrands": ["transport_public"],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "주중 이용금액 0.2% 캐시백",
+        "detail": "전월 실적과 한도 없이 주중 이용금액의 0.2%를 다음달 10일에 캐시백합니다. 평일 공휴일은 0.4%가 적용되지만 앱은 공휴일을 판단하지 못해 0.2%로 계산합니다. 교통카드·RF 이용금액은 캐시백에서 제외됩니다.",
+        "condition": {
+          "daysOfWeek": ["MON", "TUE", "WED", "THU", "FRI"]
+        },
+        "action": { "type": "PERCENT", "value": 0.2, "amountBasis": "ORIGINAL_AMOUNT" },
+        "limitConfig": {}
+      },
+      {
+        "id": "kakaobank_friends_weekend_cashback",
+        "cardId": "kakaobank_friends_check",
+        "includedBrands": [],
+        "excludedBrands": ["transport_public"],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "주말 이용금액 0.4% 캐시백",
+        "detail": "전월 실적과 한도 없이 주말·공휴일 이용금액의 0.4%를 다음달 10일에 캐시백합니다. 교통카드·RF 이용금액은 캐시백에서 제외됩니다.",
+        "condition": {
+          "daysOfWeek": ["SAT", "SUN"]
+        },
+        "action": { "type": "PERCENT", "value": 0.4, "amountBasis": "ORIGINAL_AMOUNT" },
+        "limitConfig": {}
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "cashback-excluded-transactions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.kakaobank.com/products/checkcard",
+        "quote": "제외항목 : 대학(대학원) 등록금, 각종 수수료 및 이자, 상품권/기프티콘/선불카드/선불전자지급수단 등 유가증권 구매/충전 금액, 선물하기(상품권 업종), 정부지원금, 사회보험료, 제세공과금(국세,지방세,아파트관리비,도시가스/전기/상하수도 요금 등), 교통카드/RF유통기관 이용금액, 연체료, 결제취소금액",
+        "reason": "앱이 거래 종류를 판정할 수 없는 캐시백 제외 거래",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용). 공식 상품 페이지의 상품 혜택 안내와 캐시백 지급 안내를 구조화했다.",
+      "공휴일은 앱이 판단하지 못해 평일 공휴일도 0.2%로 보수 계산한다."
+    ],
+    "evidence": [
+      {
+        "id": "weekday-rate",
+        "ruleIds": ["kakaobank_friends_weekday_cashback"],
+        "fields": ["description", "action", "condition"],
+        "quote": "주중 : 이용금액의 0.2% 캐시백",
+        "sourceUrl": "https://www.kakaobank.com/products/checkcard",
+        "location": "상품 혜택 안내"
+      },
+      {
+        "id": "weekend-rate",
+        "ruleIds": ["kakaobank_friends_weekend_cashback"],
+        "fields": ["description", "action", "condition"],
+        "quote": "주말/공휴일 : 이용금액의 0.4% 캐시백",
+        "sourceUrl": "https://www.kakaobank.com/products/checkcard",
+        "location": "상품 혜택 안내"
+      },
+      {
+        "id": "no-performance-or-limit",
+        "ruleIds": ["kakaobank_friends_weekday_cashback", "kakaobank_friends_weekend_cashback"],
+        "fields": ["condition", "limitConfig"],
+        "quote": "실적상관없이 ️ 평일 0.2% 주말 0.4% 캐시백 혜택",
+        "sourceUrl": "https://www.kakaobank.com/products/checkcard",
+        "location": "상품 요약"
+      },
+      {
+        "id": "transit-excluded",
+        "ruleIds": ["kakaobank_friends_weekday_cashback", "kakaobank_friends_weekend_cashback"],
+        "fields": ["condition"],
+        "quote": "교통카드/RF유통기관 이용금액",
+        "sourceUrl": "https://www.kakaobank.com/products/checkcard",
+        "location": "캐시백 지급 안내 제외항목"
+      }
+    ]
+  }
+}

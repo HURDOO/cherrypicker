@@ -78,6 +78,8 @@ const OFFICIAL_CONTENT_WINDOWS: Array<{ site: RegExp; start: RegExp; end: RegExp
     { site: /롯데카드/, start: /메뉴 닫기/, end: /공지사항\s+\[공지사항\]/ },
     // NH농협카드 상품: 카드상세 제목부터 신청 전 확인 팝업 전까지
     { site: /NH농협카드/, start: /카드상세 이 페이지를 즐겨찾기에 추가/, end: /카드신청 전, 확인해보세요/ },
+    // 카카오뱅크 상품: 전체 메뉴 끝의 공시 링크 뒤부터 상품 안내 팝업의 닫기 버튼 전까지
+    { site: /\(주\)카카오뱅크/, start: /상품공시\s+펀드공시/, end: /닫기 버튼/ },
 ];
 
 const officialContentWindow = (text: string) => {

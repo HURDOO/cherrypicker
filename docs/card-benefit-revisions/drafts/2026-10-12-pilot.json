@@ -1,0 +1,39 @@
+{
+  "cards": [
+    {
+      "id": "kb_youth_club",
+      "name": "KB Youth Club 체크카드",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "04124",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "KB Youth Club 체크카드 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "kakaobank_friends_check",
+      "name": "카카오뱅크 프렌즈 체크카드",
+      "company": "카카오뱅크",
+      "color": "bg-amber-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "카카오뱅크 프렌즈 체크카드 상품 페이지",
+          "sourceUrl": "https://www.kakaobank.com/products/checkcard",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

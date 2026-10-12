@@ -312,6 +312,12 @@ describe('official document source adapter', () => {
                     `카드신청 전, 확인해보세요. ${popup}`,
                 ],
             },
+            {
+                name: '카카오뱅크 상품',
+                page: (menu: string, benefit: string, popup: string) => [
+                    `카카오뱅크 ${menu} 상품공시 펀드공시`, benefit, `닫기 버튼 ${popup}`, '(주)카카오뱅크',
+                ],
+            },
         ];
         pages.forEach(({ name, page }) => {
             const hash = (menu: string, benefit: string, popup: string) => (
