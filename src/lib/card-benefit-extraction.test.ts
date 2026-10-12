@@ -22,8 +22,10 @@ import {
     normalizeEvidenceBackedCardBenefitExtraction,
     normalizeInventoryReferences,
     OpenAICardBenefitExtractionProvider,
+    pointAmountsAsWon,
     repairInventoryQuotes,
     stabilizeExtractionRuleIds,
+    statesPointEqualsWon,
     validateCardBenefitExtraction,
 } from './card-benefit-extraction';
 import { createCardBenefitCandidateAudit } from './card-benefit-audit';
@@ -1664,6 +1666,10 @@ describe('card benefit extraction', () => {
 
         expect(validate(true)).toEqual([]);
         expect(validate(false)).toEqual([expect.stringContaining('월 금액 한도 2,000원의 공식 숫자 근거가 없습니다')]);
+        expect(statesPointEqualsWon([{
+            id: 'hana', ruleIds: [], fields: ['action'], sourceUrl: 'https://example.com', quote: '적립기준 : 하나머니(1하나머니=1원)',
+        }])).toBe(true);
+        expect(pointAmountsAsWon('월 통합 적립한도 5천 하나머니')).toBe('월 통합 적립한도 5천원');
     });
 
     it('reads a point-denominated per-purchase cap as won only with the one-point-one-won quote', () => {

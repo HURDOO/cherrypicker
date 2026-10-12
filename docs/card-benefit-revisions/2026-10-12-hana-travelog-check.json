@@ -1,0 +1,12 @@
+{
+  "note": "[세션 임시 승인] 2026-10-12 TASK-14 디자인 변형 카드 첫 혜택(AI API 미사용).",
+  "cards": {
+    "hana_travelog_check": {
+      "sourceBundleHash": "cae9b6fea9b5c413e58c812fa90f49695bda7759f0ccab597f25b7c9138bc5bb",
+      "base": {
+        "path": "base/hana_travelog_check.json",
+        "sha256": "1aa01745bfdca8103dba0528b29e9d608994e90a5779cf7dff7c1587b938cff3"
+      }
+    }
+  }
+}

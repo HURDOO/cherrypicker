@@ -1,0 +1,158 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "hana_everyday_check",
+      "name": "모두의 일상 체크카드",
+      "company": "하나카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "hana_everyday_domestic",
+        "cardId": "hana_everyday_check",
+        "includedBrands": [],
+        "excludedBrands": [
+          "overseas_payment"
+        ],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내 전 가맹점 0.3% 하나머니 적립",
+        "detail": "국내 전 가맹점 0.3% 적립, 전월 실적·횟수·한도 없음.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "hana_everyday_pay",
+        "cardId": "hana_everyday_check",
+        "includedBrands": [],
+        "excludedBrands": [
+          "overseas_payment"
+        ],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "하나페이·간편결제 0.4% 하나머니 적립",
+        "detail": "하나페이, 삼성페이·네이버페이·11Pay·L페이·카카오페이·SSG페이·페이코에 등록해 결제 시 0.4%(일반 0.3% 대신).",
+        "condition": {
+          "manualCheckRequired": true,
+          "requiredNote": "하나페이 또는 삼성페이·네이버페이·11Pay·L페이·카카오페이·SSG페이·페이코로 결제하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.4,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "hana_everyday_overseas",
+        "cardId": "hana_everyday_check",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "해외 전 가맹점 0.4% 하나머니 적립",
+        "detail": "해외 전 가맹점 0.4% 적립(최종 원화 출금 금액 기준), 전월 실적·한도 없음.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 0.4,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "모바일 전용 상품이며 하나머니는 1하나머니=1원이다."
+    ],
+    "evidence": [
+      {
+        "id": "hana_everyday_domestic-1",
+        "ruleIds": [
+          "hana_everyday_domestic"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "구분 상세 적립률 하나페이 하나페이에 카드를 등록하여 결제하는 건 0.4% 페이결제 삼성페이, 네이버페이, 11Pay, L페이, 카카오페이, SSG페이, 페이코에 카드를 등록하여 결제하는 건 0.4% 일반결제 상기 결제 외 국내 전 가맹점 0.3%",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=12782",
+        "location": "국내 전 가맹점 0.3% 하나머니 적립"
+      },
+      {
+        "id": "hana_everyday_domestic-2",
+        "ruleIds": [
+          "hana_everyday_domestic"
+        ],
+        "fields": [
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "국내 전 가맹점 하나머니 적립 전월 실적 및 횟수 제한 없이 하나머니 0.3% ~0.4%적립",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=12782",
+        "location": "국내 전 가맹점 0.3% 하나머니 적립"
+      },
+      {
+        "id": "hana_everyday_pay-1",
+        "ruleIds": [
+          "hana_everyday_pay"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "구분 상세 적립률 하나페이 하나페이에 카드를 등록하여 결제하는 건 0.4% 페이결제 삼성페이, 네이버페이, 11Pay, L페이, 카카오페이, SSG페이, 페이코에 카드를 등록하여 결제하는 건 0.4% 일반결제 상기 결제 외 국내 전 가맹점 0.3%",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=12782",
+        "location": "하나페이·간편결제 0.4% 하나머니 적립"
+      },
+      {
+        "id": "hana_everyday_pay-2",
+        "ruleIds": [
+          "hana_everyday_pay"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "국내 전 가맹점 하나머니 적립 전월 실적 및 횟수 제한 없이 하나머니 0.3% ~0.4%적립",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=12782",
+        "location": "하나페이·간편결제 0.4% 하나머니 적립"
+      },
+      {
+        "id": "hana_everyday_overseas-1",
+        "ruleIds": [
+          "hana_everyday_overseas"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "해외 전 가맹점 하나머니 적립 전월 실적 및 횟수 제한 없이 하나머니 0.4%적립",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=12782",
+        "location": "해외 전 가맹점 0.4% 하나머니 적립"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "accrual-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=12782",
+        "quote": "하나머니 적립 제외 매출 : 국세, 지방세, 공과금(인터넷/모바일앱을 통한 공과금 납부금액 포함), 국민연금/고용보험료/산재보험료/건강보험료 납부금액, 상품권 및 기프트카드 구매, 선불카드 및 선불전자지급수단(하나머니 등) 충전금액, 수도/전기요금, 아파트 관리비, 부동산임대료, 스쿨뱅킹, 도시가스, 대학등록금, 초·중·고학교납입금, 국내외 ATM 이용금액은 제외됩니다.",
+        "reason": "세금·상품권·ATM 등은 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ]
+  }
+}

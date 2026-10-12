@@ -1,0 +1,12 @@
+{
+  "note": "[세션 임시 승인] 2026-10-12 TASK-14 신규 카드 첫 혜택(AI API 미사용).",
+  "cards": {
+    "hana_kpass_check": {
+      "sourceBundleHash": "e93ecc791e76aacdb97ee802c626c9d71b989d2b8ba8ef1a49b17bb7e3348db0",
+      "base": {
+        "path": "base/hana_kpass_check.json",
+        "sha256": "86d650bc0a0e3ce98bf405f4d54136867d5a167fca79399cceecdf2e4dda53a0"
+      }
+    }
+  }
+}

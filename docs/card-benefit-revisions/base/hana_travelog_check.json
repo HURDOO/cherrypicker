@@ -1,0 +1,308 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "hana_travelog_check",
+      "name": "하나 트래블로그 체크카드",
+      "company": "하나카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "hana_travelog_gen_overseas_fee",
+        "cardId": "hana_travelog_check",
+        "category": "etc",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "해외 가맹점 이용수수료 면제",
+        "detail": "해외서비스수수료는 건당 US$0.5, 국제브랜드수수료는 이용금액의 1%이며 각각 면제됩니다. 해외 이용금액은 하나카드 전산상 해외 가맹점 매출로 분류된 경우에 한합니다. 해외원화결제서비스(DCC)는 이용할 수 없습니다. 제외·유의: 트래블로그 체크카드는 해외원화결제서비스(DCC)를 이용할 수 없습니다.",
+        "condition": {
+          "manualCheckRequired": true,
+          "requiredNote": "해외 가맹점 여부와 하나카드 전산상 해외 가맹점 매출 분류 여부를 확인해야 합니다. 지난달 실적에 관계없이 제공됩니다. 해외서비스수수료 면제 기준은 건당 US$0.5입니다. 트래블로그 체크카드는 해외원화결제서비스(DCC)를 이용할 수 없습니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "hana_travelog_gen_overseas_atm_fee",
+        "cardId": "hana_travelog_check",
+        "category": "etc",
+        "includedBrands": [
+          "overseas_atm"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "해외 ATM 인출 수수료 면제",
+        "detail": "해외인출수수료는 건당 US$3, 국제브랜드수수료는 이용금액의 1%이며 각각 면제됩니다. 지난달 실적에 관계없이 서비스를 제공합니다. 현지 ATM 수수료(Surcharge)는 별도로 부과될 수 있으며, 해외원화결제서비스(DCC)는 이용할 수 없습니다. 제외·유의: 해외 ATM 이용 시 현지 ATM 수수료가 부과될 수 있습니다. 제외·유의: 트래블로그 체크카드는 해외원화결제서비스(DCC)를 이용할 수 없습니다.",
+        "condition": {
+          "manualCheckRequired": true,
+          "requiredNote": "해외 ATM 이용 및 하나카드 전산상 해외 가맹점 매출 분류 여부를 확인해야 합니다. 지난달 실적에 관계없이 제공됩니다. 해외인출수수료 면제 기준은 건당 US$3입니다. 현지 ATM 수수료(Surcharge)는 별도로 부과될 수 있으며, 트래블로그 체크카드는 해외원화결제서비스(DCC)를 이용할 수 없습니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "hana_travelog_gen_domestic",
+        "cardId": "hana_travelog_check",
+        "includedBrands": [],
+        "excludedBrands": [
+          "overseas_payment",
+          "overseas_atm",
+          "overseas_transport",
+          "master_travel_rewards",
+          "japan_convenience",
+          "vietnam_lottemart",
+          "vietnam_grab",
+          "usa_starbucks"
+        ],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내 가맹점 0.3% 하나머니 적립",
+        "detail": "하나카드에 등록된 국내 가맹점 및 가맹점 업종 기준으로 제공됩니다. 매출 접수된 국내 일시불 이용금액에 따라 적립하며, 취소가 접수된 월에 적립된 하나머니를 차감합니다. 매출 접수 다음날 적립하며 소수점 이하 금액은 반올림합니다. 국세·지방세·공과금·국민연금·고용보험료·산재보험료·건강보험료·상품권 및 기프트카드 구매·선불카드 및 선불전자지급수단 충전금액·수도·전기요금·아파트관리비·부동산임대료·스쿨뱅킹·도시가스요금·대학 및 대학원 등록금·초중고 학교납입금·국내외 ATM 이용금액은 적립에서 제외됩니다. 제외·유의: 세금·공과금·보험료·상품권·충전금액·등록금·ATM 이용금액 등은 국내 하나머니 적립에서 제외됩니다.",
+        "condition": {
+          "manualCheckRequired": true,
+          "requiredNote": "국내 가맹점 및 가맹점 업종의 하나카드 등록 기준, 매출 접수 여부와 적립 제외 항목을 확인해야 합니다. 후불교통요금 등 무승인거래는 매출이 접수된 월의 이용금액에 반영됩니다. 지난달 실적에 관계없이 제공됩니다. 하나머니 회원 가입이 필요하며, 국내 이용 시 원화 하나머니 잔액 내에서 결제합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용). hana_travelog_student의 승인 구조화 결과를 같은 혜택을 안내하는 이 카드의 공식 상품 페이지 근거로 다시 연결했다."
+    ],
+    "evidence": [
+      {
+        "id": "inventory-benefit_overseas_merchant_fee_waiver",
+        "ruleIds": [
+          "hana_travelog_gen_overseas_fee"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "해외 가맹점 이용수수료 면제서비스\n구분\n해외서비스수수료\n국제브랜드수수료\n해외 가맹점 이용 시\n면제(건당 US$0.5)\n면제(이용금액의 1%)",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "해외 가맹점 이용수수료 면제"
+      },
+      {
+        "id": "inventory-condition_overseas_merchant_transaction",
+        "ruleIds": [
+          "hana_travelog_gen_overseas_fee"
+        ],
+        "fields": [
+          "condition",
+          "description",
+          "action"
+        ],
+        "quote": "구분\n해외서비스수수료\n국제브랜드수수료\n해외 가맹점 이용 시\n면제(건당 US$0.5)\n면제(이용금액의 1%)",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "해외 가맹점 이용수수료 면제 적용 거래"
+      },
+      {
+        "id": "inventory-condition_overseas_merchant_classification",
+        "ruleIds": [
+          "hana_travelog_gen_overseas_fee"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "해외 이용금액은 하나카드 전산상 해외 가맹점 매출로 분류된 경우에 한함",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "해외 가맹점 매출 분류 조건"
+      },
+      {
+        "id": "inventory-benefit_overseas_atm_fee_waiver",
+        "ruleIds": [
+          "hana_travelog_gen_overseas_atm_fee"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "해외 ATM 인출 수수료 면제 서비스\n구분\n해외인출수수료\n국제브랜드수수료\n해외 ATM 인출 시\n면제(건당 US$3)\n면제(이용금액의 1%)",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "해외 ATM 인출 수수료 면제"
+      },
+      {
+        "id": "inventory-condition_overseas_atm_transaction",
+        "ruleIds": [
+          "hana_travelog_gen_overseas_atm_fee"
+        ],
+        "fields": [
+          "condition",
+          "description",
+          "action"
+        ],
+        "quote": "구분\n해외인출수수료\n국제브랜드수수료\n해외 ATM 인출 시\n면제(건당 US$3)\n면제(이용금액의 1%)",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "해외 ATM 인출 수수료 면제 적용 거래"
+      },
+      {
+        "id": "inventory-condition_overseas_atm_no_spend",
+        "ruleIds": [
+          "hana_travelog_gen_overseas_atm_fee"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "지난달 실적에 관계없이 서비스 제공",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "해외 ATM 인출 수수료 면제 실적 조건"
+      },
+      {
+        "id": "inventory-limit_domestic_point_monthly",
+        "ruleIds": [
+          "hana_travelog_gen_domestic"
+        ],
+        "fields": [
+          "limitConfig",
+          "description",
+          "action"
+        ],
+        "quote": "국내 가맹점 하나머니 적립 서비스\n서비스 내용\n적립률\n월 한도\n국내 가맹점 이용 시\n0.3%\n없음\n지난달 실적에 관계없이 서비스 제공",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "국내 가맹점 하나머니 적립 월 한도"
+      },
+      {
+        "id": "inventory-benefit_domestic_point",
+        "ruleIds": [
+          "hana_travelog_gen_domestic"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "국내 가맹점 이용 시 0.3% 하나머니 적립",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "국내 가맹점 하나머니 적립 서비스"
+      },
+      {
+        "id": "inventory-condition_domestic_point_no_spend",
+        "ruleIds": [
+          "hana_travelog_gen_domestic"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "지난달 실적에 관계없이 서비스 제공",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "국내 하나머니 적립 실적 조건"
+      },
+      {
+        "id": "inventory-condition_domestic_point_posted_domestic_lump_sum",
+        "ruleIds": [
+          "hana_travelog_gen_domestic"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "서비스 제공 방법 매출 접수된 국내 일시불 이용금액에 따라 적립 혜택을 제공하며 취소가 접수된 월에서 적립된 하나머니를 차감 반영",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "국내 하나머니 적립 대상 매출 및 취소 반영 조건"
+      },
+      {
+        "id": "inventory-condition_domestic_point_merchant_standard",
+        "ruleIds": [
+          "hana_travelog_gen_domestic"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "모든 적립 서비스는 하나카드에 등록된 국내 가맹점 및 가맹점 업종 기준에 따라 제공",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "국내 하나머니 적립 가맹점 기준"
+      },
+      {
+        "id": "inventory-exclusion_domestic_point_categories",
+        "ruleIds": [
+          "hana_travelog_gen_domestic"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "국세, 지방세, 공과금(인터넷/모바일앱을통한 공과금 납부금액 포함),국민연금/고용보험료/산재보험료/건강보험료 납부금액,상품권 및 기프트카드 구매, 선불카드 및 선불전자지급수단(하나머니 등) 충전금액,수도/전기요금, 아파트관리비, 부동산임대료, 스쿨뱅킹, 도시가스 요금,대학등록금, 대학원등록금, 초·중·고 학교납입금, 국내외ATM이용금액은 적립 제외",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "국내 하나머니 적립 제외 대상"
+      },
+      {
+        "id": "inventory-condition_domestic_point_posting_date",
+        "ruleIds": [
+          "hana_travelog_gen_domestic"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "하나머니 적립일 : 매출 접수된 다음날 하나머니가 적립됨",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "하나머니 적립일"
+      },
+      {
+        "id": "inventory-condition_domestic_point_rounding",
+        "ruleIds": [
+          "hana_travelog_gen_domestic"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "소수점 이하 금액은 반올림",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "하나머니 적립 금액 반올림"
+      },
+      {
+        "id": "inventory-exclusion_overseas_atm_surcharge",
+        "ruleIds": [
+          "hana_travelog_gen_overseas_atm_fee"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "해외 ATM 이용 시 현지 ATM 수수료(Surcharge) 부과될 수 있음",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "해외 ATM 현지 수수료 별도 부과 가능"
+      },
+      {
+        "id": "inventory-exclusion_overseas_dcc",
+        "ruleIds": [
+          "hana_travelog_gen_overseas_fee",
+          "hana_travelog_gen_overseas_atm_fee"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "트래블로그 체크카드는 해외원화결제서비스(DCC) 이용이 되지 않습니다.",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "해외원화결제서비스(DCC) 이용 불가"
+      },
+      {
+        "id": "inventory-condition_hanamoney_membership_and_balance",
+        "ruleIds": [
+          "hana_travelog_gen_overseas_fee",
+          "hana_travelog_gen_overseas_atm_fee",
+          "hana_travelog_gen_domestic"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "하나머니 회원 가입 필수 로, 하나머니에 가입되어 있는 회원이라면 트래블로그 체크카드 신청이 가능합니다. 하나머니 잔액 내에서 결제 가능하며, 잔액 부족 시 충전을 통하여 결제 가능합니다. (단, 신용/체크카드를 통한 충전 금액은 트래블로그 체크카드로 사용 불가) 국내 사용 시 원화 하나머니, 해외 사용 시 외화 하나머니 잔액 내에서 결제 가능합니다.",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+        "location": "하나머니 회원 및 잔액 이용 조건"
+      }
+    ]
+  }
+}

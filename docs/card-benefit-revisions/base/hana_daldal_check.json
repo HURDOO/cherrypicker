@@ -1,0 +1,627 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "hana_daldal_check",
+      "name": "달달 하나 체크카드",
+      "company": "하나카드",
+      "limitTable": [
+        {
+          "threshold": 1000000,
+          "limit": 30000
+        },
+        {
+          "threshold": 700000,
+          "limit": 20000
+        },
+        {
+          "threshold": 300000,
+          "limit": 10000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "hana_daldal_easypay",
+        "cardId": "hana_daldal_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[간편결제] 0.3% 하나머니 적립",
+        "detail": "하나페이·삼성페이·네이버페이·쿠페이·카카오페이·SSG페이·페이코·11pay 결제 0.3% 적립, 영역 한도 없음.",
+        "condition": {
+          "manualCheckRequired": true,
+          "requiredNote": "하나페이·삼성페이·네이버페이·쿠페이·카카오페이·SSG페이·페이코·11pay로 결제하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "hana_daldal_shopping",
+        "cardId": "hana_daldal_check",
+        "includedBrands": [
+          "shinsegae_department",
+          "hyundai_department",
+          "lotte_department",
+          "emart",
+          "homeplus",
+          "lotte_mart",
+          "official_721c9dc57004b418",
+          "cu",
+          "gs25",
+          "emart24",
+          "seveneleven"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": true,
+        "description": "[쇼핑] 5% 하나머니 적립",
+        "detail": "쇼핑 5% 하나머니 적립(1하나머니=1원). 영역별 월 2천·4천·6천원(지난달 30만·70만·100만원 이상), 월 통합 1만·2만·3만원.",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 700000,
+              "limit": 4000
+            },
+            {
+              "threshold": 1000000,
+              "limit": 6000
+            }
+          ]
+        }
+      },
+      {
+        "id": "hana_daldal_delivery",
+        "cardId": "hana_daldal_check",
+        "category": "delivery",
+        "includedBrands": [
+          "baemin",
+          "yogiyo"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[딜리버리] 5% 하나머니 적립",
+        "detail": "딜리버리 5% 하나머니 적립(1하나머니=1원). 영역별 월 2천·4천·6천원(지난달 30만·70만·100만원 이상), 월 통합 1만·2만·3만원.",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 700000,
+              "limit": 4000
+            },
+            {
+              "threshold": 1000000,
+              "limit": 6000
+            }
+          ]
+        }
+      },
+      {
+        "id": "hana_daldal_transport",
+        "cardId": "hana_daldal_check",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public",
+          "kakaot",
+          "official_590a0ae1543df11c",
+          "s_oil",
+          "hd_hyundai_oilbank",
+          "official_fdbc33a67500b1e0"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[교통] 5% 하나머니 적립",
+        "detail": "교통 5% 하나머니 적립(1하나머니=1원). 영역별 월 2천·4천·6천원(지난달 30만·70만·100만원 이상), 월 통합 1만·2만·3만원.",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 교통 영역 이용금액이 통합 3만원 이상인지 확인해야 합니다(택시는 카카오T 앱 선결제만, 주유는 오프라인만)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 700000,
+              "limit": 4000
+            },
+            {
+              "threshold": 1000000,
+              "limit": 6000
+            }
+          ]
+        }
+      },
+      {
+        "id": "hana_daldal_coffee",
+        "cardId": "hana_daldal_check",
+        "category": "cafe",
+        "includedBrands": [
+          "starbucks",
+          "twosome",
+          "mega",
+          "compose",
+          "paiks",
+          "ediya",
+          "coffeebean",
+          "paulbassett",
+          "angelinus",
+          "mammoth"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": true,
+        "description": "[커피전문점] 5% 하나머니 적립",
+        "detail": "커피전문점 5% 하나머니 적립(1하나머니=1원). 영역별 월 2천·4천·6천원(지난달 30만·70만·100만원 이상), 월 통합 1만·2만·3만원.",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 700000,
+              "limit": 4000
+            },
+            {
+              "threshold": 1000000,
+              "limit": 6000
+            }
+          ]
+        }
+      },
+      {
+        "id": "hana_daldal_living",
+        "cardId": "hana_daldal_check",
+        "category": "transport",
+        "includedBrands": [
+          "telecom",
+          "electric_utility",
+          "city_gas"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[생활비] 5% 하나머니 적립",
+        "detail": "생활비 5% 하나머니 적립(1하나머니=1원). 영역별 월 2천·4천·6천원(지난달 30만·70만·100만원 이상), 월 통합 1만·2만·3만원.",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 30000,
+          "manualCheckRequired": true,
+          "requiredNote": "통신요금(알뜰폰 제외)·생활요금을 이 카드로 자동이체(자동납부)하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 700000,
+              "limit": 4000
+            },
+            {
+              "threshold": 1000000,
+              "limit": 6000
+            }
+          ]
+        }
+      },
+      {
+        "id": "hana_daldal_subscription",
+        "cardId": "hana_daldal_check",
+        "category": "subscription",
+        "includedBrands": [
+          "netflix",
+          "disney",
+          "official_0362ad03bc8c5218",
+          "official_ee47ad6a8622d0ea",
+          "youtube",
+          "coupang_wow"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[구독] 10% 하나머니 적립",
+        "detail": "구독 10% 하나머니 적립(1하나머니=1원). 영역별 월 2천·4천·6천원(지난달 30만·70만·100만원 이상), 월 통합 1만·2만·3만원.",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 700000,
+              "limit": 4000
+            },
+            {
+              "threshold": 1000000,
+              "limit": 6000
+            }
+          ]
+        }
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "하나머니는 원문 안내대로 1하나머니=1원으로 계산한다.",
+      "간편결제 0.3%는 영역 한도가 없어 카드 통합 한도 밖으로 계산한다.",
+      "롯데슈퍼·이마트에브리데이·홈플러스익스프레스, GS칼텍스 주유소는 등록된 결제처가 없어 설명에만 남긴다."
+    ],
+    "evidence": [
+      {
+        "id": "hana_daldal_easypay-1",
+        "ruleIds": [
+          "hana_daldal_easypay"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "간편결제 하나페이, 삼성페이, 네이버페이, 쿠페이, 카카오페이, SSG페이, 페이코, 11pay 0.3% - -",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[간편결제] 0.3% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_shopping-1",
+        "ruleIds": [
+          "hana_daldal_shopping"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "쇼핑 백화점: 신세계백화점, 현대백화점, 롯데백화점 대형마트: 이마트, 홈플러스, 롯데마트 슈퍼마켓: GS더프레시, 롯데슈퍼, 이마트에브리데이, 홈플러스익스프레스 편의점: CU, GS25, 이마트24, 세븐일레븐 5% 2천원 4천원 6천원",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[쇼핑] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_shopping-2",
+        "ruleIds": [
+          "hana_daldal_shopping"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "서비스 영역 가맹점 기준 적립율 지난달 실적별 적립 한도 적립 조건 30만원 이상 70만원 이상 100만원 이상",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[쇼핑] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_shopping-3",
+        "ruleIds": [
+          "hana_daldal_shopping"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "월 통합 적립한도 1만원 2만원 3만원 월 통합 적립한도는 모든 서비스 영역에 통합 적용됩니다.",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[쇼핑] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_shopping-4",
+        "ruleIds": [
+          "hana_daldal_shopping"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "쇼핑 영역, 교통(주유) 영역, 커피전문점 영역 적립 서비스는 오프라인 결제건에 한하여 제공됩니다.",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[쇼핑] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_delivery-1",
+        "ruleIds": [
+          "hana_daldal_delivery"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "딜리버리 배달의민족, 요기요 5% 2천원 4천원 6천원",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[딜리버리] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_delivery-2",
+        "ruleIds": [
+          "hana_daldal_delivery"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "서비스 영역 가맹점 기준 적립율 지난달 실적별 적립 한도 적립 조건 30만원 이상 70만원 이상 100만원 이상",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[딜리버리] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_delivery-3",
+        "ruleIds": [
+          "hana_daldal_delivery"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "월 통합 적립한도 1만원 2만원 3만원 월 통합 적립한도는 모든 서비스 영역에 통합 적용됩니다.",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[딜리버리] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_transport-1",
+        "ruleIds": [
+          "hana_daldal_transport"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "교통 대중교통: 버스, 지하철 택시: 카카오T 주유/LPG충전: SK에너지, GS칼텍스, S-Oil, HD현대오일뱅크 친환경 충전: EV(전기차)충전 5% 2천원 4천원 6천원 통합 월 3만원 이상",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[교통] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_transport-2",
+        "ruleIds": [
+          "hana_daldal_transport"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "서비스 영역 가맹점 기준 적립율 지난달 실적별 적립 한도 적립 조건 30만원 이상 70만원 이상 100만원 이상",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[교통] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_transport-3",
+        "ruleIds": [
+          "hana_daldal_transport"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "월 통합 적립한도 1만원 2만원 3만원 월 통합 적립한도는 모든 서비스 영역에 통합 적용됩니다.",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[교통] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_coffee-1",
+        "ruleIds": [
+          "hana_daldal_coffee"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "커피전문점 커피전문점 업종 5% 2천원 4천원 6천원",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[커피전문점] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_coffee-2",
+        "ruleIds": [
+          "hana_daldal_coffee"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "서비스 영역 가맹점 기준 적립율 지난달 실적별 적립 한도 적립 조건 30만원 이상 70만원 이상 100만원 이상",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[커피전문점] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_coffee-3",
+        "ruleIds": [
+          "hana_daldal_coffee"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "월 통합 적립한도 1만원 2만원 3만원 월 통합 적립한도는 모든 서비스 영역에 통합 적용됩니다.",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[커피전문점] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_coffee-4",
+        "ruleIds": [
+          "hana_daldal_coffee"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "쇼핑 영역, 교통(주유) 영역, 커피전문점 영역 적립 서비스는 오프라인 결제건에 한하여 제공됩니다.",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[커피전문점] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_living-1",
+        "ruleIds": [
+          "hana_daldal_living"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "생활비 통신요금: SKT, KT, LG U+ 생활요금: 전기요금, 가스요금 5% 2천원 4천원 6천원 건당 3만원 이상",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[생활비] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_living-2",
+        "ruleIds": [
+          "hana_daldal_living"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "서비스 영역 가맹점 기준 적립율 지난달 실적별 적립 한도 적립 조건 30만원 이상 70만원 이상 100만원 이상",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[생활비] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_living-3",
+        "ruleIds": [
+          "hana_daldal_living"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "월 통합 적립한도 1만원 2만원 3만원 월 통합 적립한도는 모든 서비스 영역에 통합 적용됩니다.",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[생활비] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_subscription-1",
+        "ruleIds": [
+          "hana_daldal_subscription"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "구독 영상스트리밍: 넷플릭스, 디즈니+, Wavve, 왓챠, 유튜브 프리미엄 디지털 멤버십: 쿠팡와우멤버십 10% 2천원 4천원 6천원",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[구독] 10% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_subscription-2",
+        "ruleIds": [
+          "hana_daldal_subscription"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "서비스 영역 가맹점 기준 적립율 지난달 실적별 적립 한도 적립 조건 30만원 이상 70만원 이상 100만원 이상",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[구독] 10% 하나머니 적립"
+      },
+      {
+        "id": "hana_daldal_subscription-3",
+        "ruleIds": [
+          "hana_daldal_subscription"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "월 통합 적립한도 1만원 2만원 3만원 월 통합 적립한도는 모든 서비스 영역에 통합 적용됩니다.",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "[구독] 10% 하나머니 적립"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "hana_daldal_shopping",
+          "hana_daldal_delivery",
+          "hana_daldal_transport",
+          "hana_daldal_coffee",
+          "hana_daldal_living",
+          "hana_daldal_subscription"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "최초 카드 사용 등록일부터 다음달 말일까지 지난달 실적 30만원 미만이어도 30만원 이상 70만원 미만 기준으로 서비스 제공",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "location": "서비스 제공 조건"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "quote": "실적 제외 대상 국세, 지방세, 수도/전기요금, 도시가스요금, 그외 공과금(우편요금, 과태료, 범칙금, 벌금, 국가/공공기관/공공단체가 부과하는 부담금), 아파트관리비, 국민연금/고용보험료/산재보험료/건강보험료 납부 금액, 스쿨뱅킹, 초.중.고학교납입금, 대학등록금, 대학원등록금, 상품권 및 기프트카드구매,선불카드 및 선불전자지급수단(하나머니 등)충전 금액, 부동산 임대료, 국내외 ATM 이용금액은 제외",
+        "reason": "앱이 거래 종류를 판정할 수 없는 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "accrual-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+        "quote": "적립 제외 대상 국세, 지방세, 수도요금, 그외 공과금(우편요금, 과태료, 범칙금, 벌금, 국가/공공기관/공공단체가 부과하는 부담금), 아파트관리비, 국민연금/고용보험료/산재보험료/건강보험료 납부 금액, 스쿨뱅킹, 초.중.고학교납입금, 대학등록금, 대학원등록금, 상품권 및 기프트카드구매,선불카드 및 선불전자지급 수단(하나머니 등)충전 금액, 부동산 임대료, 국내외 ATM 이용금액은 제외",
+        "reason": "세금·상품권 등은 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ]
+  }
+}

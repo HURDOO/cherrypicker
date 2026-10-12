@@ -1,0 +1,440 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "hana_travelgo_check",
+      "name": "트래블GO 체크카드",
+      "company": "하나카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "hana_travelgo_convenience",
+        "cardId": "hana_travelgo_check",
+        "category": "convenience",
+        "includedBrands": [
+          "cu",
+          "gs25",
+          "seveneleven",
+          "emart24"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": false,
+        "description": "[편의점] 5% 하나머니 적립",
+        "detail": "편의점 5% 하나머니 적립(1하나머니=1원), 영역별 월 최대 5회. 그룹 월 통합 5천 하나머니.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 5,
+          "monthlyAmount": 5000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "hana_travelgo_daily"
+      },
+      {
+        "id": "hana_travelgo_cafe_bakery",
+        "cardId": "hana_travelgo_check",
+        "category": "cafe",
+        "includedBrands": [
+          "starbucks",
+          "coffeebean",
+          "paris_baguette",
+          "tous_les_jours"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": false,
+        "description": "[커피/베이커리] 5% 하나머니 적립",
+        "detail": "커피/베이커리 5% 하나머니 적립(1하나머니=1원), 영역별 월 최대 5회. 그룹 월 통합 5천 하나머니.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 5,
+          "monthlyAmount": 5000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "hana_travelgo_daily"
+      },
+      {
+        "id": "hana_travelgo_transit",
+        "cardId": "hana_travelgo_check",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[대중교통] 5% 하나머니 적립",
+        "detail": "대중교통 5% 하나머니 적립(1하나머니=1원), 영역별 월 최대 5회. 그룹 월 통합 5천 하나머니.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 버스·지하철 이용금액이 통합 5만원 이상인지 확인해야 합니다(시외·고속버스, 철도 제외)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 5,
+          "monthlyAmount": 5000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "hana_travelgo_daily"
+      },
+      {
+        "id": "hana_travelgo_subscription",
+        "cardId": "hana_travelgo_check",
+        "category": "subscription",
+        "includedBrands": [
+          "youtube",
+          "netflix",
+          "coupang_wow"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": false,
+        "description": "[구독] 5% 하나머니 적립",
+        "detail": "구독 5% 하나머니 적립(1하나머니=1원), 영역별 월 최대 5회. 그룹 월 통합 5천 하나머니.",
+        "condition": {
+          "minPerformance": 500000,
+          "minSpend": 7000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 5,
+          "monthlyAmount": 5000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "hana_travelgo_living"
+      },
+      {
+        "id": "hana_travelgo_living",
+        "cardId": "hana_travelgo_check",
+        "category": "transport",
+        "includedBrands": [
+          "telecom",
+          "electric_utility",
+          "city_gas"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[생활비] 5% 하나머니 적립",
+        "detail": "생활비 5% 하나머니 적립(1하나머니=1원), 영역별 월 최대 5회. 그룹 월 통합 5천 하나머니.",
+        "condition": {
+          "minPerformance": 500000,
+          "minSpend": 50000,
+          "manualCheckRequired": true,
+          "requiredNote": "통신요금(알뜰폰 제외)·전기/가스요금을 이 카드로 자동이체(자동납부)하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 5,
+          "monthlyAmount": 5000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "hana_travelgo_living"
+      },
+      {
+        "id": "hana_travelgo_overseas_fee_info",
+        "cardId": "hana_travelgo_check",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "해외 이용 수수료 면제(정보)",
+        "detail": "해외 가맹점 해외서비스수수료(건당 US$0.5)·국제브랜드수수료(1.1%)와 해외 ATM 인출 수수료 면제. 외화 하나머니로 결제. 지난달 실적 무관.",
+        "condition": {},
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "원문 표의 적립조건(건당 1만원 이상)은 편의점·커피/베이커리 행에 함께 걸린 것으로 보고 둘 다 적용한다.",
+      "편의점·커피/베이커리·대중교통(전월 20만원)과 구독·생활비(50만원)는 각각 월 5천 하나머니를 함께 쓴다."
+    ],
+    "evidence": [
+      {
+        "id": "hana_travelgo_convenience-1",
+        "ruleIds": [
+          "hana_travelgo_convenience"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "영역 적립 대상 가맹점 적립률 적립조건 월 통합 적립한도 지난달 실적조건 편의점 CU, GS25, 세븐일레븐, 이마트24 5% 건당 1만원 이상 5천 하나머니 20만원 이상 커피/ 베이커리 스타벅스, 커피빈, 파리바게뜨, 뚜레쥬르 5% 대중교통 버스, 지하철 5% 월 통합 5만원 이상 구독 유튜브 프리미엄, 넷플릭스, 쿠팡와우멤버십 5% 건당 7천원 이상 5천 하나머니 50만원 이상 생활비 SKT, KT, LG U+, 전기/가스요금 5% 건당 5만원 이상 각 서비스 영역별 월 최대 5회 적립",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "[편의점] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_travelgo_convenience-2",
+        "ruleIds": [
+          "hana_travelgo_convenience"
+        ],
+        "fields": [
+          "action",
+          "limitConfig"
+        ],
+        "quote": "하나머니(1하나머니=1원)",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "[편의점] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_travelgo_convenience-3",
+        "ruleIds": [
+          "hana_travelgo_convenience"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "편의점/커피/베이커리 : 오프라인 결제 건에 한하여 서비스 제공되며",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "[편의점] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_travelgo_cafe_bakery-1",
+        "ruleIds": [
+          "hana_travelgo_cafe_bakery"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "영역 적립 대상 가맹점 적립률 적립조건 월 통합 적립한도 지난달 실적조건 편의점 CU, GS25, 세븐일레븐, 이마트24 5% 건당 1만원 이상 5천 하나머니 20만원 이상 커피/ 베이커리 스타벅스, 커피빈, 파리바게뜨, 뚜레쥬르 5% 대중교통 버스, 지하철 5% 월 통합 5만원 이상 구독 유튜브 프리미엄, 넷플릭스, 쿠팡와우멤버십 5% 건당 7천원 이상 5천 하나머니 50만원 이상 생활비 SKT, KT, LG U+, 전기/가스요금 5% 건당 5만원 이상 각 서비스 영역별 월 최대 5회 적립",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "[커피/베이커리] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_travelgo_cafe_bakery-2",
+        "ruleIds": [
+          "hana_travelgo_cafe_bakery"
+        ],
+        "fields": [
+          "action",
+          "limitConfig"
+        ],
+        "quote": "하나머니(1하나머니=1원)",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "[커피/베이커리] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_travelgo_cafe_bakery-3",
+        "ruleIds": [
+          "hana_travelgo_cafe_bakery"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "편의점/커피/베이커리 : 오프라인 결제 건에 한하여 서비스 제공되며",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "[커피/베이커리] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_travelgo_transit-1",
+        "ruleIds": [
+          "hana_travelgo_transit"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "영역 적립 대상 가맹점 적립률 적립조건 월 통합 적립한도 지난달 실적조건 편의점 CU, GS25, 세븐일레븐, 이마트24 5% 건당 1만원 이상 5천 하나머니 20만원 이상 커피/ 베이커리 스타벅스, 커피빈, 파리바게뜨, 뚜레쥬르 5% 대중교통 버스, 지하철 5% 월 통합 5만원 이상 구독 유튜브 프리미엄, 넷플릭스, 쿠팡와우멤버십 5% 건당 7천원 이상 5천 하나머니 50만원 이상 생활비 SKT, KT, LG U+, 전기/가스요금 5% 건당 5만원 이상 각 서비스 영역별 월 최대 5회 적립",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "[대중교통] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_travelgo_transit-2",
+        "ruleIds": [
+          "hana_travelgo_transit"
+        ],
+        "fields": [
+          "action",
+          "limitConfig"
+        ],
+        "quote": "하나머니(1하나머니=1원)",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "[대중교통] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_travelgo_transit-3",
+        "ruleIds": [
+          "hana_travelgo_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "대중교통 : 시외버스, 고속버스 , 철도(KTX/SRT/ITX)는 제외됨",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "[대중교통] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_travelgo_subscription-1",
+        "ruleIds": [
+          "hana_travelgo_subscription"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "영역 적립 대상 가맹점 적립률 적립조건 월 통합 적립한도 지난달 실적조건 편의점 CU, GS25, 세븐일레븐, 이마트24 5% 건당 1만원 이상 5천 하나머니 20만원 이상 커피/ 베이커리 스타벅스, 커피빈, 파리바게뜨, 뚜레쥬르 5% 대중교통 버스, 지하철 5% 월 통합 5만원 이상 구독 유튜브 프리미엄, 넷플릭스, 쿠팡와우멤버십 5% 건당 7천원 이상 5천 하나머니 50만원 이상 생활비 SKT, KT, LG U+, 전기/가스요금 5% 건당 5만원 이상 각 서비스 영역별 월 최대 5회 적립",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "[구독] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_travelgo_subscription-2",
+        "ruleIds": [
+          "hana_travelgo_subscription"
+        ],
+        "fields": [
+          "action",
+          "limitConfig"
+        ],
+        "quote": "하나머니(1하나머니=1원)",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "[구독] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_travelgo_living-1",
+        "ruleIds": [
+          "hana_travelgo_living"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "영역 적립 대상 가맹점 적립률 적립조건 월 통합 적립한도 지난달 실적조건 편의점 CU, GS25, 세븐일레븐, 이마트24 5% 건당 1만원 이상 5천 하나머니 20만원 이상 커피/ 베이커리 스타벅스, 커피빈, 파리바게뜨, 뚜레쥬르 5% 대중교통 버스, 지하철 5% 월 통합 5만원 이상 구독 유튜브 프리미엄, 넷플릭스, 쿠팡와우멤버십 5% 건당 7천원 이상 5천 하나머니 50만원 이상 생활비 SKT, KT, LG U+, 전기/가스요금 5% 건당 5만원 이상 각 서비스 영역별 월 최대 5회 적립",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "[생활비] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_travelgo_living-2",
+        "ruleIds": [
+          "hana_travelgo_living"
+        ],
+        "fields": [
+          "action",
+          "limitConfig"
+        ],
+        "quote": "하나머니(1하나머니=1원)",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "[생활비] 5% 하나머니 적립"
+      },
+      {
+        "id": "hana_travelgo_overseas_fee_info-1",
+        "ruleIds": [
+          "hana_travelgo_overseas_fee_info"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "해외 가맹점 이용 시 면제 (건당 US$0.5) 면제 (이용금액의 1.1%)",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "해외 이용 수수료 면제(정보)"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "hana_travelgo_convenience",
+          "hana_travelgo_cafe_bakery",
+          "hana_travelgo_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "최초 카드 사용 등록일부터 다음달 말일까지 지난달 실적 20만원 미만이어도 20만원 이상 50만원 미만 기준으로 서비스 제공",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "location": "실적과 관계없이 서비스 제공"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "quote": "[실적 제외 대상] 국세, 지방세, 수도/전기요금, 그외 공과금(우편요금, 과태료, 범칙금, 벌금, 국가/공공기관/공공단체가 부과하는 부담금), 도시가스 요금, 아파트관리비, 국민연금/고용보험료/산재보험료/건강보험료 납부 금액, 스쿨뱅킹, 초.중.고학교납입금, 대학등록금, 대학원등록금, 상품권 및 기프트카드구매, 선불카드 및 선불전자지급 수단(하나머니 등)충전 금액, 부동산 임대료, 국내외 ATM 이용금액",
+        "reason": "앱이 거래 종류를 판정할 수 없는 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "overseas-fee",
+        "ruleIds": [
+          "hana_travelgo_overseas_fee_info"
+        ],
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "quote": "해외 가맹점 이용 시 면제 (건당 US$0.5) 면제 (이용금액의 1.1%)",
+        "reason": "해외 수수료 면제는 결제 할인이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_FINANCIAL_PRODUCT"
+      },
+      {
+        "id": "hosted-stores",
+        "ruleIds": [],
+        "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+        "quote": "대형시설물(백화점, 할인점, 아울렛, 쇼핑몰, 휴게소, 공항, 호텔, 리조트, 역사, 마트) 입점 점포 및 임대매장 결제",
+        "reason": "대형시설물 입점 점포 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      }
+    ]
+  }
+}

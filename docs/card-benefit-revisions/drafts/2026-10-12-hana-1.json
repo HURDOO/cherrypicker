@@ -1,0 +1,93 @@
+{
+  "cards": [
+    {
+      "id": "hana_daldal_check",
+      "name": "달달 하나 체크카드",
+      "company": "하나카드",
+      "color": "bg-teal-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "달달 하나 체크카드 상품 페이지",
+          "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18058",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ],
+      "issuerProductCode": "18058"
+    },
+    {
+      "id": "hana_travelgo_check",
+      "name": "트래블GO 체크카드",
+      "company": "하나카드",
+      "color": "bg-teal-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "트래블GO 체크카드 상품 페이지",
+          "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=18064",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ],
+      "issuerProductCode": "18064"
+    },
+    {
+      "id": "hana_everyday_check",
+      "name": "모두의 일상 체크카드",
+      "company": "하나카드",
+      "color": "bg-teal-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "모두의 일상 체크카드 상품 페이지",
+          "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=12782",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ],
+      "issuerProductCode": "12782"
+    },
+    {
+      "id": "hana_kpass_check",
+      "name": "K-패스 하나 체크카드",
+      "company": "하나카드",
+      "color": "bg-teal-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "K-패스 하나 체크카드 상품 페이지",
+          "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1000M.web?CD_PD_SEQ=17034",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ],
+      "issuerProductCode": "17034"
+    },
+    {
+      "id": "hana_travelog_check",
+      "name": "트래블로그 체크카드",
+      "company": "하나카드",
+      "color": "bg-teal-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "트래블로그 체크카드 상품 페이지",
+          "sourceUrl": "https://www.hanacard.co.kr/OPI41000000D.web?CD_PD_SEQ=15414&mID=PI41015414P&schID=pcd",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

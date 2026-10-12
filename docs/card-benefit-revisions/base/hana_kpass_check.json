@@ -1,0 +1,231 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "hana_kpass_check",
+      "name": "K-패스 하나 체크카드",
+      "company": "하나카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "hana_kpass_transit",
+        "cardId": "hana_kpass_check",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "버스·지하철 10% 캐쉬백",
+        "detail": "버스·지하철 10% 캐쉬백, 월 3천원(전월 30만원)·6천원(60만원).",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 3000
+            },
+            {
+              "threshold": 600000,
+              "limit": 6000
+            }
+          ]
+        }
+      },
+      {
+        "id": "hana_kpass_drugstore",
+        "cardId": "hana_kpass_check",
+        "category": "life",
+        "includedBrands": [
+          "daiso",
+          "oliveyoung"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "다이소·올리브영 1% 캐쉬백",
+        "detail": "다이소, 올리브영 1% 캐쉬백, 월 1만원.",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 10000
+        }
+      },
+      {
+        "id": "hana_kpass_coffee",
+        "cardId": "hana_kpass_check",
+        "category": "cafe",
+        "includedBrands": [
+          "starbucks",
+          "coffeebean"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "스타벅스·커피빈 1% 캐쉬백",
+        "detail": "스타벅스, 커피빈 1% 캐쉬백, 월 5천원.",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000
+        }
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "K-패스 환급금(정부 사업)은 카드 혜택이 아니어서 계산하지 않는다."
+    ],
+    "evidence": [
+      {
+        "id": "hana_kpass_transit-1",
+        "ruleIds": [
+          "hana_kpass_transit"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "대중교통 캐쉬백 버스/지하철 10% 캐쉬백 (월 3천원, 월 6천원)",
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1000M.web?CD_PD_SEQ=17034",
+        "location": "버스·지하철 10% 캐쉬백"
+      },
+      {
+        "id": "hana_kpass_transit-2",
+        "ruleIds": [
+          "hana_kpass_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[실적 산정 기준] 지난달 1일부터 말일(승인 시점 기준)까지 국내외 일시불/할부 이용금액 기준으로 30만원/60만원 이상 시 서비스 차등 제공",
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1000M.web?CD_PD_SEQ=17034",
+        "location": "버스·지하철 10% 캐쉬백"
+      },
+      {
+        "id": "hana_kpass_transit-3",
+        "ruleIds": [
+          "hana_kpass_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[실적과 관계없이 서비스 제공] 최초카드 사용등록일 부터 다음달말일까지는 지난달 카드 실적이 30만원 미만이어도 30만원 이상 60만원 미만 기준으로 제공",
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1000M.web?CD_PD_SEQ=17034",
+        "location": "버스·지하철 10% 캐쉬백"
+      },
+      {
+        "id": "hana_kpass_drugstore-1",
+        "ruleIds": [
+          "hana_kpass_drugstore"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "드럭스토어 캐쉬백 다이소/올리브영 1% 캐쉬백 (월 1만원)",
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1000M.web?CD_PD_SEQ=17034",
+        "location": "다이소·올리브영 1% 캐쉬백"
+      },
+      {
+        "id": "hana_kpass_drugstore-2",
+        "ruleIds": [
+          "hana_kpass_drugstore"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[실적 산정 기준] 지난달 1일부터 말일(승인 시점 기준)까지 국내외 일시불/할부 이용금액 기준으로 30만원/60만원 이상 시 서비스 차등 제공",
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1000M.web?CD_PD_SEQ=17034",
+        "location": "다이소·올리브영 1% 캐쉬백"
+      },
+      {
+        "id": "hana_kpass_drugstore-3",
+        "ruleIds": [
+          "hana_kpass_drugstore"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[실적과 관계없이 서비스 제공] 최초카드 사용등록일 부터 다음달말일까지는 지난달 카드 실적이 30만원 미만이어도 30만원 이상 60만원 미만 기준으로 제공",
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1000M.web?CD_PD_SEQ=17034",
+        "location": "다이소·올리브영 1% 캐쉬백"
+      },
+      {
+        "id": "hana_kpass_coffee-1",
+        "ruleIds": [
+          "hana_kpass_coffee"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "커피 캐쉬백 스타벅스/커피빈 1% 캐쉬백 (월 5천원)",
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1000M.web?CD_PD_SEQ=17034",
+        "location": "스타벅스·커피빈 1% 캐쉬백"
+      },
+      {
+        "id": "hana_kpass_coffee-2",
+        "ruleIds": [
+          "hana_kpass_coffee"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[실적 산정 기준] 지난달 1일부터 말일(승인 시점 기준)까지 국내외 일시불/할부 이용금액 기준으로 30만원/60만원 이상 시 서비스 차등 제공",
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1000M.web?CD_PD_SEQ=17034",
+        "location": "스타벅스·커피빈 1% 캐쉬백"
+      },
+      {
+        "id": "hana_kpass_coffee-3",
+        "ruleIds": [
+          "hana_kpass_coffee"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[실적과 관계없이 서비스 제공] 최초카드 사용등록일 부터 다음달말일까지는 지난달 카드 실적이 30만원 미만이어도 30만원 이상 60만원 미만 기준으로 제공",
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1000M.web?CD_PD_SEQ=17034",
+        "location": "스타벅스·커피빈 1% 캐쉬백"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1000M.web?CD_PD_SEQ=17034",
+        "quote": "[실적 제외 대상] 국세, 지방세, 수도/전기요금, 그외 공과금(우편요금, 과태료, 범칙금, 벌금, 국가/공공기관/공공단체가 부과하는 부담금), 도시가스 요금, 아파트관리비, 국민연금/고용보험료/산재보험료/건강보험료 납부금액, 스쿨뱅킹, 초.중.고학교납입금, 대학등록금, 대학원등록금, 상품권 및 기프트카드구매,선불카드 및 선불전자지급수단(하나머니 등)충전 금액, 부동산 임대료",
+        "reason": "앱이 거래 종류를 판정할 수 없는 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ]
+  }
+}
