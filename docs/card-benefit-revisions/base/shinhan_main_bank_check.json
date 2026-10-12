@@ -1,0 +1,287 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "shinhan_main_bank_check",
+      "name": "신한카드 주거래 체크",
+      "company": "신한카드",
+      "limitTable": [
+        {
+          "threshold": 300000,
+          "limit": 30000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "sh_mainbank_base",
+        "cardId": "shinhan_main_bank_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "국내외 가맹점 0.3% 포인트 적립",
+        "detail": "국내외 가맹점 0.3% 마이신한포인트 적립. 전월 30만원 이상, 월 최대 3만원(가족카드 통합).",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "stackableWithRuleIds": [
+            "sh_mainbank_shopping",
+            "sh_mainbank_overseas",
+            "sh_mainbank_life"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "sh_mainbank_shopping",
+        "cardId": "shinhan_main_bank_check",
+        "includedBrands": [
+          "emart",
+          "lotte_mart",
+          "homeplus",
+          "lotte_department",
+          "hyundai_department",
+          "shinsegae_department",
+          "elevenst",
+          "gmarket",
+          "auction",
+          "coupang",
+          "tmon",
+          "lotte_home_shopping"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[신한은행 결제계좌] 쇼핑 0.7% 추가적립",
+        "detail": "이마트·롯데마트·홈플러스, 롯데·현대·신세계백화점, 11번가·G마켓·옥션·쿠팡·티몬·롯데홈쇼핑 0.7% 추가(총 1%). SSM과 상품권 구매 제외, 쿠팡·티몬·롯데홈쇼핑은 사이트·앱 직접 접속 시.",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "이 카드의 결제계좌가 신한은행 계좌인지 확인해야 합니다.",
+          "stackableWithRuleIds": [
+            "sh_mainbank_base"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.7,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "sh_mainbank_overseas",
+        "cardId": "shinhan_main_bank_check",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[신한은행 결제계좌] 해외 0.7% 추가적립",
+        "detail": "해외 이용금액 0.7% 추가(총 1%).",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "이 카드의 결제계좌가 신한은행 계좌인지 확인해야 합니다.",
+          "stackableWithRuleIds": [
+            "sh_mainbank_base"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.7,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "sh_mainbank_life",
+        "cardId": "shinhan_main_bank_check",
+        "includedBrands": [
+          "telecom",
+          "transport_public",
+          "city_gas"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[신한은행 결제계좌] 통신·대중교통·도시가스 1.7% 추가적립",
+        "detail": "이동통신 요금(SKT/KT/LGU+) 자동이체(알뜰폰 제외), 버스·지하철 후불교통, 도시가스 1.7% 추가(총 2%).",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "이 카드의 결제계좌가 신한은행 계좌인지 확인해야 합니다. 통신요금은 이 카드로 자동이체(알뜰폰 제외)해야 합니다.",
+          "stackableWithRuleIds": [
+            "sh_mainbank_base"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1.7,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "월 최대 3만원 적립 한도는 원 단위로 적혀 있어 카드 통합 한도로 계산한다.",
+      "신한은행 결제계좌 연결 혜택은 계좌 조건이라 확인 조건으로 둔다."
+    ],
+    "evidence": [
+      {
+        "id": "sh_mainbank_base-1",
+        "ruleIds": [
+          "sh_mainbank_base"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "기본 적립 국내외 가맹점 0.3% 포인트 적립 신한카드 주거래 체크 전월(1일~말일) 이용금액(일시불+할부) 30만원 이상 시 제공 됩니다. 신한카드 주거래 체크로 마이신한포인트는 월 최대 3만원까지 적립됩니다.(해당월 총 청구금액 기준/가족카드 통합)",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187975_2206.html",
+        "location": "국내외 가맹점 0.3% 포인트 적립"
+      },
+      {
+        "id": "sh_mainbank_shopping-1",
+        "ruleIds": [
+          "sh_mainbank_shopping"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "쇼핑 가맹점 0.7% 추가적립(총 1% 적립) 할인점 : 이마트, 롯데마트, 홈플러스 백화점 : 롯데백화점, 현대백화점, 신세계백화점 온라인몰 : 11번가, G마켓, 옥션, 쿠팡, 티켓몬스터, 롯데홈쇼핑",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187975_2206.html",
+        "location": "[신한은행 결제계좌] 쇼핑 0.7% 추가적립"
+      },
+      {
+        "id": "sh_mainbank_shopping-2",
+        "ruleIds": [
+          "sh_mainbank_shopping"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "카드 이용대금 결제계좌가 신한은행인 경우 제공되는 서비스입니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187975_2206.html",
+        "location": "[신한은행 결제계좌] 쇼핑 0.7% 추가적립"
+      },
+      {
+        "id": "sh_mainbank_overseas-1",
+        "ruleIds": [
+          "sh_mainbank_overseas"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "해외 이용금액 0.7% 추가적립(총 1% 적립)",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187975_2206.html",
+        "location": "[신한은행 결제계좌] 해외 0.7% 추가적립"
+      },
+      {
+        "id": "sh_mainbank_overseas-2",
+        "ruleIds": [
+          "sh_mainbank_overseas"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "카드 이용대금 결제계좌가 신한은행인 경우 제공되는 서비스입니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187975_2206.html",
+        "location": "[신한은행 결제계좌] 해외 0.7% 추가적립"
+      },
+      {
+        "id": "sh_mainbank_life-1",
+        "ruleIds": [
+          "sh_mainbank_life"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "생활 가맹점 1.7% 추가적립(총 2% 적립) 이동통신 요금(SKT/KT/LGU+) 자동 이체 거래건 버스/지하철 후불교통카드 이용금액 도시가스 이용 금액",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187975_2206.html",
+        "location": "[신한은행 결제계좌] 통신·대중교통·도시가스 1.7% 추가적립"
+      },
+      {
+        "id": "sh_mainbank_life-2",
+        "ruleIds": [
+          "sh_mainbank_life"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "카드 이용대금 결제계좌가 신한은행인 경우 제공되는 서비스입니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187975_2206.html",
+        "location": "[신한은행 결제계좌] 통신·대중교통·도시가스 1.7% 추가적립"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "sh_mainbank_base",
+          "sh_mainbank_shopping",
+          "sh_mainbank_overseas",
+          "sh_mainbank_life"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "신규 발급 회원에 대해서는 카드 사용 등록월의 익월말(등록월+1개월)까지 전월 이용금액 30만원 기준과 무관하게 서비스가 제공됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187975_2206.html",
+        "location": "이용 금액 조건"
+      },
+      {
+        "id": "shared-2",
+        "ruleIds": [
+          "sh_mainbank_shopping",
+          "sh_mainbank_overseas",
+          "sh_mainbank_life"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "기본 서비스 및 신한은행 결제 계좌 연결 시 제공되는 서비스는 전월 신판이용 30만원(일시불+할부) 이상인 경우 제공됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187975_2206.html",
+        "location": "신한은행 결제계좌 연결 시 제공 서비스 유의사항"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187975_2206.html",
+        "quote": "단기카드대출(현금서비스)/장기카드대출(카드론)/연회비/각종 수수료/이자/기프트카드 구매금액/선불카드 충전금액/거래 취소금액은 실적 합산에서 제외됩니다.",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "accrual-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187975_2206.html",
+        "quote": "아래의 경우에는 포인트가 적립되지 않습니다. 무이자할부/슬림할부/포인트 사용 금액 단기카드대출(현금서비스)/장기카드대출(카드론)/연회비/각종수수료/지방세/이자/기프트카드 구매금액/선불카드 충전금액",
+        "reason": "무이자할부·지방세·상품권 등은 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ]
+  }
+}

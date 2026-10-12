@@ -1,0 +1,512 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "shinhan_kpass_check",
+      "name": "K-패스 신한카드 체크",
+      "company": "신한카드",
+      "limitTable": [
+        {
+          "threshold": 500000,
+          "limit": 5000
+        },
+        {
+          "threshold": 200000,
+          "limit": 2000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "sh_kpass_transit",
+        "cardId": "shinhan_kpass_check",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "대중교통 10% 결제일 할인",
+        "detail": "버스·지하철 후불교통(RF) 10% 할인. 고속·공항·시외버스, 공항철도 제외. 월 2천원(전월 20만원)·5천원(50만원).",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 2000
+            },
+            {
+              "threshold": 500000,
+              "limit": 5000
+            }
+          ]
+        }
+      },
+      {
+        "id": "sh_kpass_easypay",
+        "cardId": "shinhan_kpass_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "간편결제 2% 결제일 할인",
+        "detail": "신한 SOL페이·삼성페이·카카오페이에 등록해 국내 결제 시 2% 할인(생활 할인보다 우선). 건당 1만원 이상, 일 1회, 할인 전 5만원까지. 간편결제·생활 통합 월 2천원(전월 20만원)·5천원(50만원).",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000,
+          "manualCheckRequired": true,
+          "requiredNote": "신한 SOL페이·삼성페이·카카오페이에 이 카드를 등록해 결제하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 2,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "dailyCount": 1,
+          "sharedFields": [
+            "dailyCount"
+          ]
+        },
+        "sharedGroupId": "sh_kpass_life"
+      },
+      {
+        "id": "sh_kpass_delivery",
+        "cardId": "shinhan_kpass_check",
+        "category": "delivery",
+        "includedBrands": [
+          "baemin"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "배달의민족 2% 결제일 할인",
+        "detail": "배달의민족 공식 앱 내 카드결제 2% 할인(만나서 결제·페이 결제 제외). 건당 1만원 이상, 일 1회, 할인 전 5만원까지. 간편결제·생활 통합 월 2천원(전월 20만원)·5천원(50만원).",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 2,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "dailyCount": 1,
+          "sharedFields": [
+            "dailyCount"
+          ]
+        },
+        "sharedGroupId": "sh_kpass_life"
+      },
+      {
+        "id": "sh_kpass_convenience",
+        "cardId": "shinhan_kpass_check",
+        "category": "convenience",
+        "includedBrands": [
+          "gs25",
+          "cu"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": true,
+        "description": "GS25·CU 2% 결제일 할인",
+        "detail": "GS25, CU 오프라인 매장 2% 할인. 건당 1만원 이상, 일 1회, 할인 전 5만원까지. 간편결제·생활 통합 월 2천원(전월 20만원)·5천원(50만원).",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 2,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "dailyCount": 1,
+          "sharedFields": [
+            "dailyCount"
+          ]
+        },
+        "sharedGroupId": "sh_kpass_life"
+      },
+      {
+        "id": "sh_kpass_life",
+        "cardId": "shinhan_kpass_check",
+        "includedBrands": [
+          "starbucks",
+          "mega",
+          "mammoth",
+          "oliveyoung",
+          "medical",
+          "official_15f1e20a3b64a1f7"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "커피·올리브영·병원/약국 2% 결제일 할인",
+        "detail": "스타벅스·메가MGC커피·매머드커피(매장·공식 앱), 올리브영, 병원/약국 업종(동물병원 제외) 2% 할인. 건당 1만원 이상, 일 1회, 할인 전 5만원까지. 간편결제·생활 통합 월 2천원(전월 20만원)·5천원(50만원).",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 2,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "dailyCount": 1,
+          "sharedFields": [
+            "dailyCount"
+          ]
+        },
+        "sharedGroupId": "sh_kpass_life"
+      },
+      {
+        "id": "sh_kpass_ott",
+        "cardId": "shinhan_kpass_check",
+        "category": "subscription",
+        "includedBrands": [
+          "netflix",
+          "youtube"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "넷플릭스·유튜브 프리미엄 2% 결제일 할인",
+        "detail": "넷플릭스, 유튜브 프리미엄 공식 홈페이지 정기결제 2% 할인(인앱결제·통신요금 합산 제외). 건당 1만원 이상, 일 1회, 할인 전 5만원까지. 간편결제·생활 통합 월 2천원(전월 20만원)·5천원(50만원).",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 2,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "dailyCount": 1,
+          "sharedFields": [
+            "dailyCount"
+          ]
+        },
+        "sharedGroupId": "sh_kpass_life"
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "K-패스 환급금(정부 사업)은 카드 혜택이 아니어서 계산하지 않는다.",
+      "간편결제 할인과 생활 할인은 중복되지 않아 결제처마다 큰 혜택 하나만 계산되고, 일 1회·월 한도를 함께 쓴다."
+    ],
+    "evidence": [
+      {
+        "id": "sh_kpass_transit-1",
+        "ruleIds": [
+          "sh_kpass_transit"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "대중교통 10% 할인 대중교통(버스, 지하철) 이용 시 10% 결제일 할인 후불교통 기능을 이용한 터치(RF) 거래 시 할인 고속버스, 공항버스, 시외버스, 공항철도는 할인되지 않음",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "대중교통 10% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_transit-2",
+        "ruleIds": [
+          "sh_kpass_transit"
+        ],
+        "fields": [
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "[대중교통 할인 서비스 할인한도] 지난달 이용금액, 할인한도로 구성된 표입니다. 지난달 이용금액 할인한도 20만원 이상50만원 미만 2천원 50만원 이상 5천원",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "대중교통 10% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_easypay-1",
+        "ruleIds": [
+          "sh_kpass_easypay"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "간편결제 2% 할인 간편결제로 결제 시 2% 결제일 할인 간편결제 신한 SOL페이, 삼성페이, 카카오페이",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "간편결제 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_easypay-2",
+        "ruleIds": [
+          "sh_kpass_easypay"
+        ],
+        "fields": [
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "할인 서비스는 거래건별 이용금액 1만원 이상 시 적용되며, 할인 전 이용금액기준 일 1회, 5만원까지 할인됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "간편결제 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_easypay-3",
+        "ruleIds": [
+          "sh_kpass_easypay"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[간편결제/생활 할인 서비스 통합할인한도] 지난달 이용금액, 할인한도로 구성된 표입니다. 지난달 이용금액 할인한도 20만원 이상50만원 미만 2천원 50만원 이상 5천원",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "간편결제 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_delivery-1",
+        "ruleIds": [
+          "sh_kpass_delivery"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "배달앱 2% 결제일 할인 배달앱: 배달의 민족 공식 배달앱에서 ‘앱 내 카드결제’ 시 할인되며",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "배달의민족 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_delivery-2",
+        "ruleIds": [
+          "sh_kpass_delivery"
+        ],
+        "fields": [
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "할인 서비스는 거래건별 이용금액 1만원 이상 시 적용되며, 할인 전 이용금액기준 일 1회, 5만원까지 할인됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "배달의민족 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_delivery-3",
+        "ruleIds": [
+          "sh_kpass_delivery"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[간편결제/생활 할인 서비스 통합할인한도] 지난달 이용금액, 할인한도로 구성된 표입니다. 지난달 이용금액 할인한도 20만원 이상50만원 미만 2천원 50만원 이상 5천원",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "배달의민족 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_convenience-1",
+        "ruleIds": [
+          "sh_kpass_convenience"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "편의점 2% 결제일 할인 편의점: GS25, CU 오프라인 매장에 한하여 할인되며",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "GS25·CU 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_convenience-2",
+        "ruleIds": [
+          "sh_kpass_convenience"
+        ],
+        "fields": [
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "할인 서비스는 거래건별 이용금액 1만원 이상 시 적용되며, 할인 전 이용금액기준 일 1회, 5만원까지 할인됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "GS25·CU 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_convenience-3",
+        "ruleIds": [
+          "sh_kpass_convenience"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[간편결제/생활 할인 서비스 통합할인한도] 지난달 이용금액, 할인한도로 구성된 표입니다. 지난달 이용금액 할인한도 20만원 이상50만원 미만 2천원 50만원 이상 5천원",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "GS25·CU 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_life-1",
+        "ruleIds": [
+          "sh_kpass_life"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "커피전문점 2% 결제일 할인 커피전문점: 스타벅스, 메가MGC커피, 매머드커피 오프라인 매장 및 공식 앱으로 결제 시 할인됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "커피·올리브영·병원/약국 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_life-2",
+        "ruleIds": [
+          "sh_kpass_life"
+        ],
+        "fields": [
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "할인 서비스는 거래건별 이용금액 1만원 이상 시 적용되며, 할인 전 이용금액기준 일 1회, 5만원까지 할인됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "커피·올리브영·병원/약국 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_life-3",
+        "ruleIds": [
+          "sh_kpass_life"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[간편결제/생활 할인 서비스 통합할인한도] 지난달 이용금액, 할인한도로 구성된 표입니다. 지난달 이용금액 할인한도 20만원 이상50만원 미만 2천원 50만원 이상 5천원",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "커피·올리브영·병원/약국 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_ott-1",
+        "ruleIds": [
+          "sh_kpass_ott"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "OTT 2% 결제일 할인 OTT: 넷플릭스, 유튜브 프리미엄 서비스 대상 가맹점 공식 홈페이지에 직접 접속하여 신청한 정기결제(자동이체)를 이용하는 경우에 한하여 서비스 적용됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "넷플릭스·유튜브 프리미엄 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_ott-2",
+        "ruleIds": [
+          "sh_kpass_ott"
+        ],
+        "fields": [
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "할인 서비스는 거래건별 이용금액 1만원 이상 시 적용되며, 할인 전 이용금액기준 일 1회, 5만원까지 할인됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "넷플릭스·유튜브 프리미엄 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_ott-3",
+        "ruleIds": [
+          "sh_kpass_ott"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[간편결제/생활 할인 서비스 통합할인한도] 지난달 이용금액, 할인한도로 구성된 표입니다. 지난달 이용금액 할인한도 20만원 이상50만원 미만 2천원 50만원 이상 5천원",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "넷플릭스·유튜브 프리미엄 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_ott-4",
+        "ruleIds": [
+          "sh_kpass_ott"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "올리브영 2% 결제일 할인 오프라인 매장 및 공식 홈페이지, 공식 앱으로 결제 시 할인됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "넷플릭스·유튜브 프리미엄 2% 결제일 할인"
+      },
+      {
+        "id": "sh_kpass_ott-5",
+        "ruleIds": [
+          "sh_kpass_ott"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "병원/약국 업종 2% 결제일 할인 병원/약국 업종 할인 서비스는 신한카드 가맹점 업종 기준에 따라 할인됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "넷플릭스·유튜브 프리미엄 2% 결제일 할인"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "sh_kpass_transit",
+          "sh_kpass_easypay",
+          "sh_kpass_delivery",
+          "sh_kpass_convenience",
+          "sh_kpass_life",
+          "sh_kpass_ott"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "K-패스 신한카드 체크 신규 발급 회원의 경우 카드 사용 등록한 달의 다음달 말(등록한 달+1개월)까지는 지난달 이용금액 20만원 이상 50만원 미만 구간의 서비스가 적용됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "location": "지난달 이용금액 기준"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "quote": "아래 대상은 할인 서비스가 적용되지 않습니다. 단기카드대출(현금서비스), 장기카드대출(카드론) 연회비, 각종 수수료/이자(할부수수료, 연체이자 등) 거래 취소금액 기프트카드/선불카드 구매&middot;충전금액, 상품권/선불전자지급수단 구매&middot;충전금액 국세, 지방세, 4대보험(국민연금/고용보험/건강보험/산재보험) 지방세 외 수입, 환경개선부담금, TV수신료 유치원/초중고 학교납입금(스쿨뱅킹), 대학(원)등록금",
+        "reason": "세금·상품권·등록금 등은 할인 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "hosted-stores",
+        "ruleIds": [],
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+        "quote": "백화점, 할인점 등 입점 매장 및 상품권, 선불카드 구입/충전, 선물하기 건은 할인되지 않습니다.",
+        "reason": "입점 매장 할인 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      }
+    ]
+  }
+}

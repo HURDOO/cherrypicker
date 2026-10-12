@@ -1,0 +1,287 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "shinhan_kakaopay_check",
+      "name": "카카오페이 신한 체크카드",
+      "company": "신한카드",
+      "limitTable": [
+        {
+          "threshold": 1000000,
+          "limit": 13000
+        },
+        {
+          "threshold": 700000,
+          "limit": 10000
+        },
+        {
+          "threshold": 500000,
+          "limit": 7000
+        },
+        {
+          "threshold": 300000,
+          "limit": 5000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "sh_kakaopay_kakaopay",
+        "cardId": "shinhan_kakaopay_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "카카오페이 결제 2% 카카오페이머니 적립",
+        "detail": "카카오페이 가맹점에서 카카오페이 간편결제 시 2% 적립, 월 1만원. 전월 실적 조건 없음. 교통·통신·영화 적립과 중복되지 않습니다.",
+        "condition": {
+          "manualCheckRequired": true,
+          "requiredNote": "카카오페이 간편결제(이 카드 등록)로 결제하는지 확인해야 합니다. 카카오페이에서 삼성페이 등 제휴 간편결제를 쓰면 제외됩니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 10000
+        }
+      },
+      {
+        "id": "sh_kakaopay_transit",
+        "cardId": "shinhan_kakaopay_check",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "대중교통 3% 적립",
+        "detail": "버스·지하철 3% 카카오페이머니 적립, 월 최대 5천원, 교통·통신·영화 통합 적립한도 적용. 전월 30만원 이상.",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000
+        }
+      },
+      {
+        "id": "sh_kakaopay_telecom",
+        "cardId": "shinhan_kakaopay_check",
+        "category": "transport",
+        "includedBrands": [
+          "telecom"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "이동통신요금 자동이체 3% 적립",
+        "detail": "이동통신요금 자동이체 건당 5만원 이상 청구 시 3% 적립, 월 최대 5천원. 약정금액 대납·지점 월납·알뜰폰 제외.",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 50000,
+          "manualCheckRequired": true,
+          "requiredNote": "이동통신요금을 이 카드로 자동이체하는지(알뜰폰 제외) 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000
+        }
+      },
+      {
+        "id": "sh_kakaopay_cgv",
+        "cardId": "shinhan_kakaopay_check",
+        "category": "movie",
+        "includedBrands": [
+          "cgv"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "CGV 영화 3천원 적립",
+        "detail": "CGV 앱/홈페이지 직접 예매 또는 극장 현장 결제 시 최대 3천원 적립, 월 1회. 통합 적립한도 적용, 전월 30만원 이상.",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "CGV 앱/홈페이지 직접 예매 또는 극장 현장 결제인지 확인해야 합니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 3000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1
+        }
+      },
+      {
+        "id": "sh_kakaopay_overseas_info",
+        "cardId": "shinhan_kakaopay_check",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "해외 전가맹점 1% 적립(정보)",
+        "detail": "해외 전가맹점(온라인 포함) 1% 적립, 해외 인출 1건당 US$3 적립. 적립 한도·실적 조건이 원문에 없어 금액을 자동 계산하지 않습니다.",
+        "condition": {},
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "카카오페이 2% 적립과 교통·통신·영화 적립은 중복되지 않아 결제처마다 큰 혜택 하나만 계산된다.",
+      "카카오페이 신한 체크카드(무지)는 같은 상품의 디자인이라 이 카드로 안내한다."
+    ],
+    "evidence": [
+      {
+        "id": "sh_kakaopay_kakaopay-1",
+        "ruleIds": [
+          "sh_kakaopay_kakaopay"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "카카오페이 적립 카카오페이 결제 시 2% 적립 카카오페이머니 적립 전월 이용금액 관계없이 적용 월간 적립한도 1만원",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187963_2206.html",
+        "location": "카카오페이 결제 2% 카카오페이머니 적립"
+      },
+      {
+        "id": "sh_kakaopay_transit-1",
+        "ruleIds": [
+          "sh_kakaopay_transit"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "대중교통 적립 대중교통 3% 적립(버스/지하철) 카카오페이머니 적립 전월 이용금액 30만원 이상 시 제공 통합 적립한도 적용, 월 최대 5천원까지 적립",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187963_2206.html",
+        "location": "대중교통 3% 적립"
+      },
+      {
+        "id": "sh_kakaopay_telecom-1",
+        "ruleIds": [
+          "sh_kakaopay_telecom"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "이동통신요금 적립 이동통신요금 자동 이체 시 3% 적립 카카오페이머니 적립 건당 5만원이상 청구 시 전월 이용금액 30만원 이상 시 제공 통합 적립한도 적용, 월 최대 5천원까지 적립 약정금액 대납, 지점을 통한 월납, 알뜰폰 적립 제외",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187963_2206.html",
+        "location": "이동통신요금 자동이체 3% 적립"
+      },
+      {
+        "id": "sh_kakaopay_cgv-1",
+        "ruleIds": [
+          "sh_kakaopay_cgv"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "영화 적립 CGV 영화 이용 시 최대 3천원 적립 카카오페이머니 적립 전월 이용금액 30만원 이상 시 제공 통합 적립한도 적용, 월 1회",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187963_2206.html",
+        "location": "CGV 영화 3천원 적립"
+      },
+      {
+        "id": "sh_kakaopay_cgv-2",
+        "ruleIds": [
+          "sh_kakaopay_cgv"
+        ],
+        "fields": [
+          "action"
+        ],
+        "quote": "예: 통합 한도가 5천원인 고객이 카카오페이로 CGV영화를 1만5천원 예매했을 경우 3천원 적립.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187963_2206.html",
+        "location": "CGV 영화 3천원 적립"
+      },
+      {
+        "id": "sh_kakaopay_overseas_info-1",
+        "ruleIds": [
+          "sh_kakaopay_overseas_info"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "해외 적립 해외 전가맹점(온라인 포함) 이용금액에 1% 적립 해외 인출 1건당 US $3 적립 제공",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187963_2206.html",
+        "location": "해외 전가맹점 1% 적립(정보)"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "sh_kakaopay_transit",
+          "sh_kakaopay_telecom",
+          "sh_kakaopay_cgv"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "전월 이용금액 카카오페이 결제 월간 적립 한도 통합적립한도 30만원 이상 50만원 미만 1만원 5천원 50만원 이상 70만원 미만 7천원 70만원 이상 100만원 미만 1만원 100만원 이상 1만 3천원",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187963_2206.html",
+        "location": "국내서비스 통합적립한도"
+      },
+      {
+        "id": "shared-2",
+        "ruleIds": [
+          "sh_kakaopay_transit",
+          "sh_kakaopay_telecom",
+          "sh_kakaopay_cgv"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "신규 발급회원은 카드사용 등록월의 다음 달 말(등록월+1개월)까지 매월 5천원의 통합적립 한도가 제공됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187963_2206.html",
+        "location": "전월 한도 관련 안내"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187963_2206.html",
+        "quote": "각종 수수료, 이자, 기프트 카드 구매금액, 선불카드 충전금액, 거래취소금액은 전월 이용금액에서 제외됩니다.",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ]
+  }
+}

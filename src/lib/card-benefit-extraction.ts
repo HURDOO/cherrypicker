@@ -568,7 +568,16 @@ const validateRuleSemanticEvidence = (
                 `(?:결제|이용)?\\s*시\\s*최대\\s*(${moneyTokenSource})`,
             `1\\s*회\\s*최대\\s*할인\\s*금액\\s*(${moneyTokenSource})`,
         ].some(source => [...normalizeText(actionEvidence).matchAll(new RegExp(source, 'gi'))]
-            .some(match => parseKoreanMoney(match[1]) === ruleRow.action.maxDiscount));
+            .some(match => parseKoreanMoney(match[1]) === ruleRow.action.maxDiscount)) ||
+            // "할인 전 이용금액기준 일 1회, 5만원까지 할인됩니다": a spend cap fixes the cap at rate × spend.
+            (ruleRow.action.type === 'PERCENT' && [...normalizeText(actionEvidence).matchAll(new RegExp(
+                `이용\\s*금액\\s*기준[^.]{0,20}?(${moneyTokenSource})\\s*까지\\s*(?:할인|적립)`,
+                'gi',
+            ))].some(match => {
+                const spendCap = parseKoreanMoney(match[1]);
+                return spendCap !== undefined &&
+                    Math.round(spendCap * ruleRow.action.value / 100) === ruleRow.action.maxDiscount;
+            }));
         if (ruleRow.action.maxDiscount !== undefined && !minimumThenCap &&
             !new RegExp(
                 `(?:결제\\s*)?(?:건당|1\\s*회(?:\\s*당)?)\\s*` +

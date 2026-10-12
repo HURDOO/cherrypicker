@@ -1602,6 +1602,10 @@ describe('card benefit extraction', () => {
         expect(validate(6_000)).toEqual([expect.stringContaining('건별 최대 혜택이 일·월 한도에서 잘못 파생')]);
         expect(validateWith('CGV 35% 이용금액 건당 1만원~2만원까지 할인 적용(1회 최대 할인금액 7,000원)', 7_000))
             .toEqual([]);
+        expect(validateWith('할인 서비스는 거래건별 이용금액 1만원 이상 시 적용되며, 할인 전 이용금액기준 일 1회, 5만원까지 할인됩니다.', 2_500))
+            .toEqual([]);
+        expect(validateWith('할인 서비스는 거래건별 이용금액 1만원 이상 시 적용되며, 할인 전 이용금액기준 일 1회, 5만원까지 할인됩니다.', 3_000))
+            .toEqual([expect.stringContaining('건별 최대 혜택')]);
     });
 
     it('reads point limits as won only when an official quote says one point is one won', () => {

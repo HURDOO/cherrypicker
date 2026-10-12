@@ -1,0 +1,253 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "shinhan_pli_check",
+      "name": "신한카드 플리 체크(산리오캐릭터즈)",
+      "company": "신한카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "sh_pli_daily",
+        "cardId": "shinhan_pli_check",
+        "includedBrands": [],
+        "excludedBrands": [
+          "overseas_payment"
+        ],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내 이용금액 0.2% 할인",
+        "detail": "국내 일시불·할부 이용금액 0.2% 할인(결제일 캐시백). 전월 실적·한도 없음.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 0.2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "sh_pli_daily_solpay",
+        "cardId": "shinhan_pli_check",
+        "includedBrands": [],
+        "excludedBrands": [
+          "overseas_payment"
+        ],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "신한 SOL페이 국내 결제 0.3% 할인",
+        "detail": "신한 SOL페이·슈퍼SOL(터치·QR·바코드·NFC)로 국내 결제 시 0.3% 할인(기본 0.2% 대신).",
+        "condition": {
+          "manualCheckRequired": true,
+          "requiredNote": "신한 SOL페이(터치·QR·바코드·NFC)로 결제하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "sh_pli_overseas",
+        "cardId": "shinhan_pli_check",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "해외 일시불 0.2% 할인",
+        "detail": "해외 일시불 이용금액 0.2% 할인(해외겸용 카드). 전월 실적·한도 없음.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 0.2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "sh_pli_weekly_coupon",
+        "cardId": "shinhan_pli_check",
+        "includedBrands": [],
+        "excludedBrands": [
+          "overseas_payment"
+        ],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[Weekly] 1천원 할인 쿠폰",
+        "detail": "신한 SOL페이에서 받은 1천원 쿠폰이 매월 8~14일, 22일~말일에 1만원 이상 국내 결제에 자동 적용, 월 2회. 전월 30만원 이상. Daily 할인보다 우선 적용.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 10000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "신한 SOL페이에서 이번 기간 쿠폰을 받았고, 매월 8~14일 또는 22일~말일 결제인지 확인해야 합니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 2
+        }
+      },
+      {
+        "id": "sh_pli_monthly_pick_info",
+        "cardId": "shinhan_pli_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[Monthly] 단골 가맹점 3·6·9번째 1천 포인트(정보)",
+        "detail": "전월 최다 이용 오프라인 가맹점(My Pick)에서 월 3·6·9번째(일 1회, 1만원 이상) 이용마다 1천 포인트, 월 최대 3천 포인트. 전월 30만원 이상. 횟수를 앱이 판단하지 않아 금액을 자동 계산하지 않습니다.",
+        "condition": {},
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "플리 체크(산리오캐릭터즈)는 신한카드 플리(체크)의 캐릭터 디자인 상품이다.",
+      "Weekly 쿠폰은 받기·이용 기간 조건이 있어 확인 조건으로 둔다."
+    ],
+    "evidence": [
+      {
+        "id": "sh_pli_daily-1",
+        "ruleIds": [
+          "sh_pli_daily"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "신한 SOL페이를 통한 결제 시: 국내 신판(일시불+할부) 이용금액 0.3% 할인 신한 SOL페이가 아닌 방식으로 결제 시: 국내 신판(일시불+할부) 이용금액 0.2% 할인 해외 이용금액 0.2% 할인 해외 일시불 이용금액 0.2% 할인 전월 이용금액 조건/할인 한도 없음",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1220330_2206.html",
+        "location": "국내 이용금액 0.2% 할인"
+      },
+      {
+        "id": "sh_pli_daily_solpay-1",
+        "ruleIds": [
+          "sh_pli_daily_solpay"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "신한 SOL페이를 통한 결제 시: 국내 신판(일시불+할부) 이용금액 0.3% 할인 신한 SOL페이가 아닌 방식으로 결제 시: 국내 신판(일시불+할부) 이용금액 0.2% 할인 해외 이용금액 0.2% 할인 해외 일시불 이용금액 0.2% 할인 전월 이용금액 조건/할인 한도 없음",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1220330_2206.html",
+        "location": "신한 SOL페이 국내 결제 0.3% 할인"
+      },
+      {
+        "id": "sh_pli_overseas-1",
+        "ruleIds": [
+          "sh_pli_overseas"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "신한 SOL페이를 통한 결제 시: 국내 신판(일시불+할부) 이용금액 0.3% 할인 신한 SOL페이가 아닌 방식으로 결제 시: 국내 신판(일시불+할부) 이용금액 0.2% 할인 해외 이용금액 0.2% 할인 해외 일시불 이용금액 0.2% 할인 전월 이용금액 조건/할인 한도 없음",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1220330_2206.html",
+        "location": "해외 일시불 0.2% 할인"
+      },
+      {
+        "id": "sh_pli_weekly_coupon-1",
+        "ruleIds": [
+          "sh_pli_weekly_coupon"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "Weekly 할인 쿠폰 서비스 매월 2회 국내 이용 할인 쿠폰 제공(1천원 쿠폰 2회)",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1220330_2206.html",
+        "location": "[Weekly] 1천원 할인 쿠폰"
+      },
+      {
+        "id": "sh_pli_weekly_coupon-2",
+        "ruleIds": [
+          "sh_pli_weekly_coupon"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "쿠폰 추가 및 이용 기간 할인 쿠폰 금액 매월 8일~14일 1천원 매월 22일~말일 1천원",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1220330_2206.html",
+        "location": "[Weekly] 1천원 할인 쿠폰"
+      },
+      {
+        "id": "sh_pli_weekly_coupon-3",
+        "ruleIds": [
+          "sh_pli_weekly_coupon"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "거래 시점 이용금액 1만원 이상인 거래 건에 한해 적용됩니다. 신한카드 플리(체크)로 전월(1일~말일) 이용 금액(일시불+할부) 30만원 이상인 경우 서비스 제공됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1220330_2206.html",
+        "location": "[Weekly] 1천원 할인 쿠폰"
+      },
+      {
+        "id": "sh_pli_monthly_pick_info-1",
+        "ruleIds": [
+          "sh_pli_monthly_pick_info"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "My Pick 가맹점 월 3, 6, 9번째 이용 건에 대해 마이신한포인트 1,000포인트 적립(월 최대 3회, 3,000 포인트)",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1220330_2206.html",
+        "location": "[Monthly] 단골 가맹점 3·6·9번째 1천 포인트(정보)"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "sh_pli_weekly_coupon"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "신한카드 플리(체크) 신규 발급 회원의 경우 카드 사용 등록월의 익월 말(등록월+1개월)까지 전월 이용금액 충족여부와 관계없이 서비스가 적용됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1220330_2206.html",
+        "location": "공통 유의사항"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1220330_2206.html",
+        "quote": "전월 이용 금액 제외 대상은 아래와 같습니다. 연회비/단기카드대출(현금서비스)/장기카드대출(카드론) 각종 수수료/이자(할부수수료, 연체이자 등) 기프트카드/선불카드 구매·충전금액 상품권/선불전자지급수단 구매·충전금액 국세/지방세/4대보험(국민연금/고용보험/건강보험/산재보험) 초중고 학교납입금(스쿨뱅킹), 대학등록금 아파트관리비, 도시가스, 전기요금, 수도요금 거래 취소금액 신차판매/제약회사 업종 이용 금액",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1220330_2206.html",
+        "quote": "할인/적립 서비스 제외 대상은 아래와 같습니다. 연회비, 단기카드대출(현금서비스), 장기카드대출(카드론) 각종 수수료/이자(할부수수료, 연체이자 등) 기프트카드/선불카드 구매·충전금액 상품권/선불전자지급수단 구매·충전금액 지방세, 국세, 4대보험(국민연금/고용보험/건강보험/산재보험) 아파트관리비, 도시가스, 전기요금, 수도요금 초중고 학교납입금(스쿨뱅킹), 대학등록금 신한카드 플리(신용/체크)로 신한카드 할인서비스(이벤트 포함)를 적용받은 모든 거래(해당 거래금액 전체) 포인트 사용 거래 중 포인트 금액 무이자 할부 거래(슬림할부 등 부분 무이자, 일시불의 무이자 할부전환 거래 포함) 거래 취소금액",
+        "reason": "세금·상품권·무이자할부 등은 할인 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ]
+  }
+}

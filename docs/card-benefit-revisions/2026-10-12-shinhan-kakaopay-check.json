@@ -1,0 +1,12 @@
+{
+  "note": "[세션 임시 승인] 2026-10-12 TASK-14 신규 카드 첫 혜택(AI API 미사용).",
+  "cards": {
+    "shinhan_kakaopay_check": {
+      "sourceBundleHash": "4754e16ed90bae35223ce6a754c46d0901fbc7bac07d7dc1659920de7563618e",
+      "base": {
+        "path": "base/shinhan_kakaopay_check.json",
+        "sha256": "576841cb1557dce316dd5a0573f34eb6fc9571b83237354650689f86a9244918"
+      }
+    }
+  }
+}
