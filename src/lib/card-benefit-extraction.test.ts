@@ -1601,6 +1601,64 @@ describe('card benefit extraction', () => {
         expect(validate(6_000)).toEqual([expect.stringContaining('건별 최대 혜택이 일·월 한도에서 잘못 파생')]);
     });
 
+    it('reads point limits as won only when an official quote says one point is one won', () => {
+        const genericCard: Card = {
+            id: 'generic-card',
+            name: '테스트 카드',
+            company: '테스트',
+            color: 'bg-blue-500',
+            limitTable: [],
+        };
+        const limitQuote = '대중교통 적립 버스, 지하철 10% 2천점';
+        const pointQuote = '포인트리 1점은 1원과 가치가 동일합니다.';
+        const validate = (withPointQuote: boolean) => validateCardBenefitExtraction({
+            schemaVersion: 2 as const,
+            completeness: 'FULL' as const,
+            card: { id: genericCard.id, name: genericCard.name, company: genericCard.company, limitTable: [] },
+            rules: [{
+                id: 'generic-transit',
+                cardId: genericCard.id,
+                includedBrands: ['transport_public'],
+                excludedBrands: [],
+                platformType: 'ALL' as const,
+                usesCardLimit: false,
+                description: '대중교통 10% 적립',
+                detail: '',
+                condition: {},
+                action: { type: 'PERCENT' as const, value: 10 },
+                limitConfig: { monthlyAmount: 2_000 },
+            }],
+            evidence: [
+                {
+                    id: 'transit',
+                    ruleIds: ['generic-transit'],
+                    fields: ['description', 'action', 'limitConfig'] as const,
+                    quote: limitQuote,
+                    sourceUrl: 'https://example.com/card',
+                    location: '대중교통 적립',
+                },
+                ...(withPointQuote ? [{
+                    id: 'point-value',
+                    ruleIds: ['generic-transit'],
+                    fields: ['action'] as const,
+                    quote: pointQuote,
+                    sourceUrl: 'https://example.com/card',
+                    location: '포인트리 안내',
+                }] : []),
+            ],
+            notes: [],
+        }, {
+            card: genericCard,
+            sourceUrl: 'https://example.com/card',
+            sourceText: `${limitQuote}\n${pointQuote}`,
+        }, {
+            brandIds: new Set(['transport_public']),
+        }).errors.filter(error => error.includes('월 금액 한도'));
+
+        expect(validate(true)).toEqual([]);
+        expect(validate(false)).toEqual([expect.stringContaining('월 금액 한도 2,000원의 공식 숫자 근거가 없습니다')]);
+    });
+
     it('rejects a numeric performance condition absent from its official evidence', () => {
         const genericCard: Card = {
             id: 'generic-card',

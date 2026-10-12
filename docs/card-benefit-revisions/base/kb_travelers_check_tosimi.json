@@ -1,0 +1,486 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "kb_travelers_check_tosimi",
+      "name": "트래블러스 체크카드(토심이)",
+      "company": "KB국민카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "kb_travelers_tosimi_overseas",
+        "cardId": "kb_travelers_check_tosimi",
+        "category": "etc",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "해외 가맹점 10% 할인",
+        "detail": "온·오프라인 해외 가맹점 10% 할인, 월 1만원 이내. 전월 이용실적 20만원 이상.",
+        "condition": {
+          "minPerformance": 200000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 10000
+        }
+      },
+      {
+        "id": "kb_travelers_tosimi_overseas_fee_info",
+        "cardId": "kb_travelers_check_tosimi",
+        "category": "etc",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "해외 가맹점 이용 수수료 면제(정보)",
+        "detail": "국제브랜드수수료 1%와 해외서비스수수료 0.25%가 한도 없이 면제되고, 해외 ATM 인출 수수료는 월 10회 면제됩니다. 전월 실적 조건이 없습니다.",
+        "condition": {},
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kb_travelers_tosimi_kbpay",
+        "cardId": "kb_travelers_check_tosimi",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "KB Pay 결제 200원 추가 할인",
+        "detail": "KB Pay로 온·오프라인 1만원 이상 결제 시 200원 환급할인, 월 10회(2천원 이내). 다른 국내 혜택과 중복 적용됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "minSpend": 10000,
+          "manualCheckRequired": true,
+          "requiredNote": "KB Pay로 결제하는지 확인해야 합니다.",
+          "stackableWithRuleIds": [
+            "kb_travelers_tosimi_cafe",
+            "kb_travelers_tosimi_bakery",
+            "kb_travelers_tosimi_rail",
+            "kb_travelers_tosimi_intercity_bus",
+            "kb_travelers_tosimi_parking"
+          ]
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 200,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 10,
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_travelers_tosimi_cafe",
+        "cardId": "kb_travelers_check_tosimi",
+        "category": "cafe",
+        "includedBrands": [
+          "starbucks",
+          "twosome",
+          "mega",
+          "compose",
+          "paiks",
+          "ediya",
+          "coffeebean",
+          "paulbassett",
+          "angelinus",
+          "mammoth",
+          "gongcha"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": false,
+        "description": "커피음료전문점 1,000원 할인",
+        "detail": "커피음료전문점 업종 매장에서 5천원 이상 결제 시 1,000원 환급할인, 월 1회. 앱·온라인 주문은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "minSpend": 5000,
+          "stackableWithRuleIds": [
+            "kb_travelers_tosimi_kbpay",
+            "kb_travelers_tosimi_bakery",
+            "kb_travelers_tosimi_rail",
+            "kb_travelers_tosimi_intercity_bus",
+            "kb_travelers_tosimi_parking"
+          ]
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1,
+          "monthlyAmount": 1000
+        }
+      },
+      {
+        "id": "kb_travelers_tosimi_bakery",
+        "cardId": "kb_travelers_check_tosimi",
+        "category": "cafe",
+        "includedBrands": [
+          "paris_baguette",
+          "tous_les_jours",
+          "baskin_robbins",
+          "krispy_kreme",
+          "dunkin"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": false,
+        "description": "제과·아이스크림 2,000원 할인",
+        "detail": "제과아이스크림 업종 매장에서 1만원 이상 결제 시 2,000원 환급할인, 월 1회. 앱·온라인 주문은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "minSpend": 10000,
+          "stackableWithRuleIds": [
+            "kb_travelers_tosimi_kbpay",
+            "kb_travelers_tosimi_cafe",
+            "kb_travelers_tosimi_rail",
+            "kb_travelers_tosimi_intercity_bus",
+            "kb_travelers_tosimi_parking"
+          ]
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1,
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_travelers_tosimi_rail",
+        "cardId": "kb_travelers_check_tosimi",
+        "category": "transport",
+        "includedBrands": [
+          "rail",
+          "official_5e5489b4cf3410af"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "철도 5,000원 할인",
+        "detail": "코레일 앱으로 승차권을 2만원 이상 구매 시 5,000원 환급할인, 월 1회. 다른 앱·온라인 구매는 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "minSpend": 20000,
+          "manualCheckRequired": true,
+          "requiredNote": "코레일 앱으로 승차권을 구매하는지 확인해야 합니다.",
+          "stackableWithRuleIds": [
+            "kb_travelers_tosimi_kbpay",
+            "kb_travelers_tosimi_cafe",
+            "kb_travelers_tosimi_bakery",
+            "kb_travelers_tosimi_intercity_bus",
+            "kb_travelers_tosimi_parking"
+          ]
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 5000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1,
+          "monthlyAmount": 5000
+        }
+      },
+      {
+        "id": "kb_travelers_tosimi_intercity_bus",
+        "cardId": "kb_travelers_check_tosimi",
+        "category": "transport",
+        "includedBrands": [
+          "intercity_bus"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": false,
+        "description": "고속·시외버스 2,000원 할인",
+        "detail": "고속시외버스 업종에서 1만원 이상 결제 시 2,000원 환급할인, 월 1회. 앱·온라인 이용은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "minSpend": 10000,
+          "stackableWithRuleIds": [
+            "kb_travelers_tosimi_kbpay",
+            "kb_travelers_tosimi_cafe",
+            "kb_travelers_tosimi_bakery",
+            "kb_travelers_tosimi_rail",
+            "kb_travelers_tosimi_parking"
+          ]
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1,
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_travelers_tosimi_parking",
+        "cardId": "kb_travelers_check_tosimi",
+        "category": "transport",
+        "includedBrands": [
+          "official_ae63f424005e52be"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": false,
+        "description": "주차장 500원 할인",
+        "detail": "주차장 업종에서 1천원 이상 결제 시 500원 환급할인, 월 6회(3천원 이내). 앱·온라인 이용은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "minSpend": 1000,
+          "stackableWithRuleIds": [
+            "kb_travelers_tosimi_kbpay",
+            "kb_travelers_tosimi_cafe",
+            "kb_travelers_tosimi_bakery",
+            "kb_travelers_tosimi_rail",
+            "kb_travelers_tosimi_intercity_bus"
+          ]
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 500,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 6,
+          "monthlyAmount": 3000
+        }
+      },
+      {
+        "id": "kb_travelers_tosimi_foodie_info",
+        "cardId": "kb_travelers_check_tosimi",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "푸딘코 선정 전국맛집 5,000원 할인(정보)",
+        "detail": "푸딘코가 선정한 맛집에서 2만원 이상 결제 시 5,000원 환급할인, 월 1회. 전월 실적 조건이 없습니다. 대상 가맹점을 앱이 판단할 수 없어 금액을 자동 계산하지 않습니다.",
+        "condition": {},
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "트래블러스 회원 전용 프로모션(돈키호테 페이백, 라쿠텐·클룩 쿠폰, Mastercard Travel Rewards)은 응모·쿠폰·외화 금액이라 규칙으로 만들지 않는다.",
+      "푸딘코 선정 맛집은 대상 가맹점을 판단할 수 없어 정보로만 둔다.",
+      "토심이 디자인판이며 공식 상품 페이지의 혜택 문구가 트래블러스 체크카드와 같다."
+    ],
+    "evidence": [
+      {
+        "id": "kb_travelers_tosimi_overseas-1",
+        "ruleIds": [
+          "kb_travelers_tosimi_overseas"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "해외 가맹점 10% 할인 온·오프라인 해외 가맹점 이용 시 10% 할인 전월 이용실적 20만원 이상 시 제공됩니다. 월 1만원 이내 제공됩니다.",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "location": "해외 가맹점 10% 할인"
+      },
+      {
+        "id": "kb_travelers_tosimi_overseas_fee_info-1",
+        "ruleIds": [
+          "kb_travelers_tosimi_overseas_fee_info"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "가맹점 이용 국제브랜드수수료 1% + 해외서비스수수료 0.25% 면제 제한없음 ATM 이용 국제브랜드수수료 1% + 해외서비스수수료 건당 3$ 면제 월 10회",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "location": "해외 가맹점 이용 수수료 면제(정보)"
+      },
+      {
+        "id": "kb_travelers_tosimi_kbpay-1",
+        "ruleIds": [
+          "kb_travelers_tosimi_kbpay"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "KB Pay 추가 할인 KB Pay 온오프라인 1만원 이상 이용 시 200원 환급할인 전월 이용실적 20만원 이상 시 혜택이 제공됩니다. 타 국내혜택과 중복 적용됩니다. 매출건당 1만원 이상 시 월 10회 (2천원 이내) 제공됩니다.",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "location": "KB Pay 결제 200원 추가 할인"
+      },
+      {
+        "id": "kb_travelers_tosimi_cafe-1",
+        "ruleIds": [
+          "kb_travelers_tosimi_cafe"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "카페 할인 커피음료전문점 업종에서 5천원이상 이용 시 1,000원 환급할인 전월 이용실적 20만원 이상 시 혜택이 제공됩니다. 매출건당 5천원 이상 시 월 1회 (1천원 이내) 제공됩니다.",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "location": "커피음료전문점 1,000원 할인"
+      },
+      {
+        "id": "kb_travelers_tosimi_bakery-1",
+        "ruleIds": [
+          "kb_travelers_tosimi_bakery"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "빵집 할인 제과아이스크림 업종에서 1만원 이상 이용 시 2,000원 환급할인 전월 이용실적 20만원 이상 시 혜택이 제공됩니다. 매출건당 1만원 이상 시 월 1회 (2천원 이내) 제공됩니다.",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "location": "제과·아이스크림 2,000원 할인"
+      },
+      {
+        "id": "kb_travelers_tosimi_rail-1",
+        "ruleIds": [
+          "kb_travelers_tosimi_rail"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "철도 할인 철도 업종에서 2만원 이상 이용 시 5,000원 환급할인 전월 이용실적 20만원 이상 시 혜택이 제공됩니다. 매출건당 2만원 이상 시 월 1회 (5천원 이내) 제공됩니다. 코레일 앱을 통한 승차권 구매 시 할인이 제공됩니다. (타 앱, 온라인 이용 시 할인 제외)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "location": "철도 5,000원 할인"
+      },
+      {
+        "id": "kb_travelers_tosimi_intercity_bus-1",
+        "ruleIds": [
+          "kb_travelers_tosimi_intercity_bus"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "고속버스 할인 고속시외버스 업종에서 1만원 이상 이용 시 2,000원 환급할인 전월 이용실적 20만원 이상 시 혜택이 제공됩니다. 매출건당 1만원 이상 시 월 1회 (2천원 이내) 제공됩니다.",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "location": "고속·시외버스 2,000원 할인"
+      },
+      {
+        "id": "kb_travelers_tosimi_parking-1",
+        "ruleIds": [
+          "kb_travelers_tosimi_parking"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "주차장 할인 주차장 업종에서 1천원 이상 이용 시 500원 환급할인 전월 이용실적 20만원 이상 시 혜택이 제공됩니다. 매출건당 1천원 이상 시 월 6회 (3천원 이내) 제공됩니다.",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "location": "주차장 500원 할인"
+      },
+      {
+        "id": "kb_travelers_tosimi_foodie_info-1",
+        "ruleIds": [
+          "kb_travelers_tosimi_foodie_info"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "전국맛집 할인 푸딘코 선정 맛집 2만원 이상 이용 시 5,000원 환급할인 전월 이용실적 없이 혜택이 제공됩니다. 매출건당 2만원 이상 결제 시 월 1회(5천원 이내) 제공됩니다.",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "location": "푸딘코 선정 전국맛집 5,000원 할인(정보)"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "kb_travelers_tosimi_overseas",
+          "kb_travelers_tosimi_kbpay",
+          "kb_travelers_tosimi_cafe",
+          "kb_travelers_tosimi_bakery",
+          "kb_travelers_tosimi_rail",
+          "kb_travelers_tosimi_intercity_bus",
+          "kb_travelers_tosimi_parking"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "전월 이용실적 조건: [국내 혜택] 전국맛집은 전월 이용실적 없이 제공되며, 그 외 혜택은 전월 이용실적 20만원 이상 시 제공됩니다.[해외 혜택] 해외 이용 수수료 면제는 전월 이용실적 없이, 가맹점 할인은 전월 이용실적 20만원 이상 시 제공됩니다.",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "location": "전월 이용실적 조건"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "quote": "이용실적 제외 대상 후불교통요금, 무승인금액(자판기, 터널통행료, 기차/고속버스 취소 반환 수수료 등), 정부지원금 이용금액(보육료, 유치원보조비, 바우처 이용금액 등), 포인트리 충전금액, 대학(대학원) 등록금, 상품권 및 선불카드(선불전자지급수단 포함) 구입(충전)금액, 연체료, 지방세(지방세, 상하수도, 세외수입), 취소금액, 각종 수수료 및 이자",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "hosted-stores",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "quote": "호텔, 백화점, 대형마트, 철도/역사 등에 입점한 가맹점이나 상품권 구매시 할인 대상에서 제외됩니다.",
+        "reason": "카드 공통 입점 매장 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      },
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "quote": "상품권 및 선불카드(선불전자지급수단 포함) 구입·충전 금액의 경우 할인에서 제외됩니다.",
+        "reason": "상품권·선불카드 구입·충전 할인 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "overseas-fee-info",
+        "ruleIds": [
+          "kb_travelers_tosimi_overseas_fee_info"
+        ],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+        "quote": "가맹점 이용 국제브랜드수수료 1% + 해외서비스수수료 0.25% 면제 제한없음",
+        "reason": "해외 이용 수수료 면제는 결제 할인이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_FINANCIAL_PRODUCT"
+      }
+    ]
+  }
+}

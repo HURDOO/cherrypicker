@@ -1,0 +1,592 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "kb_nori2_check_global",
+      "name": "노리2 체크카드(Global)",
+      "company": "KB국민카드",
+      "limitTable": [
+        {
+          "threshold": 800000,
+          "limit": 50000
+        },
+        {
+          "threshold": 600000,
+          "limit": 40000
+        },
+        {
+          "threshold": 400000,
+          "limit": 30000
+        },
+        {
+          "threshold": 200000,
+          "limit": 20000
+        },
+        {
+          "threshold": 0,
+          "limit": 3000
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "kb_nori2gl_coffee",
+        "cardId": "kb_nori2_check_global",
+        "category": "cafe",
+        "includedBrands": [
+          "starbucks",
+          "coffeebean"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[일상] 커피 10% 할인",
+        "detail": "스타벅스(사이렌오더 포함), 커피빈 10% 할인, 월 3천원(월 3만원 이용금액까지). 전월 실적 조건 없음.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 3000
+        }
+      },
+      {
+        "id": "kb_nori2gl_mobile",
+        "cardId": "kb_nori2_check_global",
+        "category": "shopping",
+        "includedBrands": [
+          "google_play",
+          "app_store"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[일상] 앱마켓 10% 할인",
+        "detail": "구글플레이스토어, 앱스토어 10% 할인, 월 5천원.",
+        "condition": {
+          "minPerformance": 200000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000
+        }
+      },
+      {
+        "id": "kb_nori2gl_culture",
+        "cardId": "kb_nori2_check_global",
+        "category": "movie",
+        "includedBrands": [
+          "interpark_ticket"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[일상] 인터파크 티켓 10% 할인",
+        "detail": "인터파크 티켓 공연 티켓 예매 10% 할인, 월 7천원.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "인터파크 티켓에서 공연 티켓을 예매하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 7000
+        }
+      },
+      {
+        "id": "kb_nori2gl_beauty",
+        "cardId": "kb_nori2_check_global",
+        "category": "life",
+        "includedBrands": [
+          "oliveyoung",
+          "beauty_hair"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[일상] 올리브영·미용실 5% 할인",
+        "detail": "올리브영, 미용실 업종 5% 할인, 월 2천원.",
+        "condition": {
+          "minPerformance": 200000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_nori2gl_convenience",
+        "cardId": "kb_nori2_check_global",
+        "category": "convenience",
+        "includedBrands": [
+          "gs25",
+          "cu"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[일상] 편의점 5% 할인",
+        "detail": "GS25, CU 5% 할인, 월 2천원.",
+        "condition": {
+          "minPerformance": 200000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_nori2gl_ott",
+        "cardId": "kb_nori2_check_global",
+        "category": "subscription",
+        "includedBrands": [
+          "netflix",
+          "youtube"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[일상] 넷플릭스·유튜브프리미엄 1,000원 할인",
+        "detail": "넷플릭스, 유튜브프리미엄 1만원 이상 결제 시 1,000원 할인, 월 2회(2천원).",
+        "condition": {
+          "minPerformance": 200000,
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 2,
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_nori2gl_delivery",
+        "cardId": "kb_nori2_check_global",
+        "category": "delivery",
+        "includedBrands": [
+          "baemin",
+          "yogiyo"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[일상] 배달앱 1,000원 할인",
+        "detail": "배달의민족, 요기요 1만원 이상 결제 시 1,000원 할인, 월 1회.",
+        "condition": {
+          "minPerformance": 200000,
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1,
+          "monthlyAmount": 1000
+        }
+      },
+      {
+        "id": "kb_nori2gl_telecom",
+        "cardId": "kb_nori2_check_global",
+        "category": "transport",
+        "includedBrands": [
+          "telecom"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[일상] 이동통신 2,500원 할인",
+        "detail": "SKT, KT, LG U+, Liiv M 이동통신요금 자동이체 5만원 이상 시 2,500원 할인, 월 1회.",
+        "condition": {
+          "minPerformance": 200000,
+          "minSpend": 50000,
+          "manualCheckRequired": true,
+          "requiredNote": "이동통신요금을 이 카드로 자동이체 납부하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2500,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1,
+          "monthlyAmount": 2500
+        }
+      },
+      {
+        "id": "kb_nori2gl_cgv",
+        "cardId": "kb_nori2_check_global",
+        "category": "movie",
+        "includedBrands": [
+          "cgv"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[일상] CGV 4,000원 할인",
+        "detail": "CGV 현장·공식 홈페이지·앱에서 1만원 이상 결제 시 4,000원 할인, 월 2회(8천원). 상품권 구매와 매점은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "minSpend": 10000,
+          "manualCheckRequired": true,
+          "requiredNote": "매점·상품권이 아닌 영화 관람 결제인지 확인해야 합니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 4000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 2,
+          "monthlyAmount": 8000
+        }
+      },
+      {
+        "id": "kb_nori2gl_amusement",
+        "cardId": "kb_nori2_check_global",
+        "category": "movie",
+        "includedBrands": [
+          "everland",
+          "lotte_world"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[일상] 에버랜드·롯데월드 15,000원 할인",
+        "detail": "에버랜드, 롯데월드 티켓 3만원 이상 결제 시 15,000원 할인, 월 1회. 상품권 구매와 매점은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "minSpend": 30000,
+          "manualCheckRequired": true,
+          "requiredNote": "매점·상품권이 아닌 티켓 결제인지 확인해야 합니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 15000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1,
+          "monthlyAmount": 15000
+        }
+      },
+      {
+        "id": "kb_nori2gl_overseas",
+        "cardId": "kb_nori2_check_global",
+        "category": "etc",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[Global] 해외 가맹점 2% 할인",
+        "detail": "해외 가맹점 결제 시 2% 할인, 월 5천원(월 25만원 이용금액까지). 전월 이용실적 30만원 이상.",
+        "condition": {
+          "minPerformance": 300000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000
+        }
+      },
+      {
+        "id": "kb_nori2gl_lounge_info",
+        "cardId": "kb_nori2_check_global",
+        "category": "etc",
+        "includedBrands": [
+          "airport_lounge"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[Global] 더라운지멤버스 공항라운지(정보)",
+        "detail": "전 세계 공항라운지 더라운지멤버스 이용권 연 1회(본인). 전월 이용실적 30만원 이상 충족 다음 달부터 해당 연도 말까지.",
+        "condition": {
+          "minPerformance": 300000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "KB Pay 추가 할인은 노리2 체크카드(KB Pay)에만 있고, 이 카드는 Global 혜택(해외 2%, 공항라운지)을 받는다."
+    ],
+    "evidence": [
+      {
+        "id": "kb_nori2gl_coffee-1",
+        "ruleIds": [
+          "kb_nori2gl_coffee"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "스타벅스, 커피빈 10% 전월 이용실적 조건 없음 건당 이용조건 없음 월 할인한도 : 3천원 (월 3만원 이용금액까지 할인) 스타벅스는 사이렌오더 결제 포함",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "location": "[일상] 커피 10% 할인"
+      },
+      {
+        "id": "kb_nori2gl_mobile-1",
+        "ruleIds": [
+          "kb_nori2gl_mobile"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "구글플레이스토어, 앱스토어 10% 전월 이용실적 20만원 이상 시 제공 건당 이용조건 없음 월 할인한도 : 5천원 (월 5만원 이용금액까지 할인)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "location": "[일상] 앱마켓 10% 할인"
+      },
+      {
+        "id": "kb_nori2gl_culture-1",
+        "ruleIds": [
+          "kb_nori2gl_culture"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "인터파크 티켓 10% 전월 이용실적 20만원 이상 시 제공 건당 이용조건 없음 월 할인한도 : 7천원 (월 7만원 이용금액까지 할인) 공연 티켓 예매 시에만 제공",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "location": "[일상] 인터파크 티켓 10% 할인"
+      },
+      {
+        "id": "kb_nori2gl_beauty-1",
+        "ruleIds": [
+          "kb_nori2gl_beauty"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "올리브영, 미용실 업종 5% 전월 이용실적 20만원 이상 시 제공 건당 이용조건 없음 월 할인한도 : 2천원 (월 4만원 이용금액까지 할인)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "location": "[일상] 올리브영·미용실 5% 할인"
+      },
+      {
+        "id": "kb_nori2gl_convenience-1",
+        "ruleIds": [
+          "kb_nori2gl_convenience"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "GS25, CU 5% 전월 이용실적 20만원 이상 시 제공 건당 이용조건 없음 월 할인한도 : 2천원 (월 4만원 이용금액까지 할인)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "location": "[일상] 편의점 5% 할인"
+      },
+      {
+        "id": "kb_nori2gl_ott-1",
+        "ruleIds": [
+          "kb_nori2gl_ott"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "넷플릭스, 유튜브프리미엄 1,000원 전월 이용실적 20만원 이상 시 제공 건당 1만원 이상 이용 시 제공 월 할인횟수 : 2회 (월 할인한도 2천원 이내 제공)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "location": "[일상] 넷플릭스·유튜브프리미엄 1,000원 할인"
+      },
+      {
+        "id": "kb_nori2gl_delivery-1",
+        "ruleIds": [
+          "kb_nori2gl_delivery"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "배달의민족, 요기요 1,000원 전월 이용실적 20만원 이상 시 제공 건당 1만원 이상 이용 시 제공 월 할인횟수 : 1회 (월 할인한도 1천원 이내 제공)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "location": "[일상] 배달앱 1,000원 할인"
+      },
+      {
+        "id": "kb_nori2gl_telecom-1",
+        "ruleIds": [
+          "kb_nori2gl_telecom"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "SKT, KT, LG U+, Liiv M 2,500원 전월 이용실적 20만원 이상 시 제공 통신요금 5만원 이상 이용 시 제공 이동통신요금 자동이체 납부금액 기준 제공 월 할인횟수 : 1회 (월 할인한도 2천5백원 이내 제공)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "location": "[일상] 이동통신 2,500원 할인"
+      },
+      {
+        "id": "kb_nori2gl_cgv-1",
+        "ruleIds": [
+          "kb_nori2gl_cgv"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "CGV 4,000원 전월 이용실적 20만원 이상 시 제공 건당 1만원 이상 이용 시 제공 현장 결제, 공식 홈페이지 및 모바일(앱) 결제 시 제공 할인 제외 : 상품권 구매 및 매점 이용금액 월 할인횟수 : 2회 (월 할인한도 8천원 이내 제공)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "location": "[일상] CGV 4,000원 할인"
+      },
+      {
+        "id": "kb_nori2gl_amusement-1",
+        "ruleIds": [
+          "kb_nori2gl_amusement"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "에버랜드, 롯데월드 15,000원 전월 이용실적 20만원 이상 시 제공 건당 3만원 이상 이용 시 제공 티켓 결제 시 제공 할인 제외 : 상품권 구매 및 매점 이용금액 월 할인횟수 : 1회 (월 할인한도 1만5천원 이내 제공)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "location": "[일상] 에버랜드·롯데월드 15,000원 할인"
+      },
+      {
+        "id": "kb_nori2gl_overseas-1",
+        "ruleIds": [
+          "kb_nori2gl_overseas"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "해외 가맹점 결제 시 2% 전월 이용실적 30만원 이상 시 제공 건당 이용조건 없음 월 할인한도 : 5천원 (월 25만원 이용금액까지 할인)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "location": "[Global] 해외 가맹점 2% 할인"
+      },
+      {
+        "id": "kb_nori2gl_lounge_info-1",
+        "ruleIds": [
+          "kb_nori2gl_lounge_info"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "전 세계 공항라운지 더라운지멤버스 이용권 연 1회 전월 이용실적 30만원 이상 시 제공",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "location": "[Global] 더라운지멤버스 공항라운지(정보)"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "kb_nori2gl_coffee",
+          "kb_nori2gl_mobile",
+          "kb_nori2gl_culture",
+          "kb_nori2gl_beauty",
+          "kb_nori2gl_convenience",
+          "kb_nori2gl_ott",
+          "kb_nori2gl_delivery",
+          "kb_nori2gl_telecom",
+          "kb_nori2gl_cgv",
+          "kb_nori2gl_amusement",
+          "kb_nori2gl_overseas",
+          "kb_nori2gl_lounge_info"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "전월 이용실적 조건 : 일상혜택은 전월실적 20만원 이상 시, KB Pay 혜택과 Global 혜택은 전월실적 30만원 이상 시 제공됩니다. 단, 일상혜택 [커피]할인은 전월실적 없이도 제공됩니다. 본인회원 기준으로 월간 통합할인한도 내에서 혜택이 제공되며, 할인한도는 매월 1일 ~ 말일(승인시점 기준) 이용금액으로 적용됩니다. 월간 통합할인한도는 다음과 같으며 일상혜택, KB Pay 혜택, Global 혜택이 모두 포함됩니다. 혜택내용 전월 이용실적 구간 20만원 이상 40만원 이상 60만원 이상 80만원 이상 월간 통합할인한도 20,000원 30,000원 40,000원 50,000원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "location": "전월 이용실적 조건과 월간 통합할인한도"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "coffee-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "quote": "할인제외 : 상품권/선불카드(선불전자지급수단 포함) 구입 및 충전, 백화점, 대형마트, 철도·역사, 호텔 등에 입점한 가맹점 등",
+        "reason": "입점 가맹점 할인 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      },
+      {
+        "id": "gift-card-excluded",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "quote": "할인제외 : 상품권/선불카드(선불전자지급수단 포함) 구입 및 충전 금액",
+        "reason": "상품권·선불카드 구입·충전 할인 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "quote": "이용실적 제외 대상 후불교통요금, 무승인금액(자판기, 터널통행료, 기차/고속버스 취소 반환 수수료 등), 정부지원금 이용금액(보육료, 유치원보조비, 바우처 이용금액 등), 포인트리 충전금액, 대학(대학원) 등록금, 상품권 및 선불카드(선불전자지급수단 포함) 구입(충전)금액, 연체료, 지방세(지방세, 상하수도, 세외수입), 취소금액, 각종 수수료 및 이자",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "lounge-non-cash",
+        "ruleIds": [
+          "kb_nori2gl_lounge_info"
+        ],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+        "quote": "전 세계 공항라운지 더라운지멤버스 이용권 연 1회",
+        "reason": "공항라운지 이용권은 현금 할인이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_NON_CASH"
+      }
+    ]
+  }
+}

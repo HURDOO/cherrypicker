@@ -1,0 +1,94 @@
+{
+  "cards": [
+    {
+      "id": "kb_travelers_check",
+      "name": "트래블러스 체크카드",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "09562",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "트래블러스 체크카드 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09562",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "kb_travelers_check_tosimi",
+      "name": "트래블러스 체크카드(토심이)",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "09564",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "트래블러스 체크카드(토심이) 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09564",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "kb_nori2_check_kbpay",
+      "name": "노리2 체크카드(KB Pay)",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "07964",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "노리2 체크카드(KB Pay) 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07964",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "kb_nori2_check_global",
+      "name": "노리2 체크카드(Global)",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "07972",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "노리2 체크카드(Global) 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07972",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "kb_kpass_check",
+      "name": "KB국민 K-패스 체크카드",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "09322",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "KB국민 K-패스 체크카드 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

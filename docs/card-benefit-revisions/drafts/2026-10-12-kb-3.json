@@ -1,0 +1,22 @@
+{
+  "cards": [
+    {
+      "id": "kb_gaon_allpoint_check",
+      "name": "가온 올포인트 체크카드",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "01998",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "가온 올포인트 체크카드 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01998",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

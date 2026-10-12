@@ -407,6 +407,16 @@ const koreanMoneyValuesIn = (value: string) => unique(
         .filter((amount): amount is number => amount !== undefined)
 );
 
+// "2천점", "5만 포인트": read as won only after an official quote states that one point is one won.
+const pointAmountsAsWon = (value: string) => value.normalize('NFKC').replace(
+    /([0-9][0-9,]*(?:\.[0-9]+)?\s*(?:억|만|천|백)?)\s*(?:점|포인트)/g,
+    '$1원',
+);
+
+const statesPointEqualsWon = (evidence: CardBenefitEvidence[]) => evidence.some(item => (
+    /1\s*(?:점|포인트)\s*(?:은|는|=)?\s*1\s*원/.test(item.quote.normalize('NFKC'))
+));
+
 const percentageValuesIn = (value: string) => unique(
     [...value.normalize('NFKC').matchAll(/([0-9]+(?:\.[0-9]+)?)\s*%/g)]
         .map(match => Number(match[1]))
@@ -496,7 +506,9 @@ const validateRuleSemanticEvidence = (
             errors.push(`특정 상품 혜택이 대상 상품 금액 조건으로 표시되지 않았습니다: ${label}`);
         }
         const limitEvidence = evidenceTextForRule(ruleRow.id, evidence, 'limitConfig');
-        const limitMoneyValues = koreanMoneyValuesIn(limitEvidence);
+        const limitMoneyValues = koreanMoneyValuesIn(
+            statesPointEqualsWon(evidence) ? pointAmountsAsWon(limitEvidence) : limitEvidence,
+        );
         ([
             ['dailyAmount', '일 금액 한도'],
             ['monthlyAmount', '월 금액 한도'],

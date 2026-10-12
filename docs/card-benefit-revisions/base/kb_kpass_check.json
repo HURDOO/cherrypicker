@@ -1,0 +1,358 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "kb_kpass_check",
+      "name": "KB국민 K-패스체크카드",
+      "company": "KB국민카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "kb_kpass_transit",
+        "cardId": "kb_kpass_check",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "대중교통 10% 포인트리 적립",
+        "detail": "버스·지하철 10% 적립, 월 2천점(1점=1원). 택시·시외·고속·공항버스는 제외되며, 이용대금명세서 이용일 기준으로 적립됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_kpass_life",
+        "cardId": "kb_kpass_check",
+        "includedBrands": [
+          "starbucks",
+          "twosome",
+          "mega",
+          "compose",
+          "paiks",
+          "ediya",
+          "coffeebean",
+          "paulbassett",
+          "angelinus",
+          "mammoth",
+          "gongcha",
+          "official_15f1e20a3b64a1f7",
+          "gs25",
+          "cu",
+          "emart24",
+          "seveneleven",
+          "cgv",
+          "lotte_cinema",
+          "kfc",
+          "lotteria",
+          "mcdonalds",
+          "burgerking",
+          "momstouch"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "생활서비스 1% 포인트리 적립",
+        "detail": "커피·약국·편의점 업종, CGV·롯데시네마, 패스트푸드 업종 건당 1만원 이상 이용 시 1% 적립. 이동통신요금 자동납부와 합쳐 월 4천점.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000,
+          "stackableWithRuleIds": [
+            "kb_kpass_kbpay"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 4000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_kpass_life_group"
+      },
+      {
+        "id": "kb_kpass_life_telecom",
+        "cardId": "kb_kpass_check",
+        "category": "transport",
+        "includedBrands": [
+          "telecom"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "이동통신요금 자동납부 1% 포인트리 적립",
+        "detail": "SK, KT, LG, LiivM 이동통신요금 자동납부 건당 1만원 이상 1% 적립. 생활서비스와 합쳐 월 4천점.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000,
+          "manualCheckRequired": true,
+          "requiredNote": "이동통신요금을 이 카드로 자동납부하는지 확인해야 합니다.",
+          "stackableWithRuleIds": [
+            "kb_kpass_kbpay"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 4000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_kpass_life_group"
+      },
+      {
+        "id": "kb_kpass_kbpay",
+        "cardId": "kb_kpass_check",
+        "includedBrands": [
+          "starbucks",
+          "twosome",
+          "mega",
+          "compose",
+          "paiks",
+          "ediya",
+          "coffeebean",
+          "paulbassett",
+          "angelinus",
+          "mammoth",
+          "gongcha",
+          "official_15f1e20a3b64a1f7",
+          "gs25",
+          "cu",
+          "emart24",
+          "seveneleven",
+          "cgv",
+          "lotte_cinema",
+          "kfc",
+          "lotteria",
+          "mcdonalds",
+          "burgerking",
+          "momstouch",
+          "telecom"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "KB Pay 생활서비스 1% 추가 적립",
+        "detail": "생활서비스 적립 영역에서 KB Pay로 결제하면 1% 추가 적립, 월 4천점.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000,
+          "manualCheckRequired": true,
+          "requiredNote": "KB Pay로 결제하는지 확인해야 합니다.",
+          "stackableWithRuleIds": [
+            "kb_kpass_life",
+            "kb_kpass_life_telecom"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 4000
+        }
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "포인트리 1점은 1원과 같아 적립을 원화 혜택으로 계산한다.",
+      "K-패스 정부 환급은 이 상품 페이지의 카드 혜택이 아니어서 계산하지 않는다.",
+      "커피·편의점·패스트푸드 업종은 등록된 대표 브랜드로 연결했다. 패스트푸드 업종에 서브웨이가 포함되는지는 확인되지 않아 제외했다."
+    ],
+    "evidence": [
+      {
+        "id": "kb_kpass_transit-1",
+        "ruleIds": [
+          "kb_kpass_transit"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "대중교통 적립 버스, 지하철 10% 2천점 20만원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+        "location": "대중교통 10% 포인트리 적립"
+      },
+      {
+        "id": "kb_kpass_transit-2",
+        "ruleIds": [
+          "kb_kpass_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "대중교통 : 택시, 시외버스, 고속버스, 공항버스 제외",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+        "location": "대중교통 10% 포인트리 적립"
+      },
+      {
+        "id": "kb_kpass_life-1",
+        "ruleIds": [
+          "kb_kpass_life"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "생활서비스 적립 이동통신요금 자동납부 (SK, KT, LG, LiivM) 건당 1만원 이상 이용 시 1% 4천점 커피 업종 약국 업종 편의점 업종 영화(CGV, 롯데시네마) 패스트푸드 업종",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+        "location": "생활서비스 1% 포인트리 적립"
+      },
+      {
+        "id": "kb_kpass_life_telecom-1",
+        "ruleIds": [
+          "kb_kpass_life_telecom"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "생활서비스 적립 이동통신요금 자동납부 (SK, KT, LG, LiivM) 건당 1만원 이상 이용 시 1% 4천점 커피 업종 약국 업종 편의점 업종 영화(CGV, 롯데시네마) 패스트푸드 업종",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+        "location": "이동통신요금 자동납부 1% 포인트리 적립"
+      },
+      {
+        "id": "kb_kpass_kbpay-1",
+        "ruleIds": [
+          "kb_kpass_kbpay"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "KB Pay 추가적립 '생활서비스 적립' 영역에서 KB Pay 이용 시 추가적립 1% 4천점",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+        "location": "KB Pay 생활서비스 1% 추가 적립"
+      },
+      {
+        "id": "kb_kpass_kbpay-2",
+        "ruleIds": [
+          "kb_kpass_kbpay"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "생활서비스 적립 이동통신요금 자동납부 (SK, KT, LG, LiivM) 건당 1만원 이상 이용 시 1% 4천점 커피 업종 약국 업종 편의점 업종 영화(CGV, 롯데시네마) 패스트푸드 업종",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+        "location": "KB Pay 생활서비스 1% 추가 적립"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "kb_kpass_transit",
+          "kb_kpass_life",
+          "kb_kpass_life_telecom",
+          "kb_kpass_kbpay"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "실적 유예 제공 : 최초 카드 사용 등록 후 다음 달 말일까지 전월 실적 조건 미달 시에도 서비스 제공",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+        "location": "실적 유예"
+      },
+      {
+        "id": "shared-2",
+        "ruleIds": [
+          "kb_kpass_life",
+          "kb_kpass_life_telecom",
+          "kb_kpass_kbpay"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "구분 세부 영역 적립율 월 적립한도 전월 실적 대중교통 적립 버스, 지하철 10% 2천점 20만원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+        "location": "포인트리 적립 서비스 전월 실적"
+      },
+      {
+        "id": "shared-3",
+        "ruleIds": [
+          "kb_kpass_transit",
+          "kb_kpass_life",
+          "kb_kpass_life_telecom",
+          "kb_kpass_kbpay"
+        ],
+        "fields": [
+          "action"
+        ],
+        "quote": "KB국민카드 포인트리 1점은 1원과 가치가 동일합니다.",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+        "location": "포인트리 안내"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+        "quote": "전월 이용실적 제외 대상 후불교통요금, 무승인금액(자판기, 터널통행료, 유료도로, 기차/고속버스 취소 반환 수수료 등), 정부지원금 이용금액(보육료, 유치원보조비, 바우처 이용금액 등), 포인트리 충전금액, 대학(대학원) 등록금, 상품권 및 선불카드(선불전자지급수단 포함) 구입(충전) 금액, 연체료, 지방세(지방세, 상하수도, 세외수입), 취소금액, 각종 수수료 및 이자",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "hosted-stores",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+        "quote": "대행사이트를 통한 결제 및 호텔, 백화점, 대형마트, 철도/역사 등에 입점한 가맹점이나 상품권 구매 시 적립 대상에서 제외될 수 있습니다.",
+        "reason": "대행사이트·입점 가맹점 적립 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      },
+      {
+        "id": "gift-card-excluded",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+        "quote": "상품권 및 선불카드(선불전자지급수단 포함) 구입·충전금액, 연체료, 취소금액의 경우 적립에서 제외됩니다.",
+        "reason": "상품권·선불카드 구입·충전 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ],
+    "proposedBrands": [
+      {
+        "id": "official_15f1e20a3b64a1f7",
+        "name": "약국",
+        "categoryId": "life",
+        "aliases": [
+          "약국 업종"
+        ],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09322",
+        "quote": "커피 업종 약국 업종 편의점 업종"
+      }
+    ]
+  }
+}

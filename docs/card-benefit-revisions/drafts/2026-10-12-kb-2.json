@@ -1,0 +1,94 @@
+{
+  "cards": [
+    {
+      "id": "kb_nori_check",
+      "name": "노리체크카드",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "01664",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "노리체크카드 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "kb_tosimi_checkcheck",
+      "name": "토심이 첵첵 체크카드",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "07960",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "토심이 첵첵 체크카드 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "kb_worker_bonus_check",
+      "name": "직장인보너스체크카드",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "01690",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "직장인보너스체크카드 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01690",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "kb_star_check",
+      "name": "스타체크카드",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "01552",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "스타체크카드 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "kb_youth_single_check",
+      "name": "청춘대로 싱글 체크카드",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "01988",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "청춘대로 싱글 체크카드 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01988",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}
