@@ -1,0 +1,321 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "nh_travely_check",
+      "name": "NH트래블리체크카드",
+      "company": "NH농협카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "nh_travely_base",
+        "cardId": "nh_travely_check",
+        "includedBrands": [],
+        "excludedBrands": [
+          "overseas_payment"
+        ],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내 가맹점 0.2% 캐시백",
+        "detail": "국내 가맹점 0.2% 캐시백, 한도·전월실적 조건 없음. 편의점·커피전문점·대중교통은 0.6% 특별 캐시백이 대신 적용됩니다.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 0.2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_travely_nhpay_online",
+        "cardId": "nh_travely_check",
+        "includedBrands": [],
+        "excludedBrands": [
+          "overseas_payment"
+        ],
+        "platformType": "ONLINE",
+        "usesCardLimit": false,
+        "description": "NH페이 국내 온라인 0.3% 캐시백",
+        "detail": "NH페이로 국내 온라인 가맹점 결제 시 0.3% 캐시백(기본 0.2% 대신). 한도·전월실적 조건 없음.",
+        "condition": {
+          "manualCheckRequired": true,
+          "requiredNote": "NH페이로 온라인 결제하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_travely_special_store",
+        "cardId": "nh_travely_check",
+        "includedBrands": [
+          "gs25",
+          "cu",
+          "emart24",
+          "seveneleven",
+          "starbucks",
+          "twosome",
+          "mega",
+          "compose",
+          "paiks",
+          "ediya",
+          "coffeebean",
+          "paulbassett",
+          "angelinus",
+          "mammoth"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": false,
+        "description": "편의점·커피전문점 0.6% 특별 캐시백",
+        "detail": "편의점·커피전문점 매장 직접 결제 0.6% 캐시백(스타벅스 사이렌오더 포함), 한도·전월실적 조건 없음. 상품권·선물하기·선불카드 구입은 제외.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 0.6,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_travely_special_transit",
+        "cardId": "nh_travely_check",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "대중교통 0.6% 특별 캐시백",
+        "detail": "후불교통 대중교통 0.6% 캐시백, 한도·전월실적 조건 없음. 공항리무진·공항/고속/시외버스·철도·통행료 제외.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 0.6,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_travely_overseas_fee_info",
+        "cardId": "nh_travely_check",
+        "category": "etc",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "해외 이용 수수료 면제(정보)",
+        "detail": "해외 가맹점 국제브랜드수수료 1%·해외서비스수수료 면제, 해외 ATM 수수료 월 10회 면제. 외화결제계좌에서 현지통화로 결제.",
+        "condition": {},
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_travely_lounge_info",
+        "cardId": "nh_travely_check",
+        "category": "etc",
+        "includedBrands": [
+          "airport_lounge"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "더라운지 공항라운지 무료(정보)",
+        "detail": "국내·외 공항 라운지 연 1회 본인 무료, 전월실적 30만원 이상. 카드 사용등록 달에는 제공되지 않습니다.",
+        "condition": {
+          "minPerformance": 300000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "기본 0.2%와 특별 0.6%는 중복되지 않아 결제처마다 큰 혜택 하나만 계산된다.",
+      "Mastercard Travel Rewards 해외 캐시백은 가맹점마다 달라 계산하지 않는다."
+    ],
+    "evidence": [
+      {
+        "id": "nh_travely_base-1",
+        "ruleIds": [
+          "nh_travely_base"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "구분 대상 가맹점 캐시백 한도 기본 캐시백 국내 가맹점 0.2% 없음 (NH페이 이용) 국내 온라인 가맹점 0.3% 전월실적 조건 : 없음",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+        "location": "국내 가맹점 0.2% 캐시백"
+      },
+      {
+        "id": "nh_travely_nhpay_online-1",
+        "ruleIds": [
+          "nh_travely_nhpay_online"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "구분 대상 가맹점 캐시백 한도 기본 캐시백 국내 가맹점 0.2% 없음 (NH페이 이용) 국내 온라인 가맹점 0.3% 전월실적 조건 : 없음",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+        "location": "NH페이 국내 온라인 0.3% 캐시백"
+      },
+      {
+        "id": "nh_travely_nhpay_online-2",
+        "ruleIds": [
+          "nh_travely_nhpay_online"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "‘NH페이’ 이용 관련 캐시백 서비스는 ‘국내 온라인 결제’에 한하며, ‘NH페이 국내 오프라인 결제’건은 ‘국내 가맹점’ 기본 캐시백 서비스 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+        "location": "NH페이 국내 온라인 0.3% 캐시백"
+      },
+      {
+        "id": "nh_travely_special_store-1",
+        "ruleIds": [
+          "nh_travely_special_store"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "구분 대상 가맹점 업종 캐시백 한도 특별 캐시백 국내 편의점, 커피전문점, 대중교통 0.6% 없음 전월실적 조건 : 없음",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+        "location": "편의점·커피전문점 0.6% 특별 캐시백"
+      },
+      {
+        "id": "nh_travely_special_store-2",
+        "ruleIds": [
+          "nh_travely_special_store"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "편의점/커피전문점 혜택은 오프라인 매장 내 직접 결제 시에만 제공(스타벅스는 사이렌오더 포함)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+        "location": "편의점·커피전문점 0.6% 특별 캐시백"
+      },
+      {
+        "id": "nh_travely_special_transit-1",
+        "ruleIds": [
+          "nh_travely_special_transit"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "구분 대상 가맹점 업종 캐시백 한도 특별 캐시백 국내 편의점, 커피전문점, 대중교통 0.6% 없음 전월실적 조건 : 없음",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+        "location": "대중교통 0.6% 특별 캐시백"
+      },
+      {
+        "id": "nh_travely_special_transit-2",
+        "ruleIds": [
+          "nh_travely_special_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "대중교통 혜택은 후불교통카드로 발급 시 제공(공항리무진, 공항/고속/시외버스, 철도(KTX/SRT), 통행료는 제외)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+        "location": "대중교통 0.6% 특별 캐시백"
+      },
+      {
+        "id": "nh_travely_overseas_fee_info-1",
+        "ruleIds": [
+          "nh_travely_overseas_fee_info"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "해외 가맹점 이용 시 면제(이용금액의 1%) 면제(건당 US$0.5)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+        "location": "해외 이용 수수료 면제(정보)"
+      },
+      {
+        "id": "nh_travely_lounge_info-1",
+        "ruleIds": [
+          "nh_travely_lounge_info"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "국내·외 공항 라운지 연 1회 전월실적 조건 : 30만원 이상 시 서비스 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+        "location": "더라운지 공항라운지 무료(정보)"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "no-stacking",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+        "quote": "본 카드의 서비스는 타 프로모션 등 NH농협카드의 다른 청구할인 혜택과 중복 적용되지 않으며, 혜택이 큰 금액만 적용됩니다.",
+        "reason": "NH농협카드 다른 혜택과 중복 불가",
+        "affectsValue": true,
+        "patternId": "CARD_OFFER_NO_STACKING"
+      },
+      {
+        "id": "gift-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+        "quote": "대상 가맹점에서 상품권(모바일상품권/쿠폰 포함) 구매, 선물하기, 선불(기프트)카드 구입/충전은 혜택 제외",
+        "reason": "상품권·선물하기·선불카드는 특별 캐시백 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "overseas-fee",
+        "ruleIds": [
+          "nh_travely_overseas_fee_info"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+        "quote": "해외 가맹점 이용 시 면제(이용금액의 1%) 면제(건당 US$0.5)",
+        "reason": "해외 수수료 면제는 결제 할인이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_FINANCIAL_PRODUCT"
+      },
+      {
+        "id": "lounge",
+        "ruleIds": [
+          "nh_travely_lounge_info"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+        "quote": "국내·외 공항 라운지 연 1회",
+        "reason": "공항라운지 이용권은 현금 할인이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_NON_CASH"
+      }
+    ]
+  }
+}

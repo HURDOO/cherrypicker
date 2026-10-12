@@ -1,0 +1,274 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "nh_oleun_ieum_check",
+      "name": "올바른이음체크카드",
+      "company": "NH농협카드",
+      "limitTable": [
+        {
+          "threshold": 300000,
+          "limit": 3000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "nh_ieum_base",
+        "cardId": "nh_oleun_ieum_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내·해외 가맹점 0.2% NH포인트 적립",
+        "detail": "국내·외 가맹점 0.2% 기본적립. 전월실적 조건·한도 없음. 이음서비스와 중복되지 않습니다.",
+        "condition": {
+          "stackableWithRuleIds": [
+            "nh_ieum_pref_member",
+            "nh_ieum_pref_hanaro"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_ieum_pref_member",
+        "cardId": "nh_oleun_ieum_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[우대적립] 농축협 조합원 0.2% 추가 적립",
+        "detail": "전월 농축협 조합원이면 기본 0.2%에 0.2% 추가 적립(준조합원·가족 제외). 전월실적 30만원 이상, 한도 없음.",
+        "condition": {
+          "minPerformance": 300000,
+          "manualCheckRequired": true,
+          "requiredNote": "전월 기준 농축협 조합원인지 확인해야 합니다(준조합원·조합원 가족 제외).",
+          "stackableWithRuleIds": [
+            "nh_ieum_base"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_ieum_pref_hanaro",
+        "cardId": "nh_oleun_ieum_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[우대적립] 하나로가족고객 0.1% 추가 적립",
+        "detail": "전월 하나로가족고객(전 등급)이면 기본 0.2%에 0.1% 추가 적립. 전월실적 30만원 이상, 한도 없음. 조합원 우대와 중복되지 않습니다.",
+        "condition": {
+          "minPerformance": 300000,
+          "manualCheckRequired": true,
+          "requiredNote": "전월 기준 NH농협 하나로가족고객인지 확인해야 합니다.",
+          "stackableWithRuleIds": [
+            "nh_ieum_base"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_ieum_ieum",
+        "cardId": "nh_oleun_ieum_check",
+        "includedBrands": [
+          "rail",
+          "intercity_bus",
+          "hanaro_mart",
+          "official_2d1215e8e47c3135",
+          "official_478e0fe49a1d855b",
+          "official_74eff3cfa3696740",
+          "official_d5ac294ab966eafe",
+          "official_d4a28b1338cfc93c"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[이음서비스] KTX·고속버스·하나로마트·숙박 0.5% 적립",
+        "detail": "KTX·SRT·고속버스, 하나로마트·하나로클럽·농협 판매사업장, 익스피디아·호텔스닷컴·에어비앤비·여기어때·야놀자 0.5% 적립. 통합 월 3천 NH포인트, 전월 30만원 이상. 기본·우대적립과 중복되지 않습니다.",
+        "condition": {
+          "minPerformance": 300000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_ieum_lounge_info",
+        "cardId": "nh_oleun_ieum_check",
+        "category": "etc",
+        "includedBrands": [
+          "airport_lounge"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "더라운지 공항라운지 무료(정보)",
+        "detail": "국내·외 공항라운지 통합 연 1회, 전월실적 40만원 이상.",
+        "condition": {
+          "minPerformance": 400000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "농업(농어업용품점 등)·NH여행 이음서비스 대상은 등록된 결제처가 없어 설명에만 남긴다.",
+      "조합원·하나로고객 우대적립은 카드 보유자 자격이라 확인 조건으로 둔다."
+    ],
+    "evidence": [
+      {
+        "id": "nh_ieum_base-1",
+        "ruleIds": [
+          "nh_ieum_base"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "기본적립 : 국내·외 가맹점 0.2% NH포인트 적립 전월실적 조건 및 NH포인트 적립한도 없음",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010610",
+        "location": "국내·해외 가맹점 0.2% NH포인트 적립"
+      },
+      {
+        "id": "nh_ieum_pref_member-1",
+        "ruleIds": [
+          "nh_ieum_pref_member"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "구분 조합원 고객 하나로 고객 일반 고객 적립률 0.2% 0.1% 0.0% 전월실적 30만원 이상 시 제공, NH포인트 적립한도 없음",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010610",
+        "location": "[우대적립] 농축협 조합원 0.2% 추가 적립"
+      },
+      {
+        "id": "nh_ieum_pref_hanaro-1",
+        "ruleIds": [
+          "nh_ieum_pref_hanaro"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "구분 조합원 고객 하나로 고객 일반 고객 적립률 0.2% 0.1% 0.0% 전월실적 30만원 이상 시 제공, NH포인트 적립한도 없음",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010610",
+        "location": "[우대적립] 하나로가족고객 0.1% 추가 적립"
+      },
+      {
+        "id": "nh_ieum_ieum-1",
+        "ruleIds": [
+          "nh_ieum_ieum"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "구분 적립대상 적립률 농업 농어업용품점, 농기계수리점, 아사바태화 온라인몰 0.5% 교통 KTX, SRT, 고속버스 먹거리 하나로마트, 하나로클럽, 농협기타직영점(농협 판매사업장) 여행 NH여행 숙박 익스피디아, 호텔스닷컴, 에어비앤비, 여기어때, 야놀자 전월실적 30만원 이상 시 제공하며, 통합 월 적립한도 3천 NH포인트",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010610",
+        "location": "[이음서비스] KTX·고속버스·하나로마트·숙박 0.5% 적립"
+      },
+      {
+        "id": "nh_ieum_lounge_info-1",
+        "ruleIds": [
+          "nh_ieum_lounge_info"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "전월실적 40만원 이상 시 연 1회 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010610",
+        "location": "더라운지 공항라운지 무료(정보)"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010610",
+        "quote": "전월실적 제외 대상 : 대학(대학원)등록금, 교육비(학부모부담금), 임대료, 각종 세금 및 공과금, 상하수도요금, 과태료(범칙금), 우체국 우편요금, 사회보험(국민건강/국민연금/고용/산재), 아파트관리비, 도시가스요금, 전기요금, 선불카드류(기프트카드, 선불전자지급수단 등) 구매 및 충전, 상품권 구매(모바일상품권/쿠폰 포함), 후불교통카드(버스/지하철) 및 택시 이용금액",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "no-stacking",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010610",
+        "quote": "본 카드의 서비스는 타 프로모션 등 NH농협카드의 다른 혜택과 중복 적용되지 않으며, 혜택이 큰 금액만 적용됩니다.",
+        "reason": "NH농협카드 다른 혜택과 중복 불가",
+        "affectsValue": true,
+        "patternId": "CARD_OFFER_NO_STACKING"
+      },
+      {
+        "id": "lounge",
+        "ruleIds": [
+          "nh_ieum_lounge_info"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010610",
+        "quote": "전월실적 40만원 이상 시 연 1회 제공",
+        "reason": "공항라운지 이용은 현금 혜택이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_NON_CASH"
+      }
+    ],
+    "proposedBrands": [
+      {
+        "id": "official_74eff3cfa3696740",
+        "name": "에어비앤비",
+        "categoryId": "life",
+        "aliases": [
+          "Airbnb"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010610",
+        "quote": "숙박 익스피디아, 호텔스닷컴, 에어비앤비, 여기어때, 야놀자"
+      },
+      {
+        "id": "official_d5ac294ab966eafe",
+        "name": "여기어때",
+        "categoryId": "life",
+        "aliases": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010610",
+        "quote": "숙박 익스피디아, 호텔스닷컴, 에어비앤비, 여기어때, 야놀자"
+      }
+    ]
+  }
+}

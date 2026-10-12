@@ -1,0 +1,126 @@
+{
+  "cards": [
+    {
+      "id": "nh_kpass_check",
+      "name": "채움 K-패스카드(체크)",
+      "company": "NH농협카드",
+      "color": "bg-emerald-500",
+      "issuerProductCode": "90010470",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "채움 K-패스카드(체크) 상품 페이지",
+          "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "nh_travely_check",
+      "name": "NH트래블리체크카드",
+      "company": "NH농협카드",
+      "color": "bg-emerald-500",
+      "issuerProductCode": "90010517",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "NH트래블리체크카드 상품 페이지",
+          "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010517",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "NH트래블리체크카드 상품설명서",
+          "sourceUrl": "https://card.nonghyup.com/file/ebank/product/info/F20585.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "nh_chunsik_daldal_check",
+      "name": "춘식이달달체크카드",
+      "company": "NH농협카드",
+      "color": "bg-emerald-500",
+      "issuerProductCode": "90010521",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "춘식이달달체크카드 상품 페이지",
+          "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010521",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "춘식이달달체크카드 상품설명서",
+          "sourceUrl": "https://card.nonghyup.com/file/ebank/product/info/F20587.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "nh_new_have_check",
+      "name": "올바른NEW HAVE체크카드",
+      "company": "NH농협카드",
+      "color": "bg-emerald-500",
+      "issuerProductCode": "90010036",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "올바른NEW HAVE체크카드 상품 페이지",
+          "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010036",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "올바른NEW HAVE체크카드 상품설명서",
+          "sourceUrl": "https://card.nonghyup.com/file/ebank/product/info/F20008.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "nh_ryan_cheese_check",
+      "name": "라이언 치즈 체크카드",
+      "company": "NH농협카드",
+      "color": "bg-emerald-500",
+      "issuerProductCode": "90010013",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "라이언 치즈 체크카드 상품 페이지",
+          "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "라이언 치즈 체크카드 상품설명서",
+          "sourceUrl": "https://card.nonghyup.com/file/ebank/product/info/F20003.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

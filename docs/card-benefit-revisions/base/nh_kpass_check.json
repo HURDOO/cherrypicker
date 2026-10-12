@@ -1,0 +1,508 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "nh_kpass_check",
+      "name": "NH 모두의카드(체크)",
+      "company": "NH농협카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "nh_kpass_transit",
+        "cardId": "nh_kpass_check",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public",
+          "intercity_bus"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "버스·지하철 10% 캐시백",
+        "detail": "시내·마을·광역·고속시외버스와 지하철 10% 캐시백. 모빌리티 서비스 합산 월 3천원(전월 20만~80만원)·5천원(80만원 이상).",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 3000
+            },
+            {
+              "threshold": 800000,
+              "limit": 5000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "nh_kpass_mobility"
+      },
+      {
+        "id": "nh_kpass_carshare",
+        "cardId": "nh_kpass_check",
+        "category": "transport",
+        "includedBrands": [
+          "official_f812a48446e4e07e",
+          "official_ceb637bfd4e0dd3e",
+          "official_038578407d0212ba",
+          "official_28360ef15c2313e1",
+          "official_e11c6773285915a5"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "렌터카·카쉐어링 5% 캐시백",
+        "detail": "렌터카, 쏘카, 그린카 5% 캐시백. 모빌리티 서비스 합산 월 한도.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 3000
+            },
+            {
+              "threshold": 800000,
+              "limit": 5000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "nh_kpass_mobility"
+      },
+      {
+        "id": "nh_kpass_ev_charge",
+        "cardId": "nh_kpass_check",
+        "category": "transport",
+        "includedBrands": [
+          "official_fdbc33a67500b1e0"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "전기차 충전 5% 캐시백",
+        "detail": "환경부 공공 급속충전기 충전요금 현장결제 또는 환경부 멤버십카드 간편결제 5% 캐시백. 모빌리티 서비스 합산 월 한도.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "환경부 공공 급속충전기에서 이 카드로 직접 결제하거나 환경부 멤버십카드 결제카드로 등록했는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 3000
+            },
+            {
+              "threshold": 800000,
+              "limit": 5000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "nh_kpass_mobility"
+      },
+      {
+        "id": "nh_kpass_telecom",
+        "cardId": "nh_kpass_check",
+        "category": "transport",
+        "includedBrands": [
+          "telecom"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "이동통신요금 5% 캐시백",
+        "detail": "SKT, KT, LGU+ 자동납부 5% 캐시백, 월 3천원·1회. 건당 1만원 이상.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000,
+          "manualCheckRequired": true,
+          "requiredNote": "SKT·KT·LGU+ 이동통신요금을 이 카드로 자동납부하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 3000,
+          "monthlyCount": 1
+        }
+      },
+      {
+        "id": "nh_kpass_coffee",
+        "cardId": "nh_kpass_check",
+        "category": "cafe",
+        "includedBrands": [
+          "starbucks",
+          "ediya",
+          "coffeebean",
+          "twosome"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": false,
+        "description": "커피전문점 5% 캐시백",
+        "detail": "스타벅스(사이렌오더 포함), 이디야, 커피빈, 투썸플레이스 매장 결제 5% 캐시백, 월 2천원·2회. 건당 1만원 이상.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000,
+          "monthlyCount": 2
+        }
+      },
+      {
+        "id": "nh_kpass_convenience",
+        "cardId": "nh_kpass_check",
+        "category": "convenience",
+        "includedBrands": [
+          "gs25",
+          "cu"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": false,
+        "description": "편의점 5% 캐시백",
+        "detail": "GS25, CU 매장 결제 5% 캐시백, 월 1천원·2회. 건당 1만원 이상.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 1000,
+          "monthlyCount": 2
+        }
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "카드고릴라 순위의 \"K-패스카드(체크)\"는 현재 공식 상품명이 NH 모두의카드(체크)다.",
+      "K-패스 환급금(국토교통부 사업)은 카드 혜택이 아니어서 계산하지 않는다."
+    ],
+    "evidence": [
+      {
+        "id": "nh_kpass_transit-1",
+        "ruleIds": [
+          "nh_kpass_transit"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "□ 버스/지하철 10% 캐시백 - 버스(시내버스, 마을버스, 광역버스, 고속시외버스) 및 지하철",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "버스·지하철 10% 캐시백"
+      },
+      {
+        "id": "nh_kpass_transit-2",
+        "ruleIds": [
+          "nh_kpass_transit"
+        ],
+        "fields": [
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "모빌리티 서비스 월 통합 캐시백 한도 전월실적 20만원 이상 ~ 80만원 미만 80만원 이상 할인한도 3천원 5천원",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "버스·지하철 10% 캐시백"
+      },
+      {
+        "id": "nh_kpass_carshare-1",
+        "ruleIds": [
+          "nh_kpass_carshare"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "□ 렌터카/카쉐어링 5% 캐시백 - 렌터카, 쏘카, 그린카",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "렌터카·카쉐어링 5% 캐시백"
+      },
+      {
+        "id": "nh_kpass_carshare-2",
+        "ruleIds": [
+          "nh_kpass_carshare"
+        ],
+        "fields": [
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "모빌리티 서비스 월 통합 캐시백 한도 전월실적 20만원 이상 ~ 80만원 미만 80만원 이상 할인한도 3천원 5천원",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "렌터카·카쉐어링 5% 캐시백"
+      },
+      {
+        "id": "nh_kpass_ev_charge-1",
+        "ruleIds": [
+          "nh_kpass_ev_charge"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "□ 전기차 충전 5% 캐시백 - 환경부 공공 급속충전기 충전요금 현장결제 주1) 및 멤버쉽카드 간편결제 주2)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "전기차 충전 5% 캐시백"
+      },
+      {
+        "id": "nh_kpass_ev_charge-2",
+        "ruleIds": [
+          "nh_kpass_ev_charge"
+        ],
+        "fields": [
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "모빌리티 서비스 월 통합 캐시백 한도 전월실적 20만원 이상 ~ 80만원 미만 80만원 이상 할인한도 3천원 5천원",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "전기차 충전 5% 캐시백"
+      },
+      {
+        "id": "nh_kpass_telecom-1",
+        "ruleIds": [
+          "nh_kpass_telecom"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "□ 이동통신요금 5% 캐시백(월 3천원, 1회 한) - SKT, KT, LGU+ 자동납부 시 할인 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "이동통신요금 5% 캐시백"
+      },
+      {
+        "id": "nh_kpass_telecom-2",
+        "ruleIds": [
+          "nh_kpass_telecom"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "※ 라이프 서비스는 이용 건당 1만원 이상 결제 시 캐시백 제공 ※ 라이프 서비스는 전월실적 20만원 이상 결제 시 캐시백 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "이동통신요금 5% 캐시백"
+      },
+      {
+        "id": "nh_kpass_coffee-1",
+        "ruleIds": [
+          "nh_kpass_coffee"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "□ 커피전문점 5% 캐시백(월 2천원, 2회 한) - 스타벅스/이디야/커피빈/투썸플레이스",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "커피전문점 5% 캐시백"
+      },
+      {
+        "id": "nh_kpass_coffee-2",
+        "ruleIds": [
+          "nh_kpass_coffee"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "※ 라이프 서비스는 이용 건당 1만원 이상 결제 시 캐시백 제공 ※ 라이프 서비스는 전월실적 20만원 이상 결제 시 캐시백 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "커피전문점 5% 캐시백"
+      },
+      {
+        "id": "nh_kpass_coffee-3",
+        "ruleIds": [
+          "nh_kpass_coffee"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "※ 커피전문점/편의점 캐시백 대상 가맹점은 오프라인 매장 현장 결제에 한함(APP결제 등 할인 제외, 스타벅스 사이렌오더 할인 가능)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "커피전문점 5% 캐시백"
+      },
+      {
+        "id": "nh_kpass_convenience-1",
+        "ruleIds": [
+          "nh_kpass_convenience"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "□ 편의점 5% 캐시백(월 1천원, 2회 한) - GS25/CU",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "편의점 5% 캐시백"
+      },
+      {
+        "id": "nh_kpass_convenience-2",
+        "ruleIds": [
+          "nh_kpass_convenience"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "※ 라이프 서비스는 이용 건당 1만원 이상 결제 시 캐시백 제공 ※ 라이프 서비스는 전월실적 20만원 이상 결제 시 캐시백 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "편의점 5% 캐시백"
+      },
+      {
+        "id": "nh_kpass_convenience-3",
+        "ruleIds": [
+          "nh_kpass_convenience"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "※ 커피전문점/편의점 캐시백 대상 가맹점은 오프라인 매장 현장 결제에 한함(APP결제 등 할인 제외, 스타벅스 사이렌오더 할인 가능)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "편의점 5% 캐시백"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "nh_kpass_transit",
+          "nh_kpass_carshare",
+          "nh_kpass_ev_charge",
+          "nh_kpass_telecom",
+          "nh_kpass_coffee",
+          "nh_kpass_convenience"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "할인 서비스의 경우 특정 제한조건이 없는 경우 최초 카드사용등록일로부터 다음달 말일까지는 전월 실적 미달 시에도 최소실적구간 서비스를 제공합니다 .",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "location": "서비스 이용조건"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "quote": "전월실적 산정 제외 대상 : 대학(대학원)등록금, 교육비(학부모부담금), 임대료, 각종 세금 및 공과금, 상하수도요금, 과태료(범칙금), 우체국 우편요금, 사회보험(국민건강/국민연금/고용/산재), 아파트관리비, 도시가스요금, 전기요금, 선불카드류(기프트카드, 선불전자지급수단 등) 구매 및 충전, 상품권 구매(모바일상품권/쿠폰 포함), 가상화폐 거래소 이용금액",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "quote": "할인 서비스 제외 대상 : 대학(대학원)등록금, 교육비(학부모부담금), 임대료, 각종 세금 및 공과금, 상하수도요금, 과태료(범칙금), 우체국 우편요금, 사회보험(국민건강/국민연금/고용/산재), 아파트 관리비, 도시가스요금, 전기요금, 선불카드류(기프트카드, 선불전자지급수단 등) 구매 및 충전, 상품권 구매(모바일상품권/쿠폰 포함), 가상화폐 거래소 이용금액",
+        "reason": "등록금·세금·상품권 등은 할인 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "hosted-stores",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "quote": "백화점, 대형마트, 할인점(아울렛), 역사 등에 입점한 매장은 전산상 해당 가맹점으로 구분이 불가하여 할인 서비스가 제외됩니다.",
+        "reason": "입점 매장 할인 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      },
+      {
+        "id": "no-stacking",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "quote": "본 카드의 서비스는 타 프로모션 등 NH농협카드의 다른 혜택과 중복 적용되지 않으며, 혜택이 큰 금액만 적용됩니다.",
+        "reason": "NH농협카드 다른 혜택과 중복 불가",
+        "affectsValue": true,
+        "patternId": "CARD_OFFER_NO_STACKING"
+      }
+    ],
+    "proposedBrands": [
+      {
+        "id": "official_f812a48446e4e07e",
+        "name": "렌터카",
+        "categoryId": "transport",
+        "aliases": [
+          "렌터카 업종"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "quote": "□ 렌터카/카쉐어링 5% 캐시백 - 렌터카, 쏘카, 그린카"
+      },
+      {
+        "id": "official_ceb637bfd4e0dd3e",
+        "name": "쏘카",
+        "categoryId": "transport",
+        "aliases": [
+          "SOCAR"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "quote": "□ 렌터카/카쉐어링 5% 캐시백 - 렌터카, 쏘카, 그린카"
+      },
+      {
+        "id": "official_038578407d0212ba",
+        "name": "그린카",
+        "categoryId": "transport",
+        "aliases": [
+          "GreenCar"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "quote": "□ 렌터카/카쉐어링 5% 캐시백 - 렌터카, 쏘카, 그린카"
+      },
+      {
+        "id": "official_fdbc33a67500b1e0",
+        "name": "전기차 충전",
+        "categoryId": "transport",
+        "aliases": [
+          "환경부 급속충전기",
+          "EV 충전"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010470",
+        "quote": "□ 전기차 충전 5% 캐시백 - 환경부 공공 급속충전기 충전요금 현장결제"
+      }
+    ]
+  }
+}

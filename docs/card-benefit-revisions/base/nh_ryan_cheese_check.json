@@ -1,0 +1,505 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "nh_ryan_cheese_check",
+      "name": "라이언 치즈 체크카드",
+      "company": "NH농협카드",
+      "limitTable": [
+        {
+          "threshold": 0,
+          "limit": 30000
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "nh_ryan_single_general",
+        "cardId": "nh_ryan_cheese_check",
+        "includedBrands": [
+          "cu",
+          "gs25",
+          "cgv",
+          "lotte_cinema",
+          "megabox",
+          "gmarket",
+          "elevenst",
+          "coupang",
+          "tmon",
+          "official_02f9ff5c7f4f578d",
+          "baemin",
+          "yogiyo"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[Single] 편의점·영화·쇼핑·배달 평일 0.5% 적립",
+        "detail": "CU·GS25, CGV·롯데시네마·메가박스(매점 제외), G마켓·11번가·쿠팡·티몬·농협몰, 배달의민족·요기요 평일 0.5% NH포인트 적립. 전월실적 20만원 이상, 통합 월 3만원.",
+        "condition": {
+          "minPerformance": 200000,
+          "daysOfWeek": [
+            "MON",
+            "TUE",
+            "WED",
+            "THU",
+            "FRI"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_ryan_double_general",
+        "cardId": "nh_ryan_cheese_check",
+        "includedBrands": [
+          "cu",
+          "gs25",
+          "cgv",
+          "lotte_cinema",
+          "megabox",
+          "gmarket",
+          "elevenst",
+          "coupang",
+          "tmon",
+          "official_02f9ff5c7f4f578d",
+          "baemin",
+          "yogiyo"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[Double] 편의점·영화·쇼핑·배달 주말 1% 적립",
+        "detail": "CU·GS25, CGV·롯데시네마·메가박스(매점 제외), G마켓·11번가·쿠팡·티몬·농협몰, 배달의민족·요기요 주말 1% NH포인트 적립. 전월실적 20만원 이상, 통합 월 3만원.",
+        "condition": {
+          "minPerformance": 200000,
+          "daysOfWeek": [
+            "SAT",
+            "SUN"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_ryan_single_coffee",
+        "cardId": "nh_ryan_cheese_check",
+        "includedBrands": [
+          "starbucks",
+          "twosome",
+          "coffeebean"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": true,
+        "description": "[Single] 커피 평일 0.5% 적립",
+        "detail": "스타벅스(사이렌오더 포함), 투썸플레이스, 커피빈 매장 평일(앱 결제 제외) 0.5% NH포인트 적립. 전월실적 20만원 이상, 통합 월 3만원.",
+        "condition": {
+          "minPerformance": 200000,
+          "daysOfWeek": [
+            "MON",
+            "TUE",
+            "WED",
+            "THU",
+            "FRI"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_ryan_double_coffee",
+        "cardId": "nh_ryan_cheese_check",
+        "includedBrands": [
+          "starbucks",
+          "twosome",
+          "coffeebean"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": true,
+        "description": "[Double] 커피 주말 1% 적립",
+        "detail": "스타벅스(사이렌오더 포함), 투썸플레이스, 커피빈 매장 주말(앱 결제 제외) 1% NH포인트 적립. 전월실적 20만원 이상, 통합 월 3만원.",
+        "condition": {
+          "minPerformance": 200000,
+          "daysOfWeek": [
+            "SAT",
+            "SUN"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_ryan_triple",
+        "cardId": "nh_ryan_cheese_check",
+        "includedBrands": [
+          "transport_public",
+          "taxi",
+          "rail",
+          "intercity_bus",
+          "official_ceb637bfd4e0dd3e",
+          "overseas_payment",
+          "toeic",
+          "teps",
+          "jpt",
+          "kyobo",
+          "official_933878a563e25745",
+          "official_c3cefad16205f984",
+          "yes24",
+          "aladin",
+          "official_e6f8788a6767f6b2",
+          "official_e61bd7d6251e68e2",
+          "interpark_ticket"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[Triple] 교통·해외·어학시험·서점·공연 1.5% 적립",
+        "detail": "지하철·버스·택시·SRT·KTX·시외/고속버스·쏘카, 해외 일시불, 어학시험, 교보·영풍·예스24·알라딘·인터파크도서, 인터파크티켓 1.5% 적립. 전월실적 30만원 이상, 사용등록 월 제외.",
+        "condition": {
+          "minPerformance": 300000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1.5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_ryan_triple_hb",
+        "cardId": "nh_ryan_cheese_check",
+        "category": "life",
+        "includedBrands": [
+          "oliveyoung",
+          "beauty_hair"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": true,
+        "description": "[Triple] 올리브영·미용업종 1.5% 적립",
+        "detail": "미용업종, 올리브영, 랄라블라 오프라인 1.5% 적립. 전월실적 30만원 이상.",
+        "condition": {
+          "minPerformance": 300000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1.5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_ryan_bonus",
+        "cardId": "nh_ryan_cheese_check",
+        "category": "subscription",
+        "includedBrands": [
+          "youtube",
+          "netflix",
+          "app_store",
+          "google_play"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[Bonus] 유튜브·넷플릭스·유료앱 5% 적립",
+        "detail": "유튜브, 넷플릭스, 앱스토어·구글 플레이스토어 유료 결제 5% 적립. 전월실적 30만원 이상.",
+        "condition": {
+          "minPerformance": 300000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_ryan_lounge_info",
+        "cardId": "nh_ryan_cheese_check",
+        "category": "etc",
+        "includedBrands": [
+          "airport_lounge"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국제공항 라운지 무료(정보)",
+        "detail": "인천·김포·김해공항 스카이허브·마티나 라운지 연 1회 무료, 전월실적 50만원 이상.",
+        "condition": {
+          "minPerformance": 500000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "NH포인트 적립을 원화 혜택으로 계산한다.",
+      "랄라블라·반디앤루니스·종합스포츠센터 등 등록되지 않은 결제처는 설명에만 남긴다.",
+      "이 카드 페이지에는 최초 사용등록 실적 유예 문구가 없어 유예를 적용하지 않는다."
+    ],
+    "evidence": [
+      {
+        "id": "nh_ryan_single_general-1",
+        "ruleIds": [
+          "nh_ryan_single_general"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "Single Cheezzz! (월~금 0.5% NH포인트 적립) Double Cheezzz! (토,일 1% NH포인트 적립)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Single] 편의점·영화·쇼핑·배달 평일 0.5% 적립"
+      },
+      {
+        "id": "nh_ryan_single_general-2",
+        "ruleIds": [
+          "nh_ryan_single_general"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "구분 대상업종 및 가맹점 커피 스타벅스(싸이렌오더 포함), 투썸플레이스, 커피빈 ※ 상품권 및 선불카드 구매·충전, 앱 결제 제외 편의점 CU, GS25 영화 CGV, 롯데시네마, 메가박스 ※ 온·오프라인 결제건 적립 단, 매점 및 예매대행사이트 제외 온라인쇼핑 G마켓, 11번가, 쿠팡, 티몬, 농협몰 배달앱 배달의 민족, 요기요 ※ 전월실적 20만원 이상 시 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Single] 편의점·영화·쇼핑·배달 평일 0.5% 적립"
+      },
+      {
+        "id": "nh_ryan_double_general-1",
+        "ruleIds": [
+          "nh_ryan_double_general"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "Single Cheezzz! (월~금 0.5% NH포인트 적립) Double Cheezzz! (토,일 1% NH포인트 적립)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Double] 편의점·영화·쇼핑·배달 주말 1% 적립"
+      },
+      {
+        "id": "nh_ryan_double_general-2",
+        "ruleIds": [
+          "nh_ryan_double_general"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "구분 대상업종 및 가맹점 커피 스타벅스(싸이렌오더 포함), 투썸플레이스, 커피빈 ※ 상품권 및 선불카드 구매·충전, 앱 결제 제외 편의점 CU, GS25 영화 CGV, 롯데시네마, 메가박스 ※ 온·오프라인 결제건 적립 단, 매점 및 예매대행사이트 제외 온라인쇼핑 G마켓, 11번가, 쿠팡, 티몬, 농협몰 배달앱 배달의 민족, 요기요 ※ 전월실적 20만원 이상 시 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Double] 편의점·영화·쇼핑·배달 주말 1% 적립"
+      },
+      {
+        "id": "nh_ryan_single_coffee-1",
+        "ruleIds": [
+          "nh_ryan_single_coffee"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "Single Cheezzz! (월~금 0.5% NH포인트 적립) Double Cheezzz! (토,일 1% NH포인트 적립)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Single] 커피 평일 0.5% 적립"
+      },
+      {
+        "id": "nh_ryan_single_coffee-2",
+        "ruleIds": [
+          "nh_ryan_single_coffee"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "구분 대상업종 및 가맹점 커피 스타벅스(싸이렌오더 포함), 투썸플레이스, 커피빈 ※ 상품권 및 선불카드 구매·충전, 앱 결제 제외 편의점 CU, GS25 영화 CGV, 롯데시네마, 메가박스 ※ 온·오프라인 결제건 적립 단, 매점 및 예매대행사이트 제외 온라인쇼핑 G마켓, 11번가, 쿠팡, 티몬, 농협몰 배달앱 배달의 민족, 요기요 ※ 전월실적 20만원 이상 시 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Single] 커피 평일 0.5% 적립"
+      },
+      {
+        "id": "nh_ryan_double_coffee-1",
+        "ruleIds": [
+          "nh_ryan_double_coffee"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "Single Cheezzz! (월~금 0.5% NH포인트 적립) Double Cheezzz! (토,일 1% NH포인트 적립)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Double] 커피 주말 1% 적립"
+      },
+      {
+        "id": "nh_ryan_double_coffee-2",
+        "ruleIds": [
+          "nh_ryan_double_coffee"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "구분 대상업종 및 가맹점 커피 스타벅스(싸이렌오더 포함), 투썸플레이스, 커피빈 ※ 상품권 및 선불카드 구매·충전, 앱 결제 제외 편의점 CU, GS25 영화 CGV, 롯데시네마, 메가박스 ※ 온·오프라인 결제건 적립 단, 매점 및 예매대행사이트 제외 온라인쇼핑 G마켓, 11번가, 쿠팡, 티몬, 농협몰 배달앱 배달의 민족, 요기요 ※ 전월실적 20만원 이상 시 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Double] 커피 주말 1% 적립"
+      },
+      {
+        "id": "nh_ryan_triple-1",
+        "ruleIds": [
+          "nh_ryan_triple"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "Triple Cheezzz! (요일 관계없이 1.5% NH포인트 적립)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Triple] 교통·해외·어학시험·서점·공연 1.5% 적립"
+      },
+      {
+        "id": "nh_ryan_triple-2",
+        "ruleIds": [
+          "nh_ryan_triple"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "구분 대상업종 및 가맹점 교통 지하철, 시내·마을버스, 택시, SRT, KTX, 시외·고속버스, 쏘카 해외 해외 일시불 ※ 온·오프라인 결제건 적립 단, ATM 이용 제외 자기계발 종합스포츠센터·요가·수영·문화센터 업종 ※ 오프라인 이용건에 한함 어학시험 : 토익(스피킹), 텝스, JPT, KPE 서점 교보문고, 영풍문고, 반디앤루니스, 예스24, 알라딘, 인터파크도서 ※ 온·오프라인 결제건 적립 공연ㆍ전시 인터파크티켓 H & B 미용업종, 올리브영, 랄라블라 ※ 오프라인 이용건에 한함 ※ 전월실적 30만원 이상 시 제공 ※ 본 서비스는 카드 사용등록 월에는 제공되지 않으며 익월부터 조건 충족시 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Triple] 교통·해외·어학시험·서점·공연 1.5% 적립"
+      },
+      {
+        "id": "nh_ryan_triple_hb-1",
+        "ruleIds": [
+          "nh_ryan_triple_hb"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "Triple Cheezzz! (요일 관계없이 1.5% NH포인트 적립)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Triple] 올리브영·미용업종 1.5% 적립"
+      },
+      {
+        "id": "nh_ryan_triple_hb-2",
+        "ruleIds": [
+          "nh_ryan_triple_hb"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "구분 대상업종 및 가맹점 교통 지하철, 시내·마을버스, 택시, SRT, KTX, 시외·고속버스, 쏘카 해외 해외 일시불 ※ 온·오프라인 결제건 적립 단, ATM 이용 제외 자기계발 종합스포츠센터·요가·수영·문화센터 업종 ※ 오프라인 이용건에 한함 어학시험 : 토익(스피킹), 텝스, JPT, KPE 서점 교보문고, 영풍문고, 반디앤루니스, 예스24, 알라딘, 인터파크도서 ※ 온·오프라인 결제건 적립 공연ㆍ전시 인터파크티켓 H & B 미용업종, 올리브영, 랄라블라 ※ 오프라인 이용건에 한함 ※ 전월실적 30만원 이상 시 제공 ※ 본 서비스는 카드 사용등록 월에는 제공되지 않으며 익월부터 조건 충족시 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Triple] 올리브영·미용업종 1.5% 적립"
+      },
+      {
+        "id": "nh_ryan_bonus-1",
+        "ruleIds": [
+          "nh_ryan_bonus"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "Bonus Cheezzz! (유튜브, 넷플릭스, 유료 어플리케이션 결제 5% NH포인트 적립) 전월실적 30만원 이상 시 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Bonus] 유튜브·넷플릭스·유료앱 5% 적립"
+      },
+      {
+        "id": "nh_ryan_bonus-2",
+        "ruleIds": [
+          "nh_ryan_bonus"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "애플 앱스토어·구글 플레이스토어 결제 가맹점이 ‘YOUTUBE’, ‘NETFLIX’, ‘APPLE’, ‘GOOGLE’로 매출 발생한 건에 한함",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "[Bonus] 유튜브·넷플릭스·유료앱 5% 적립"
+      },
+      {
+        "id": "nh_ryan_lounge_info-1",
+        "ruleIds": [
+          "nh_ryan_lounge_info"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "전월실적 50만원 이상시 연 1회 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "국제공항 라운지 무료(정보)"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "nh_ryan_single_general",
+          "nh_ryan_double_general",
+          "nh_ryan_single_coffee",
+          "nh_ryan_double_coffee",
+          "nh_ryan_triple",
+          "nh_ryan_triple_hb",
+          "nh_ryan_bonus"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "공통 유의사항 Single, Double, Triple, Bonus Cheezzz 서비스 통합 월 적립한도 3만원",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "location": "공통 유의사항"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "accrual-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "quote": "[적립 제외 대상] 대학(대학원)등록금, 교육비(학부모부담금), 임대료, 국세, 지방세 및 공과금, 사회보험(국민건강/국민연금/고용/산재), 아파트관리비, 도시가스요금, 전기 요금, 상품권 및 선불카드류 구매(충전 포함), 장/단기카드대출, 할부 및 SMS 수수료, 이자 및 연체료, 연회비, 거래 취소금액, 포인트(전부/일부) 결제 시 포인트 사용분 등의 이용금액, 무이자할부(무이자할부 행사 및 우수고객 무이자할부 지원 포함) 이용금액",
+        "reason": "등록금·세금·상품권·무이자할부 등은 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "hosted-stores",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "quote": "역사, 백화점 및 할인(아울렛)점, 쇼핑몰 내 입점매장 서비스 제외",
+        "reason": "입점 매장 적립 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      },
+      {
+        "id": "lounge",
+        "ruleIds": [
+          "nh_ryan_lounge_info"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010013",
+        "quote": "전월실적 50만원 이상시 연 1회 제공",
+        "reason": "공항라운지 이용은 현금 혜택이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_NON_CASH"
+      }
+    ]
+  }
+}

@@ -1,0 +1,458 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "nh_1961_check",
+      "name": "NH1961체크카드",
+      "company": "NH농협카드",
+      "limitTable": [
+        {
+          "threshold": 200000,
+          "limit": 3000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "nh_1961_base",
+        "cardId": "nh_1961_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내·해외 전가맹점 0.2% NH포인트 적립",
+        "detail": "전가맹점 0.2% 적립, 전월실적 조건·한도 없음.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 0.2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_1961_base_nhpay",
+        "cardId": "nh_1961_check",
+        "includedBrands": [],
+        "excludedBrands": [
+          "overseas_payment"
+        ],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "NH Pay 국내 결제 0.3% 적립",
+        "detail": "NH Pay(올원페이) 국내 결제 0.3% 적립(해외 제외).",
+        "condition": {
+          "manualCheckRequired": true,
+          "requiredNote": "NH Pay(올원페이)로 국내 결제하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_1961_nonghyup",
+        "cardId": "nh_1961_check",
+        "includedBrands": [
+          "hanaro_mart",
+          "official_02f9ff5c7f4f578d"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "농협 판매장 0.3% 적립",
+        "detail": "하나로마트/클럽, 농협몰 등 농협 판매장 0.3% 적립(한삼인·목우촌·농협주유소 포함), 한도 없음.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_1961_nonghyup_nhpay",
+        "cardId": "nh_1961_check",
+        "includedBrands": [
+          "hanaro_mart",
+          "official_02f9ff5c7f4f578d"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "농협 판매장 NH Pay 0.4% 적립",
+        "detail": "농협 판매장에서 NH Pay(올원페이)로 결제 시 0.4% 적립.",
+        "condition": {
+          "manualCheckRequired": true,
+          "requiredNote": "NH Pay(올원페이)로 국내 결제하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.4,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_1961_coupang_wow",
+        "cardId": "nh_1961_check",
+        "category": "subscription",
+        "includedBrands": [
+          "coupang_wow"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[라이프] 쿠팡 와우 멤버십 20% 적립",
+        "detail": "쿠팡 와우 멤버십 월 이용료 20% 적립, 월 1회. 라이프 적립 월 통합 3천 포인트, 전월 20만원 이상.",
+        "condition": {
+          "minPerformance": 200000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 20,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1
+        }
+      },
+      {
+        "id": "nh_1961_naver_plus",
+        "cardId": "nh_1961_check",
+        "category": "subscription",
+        "includedBrands": [
+          "naver_plus"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[라이프] 네이버 멤버십플러스 20% 적립",
+        "detail": "네이버 멤버십플러스 월 이용료 20% 적립, 월 1회. 라이프 적립 월 통합 3천 포인트, 전월 20만원 이상.",
+        "condition": {
+          "minPerformance": 200000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 20,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1
+        }
+      },
+      {
+        "id": "nh_1961_video",
+        "cardId": "nh_1961_check",
+        "category": "subscription",
+        "includedBrands": [
+          "youtube",
+          "netflix",
+          "official_0362ad03bc8c5218",
+          "tving"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[라이프] 디지털 영상컨텐츠 10% 적립",
+        "detail": "유튜브프리미엄, 넷플릭스, 웨이브, 티빙 공식 홈페이지/앱 정기결제 10% 적립. 인앱결제·1회성 결제 제외.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "공식 홈페이지/앱에서 이 카드로 정기결제하는지(인앱결제 제외) 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_1961_delivery",
+        "cardId": "nh_1961_check",
+        "category": "delivery",
+        "includedBrands": [
+          "baemin",
+          "yogiyo",
+          "coupangeats"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[라이프] 배달앱 5% 적립",
+        "detail": "배달의민족, 요기요, 쿠팡이츠 5% 적립, 통합 일 1회.",
+        "condition": {
+          "minPerformance": 200000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "dailyCount": 1
+        }
+      },
+      {
+        "id": "nh_1961_lounge_info",
+        "cardId": "nh_1961_check",
+        "category": "etc",
+        "includedBrands": [
+          "airport_lounge"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국제공항 라운지 무료(정보)",
+        "detail": "인천·김포·김해공항 스카이허브·마티나 라운지 연 1회, 전월실적 50만원 이상.",
+        "condition": {
+          "minPerformance": 500000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "기본·농협 판매장 적립과 NH Pay 적립은 중복되지 않아 큰 쪽 하나로 계산되고, 라이프 적립만 월 3천 포인트 통합 한도를 둔다.",
+      "한삼인·목우촌·농협주유소는 등록된 결제처가 없어 설명에만 남긴다."
+    ],
+    "evidence": [
+      {
+        "id": "nh_1961_base-1",
+        "ruleIds": [
+          "nh_1961_base"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "구분 일반 결제 NH Pay(올원페이) 결제 국내/해외 전가맹점 0.2% 0.3% 농협 판매장* 0.3% 0.4% 전월실적 조건 및 적립한도는 없습니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "국내·해외 전가맹점 0.2% NH포인트 적립"
+      },
+      {
+        "id": "nh_1961_base_nhpay-1",
+        "ruleIds": [
+          "nh_1961_base_nhpay"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "구분 일반 결제 NH Pay(올원페이) 결제 국내/해외 전가맹점 0.2% 0.3% 농협 판매장* 0.3% 0.4% 전월실적 조건 및 적립한도는 없습니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "NH Pay 국내 결제 0.3% 적립"
+      },
+      {
+        "id": "nh_1961_nonghyup-1",
+        "ruleIds": [
+          "nh_1961_nonghyup"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "구분 일반 결제 NH Pay(올원페이) 결제 국내/해외 전가맹점 0.2% 0.3% 농협 판매장* 0.3% 0.4% 전월실적 조건 및 적립한도는 없습니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "농협 판매장 0.3% 적립"
+      },
+      {
+        "id": "nh_1961_nonghyup-2",
+        "ruleIds": [
+          "nh_1961_nonghyup"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "농협 판매장 * 하나로마트/클럽, 한삼인, 목우촌, 농협몰, 농협주유소 등",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "농협 판매장 0.3% 적립"
+      },
+      {
+        "id": "nh_1961_nonghyup_nhpay-1",
+        "ruleIds": [
+          "nh_1961_nonghyup_nhpay"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "구분 일반 결제 NH Pay(올원페이) 결제 국내/해외 전가맹점 0.2% 0.3% 농협 판매장* 0.3% 0.4% 전월실적 조건 및 적립한도는 없습니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "농협 판매장 NH Pay 0.4% 적립"
+      },
+      {
+        "id": "nh_1961_coupang_wow-1",
+        "ruleIds": [
+          "nh_1961_coupang_wow"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "혜택 대상 가맹점 조건 온라인쇼핑 유료멤버십 20% 적립 쿠팡 ‘와우 멤버십’ / 네이버 ‘멤버십플러스’ 월 멤버십 이용료 ※ 가맹점별 월 1회 디지털 영상컨텐츠 10% 적립 유튜브프리미엄 / 넷플릭스 / 웨이브 / 티빙 월 정기결제 이용료 배달앱 5% 적립 배달의민족 / 요기요 / 쿠팡잇츠 ※ 통합 일 1회",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "[라이프] 쿠팡 와우 멤버십 20% 적립"
+      },
+      {
+        "id": "nh_1961_coupang_wow-2",
+        "ruleIds": [
+          "nh_1961_coupang_wow"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "라이프 적립(추가 적립)은 전월실적 20만원이상 시 제공되며, 월 통합 한도는 3천 포인트입니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "[라이프] 쿠팡 와우 멤버십 20% 적립"
+      },
+      {
+        "id": "nh_1961_naver_plus-1",
+        "ruleIds": [
+          "nh_1961_naver_plus"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "혜택 대상 가맹점 조건 온라인쇼핑 유료멤버십 20% 적립 쿠팡 ‘와우 멤버십’ / 네이버 ‘멤버십플러스’ 월 멤버십 이용료 ※ 가맹점별 월 1회 디지털 영상컨텐츠 10% 적립 유튜브프리미엄 / 넷플릭스 / 웨이브 / 티빙 월 정기결제 이용료 배달앱 5% 적립 배달의민족 / 요기요 / 쿠팡잇츠 ※ 통합 일 1회",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "[라이프] 네이버 멤버십플러스 20% 적립"
+      },
+      {
+        "id": "nh_1961_naver_plus-2",
+        "ruleIds": [
+          "nh_1961_naver_plus"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "라이프 적립(추가 적립)은 전월실적 20만원이상 시 제공되며, 월 통합 한도는 3천 포인트입니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "[라이프] 네이버 멤버십플러스 20% 적립"
+      },
+      {
+        "id": "nh_1961_video-1",
+        "ruleIds": [
+          "nh_1961_video"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "혜택 대상 가맹점 조건 온라인쇼핑 유료멤버십 20% 적립 쿠팡 ‘와우 멤버십’ / 네이버 ‘멤버십플러스’ 월 멤버십 이용료 ※ 가맹점별 월 1회 디지털 영상컨텐츠 10% 적립 유튜브프리미엄 / 넷플릭스 / 웨이브 / 티빙 월 정기결제 이용료 배달앱 5% 적립 배달의민족 / 요기요 / 쿠팡잇츠 ※ 통합 일 1회",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "[라이프] 디지털 영상컨텐츠 10% 적립"
+      },
+      {
+        "id": "nh_1961_video-2",
+        "ruleIds": [
+          "nh_1961_video"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "라이프 적립(추가 적립)은 전월실적 20만원이상 시 제공되며, 월 통합 한도는 3천 포인트입니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "[라이프] 디지털 영상컨텐츠 10% 적립"
+      },
+      {
+        "id": "nh_1961_video-3",
+        "ruleIds": [
+          "nh_1961_video"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "디지털 영상컨텐츠는 대상 가맹점 공식 홈페이지/앱에서 본 카드로 이용권 정기결제 시 제공되며",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "[라이프] 디지털 영상컨텐츠 10% 적립"
+      },
+      {
+        "id": "nh_1961_delivery-1",
+        "ruleIds": [
+          "nh_1961_delivery"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "혜택 대상 가맹점 조건 온라인쇼핑 유료멤버십 20% 적립 쿠팡 ‘와우 멤버십’ / 네이버 ‘멤버십플러스’ 월 멤버십 이용료 ※ 가맹점별 월 1회 디지털 영상컨텐츠 10% 적립 유튜브프리미엄 / 넷플릭스 / 웨이브 / 티빙 월 정기결제 이용료 배달앱 5% 적립 배달의민족 / 요기요 / 쿠팡잇츠 ※ 통합 일 1회",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "[라이프] 배달앱 5% 적립"
+      },
+      {
+        "id": "nh_1961_delivery-2",
+        "ruleIds": [
+          "nh_1961_delivery"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "라이프 적립(추가 적립)은 전월실적 20만원이상 시 제공되며, 월 통합 한도는 3천 포인트입니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "[라이프] 배달앱 5% 적립"
+      },
+      {
+        "id": "nh_1961_lounge_info-1",
+        "ruleIds": [
+          "nh_1961_lounge_info"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "전월실적 50만원이상 시 제공되며, 연 1회 한도입니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "location": "국제공항 라운지 무료(정보)"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "quote": "전월실적 산정 및 적립서비스 제외 대상 : 대학(대학원)등록금, 교육비(학부모부담금), 임대료, 각종 세금 및 공과금, 상하수도요금, 과태료(범칙금), 우체국 우편요금, 사회보험(국민건강/국민연금/고용/ 산재), 아파트관리비, 도시가스요금, 전기요금, 상품권 및 선불카드류구매(충전 포함), 가상화폐 거래소 이용금액",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적·적립 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "lounge",
+        "ruleIds": [
+          "nh_1961_lounge_info"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+        "quote": "전월실적 50만원이상 시 제공되며, 연 1회 한도입니다.",
+        "reason": "공항라운지 이용은 현금 혜택이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_NON_CASH"
+      }
+    ]
+  }
+}

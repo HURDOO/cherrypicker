@@ -1,0 +1,108 @@
+{
+  "cards": [
+    {
+      "id": "nh_mureogi_check",
+      "name": "NH 무럭이 체크카드",
+      "company": "NH농협카드",
+      "color": "bg-emerald-500",
+      "issuerProductCode": "90010491",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "NH 무럭이 체크카드 상품 페이지",
+          "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "NH 무럭이 체크카드 상품설명서",
+          "sourceUrl": "https://card.nonghyup.com/file/ebank/product/info/F20531.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "nh_1961_check",
+      "name": "NH1961체크카드",
+      "company": "NH농협카드",
+      "color": "bg-emerald-500",
+      "issuerProductCode": "90010117",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "NH1961체크카드 상품 페이지",
+          "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010117",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "NH1961체크카드 상품설명서",
+          "sourceUrl": "https://card.nonghyup.com/file/ebank/product/info/F20085.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "nh_oleun_ieum_check",
+      "name": "올바른이음체크카드",
+      "company": "NH농협카드",
+      "color": "bg-emerald-500",
+      "issuerProductCode": "90010610",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "올바른이음체크카드 상품 페이지",
+          "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010610",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "올바른이음체크카드 상품설명서",
+          "sourceUrl": "https://card.nonghyup.com/file/ebank/product/info/F20618.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "nh_kungya_check",
+      "name": "쿵야싱싱체크카드",
+      "company": "NH농협카드",
+      "color": "bg-emerald-500",
+      "issuerProductCode": "90010545",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "쿵야싱싱체크카드 상품 페이지",
+          "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010545",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "쿵야싱싱체크카드 상품설명서",
+          "sourceUrl": "https://card.nonghyup.com/file/ebank/product/info/F20600.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

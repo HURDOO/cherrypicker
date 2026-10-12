@@ -1,0 +1,339 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "nh_mureogi_check",
+      "name": "NH 무럭이 체크카드",
+      "company": "NH농협카드",
+      "limitTable": [
+        {
+          "threshold": 200000,
+          "limit": 5000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "nh_mureogi_base",
+        "cardId": "nh_mureogi_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내·해외 전가맹점 0.2% NH포인트 적립",
+        "detail": "국내외 이용가맹점 0.2% 기본적립. 적립한도·전월실적 조건 없음.",
+        "condition": {
+          "stackableWithRuleIds": [
+            "nh_mureogi_smart_first",
+            "nh_mureogi_smart_second"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_mureogi_smart_first",
+        "cardId": "nh_mureogi_check",
+        "includedBrands": [
+          "elevenst",
+          "gmarket",
+          "auction",
+          "coupang",
+          "official_02f9ff5c7f4f578d",
+          "baemin",
+          "yogiyo",
+          "emart",
+          "homeplus",
+          "lotte_mart",
+          "hanaro_mart",
+          "oliveyoung",
+          "daiso",
+          "telecom",
+          "youtube",
+          "netflix",
+          "official_0362ad03bc8c5218",
+          "official_875845411b04a8c3",
+          "transport_public",
+          "taxi",
+          "starbucks",
+          "ediya",
+          "twosome",
+          "gs25",
+          "cu",
+          "seveneleven",
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[스마트 적립] 이용금액 1위 영역 0.4% 추가적립",
+        "detail": "6개 영역 중 이번 달 이용금액 1위 영역은 총 0.6% 적립. 추가적립은 전월 20만원 이상, 월 5천 NH포인트.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "requiredNote": "이번 달 이 결제처 영역의 이용금액이 6개 스마트 적립 영역 중 1위인지 확인해야 합니다.",
+          "stackableWithRuleIds": [
+            "nh_mureogi_base"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.4,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_mureogi_smart_second",
+        "cardId": "nh_mureogi_check",
+        "includedBrands": [
+          "elevenst",
+          "gmarket",
+          "auction",
+          "coupang",
+          "official_02f9ff5c7f4f578d",
+          "baemin",
+          "yogiyo",
+          "emart",
+          "homeplus",
+          "lotte_mart",
+          "hanaro_mart",
+          "oliveyoung",
+          "daiso",
+          "telecom",
+          "youtube",
+          "netflix",
+          "official_0362ad03bc8c5218",
+          "official_875845411b04a8c3",
+          "transport_public",
+          "taxi",
+          "starbucks",
+          "ediya",
+          "twosome",
+          "gs25",
+          "cu",
+          "seveneleven",
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[스마트 적립] 이용금액 2위 영역 0.2% 추가적립",
+        "detail": "6개 영역 중 이번 달 이용금액 2위 영역은 총 0.4% 적립. 추가적립은 전월 20만원 이상, 월 5천 NH포인트.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "requiredNote": "이번 달 이 결제처 영역의 이용금액이 6개 스마트 적립 영역 중 2위인지 확인해야 합니다.",
+          "stackableWithRuleIds": [
+            "nh_mureogi_base"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_mureogi_lounge_info",
+        "cardId": "nh_mureogi_check",
+        "category": "etc",
+        "includedBrands": [
+          "airport_lounge"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국제공항 라운지 무료(정보)",
+        "detail": "인천·김포·김해공항 스카이허브·마티나 라운지 연 1회, 전월실적 50만원 이상.",
+        "condition": {
+          "minPerformance": 500000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "올바른NEW HAVE체크카드와 같은 스마트 적립 구조다. 1·2위 영역은 앱이 판단할 수 없어 확인 조건으로 둔다."
+    ],
+    "evidence": [
+      {
+        "id": "nh_mureogi_base-1",
+        "ruleIds": [
+          "nh_mureogi_base"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "기본 적립 국내/외 이용가맹점 0.2% NH포인트 적립 적립한도 및 전월실적 조건이 없습니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+        "location": "국내·해외 전가맹점 0.2% NH포인트 적립"
+      },
+      {
+        "id": "nh_mureogi_smart_first-1",
+        "ruleIds": [
+          "nh_mureogi_smart_first"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "스마트 적립 아래 6개 영역 중 당월(1일~말일) 이용금액 1위/2위 영역은 기본적립의 3배/2배 자동적용 1위 영역 : 기본적립 0.2% + 추가적립 0.4% = 총 0.6% 적립 2위 영역 : 기본적립 0.2% + 추가적립 0.2% = 총 0.4% 적립 * 이외 영역 및 기타 이용금액은 기본적립만 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+        "location": "[스마트 적립] 이용금액 1위 영역 0.4% 추가적립"
+      },
+      {
+        "id": "nh_mureogi_smart_first-2",
+        "ruleIds": [
+          "nh_mureogi_smart_first"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "스마트적립 영역(6개) 적립 대상 ⓛ 온라인쇼핑/배달앱 11번가, G마켓, 옥션, 쿠팡, 농협몰 / 배달의민족, 요기요 * 배달앱 내 결제 건에 한함('만나서 카드결제' 제외) ② 오프라인쇼핑/잡화 이마트, 홈플러스, 롯데마트, 하나로마트 / 올리브영,다이소 * 대형마트/올리브영/다이소 오프라인 매장 내 직접 결제건에 한함 ③ 이동통신/구독 SKT, KT, LGU+ 자동납부 / 유튜브 프리미엄, 넷플릭스, 웨이브, 멜론 정기결제 * 알뜰폰 및 구독 관련 해외가맹점 결제건은 제외 ④ 대중교통/택시 지하철, 시내외버스 / 택시 * 대중교통은 실물카드 후불교통(RF) 결제건에 한하며, 고속버스는 제외 ⑤ 커피/편의점 스타벅스, 이디야, 투썸플레이스 / GS25, CU, 세븐일레븐 * 커피/편의점 오프라인 매장 내 직접 결제건에 한함 * 스타벅스는 사이렌오더 포함 ⑥ 해외 해외 전 가맹점(해외 온라인쇼핑 포함)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+        "location": "[스마트 적립] 이용금액 1위 영역 0.4% 추가적립"
+      },
+      {
+        "id": "nh_mureogi_smart_first-3",
+        "ruleIds": [
+          "nh_mureogi_smart_first"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "전월실적 월 적립한도 20만원 이상 5천 NH포인트 ※ 전월실적 조건 및 적립한도는 추가적립(스마트적립)에 대해서만 적용됩니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+        "location": "[스마트 적립] 이용금액 1위 영역 0.4% 추가적립"
+      },
+      {
+        "id": "nh_mureogi_smart_second-1",
+        "ruleIds": [
+          "nh_mureogi_smart_second"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "스마트 적립 아래 6개 영역 중 당월(1일~말일) 이용금액 1위/2위 영역은 기본적립의 3배/2배 자동적용 1위 영역 : 기본적립 0.2% + 추가적립 0.4% = 총 0.6% 적립 2위 영역 : 기본적립 0.2% + 추가적립 0.2% = 총 0.4% 적립 * 이외 영역 및 기타 이용금액은 기본적립만 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+        "location": "[스마트 적립] 이용금액 2위 영역 0.2% 추가적립"
+      },
+      {
+        "id": "nh_mureogi_smart_second-2",
+        "ruleIds": [
+          "nh_mureogi_smart_second"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "스마트적립 영역(6개) 적립 대상 ⓛ 온라인쇼핑/배달앱 11번가, G마켓, 옥션, 쿠팡, 농협몰 / 배달의민족, 요기요 * 배달앱 내 결제 건에 한함('만나서 카드결제' 제외) ② 오프라인쇼핑/잡화 이마트, 홈플러스, 롯데마트, 하나로마트 / 올리브영,다이소 * 대형마트/올리브영/다이소 오프라인 매장 내 직접 결제건에 한함 ③ 이동통신/구독 SKT, KT, LGU+ 자동납부 / 유튜브 프리미엄, 넷플릭스, 웨이브, 멜론 정기결제 * 알뜰폰 및 구독 관련 해외가맹점 결제건은 제외 ④ 대중교통/택시 지하철, 시내외버스 / 택시 * 대중교통은 실물카드 후불교통(RF) 결제건에 한하며, 고속버스는 제외 ⑤ 커피/편의점 스타벅스, 이디야, 투썸플레이스 / GS25, CU, 세븐일레븐 * 커피/편의점 오프라인 매장 내 직접 결제건에 한함 * 스타벅스는 사이렌오더 포함 ⑥ 해외 해외 전 가맹점(해외 온라인쇼핑 포함)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+        "location": "[스마트 적립] 이용금액 2위 영역 0.2% 추가적립"
+      },
+      {
+        "id": "nh_mureogi_smart_second-3",
+        "ruleIds": [
+          "nh_mureogi_smart_second"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "전월실적 월 적립한도 20만원 이상 5천 NH포인트 ※ 전월실적 조건 및 적립한도는 추가적립(스마트적립)에 대해서만 적용됩니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+        "location": "[스마트 적립] 이용금액 2위 영역 0.2% 추가적립"
+      },
+      {
+        "id": "nh_mureogi_lounge_info-1",
+        "ruleIds": [
+          "nh_mureogi_lounge_info"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "제공 횟수 연 1회 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+        "location": "국제공항 라운지 무료(정보)"
+      },
+      {
+        "id": "nh_mureogi_lounge_info-2",
+        "ruleIds": [
+          "nh_mureogi_lounge_info"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "전월실적 50만원 이상 시 제공됩니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+        "location": "국제공항 라운지 무료(정보)"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "nh_mureogi_smart_first",
+          "nh_mureogi_smart_second"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "특정한 제한조건이 없는 경우 카드사용등록일로부터 다음달 말일까지는 전월실적 미달 시에도 서비스를 제공합니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+        "location": "서비스 이용조건"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+        "quote": "※ 전월실적 산정 및 적립제외항목은 아래와 같습니다. 대학(대학원)등록금, 교육비(학부모부담금), 임대료, 각종 세금 및 공과금, 상하수도요금, 과태료(범칙금), 우체국 우편요금, 사회보험(국민건강/국민연금/고용/산재), 아파트관리비, 도시가스요금, 전기요금, 선불카드류(기프트카드, 선불전자지급수단 등) 구매 및 충전, 상품권 구매(모바일상품권/쿠폰 포함), 가상화폐 거래소 이용금액",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적·적립 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "hosted-stores",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+        "quote": "잡화/커피/편의점의 경우 역사, 백화점 및 할인점(아울렛) 입점매장 결제건은 이용금액 산정 및 적립 대상에서 제외됩니다.",
+        "reason": "입점 매장 적립 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      },
+      {
+        "id": "lounge",
+        "ruleIds": [
+          "nh_mureogi_lounge_info"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010491",
+        "quote": "제공 횟수 연 1회 제공",
+        "reason": "공항라운지 이용은 현금 혜택이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_NON_CASH"
+      }
+    ]
+  }
+}

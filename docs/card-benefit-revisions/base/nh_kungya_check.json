@@ -1,0 +1,249 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "nh_kungya_check",
+      "name": "쿵야싱싱체크카드",
+      "company": "NH농협카드",
+      "limitTable": [
+        {
+          "threshold": 300000,
+          "limit": 10000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "nh_kungya_base",
+        "cardId": "nh_kungya_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내·해외 가맹점 0.2% NH포인트 적립",
+        "detail": "국내/외 가맹점 0.2% 적립, 전월실적·한도 없음. 전통시장·생활영역은 기본적립 대신 해당 적립이 제공됩니다.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 0.2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_kungya_market",
+        "cardId": "nh_kungya_check",
+        "category": "life",
+        "includedBrands": [
+          "official_fa3ce186456670b7"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "전통시장 15% NH포인트 적립",
+        "detail": "국세청 기준 전통시장 등록 가맹점 15% 적립. 생활영역과 합쳐 월 1만포인트, 전월 30만원 이상.",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 15,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_kungya_life_store",
+        "cardId": "nh_kungya_check",
+        "includedBrands": [
+          "gs25",
+          "cu",
+          "oliveyoung",
+          "daiso"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": true,
+        "description": "[생활영역] 편의점·올리브영·다이소 0.3% 적립",
+        "detail": "GS25, CU, 올리브영, 다이소 오프라인 매장 직접 결제 0.3% 적립. 월 1만포인트(전통시장 합산).",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_kungya_life",
+        "cardId": "nh_kungya_check",
+        "includedBrands": [
+          "hanaro_mart",
+          "official_02f9ff5c7f4f578d",
+          "cgv",
+          "starbucks",
+          "paris_baguette",
+          "overseas_payment",
+          "official_5dc9340cf4657d5a",
+          "official_eb61ca0600217f7f",
+          "official_2f7252a65f7a09e5",
+          "official_37014fd31e7bc4d6"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[생활영역] 하나로마트·CGV·스타벅스·파리바게뜨·해외 0.3% 적립",
+        "detail": "하나로마트/클럽·농협몰, CGV 관람권(매점 제외), 스타벅스(사이렌오더 포함)·파리바게뜨, 해외일시불·면세점 0.3% 적립. 월 1만포인트(전통시장 합산).",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "전통시장·생활영역 이용금액에는 기본적립이 없어 결제처마다 큰 적립 하나만 계산된다.",
+      "전월실적 산정 제외에 후불교통·택시 이용금액이 포함되어 실제 실적이 예상보다 낮을 수 있다."
+    ],
+    "evidence": [
+      {
+        "id": "nh_kungya_base-1",
+        "ruleIds": [
+          "nh_kungya_base"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "혜택 적립률 국내/외 가맹점 0.2% 전월실적 및 적립한도 없습니다",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010545",
+        "location": "국내·해외 가맹점 0.2% NH포인트 적립"
+      },
+      {
+        "id": "nh_kungya_market-1",
+        "ruleIds": [
+          "nh_kungya_market"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "혜택 적립률 국세청기준 전통시장 등록 가맹점 15%",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010545",
+        "location": "전통시장 15% NH포인트 적립"
+      },
+      {
+        "id": "nh_kungya_market-2",
+        "ruleIds": [
+          "nh_kungya_market"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[전통시장 및 생활영역 공통유의사항] 전통시장 및 생활영역 적립한도는 월 1만포인트 입니다. 전월실적 30만원 이상 시 제공됩니다. - 단, 최초 카드사용등록일로부터 다음달 말일까지는 전월실적 미달 시에도 서비스가 제공되며, 이후부터는 전월실적 조건 달성 시 제공됩니다. 전통시장 및 생활영역 이용 금액은 기본적립(0.2%)이 제공되지 않습니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010545",
+        "location": "전통시장 15% NH포인트 적립"
+      },
+      {
+        "id": "nh_kungya_life_store-1",
+        "ruleIds": [
+          "nh_kungya_life_store"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "구분 적립률 쇼핑 하나로마트/클럽, 농협몰 0.3% 편의점/잡화 GS25, CU, 올리브영, 다이소 * 오프라인 매장 내 직접 결제건에 한함 영화 CGV * 영화관람권에 한함(매점 제외) 커피, 제과 스타벅스(사이렌오더 포함), 파리바게뜨 해외 해외일시불, 면세점",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010545",
+        "location": "[생활영역] 편의점·올리브영·다이소 0.3% 적립"
+      },
+      {
+        "id": "nh_kungya_life_store-2",
+        "ruleIds": [
+          "nh_kungya_life_store"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[전통시장 및 생활영역 공통유의사항] 전통시장 및 생활영역 적립한도는 월 1만포인트 입니다. 전월실적 30만원 이상 시 제공됩니다. - 단, 최초 카드사용등록일로부터 다음달 말일까지는 전월실적 미달 시에도 서비스가 제공되며, 이후부터는 전월실적 조건 달성 시 제공됩니다. 전통시장 및 생활영역 이용 금액은 기본적립(0.2%)이 제공되지 않습니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010545",
+        "location": "[생활영역] 편의점·올리브영·다이소 0.3% 적립"
+      },
+      {
+        "id": "nh_kungya_life-1",
+        "ruleIds": [
+          "nh_kungya_life"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "구분 적립률 쇼핑 하나로마트/클럽, 농협몰 0.3% 편의점/잡화 GS25, CU, 올리브영, 다이소 * 오프라인 매장 내 직접 결제건에 한함 영화 CGV * 영화관람권에 한함(매점 제외) 커피, 제과 스타벅스(사이렌오더 포함), 파리바게뜨 해외 해외일시불, 면세점",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010545",
+        "location": "[생활영역] 하나로마트·CGV·스타벅스·파리바게뜨·해외 0.3% 적립"
+      },
+      {
+        "id": "nh_kungya_life-2",
+        "ruleIds": [
+          "nh_kungya_life"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[전통시장 및 생활영역 공통유의사항] 전통시장 및 생활영역 적립한도는 월 1만포인트 입니다. 전월실적 30만원 이상 시 제공됩니다. - 단, 최초 카드사용등록일로부터 다음달 말일까지는 전월실적 미달 시에도 서비스가 제공되며, 이후부터는 전월실적 조건 달성 시 제공됩니다. 전통시장 및 생활영역 이용 금액은 기본적립(0.2%)이 제공되지 않습니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010545",
+        "location": "[생활영역] 하나로마트·CGV·스타벅스·파리바게뜨·해외 0.3% 적립"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010545",
+        "quote": "※ 전월실적 산정 및 적립혜택 시 제외항목 대학(대학원)등록금, 교육비(학부모부담금), 임대료, 각종 세금 및 공과금, 상하수도요금, 과태료(범칙금), 우체국 우편요금, 사회보험(국민건강/국민연금/고용/산재), 아파트관리비, 도시가스요금, 전기요금, 선불카드류(기프트카드, 선불전자지급수단 등) 구매 및 충전, 상품권 구매(모바일상품권/쿠폰 포함), 후불교통카드 (버스/지하철) 및 택시 이용금액",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적·적립 제외(후불교통·택시 포함)",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "gift-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010545",
+        "quote": "상품권, 선물하기, 선불카드 구입/충전 등은 서비스가 제외되며, 백화점 및 마트 입점 매장은 서비스가 제외될 수 있음",
+        "reason": "상품권·선물하기·선불카드는 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ],
+    "proposedBrands": [
+      {
+        "id": "official_fa3ce186456670b7",
+        "name": "전통시장",
+        "categoryId": "life",
+        "aliases": [
+          "전통시장 가맹점",
+          "재래시장"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90010545",
+        "quote": "국세청기준 전통시장 등록 가맹점 15%"
+      }
+    ]
+  }
+}
