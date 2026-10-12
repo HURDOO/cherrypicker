@@ -252,10 +252,11 @@ const validateCondition = (value: unknown, label: string, errors: string[]) => {
     )) {
         errors.push(`${label} daysOfWeek 값이 올바르지 않습니다.`);
     }
+    // Up to five days in each of 12 months, e.g. "매월 1/11/21/31일" for every month.
     (['annualDates', 'excludedAnnualDates'] as const).forEach(field => {
         const dates = value[field];
         if (dates !== undefined && (
-            !Array.isArray(dates) || dates.length === 0 || dates.length > 31 ||
+            !Array.isArray(dates) || dates.length === 0 || dates.length > 60 ||
             dates.some(date => typeof date !== 'string' || !isAnnualMonthDay(date))
         )) {
             errors.push(`${label} ${field} 값은 MM-DD 날짜 목록이어야 합니다.`);
@@ -557,12 +558,14 @@ const validateRuleSemanticEvidence = (
                 ruleRow.action.value) >= 0.0001) {
             errors.push(`할인율 ${ruleRow.action.value}%의 공식 숫자 근거가 없습니다: ${label}`);
         }
-        // "건당 이용금액 2만원 이상 시 최대 2,500원 할인" states a per-purchase cap after its minimum.
-        const minimumThenCap = [...normalizeText(actionEvidence).matchAll(new RegExp(
+        // "건당 이용금액 2만원 이상 시 최대 2,500원 할인" and "1회 최대 할인금액 7,000원" state a
+        // per-purchase cap; the quoted amount must be the modeled one.
+        const minimumThenCap = [
             `건당\\s*(?:이용\\s*금액|결제\\s*금액)?\\s*${moneyTokenSource}\\s*이상\\s*` +
-            `(?:결제|이용)?\\s*시\\s*최대\\s*(${moneyTokenSource})`,
-            'gi',
-        ))].some(match => parseKoreanMoney(match[1]) === ruleRow.action.maxDiscount);
+                `(?:결제|이용)?\\s*시\\s*최대\\s*(${moneyTokenSource})`,
+            `1\\s*회\\s*최대\\s*할인\\s*금액\\s*(${moneyTokenSource})`,
+        ].some(source => [...normalizeText(actionEvidence).matchAll(new RegExp(source, 'gi'))]
+            .some(match => parseKoreanMoney(match[1]) === ruleRow.action.maxDiscount));
         if (ruleRow.action.maxDiscount !== undefined && !minimumThenCap &&
             !new RegExp(
                 `(?:결제\\s*)?(?:건당|1\\s*회(?:\\s*당)?)\\s*` +

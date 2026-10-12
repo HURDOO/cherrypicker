@@ -1,0 +1,473 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "kb_star_check",
+      "name": "KB국민 스타체크카드",
+      "company": "KB국민카드",
+      "limitTable": [
+        {
+          "threshold": 1000000,
+          "limit": 50000
+        },
+        {
+          "threshold": 500000,
+          "limit": 20000
+        },
+        {
+          "threshold": 300000,
+          "limit": 10000
+        },
+        {
+          "threshold": 200000,
+          "limit": 5000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "kb_star_fuel_info",
+        "cardId": "kb_star_check",
+        "category": "transport",
+        "includedBrands": [
+          "gas_station"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "GS칼텍스 리터당 50~60원 환급할인(정보)",
+        "detail": "GS칼텍스 리터당 주중 50원·주말 60원, 건당 10만원·월 30만원 이용금액까지. LPG 제외. 유가에 따라 달라져 금액을 자동 계산하지 않습니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kb_star_everland",
+        "cardId": "kb_star_check",
+        "category": "movie",
+        "includedBrands": [
+          "everland"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": true,
+        "description": "에버랜드 50% 환급할인",
+        "detail": "에버랜드 현장 티켓 구매 건당 3만원 이상 50% 할인(건당 5만원까지, 1회 최대 25,000원). 인터넷 예매는 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 30000,
+          "manualCheckRequired": true,
+          "requiredNote": "현장에서 티켓을 구매하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 50,
+          "maxDiscount": 25000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kb_star_dining",
+        "cardId": "kb_star_check",
+        "category": "food",
+        "includedBrands": [
+          "outback",
+          "vips"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "아웃백·VIPS 10% 환급할인",
+        "detail": "아웃백, VIPS 건당 3만원 이상 10% 할인(건당 10만원까지, 1회 최대 10,000원). 상품권과 백화점·대형할인점 입점 점포는 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 30000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "maxDiscount": 10000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kb_star_cgv",
+        "cardId": "kb_star_check",
+        "category": "movie",
+        "includedBrands": [
+          "cgv"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "CGV 3,000원 환급할인",
+        "detail": "CGV 현장·웹사이트·앱에서 건당 7천원 이상 영화티켓 구매 시 3,000원, 월 2회·연 12회. 상품권과 매점은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 7000,
+          "manualCheckRequired": true,
+          "requiredNote": "매점·상품권이 아닌 영화 티켓 결제인지 확인해야 합니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 3000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 2,
+          "yearlyCount": 12
+        }
+      },
+      {
+        "id": "kb_star_transit_info",
+        "cardId": "kb_star_check",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public",
+          "intercity_bus"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "대중교통 5% 할인(정보)",
+        "detail": "후불교통(시내버스·지하철)과 고속·시외버스 5% 할인, 월 이용금액 2만원까지. 전월 이용실적 30만원 이상. 월 이용금액 상한을 계산할 수 없어 금액을 자동 계산하지 않습니다.",
+        "condition": {
+          "minPerformance": 300000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kb_star_telecom",
+        "cardId": "kb_star_check",
+        "category": "transport",
+        "includedBrands": [
+          "telecom"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "이동통신요금 2,500원 환급할인",
+        "detail": "SKT, KT, LG U+ 자동이체 건당 5만원 이상 시 2,500원, 월 1회. 유무선 통합 청구금액은 제외됩니다.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 50000,
+          "manualCheckRequired": true,
+          "requiredNote": "SKT·KT·LG U+ 이동통신요금을 이 카드로 자동이체하는지(유무선 통합 청구 제외) 확인해야 합니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2500,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1
+        }
+      },
+      {
+        "id": "kb_star_kyobo",
+        "cardId": "kb_star_check",
+        "category": "shopping",
+        "includedBrands": [
+          "kyobo",
+          "official_933878a563e25745"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "교보문고 3% 환급할인",
+        "detail": "교보문고 현장·홈페이지·앱 건당 2만원 이상 3% 할인(건당 5만원까지, 1회 최대 1,500원). 핫트랙스 제외.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 20000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 3,
+          "maxDiscount": 1500,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kb_star_oliveyoung",
+        "cardId": "kb_star_check",
+        "category": "life",
+        "includedBrands": [
+          "oliveyoung"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "올리브영 5% 환급할인",
+        "detail": "올리브영 건당 3만원 이상 5% 할인(건당 5만원까지, 1회 최대 2,500원). 상품권·선불카드와 입점 점포는 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 30000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 2500,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kb_star_openmarket",
+        "cardId": "kb_star_check",
+        "category": "shopping",
+        "includedBrands": [
+          "gmarket",
+          "auction"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "G마켓·옥션 3% 환급할인",
+        "detail": "G마켓, 옥션 건당 3만원 이상 3% 할인(건당 10만원까지, 1회 최대 3,000원). 제휴사이트 링크·PG 결제로 가맹점 확인이 안 되면 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 30000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 3,
+          "maxDiscount": 3000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "대중교통 5%는 월 이용금액 2만원까지라 금액 한도를 원문 숫자로 확정할 수 없어 정보로만 둔다."
+    ],
+    "evidence": [
+      {
+        "id": "kb_star_fuel_info-1",
+        "ruleIds": [
+          "kb_star_fuel_info"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "주유 GS칼텍스 리터당 주중 50원 , 주말 60원 환급할인 건당 이용금액 10만원까지 할인(월 이용금액 30만원까지 할인)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "location": "GS칼텍스 리터당 50~60원 환급할인(정보)"
+      },
+      {
+        "id": "kb_star_everland-1",
+        "ruleIds": [
+          "kb_star_everland"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "놀이공원 에버랜드 50% 환급할인 이용금액 건당 3만원~5만원까지 할인 적용(1회 최대 할인금액 25,000원) 제공조건 : 현장 티켓 구매 할인제외 : 인터넷 예매",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "location": "에버랜드 50% 환급할인"
+      },
+      {
+        "id": "kb_star_dining-1",
+        "ruleIds": [
+          "kb_star_dining"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "외식 아웃백·VIPS 10% 환급할인 이용금액 건당 3만원~10만원까지 할인 적용(1회 최대 할인금액 10,000원) 할인제외 : 상품권 구매 / 백화점·대형할인점 입점 점포",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "location": "아웃백·VIPS 10% 환급할인"
+      },
+      {
+        "id": "kb_star_cgv-1",
+        "ruleIds": [
+          "kb_star_cgv"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "영화 CGV 3,000원 환급할인 건당 7천원 이상 영화티켓 구매 시 할인 [월 2회 / 연 12회] 제공조건 : 현장 구매 및 CGV 웹사이트( www.cgv.co.kr )·CGV 앱 결제 할인제외 : 상품권 구매 / 매점 이용금액",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "location": "CGV 3,000원 환급할인"
+      },
+      {
+        "id": "kb_star_transit_info-1",
+        "ruleIds": [
+          "kb_star_transit_info"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "대중교통 버스·지하철 5% 청구/환급할인 월 이용금액 2만원까지 할인",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "location": "대중교통 5% 할인(정보)"
+      },
+      {
+        "id": "kb_star_transit_info-2",
+        "ruleIds": [
+          "kb_star_transit_info"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "고속/시외버스 5% 환급할인 KB국민카드 가맹점 업종 분류기준에 따라 할인 제공됩니다. 실적 조건: 전월 이용실적 30만원 이상",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "location": "대중교통 5% 할인(정보)"
+      },
+      {
+        "id": "kb_star_telecom-1",
+        "ruleIds": [
+          "kb_star_telecom"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "통신 이동통신요금 2,500원 환급할인 자동이체금액 건당 5만원 이상 시 할인 [월 1회] 제공조건 : 해당 카드로 3대 이동통신사(SKT, KT, LG U+) 자동이체 등록 할인 제외 : 유무선 통신요금 통합 청구금액 실적조건 : 전월 이용실적 30만원 이상",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "location": "이동통신요금 2,500원 환급할인"
+      },
+      {
+        "id": "kb_star_kyobo-1",
+        "ruleIds": [
+          "kb_star_kyobo"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "서점 교보문고 3% 환급할인 이용금액 건당 2만원~5만원까지 할인 적용(1회 최대 할인금액 1,500원) 제공조건 : 현장구매 및 교보문고 홈페이지( www.kyobobook.co.kr )·교보문고 앱 결제 할인 제외 : 핫트랙스 이용금액",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "location": "교보문고 3% 환급할인"
+      },
+      {
+        "id": "kb_star_oliveyoung-1",
+        "ruleIds": [
+          "kb_star_oliveyoung"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "뷰티·건강 올리브영 5% 환급할인 이용금액 건당 3만원~5만원까지 할인 적용(1회 최대 할인금액 2,500원) 할인제외 : 상품권 구매 및 선불카드 구입·충전금액 / 백화점·대형할인점 입점 점포",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "location": "올리브영 5% 환급할인"
+      },
+      {
+        "id": "kb_star_openmarket-1",
+        "ruleIds": [
+          "kb_star_openmarket"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "온라인쇼핑 G마켓·옥션 3% 환급할인 이용금액 건당 3만원~10만원까지 할인 적용(1회 최대 할인금액 3,000원)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "location": "G마켓·옥션 3% 환급할인"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "kb_star_fuel_info",
+          "kb_star_everland",
+          "kb_star_dining",
+          "kb_star_cgv",
+          "kb_star_transit_info",
+          "kb_star_telecom",
+          "kb_star_kyobo",
+          "kb_star_oliveyoung",
+          "kb_star_openmarket"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "통합할인한도 전월 이용실적 20만원 이상 30만원 이상 50만원 이상 100만원 이상 월간 통합할인한도 5천원 1만원 2만원 5만원 스타체크카드 서비스는 전월 이용실적 20만원 이상 시 제공됩니다. (단, '대중교통/통신' 할인은 전월 이용실적 30만원 이상 시 제공 됩니다.)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "location": "통합할인한도"
+      },
+      {
+        "id": "shared-2",
+        "ruleIds": [
+          "kb_star_fuel_info",
+          "kb_star_everland",
+          "kb_star_dining",
+          "kb_star_cgv",
+          "kb_star_kyobo",
+          "kb_star_oliveyoung",
+          "kb_star_openmarket"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "스타체크카드 및 스타체크 동일계열카드의 최초 발급 후 사용등록일로부터 30일까지는 전월 이용실적이 없는 경우에도 월간 통합할인한도 5천원 이내에서 할인 적용됩니다. (대중교통 할인, 통신요금 할인 서비스 제외)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "location": "신규 발급 30일"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "quote": "이용실적 제외 대상 후불교통이용금액, 해외이용금액, 무승인금액(자판기, 터널통행료, 기차/고속버스 취소 반환 수수료 등), 정부지원금 이용금액, 취소금액",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "fuel-rate",
+        "ruleIds": [
+          "kb_star_fuel_info"
+        ],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01552",
+        "quote": "주유 GS칼텍스 리터당 주중 50원 , 주말 60원 환급할인",
+        "reason": "리터당 할인은 유가와 주유량에 따라 달라짐",
+        "affectsValue": true,
+        "patternId": "INFO_EXTERNAL_RATE"
+      }
+    ]
+  }
+}

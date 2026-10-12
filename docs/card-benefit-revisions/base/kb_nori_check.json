@@ -1,0 +1,482 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "kb_nori_check",
+      "name": "KB국민 노리체크카드",
+      "company": "KB국민카드",
+      "limitTable": [
+        {
+          "threshold": 1000000,
+          "limit": 50000
+        },
+        {
+          "threshold": 500000,
+          "limit": 30000
+        },
+        {
+          "threshold": 300000,
+          "limit": 20000
+        },
+        {
+          "threshold": 200000,
+          "limit": 10000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "kb_nori_cgv",
+        "cardId": "kb_nori_check",
+        "category": "movie",
+        "includedBrands": [
+          "cgv"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "CGV 35% 환급할인",
+        "detail": "CGV 현장구매·홈페이지·앱 결제 건당 1만원 이상 35% 할인(건당 2만원까지, 1회 최대 7,000원). 상품권 구매와 매점은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000,
+          "manualCheckRequired": true,
+          "requiredNote": "매점·상품권이 아닌 영화 관람 결제인지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 35,
+          "maxDiscount": 7000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kb_nori_dining",
+        "cardId": "kb_nori_check",
+        "category": "food",
+        "includedBrands": [
+          "outback",
+          "vips"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "아웃백·VIPS 20% 환급할인",
+        "detail": "아웃백, VIPS 건당 3만원 이상 20% 할인(건당 5만원까지, 1회 최대 10,000원). 백화점·대형할인점 입점 점포는 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 30000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 20,
+          "maxDiscount": 10000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kb_nori_starbucks",
+        "cardId": "kb_nori_check",
+        "category": "cafe",
+        "includedBrands": [
+          "starbucks"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "스타벅스 20% 환급할인",
+        "detail": "스타벅스 건당 1만원 이상 20% 할인(건당 2만원까지, 1회 최대 4,000원).",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 20,
+          "maxDiscount": 4000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kb_nori_amusement",
+        "cardId": "kb_nori_check",
+        "category": "movie",
+        "includedBrands": [
+          "everland",
+          "lotte_world"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": true,
+        "description": "에버랜드·롯데월드 50% 환급할인",
+        "detail": "에버랜드, 롯데월드 현장 티켓 구매 건당 3만원 이상 50% 할인(건당 5만원까지, 1회 최대 25,000원).",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 30000,
+          "manualCheckRequired": true,
+          "requiredNote": "현장에서 티켓을 구매하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 50,
+          "maxDiscount": 25000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kb_nori_gs25",
+        "cardId": "kb_nori_check",
+        "category": "convenience",
+        "includedBrands": [
+          "gs25"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "GS25 5% 환급할인",
+        "detail": "GS25 건당 1만원 이상 5% 할인(건당 2만원까지, 1회 최대 1,000원).",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kb_nori_kyobo",
+        "cardId": "kb_nori_check",
+        "category": "shopping",
+        "includedBrands": [
+          "kyobo",
+          "official_933878a563e25745"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "교보문고 5% 환급할인",
+        "detail": "교보문고 현장·홈페이지·앱 결제 건당 2만원 이상 5% 할인(건당 5만원까지, 1회 최대 2,500원). 핫트랙스는 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 20000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 2500,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kb_nori_transit",
+        "cardId": "kb_nori_check",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "대중교통 10% 할인",
+        "detail": "후불교통(시내버스·지하철) 10% 할인, 교통이용금액 월 2만원까지(최대 2,000원). 전월 이용실적 30만원 이상.",
+        "condition": {
+          "minPerformance": 300000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_nori_telecom",
+        "cardId": "kb_nori_check",
+        "category": "transport",
+        "includedBrands": [
+          "telecom"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "이동통신요금 2,500원 환급할인",
+        "detail": "SKT, KT, LGU+ 이동통신요금 자동이체 건당 5만원 이상 시 2,500원, 월 1회. 유무선 통합청구 자동이체는 제외됩니다.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 50000,
+          "manualCheckRequired": true,
+          "requiredNote": "SKT·KT·LGU+ 이동통신요금을 이 카드로 자동이체하는지(유무선 통합청구 제외) 확인해야 합니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2500,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1,
+          "monthlyAmount": 2500
+        }
+      },
+      {
+        "id": "kb_nori_banking_fee_info",
+        "cardId": "kb_nori_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "금융수수료 면제(정보)",
+        "detail": "최근 1개월 이용실적 70만원 이상이면 KB국민은행 타행이체·자동화기기 수수료를 면제합니다.",
+        "condition": {},
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "할인 대상 금액 상한(예: 건당 2만원까지)은 1회 최대 할인금액으로 계산한다.",
+      "고속·시외버스 환급할인은 할인율·한도가 원문에 없어 규칙으로 만들지 않는다."
+    ],
+    "evidence": [
+      {
+        "id": "kb_nori_cgv-1",
+        "ruleIds": [
+          "kb_nori_cgv"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "영화 CGV 35% 환급할인 이용금액 건당 1만원~2만원까지 할인 적용(1회 최대 할인금액 7,000원) 제공조건 : 현장구매 및 CGV 홈페이지( www.cgv.co.kr )·CGV 앱 결제 할인제외 : 상품권 구매 / 매점 이용금액",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "location": "CGV 35% 환급할인"
+      },
+      {
+        "id": "kb_nori_dining-1",
+        "ruleIds": [
+          "kb_nori_dining"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "외식 아웃백, VIPS 20% 환급할인 이용금액 건당 3만원~5만원까지 할인 적용(1회 최대 할인금액 10,000원) 할인제외 : 상품권 구매 / 백화점·대형할인점 입점 점포",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "location": "아웃백·VIPS 20% 환급할인"
+      },
+      {
+        "id": "kb_nori_starbucks-1",
+        "ruleIds": [
+          "kb_nori_starbucks"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "커피 스타벅스 20% 환급할인 이용금액 건당 1만원~2만원까지 할인 적용(1회 최대 할인금액 4,000원) 할인제외 : 상품권 구매 및 선불카드 구입·충전금액",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "location": "스타벅스 20% 환급할인"
+      },
+      {
+        "id": "kb_nori_amusement-1",
+        "ruleIds": [
+          "kb_nori_amusement"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "놀이공원 에버랜드·롯데월드 50% 환급할인 이용금액 건당 3만원~5만원까지 할인 적용(1회 최대 할인금액 25,000원) 제공조건 : 현장 티켓 구매",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "location": "에버랜드·롯데월드 50% 환급할인"
+      },
+      {
+        "id": "kb_nori_gs25-1",
+        "ruleIds": [
+          "kb_nori_gs25"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "편의점 GS25 5% 환급할인 이용금액 건당 1만원~2만원까지 할인 적용(1회 최대 할인금액 1,000원)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "location": "GS25 5% 환급할인"
+      },
+      {
+        "id": "kb_nori_kyobo-1",
+        "ruleIds": [
+          "kb_nori_kyobo"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "서점 교보문고 5% 환급할인 이용금액 건당 2만원~5만원까지 할인 적용(1회 최대 할인금액 2,500원) 제공조건 : 현장구매 및 교보문고 홈페이지( www.kyobobook.co.kr )·교보문고 앱 결제 할인 제외 : 핫트랙스 이용금액",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "location": "교보문고 5% 환급할인"
+      },
+      {
+        "id": "kb_nori_transit-1",
+        "ruleIds": [
+          "kb_nori_transit"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "대중교통 대중교통 10% 할인 교통이용금액 월 2만원까지 할인 적용 (최대 할인액 2,000원) 후불교통(시내버스, 지하철) 10% 청구할인",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "location": "대중교통 10% 할인"
+      },
+      {
+        "id": "kb_nori_telecom-1",
+        "ruleIds": [
+          "kb_nori_telecom"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "통신 이동통신요금 2,500원 환급할인 건당 5만원 이상 이용 시 2,500원 정액할인 해당카드로 자동이체 등록 시 할인 적용 전월 이용실적 30만원 이상 시 할인 적용 유무선 통신요금 통합청구금액 자동이체는 할인 제외 SKT, KT Olleh, LGU+에 한하여 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "location": "이동통신요금 2,500원 환급할인"
+      },
+      {
+        "id": "kb_nori_telecom-2",
+        "ruleIds": [
+          "kb_nori_telecom"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "이동통신요금 자동이체 2,500원 이용금액 건당 5만원 이상 시 할인(월 1회)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "location": "이동통신요금 2,500원 환급할인"
+      },
+      {
+        "id": "kb_nori_banking_fee_info-1",
+        "ruleIds": [
+          "kb_nori_banking_fee_info"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "금융 금융수수료 면제 서비스 인터넷·모바일·폰뱅킹 타행이체 수수료 면제(KB국민은행 계좌에서 타행계좌로 이체 시)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "location": "금융수수료 면제(정보)"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "kb_nori_cgv",
+          "kb_nori_dining",
+          "kb_nori_starbucks",
+          "kb_nori_amusement",
+          "kb_nori_gs25",
+          "kb_nori_kyobo",
+          "kb_nori_transit",
+          "kb_nori_telecom"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "통합할인한도 통합할인한도 전월 이용실적 20만원 이상 30만원 이상 50만원 이상 100만원 이상 월간 통합할인한도 1만원 2만원 3만원 5만원 할인한도 적용기간 : 매월 1일~말일 노리체크카드 서비스는 전월 이용실적 20만원 이상 시 제공됩니다. (단, '대중교통/통신 ' 30만원 이상 시 제공되며, 금융수수료 면제 서비스는 별도 기준에 따라 적용됩니다.)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "location": "통합할인한도"
+      },
+      {
+        "id": "shared-2",
+        "ruleIds": [
+          "kb_nori_cgv",
+          "kb_nori_dining",
+          "kb_nori_starbucks",
+          "kb_nori_amusement",
+          "kb_nori_gs25",
+          "kb_nori_kyobo"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "노리체크카드 및 노리체크 동일계열카드의 최초 발급 후 사용등록일로부터 60일까지는 전월 이용실적이 없는 경우에도 월간 통합할인한도 1만원 이내에서 할인 적용됩니다. (대중교통 할인, 통신요금 할인 및 금융수수료면제서비스 제외)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "location": "신규 발급 60일"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "hosted-stores",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "quote": "호텔, 백화점, 대형마트, 철도역사 등에 입점한 가맹점이나 상품권 구매시 할인 대상에서 제외됩니다.",
+        "reason": "카드 공통 입점 매장 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      },
+      {
+        "id": "gift-card-excluded",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "quote": "상품권 및 선불카드(선불전자지급수단 포함) 구입/충전 금액의 경우 할인에서 제외될 수 있습니다.",
+        "reason": "상품권·선불카드 구입·충전 할인 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "banking-fee",
+        "ruleIds": [
+          "kb_nori_banking_fee_info"
+        ],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "quote": "금융 금융수수료 면제 서비스 인터넷·모바일·폰뱅킹 타행이체 수수료 면제(KB국민은행 계좌에서 타행계좌로 이체 시)",
+        "reason": "은행 수수료 면제는 결제 할인이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_FINANCIAL_PRODUCT"
+      },
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=01664",
+        "quote": "이용실적 제외 대상 후불 교통이용금액, 해외이용금액, 무승인금액(자판기, 터널통행료, 기차/고속버스 취소 반환 수수료 등), 정부지원금 이용금액, 취소금액",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ]
+  }
+}

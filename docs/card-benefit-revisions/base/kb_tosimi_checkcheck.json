@@ -1,0 +1,1088 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "kb_tosimi_checkcheck",
+      "name": "KB국민 토심이 첵첵 체크카드",
+      "company": "KB국민카드",
+      "limitTable": [
+        {
+          "threshold": 600000,
+          "limit": 20000
+        },
+        {
+          "threshold": 300000,
+          "limit": 10000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "kb_checkcheck_transit_tier1",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public",
+          "intercity_bus"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[대중교통] 건당 1,000원 할인(1구간)",
+        "detail": "후불교통(시내버스·지하철) 청구할인, 고속·시외버스 환급할인. 이용금액 3만원 이상 시. 전월 30만~60만원 이용 시 건당 1,000원, 영역별 월 2,000원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 30000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_transit"
+      },
+      {
+        "id": "kb_checkcheck_transit_tier2",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public",
+          "intercity_bus"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[대중교통] 건당 2,000원 할인(2구간)",
+        "detail": "후불교통(시내버스·지하철) 청구할인, 고속·시외버스 환급할인. 이용금액 3만원 이상 시. 전월 60만원 이상 이용 시 건당 2,000원, 영역별 월 4,000원.",
+        "condition": {
+          "minPerformance": 600000,
+          "minSpend": 30000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_transit"
+      },
+      {
+        "id": "kb_checkcheck_convenience_tier1",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "convenience",
+        "includedBrands": [
+          "cu"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[편의점] 건당 1,000원 할인(1구간)",
+        "detail": "CU편의점 이용금액 1만원 이상 시. 전월 30만~60만원 이용 시 건당 1,000원, 영역별 월 2,000원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 10000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_convenience"
+      },
+      {
+        "id": "kb_checkcheck_convenience_tier2",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "convenience",
+        "includedBrands": [
+          "cu"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[편의점] 건당 2,000원 할인(2구간)",
+        "detail": "CU편의점 이용금액 1만원 이상 시. 전월 60만원 이상 이용 시 건당 2,000원, 영역별 월 4,000원.",
+        "condition": {
+          "minPerformance": 600000,
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_convenience"
+      },
+      {
+        "id": "kb_checkcheck_coffee_tier1",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "cafe",
+        "includedBrands": [
+          "starbucks"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[커피] 건당 1,000원 할인(1구간)",
+        "detail": "스타벅스(사이렌오더 포함) 1만원 이상 시. 백화점·대형마트 등 일부 입점 매장 제외. 전월 30만~60만원 이용 시 건당 1,000원, 영역별 월 2,000원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 10000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_coffee"
+      },
+      {
+        "id": "kb_checkcheck_coffee_tier2",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "cafe",
+        "includedBrands": [
+          "starbucks"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[커피] 건당 2,000원 할인(2구간)",
+        "detail": "스타벅스(사이렌오더 포함) 1만원 이상 시. 백화점·대형마트 등 일부 입점 매장 제외. 전월 60만원 이상 이용 시 건당 2,000원, 영역별 월 4,000원.",
+        "condition": {
+          "minPerformance": 600000,
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_coffee"
+      },
+      {
+        "id": "kb_checkcheck_movie_tier1",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "movie",
+        "includedBrands": [
+          "cgv"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[영화] 건당 1,000원 할인(1구간)",
+        "detail": "CGV 1만원 이상 시. 인터넷 예매는 직영 홈페이지·App 이용분만. 전월 30만~60만원 이용 시 건당 1,000원, 영역별 월 2,000원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 10000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_movie"
+      },
+      {
+        "id": "kb_checkcheck_movie_tier2",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "movie",
+        "includedBrands": [
+          "cgv"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[영화] 건당 2,000원 할인(2구간)",
+        "detail": "CGV 1만원 이상 시. 인터넷 예매는 직영 홈페이지·App 이용분만. 전월 60만원 이상 이용 시 건당 2,000원, 영역별 월 4,000원.",
+        "condition": {
+          "minPerformance": 600000,
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_movie"
+      },
+      {
+        "id": "kb_checkcheck_shopping_tier1",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "shopping",
+        "includedBrands": [
+          "official_6c3ffbae2fb123a3"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[쇼핑] 건당 1,000원 할인(1구간)",
+        "detail": "텐바이텐 직영 홈페이지와 직영 매장(대학로점) 1만원 이상 시. 전월 30만~60만원 이용 시 건당 1,000원, 영역별 월 2,000원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 10000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_shopping"
+      },
+      {
+        "id": "kb_checkcheck_shopping_tier2",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "shopping",
+        "includedBrands": [
+          "official_6c3ffbae2fb123a3"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[쇼핑] 건당 2,000원 할인(2구간)",
+        "detail": "텐바이텐 직영 홈페이지와 직영 매장(대학로점) 1만원 이상 시. 전월 60만원 이상 이용 시 건당 2,000원, 영역별 월 4,000원.",
+        "condition": {
+          "minPerformance": 600000,
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_shopping"
+      },
+      {
+        "id": "kb_checkcheck_easypay_tier1",
+        "cardId": "kb_tosimi_checkcheck",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[온라인간편결제] 건당 1,000원 할인(1구간)",
+        "detail": "네이버페이·카카오페이·SSG페이 온라인 결제 2만원 이상 시. QR·바코드 결제, 카카오T, 택시 등 제외. 전월 30만~60만원 이용 시 건당 1,000원, 영역별 월 2,000원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 20000,
+          "manualCheckRequired": true,
+          "requiredNote": "네이버페이·카카오페이·SSG페이로 온라인 가맹점에서 결제하는지 확인해야 합니다(QR·바코드·카카오T·택시 제외).",
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_easypay"
+      },
+      {
+        "id": "kb_checkcheck_easypay_tier2",
+        "cardId": "kb_tosimi_checkcheck",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[온라인간편결제] 건당 2,000원 할인(2구간)",
+        "detail": "네이버페이·카카오페이·SSG페이 온라인 결제 2만원 이상 시. QR·바코드 결제, 카카오T, 택시 등 제외. 전월 60만원 이상 이용 시 건당 2,000원, 영역별 월 4,000원.",
+        "condition": {
+          "minPerformance": 600000,
+          "minSpend": 20000,
+          "manualCheckRequired": true,
+          "requiredNote": "네이버페이·카카오페이·SSG페이로 온라인 가맹점에서 결제하는지 확인해야 합니다(QR·바코드·카카오T·택시 제외)."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_easypay"
+      },
+      {
+        "id": "kb_checkcheck_beauty_tier1",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "life",
+        "includedBrands": [
+          "oliveyoung",
+          "official_b202f355fb019aab"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[뷰티] 건당 1,000원 할인(1구간)",
+        "detail": "올리브영, 안경(렌즈)점 2만원 이상 시. 백화점·대형마트 등 일부 입점 매장 제외. 전월 30만~60만원 이용 시 건당 1,000원, 영역별 월 2,000원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 20000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_beauty"
+      },
+      {
+        "id": "kb_checkcheck_beauty_tier2",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "life",
+        "includedBrands": [
+          "oliveyoung",
+          "official_b202f355fb019aab"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "[뷰티] 건당 2,000원 할인(2구간)",
+        "detail": "올리브영, 안경(렌즈)점 2만원 이상 시. 백화점·대형마트 등 일부 입점 매장 제외. 전월 60만원 이상 이용 시 건당 2,000원, 영역별 월 4,000원.",
+        "condition": {
+          "minPerformance": 600000,
+          "minSpend": 20000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_beauty"
+      },
+      {
+        "id": "kb_checkcheck_bookstore_tier1",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "shopping",
+        "includedBrands": [
+          "yes24",
+          "kyobo",
+          "official_933878a563e25745"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[온라인서점] 건당 1,000원 할인(1구간)",
+        "detail": "YES24, 교보문고 직영 홈페이지·앱 2만원 이상 시. 오프라인 매장 제외. 전월 30만~60만원 이용 시 건당 1,000원, 영역별 월 2,000원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 20000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_bookstore"
+      },
+      {
+        "id": "kb_checkcheck_bookstore_tier2",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "shopping",
+        "includedBrands": [
+          "yes24",
+          "kyobo",
+          "official_933878a563e25745"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[온라인서점] 건당 2,000원 할인(2구간)",
+        "detail": "YES24, 교보문고 직영 홈페이지·앱 2만원 이상 시. 오프라인 매장 제외. 전월 60만원 이상 이용 시 건당 2,000원, 영역별 월 4,000원.",
+        "condition": {
+          "minPerformance": 600000,
+          "minSpend": 20000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_bookstore"
+      },
+      {
+        "id": "kb_checkcheck_culture_tier1",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "movie",
+        "includedBrands": [
+          "interpark_ticket"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[문화] 건당 1,000원 할인(1구간)",
+        "detail": "인터파크티켓 공연 예매 2만원 이상 시. 전월 30만~60만원 이용 시 건당 1,000원, 영역별 월 2,000원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 20000,
+          "manualCheckRequired": true,
+          "requiredNote": "인터파크티켓에서 공연을 예매하는지 확인해야 합니다.",
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_culture"
+      },
+      {
+        "id": "kb_checkcheck_culture_tier2",
+        "cardId": "kb_tosimi_checkcheck",
+        "category": "movie",
+        "includedBrands": [
+          "interpark_ticket"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "[문화] 건당 2,000원 할인(2구간)",
+        "detail": "인터파크티켓 공연 예매 2만원 이상 시. 전월 60만원 이상 이용 시 건당 2,000원, 영역별 월 4,000원.",
+        "condition": {
+          "minPerformance": 600000,
+          "minSpend": 20000,
+          "manualCheckRequired": true,
+          "requiredNote": "인터파크티켓에서 공연을 예매하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 2000
+            },
+            {
+              "threshold": 600000,
+              "limit": 4000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "kb_checkcheck_culture"
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "실적 구간마다 건당 할인액이 달라 영역마다 1구간·2구간 규칙을 두고, 영역별 한도(2천·4천원)는 같은 그룹에서 실적별 한도로 공유한다.",
+      "대중교통 후불교통은 청구 금액 기준 3만원 이상일 때만 할인되어 1회 승차 결제에는 적용되지 않는다."
+    ],
+    "evidence": [
+      {
+        "id": "kb_checkcheck_transit_tier1-1",
+        "ruleIds": [
+          "kb_checkcheck_transit_tier1"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 대중교통 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 3만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[대중교통] 건당 1,000원 할인(1구간)"
+      },
+      {
+        "id": "kb_checkcheck_transit_tier2-1",
+        "ruleIds": [
+          "kb_checkcheck_transit_tier2"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 대중교통 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 3만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[대중교통] 건당 2,000원 할인(2구간)"
+      },
+      {
+        "id": "kb_checkcheck_convenience_tier1-1",
+        "ruleIds": [
+          "kb_checkcheck_convenience_tier1"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 편의점 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 1만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[편의점] 건당 1,000원 할인(1구간)"
+      },
+      {
+        "id": "kb_checkcheck_convenience_tier2-1",
+        "ruleIds": [
+          "kb_checkcheck_convenience_tier2"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 편의점 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 1만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[편의점] 건당 2,000원 할인(2구간)"
+      },
+      {
+        "id": "kb_checkcheck_coffee_tier1-1",
+        "ruleIds": [
+          "kb_checkcheck_coffee_tier1"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 커피 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 1만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[커피] 건당 1,000원 할인(1구간)"
+      },
+      {
+        "id": "kb_checkcheck_coffee_tier2-1",
+        "ruleIds": [
+          "kb_checkcheck_coffee_tier2"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 커피 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 1만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[커피] 건당 2,000원 할인(2구간)"
+      },
+      {
+        "id": "kb_checkcheck_movie_tier1-1",
+        "ruleIds": [
+          "kb_checkcheck_movie_tier1"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 영화 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 1만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[영화] 건당 1,000원 할인(1구간)"
+      },
+      {
+        "id": "kb_checkcheck_movie_tier2-1",
+        "ruleIds": [
+          "kb_checkcheck_movie_tier2"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 영화 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 1만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[영화] 건당 2,000원 할인(2구간)"
+      },
+      {
+        "id": "kb_checkcheck_shopping_tier1-1",
+        "ruleIds": [
+          "kb_checkcheck_shopping_tier1"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 쇼핑 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 1만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[쇼핑] 건당 1,000원 할인(1구간)"
+      },
+      {
+        "id": "kb_checkcheck_shopping_tier2-1",
+        "ruleIds": [
+          "kb_checkcheck_shopping_tier2"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 쇼핑 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 1만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[쇼핑] 건당 2,000원 할인(2구간)"
+      },
+      {
+        "id": "kb_checkcheck_easypay_tier1-1",
+        "ruleIds": [
+          "kb_checkcheck_easypay_tier1"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 온라인간편결제 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 2만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[온라인간편결제] 건당 1,000원 할인(1구간)"
+      },
+      {
+        "id": "kb_checkcheck_easypay_tier2-1",
+        "ruleIds": [
+          "kb_checkcheck_easypay_tier2"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 온라인간편결제 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 2만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[온라인간편결제] 건당 2,000원 할인(2구간)"
+      },
+      {
+        "id": "kb_checkcheck_beauty_tier1-1",
+        "ruleIds": [
+          "kb_checkcheck_beauty_tier1"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 뷰티 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 2만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[뷰티] 건당 1,000원 할인(1구간)"
+      },
+      {
+        "id": "kb_checkcheck_beauty_tier2-1",
+        "ruleIds": [
+          "kb_checkcheck_beauty_tier2"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 뷰티 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 2만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[뷰티] 건당 2,000원 할인(2구간)"
+      },
+      {
+        "id": "kb_checkcheck_bookstore_tier1-1",
+        "ruleIds": [
+          "kb_checkcheck_bookstore_tier1"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 온라인서점 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 2만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[온라인서점] 건당 1,000원 할인(1구간)"
+      },
+      {
+        "id": "kb_checkcheck_bookstore_tier2-1",
+        "ruleIds": [
+          "kb_checkcheck_bookstore_tier2"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 온라인서점 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 2만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[온라인서점] 건당 2,000원 할인(2구간)"
+      },
+      {
+        "id": "kb_checkcheck_culture_tier1-1",
+        "ruleIds": [
+          "kb_checkcheck_culture_tier1"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 문화 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 2만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[문화] 건당 1,000원 할인(1구간)"
+      },
+      {
+        "id": "kb_checkcheck_culture_tier2-1",
+        "ruleIds": [
+          "kb_checkcheck_culture_tier2"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "1구간 (30만원 이상 60만원 미만) 2구간 (60만원 이상) 첵첵 문화 할인 건당 할인금액 1천원 2천원 영역별 할인한도 2천원 4천원 이용금액 2만원 이상 시 할인 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "[문화] 건당 2,000원 할인(2구간)"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "kb_checkcheck_transit_tier1",
+          "kb_checkcheck_transit_tier2",
+          "kb_checkcheck_convenience_tier1",
+          "kb_checkcheck_convenience_tier2",
+          "kb_checkcheck_coffee_tier1",
+          "kb_checkcheck_coffee_tier2",
+          "kb_checkcheck_movie_tier1",
+          "kb_checkcheck_movie_tier2",
+          "kb_checkcheck_shopping_tier1",
+          "kb_checkcheck_shopping_tier2",
+          "kb_checkcheck_easypay_tier1",
+          "kb_checkcheck_easypay_tier2",
+          "kb_checkcheck_beauty_tier1",
+          "kb_checkcheck_beauty_tier2",
+          "kb_checkcheck_bookstore_tier1",
+          "kb_checkcheck_bookstore_tier2",
+          "kb_checkcheck_culture_tier1",
+          "kb_checkcheck_culture_tier2"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "KB국민 토심이 첵첵 체크카드로 전월 30만원 이상 사용 시 서비스 제공 실적유예기간 제공: KB국민 토심이 첵첵 체크카드로 최초 사용등록일로부터 다음달 말일까지 1구간(월간 통합할인한도 1만원 이내) 서비스 제공 전월이용실적에 따른 통합할인한도 적용 KB국민 첵첵 체크카드 전월이용실적에 따른 통합할인한도 전월이용실적 30만원 이상 60만원 이상 월간 통합할인한도 1만원 2만원 영역별 할인한도 2천원 4천원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "location": "서비스 요약"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "quote": "이용실적 제외 대상 후불교통요금, 무승인금액(자판기, 터널통행료, 유료도로, 기차/고속버스 취소 반환수수료 등), 정부지원금 이용금액(보육료, 유치원보조비, 바우처 이용금액 등), 포인트리 충전금액, 대학(대학원)등록금, 상품권 및 선불카드 구입(충전)금액, 연체료, 지방세(지방세, 상하수도, 세외수입), 취소금액, 각종 수수료 및 이자",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "hosted-stores",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "quote": "구매/예약 대행사이트를 통한 결제 및 호텔, 백화점, 대형마트, 철도/역사 등에 입점한 가맹점 이용 시 할인 대상에서 제외될 수 있습니다.",
+        "reason": "카드 공통 입점 매장 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      },
+      {
+        "id": "gift-card-excluded",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "quote": "상품권 및 선불카드(선불전자지급수단 포함) 구입·충전금액의 경우 할인대상에서 제외됩니다.",
+        "reason": "상품권·선불카드 구입·충전 할인 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ],
+    "proposedBrands": [
+      {
+        "id": "official_6c3ffbae2fb123a3",
+        "name": "텐바이텐",
+        "categoryId": "shopping",
+        "aliases": [
+          "10x10"
+        ],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "quote": "쇼핑 텐바이텐 2~4천원 환급할인"
+      },
+      {
+        "id": "official_b202f355fb019aab",
+        "name": "안경점",
+        "categoryId": "life",
+        "aliases": [
+          "안경(렌즈)점",
+          "렌즈점"
+        ],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07960",
+        "quote": "뷰티 올리브영/안경(렌즈)점 2~4천원 환급할인"
+      }
+    ]
+  }
+}

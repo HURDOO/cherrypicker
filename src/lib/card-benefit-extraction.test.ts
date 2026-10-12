@@ -1563,7 +1563,7 @@ describe('card benefit extraction', () => {
         };
         const quote = '배달앱 5% 할인 배달의 민족, 요기요 건당 이용금액 1만원 이상 시 최대 1,000원 할인 ' +
             '(월 최대 6,000원 할인)';
-        const validate = (maxDiscount: number) => validateCardBenefitExtraction({
+        const validateWith = (evidenceQuote: string, maxDiscount: number) => validateCardBenefitExtraction({
             schemaVersion: 2 as const,
             completeness: 'FULL' as const,
             card: { id: genericCard.id, name: genericCard.name, company: genericCard.company, limitTable: [] },
@@ -1584,7 +1584,7 @@ describe('card benefit extraction', () => {
                 id: 'delivery',
                 ruleIds: ['generic-delivery'],
                 fields: ['description', 'action', 'condition', 'limitConfig'] as const,
-                quote,
+                quote: evidenceQuote,
                 sourceUrl: 'https://example.com/card',
                 location: '배달앱 할인',
             }],
@@ -1592,13 +1592,16 @@ describe('card benefit extraction', () => {
         }, {
             card: genericCard,
             sourceUrl: 'https://example.com/card',
-            sourceText: quote,
+            sourceText: evidenceQuote,
         }, {
             brandIds: new Set(['baemin']),
         }).errors.filter(error => error.includes('건별 최대 혜택'));
+        const validate = (maxDiscount: number) => validateWith(quote, maxDiscount);
 
         expect(validate(1_000)).toEqual([]);
         expect(validate(6_000)).toEqual([expect.stringContaining('건별 최대 혜택이 일·월 한도에서 잘못 파생')]);
+        expect(validateWith('CGV 35% 이용금액 건당 1만원~2만원까지 할인 적용(1회 최대 할인금액 7,000원)', 7_000))
+            .toEqual([]);
     });
 
     it('reads point limits as won only when an official quote says one point is one won', () => {
@@ -1657,6 +1660,57 @@ describe('card benefit extraction', () => {
 
         expect(validate(true)).toEqual([]);
         expect(validate(false)).toEqual([expect.stringContaining('월 금액 한도 2,000원의 공식 숫자 근거가 없습니다')]);
+    });
+
+    it('accepts the same days of every month as annual dates and caps the list', () => {
+        const genericCard: Card = {
+            id: 'generic-card',
+            name: '테스트 카드',
+            company: '테스트',
+            color: 'bg-blue-500',
+            limitTable: [],
+        };
+        const quote = '싱글데이 (매월 1/11/21/31일) 편의점 5% 추가 환급할인';
+        const monthly = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0'))
+            .flatMap(month => ['01', '11', '21', '31'].map(day => `${month}-${day}`))
+            .filter(date => !['02-31', '04-31', '06-31', '09-31', '11-31'].includes(date));
+        const validate = (annualDates: string[]) => validateCardBenefitExtraction({
+            schemaVersion: 2 as const,
+            completeness: 'FULL' as const,
+            card: { id: genericCard.id, name: genericCard.name, company: genericCard.company, limitTable: [] },
+            rules: [{
+                id: 'generic-single-day',
+                cardId: genericCard.id,
+                includedBrands: ['gs25'],
+                excludedBrands: [],
+                platformType: 'ALL' as const,
+                usesCardLimit: false,
+                description: '편의점 5% 추가 환급할인',
+                detail: '',
+                condition: { annualDates },
+                action: { type: 'PERCENT' as const, value: 5 },
+                limitConfig: {},
+            }],
+            evidence: [{
+                id: 'single-day',
+                ruleIds: ['generic-single-day'],
+                fields: ['description', 'action', 'condition'] as const,
+                quote,
+                sourceUrl: 'https://example.com/card',
+                location: '싱글데이',
+            }],
+            notes: [],
+        }, {
+            card: genericCard,
+            sourceUrl: 'https://example.com/card',
+            sourceText: quote,
+        }, {
+            brandIds: new Set(['gs25']),
+        }).errors.filter(error => error.includes('annualDates'));
+
+        expect(monthly).toHaveLength(43);
+        expect(validate(monthly)).toEqual([]);
+        expect(validate([...monthly, ...monthly])).toEqual([expect.stringContaining('MM-DD 날짜 목록')]);
     });
 
     it('rejects a numeric performance condition absent from its official evidence', () => {

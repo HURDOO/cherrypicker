@@ -1,0 +1,22 @@
+{
+  "cards": [
+    {
+      "id": "kb_starplus_check",
+      "name": "스타플러스 체크카드",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "09486",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "스타플러스 체크카드 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09486",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}
