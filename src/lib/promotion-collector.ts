@@ -278,30 +278,42 @@ async function fetchJson<T>(url: string): Promise<{
     };
 }
 
+const LGUPLUS_ROW_SIZE = 500;
+
 async function collectLguplusSource() {
     const params = new URLSearchParams({
         urcMbspDivsCd: '01',
         urcMbspBnftDivsCd: '02',
         urcMbspCatgNo: '',
         pageNo: '1',
-        rowSize: '500',
+        rowSize: String(LGUPLUS_ROW_SIZE),
         _paging: 'true',
     });
     const collected = await fetchJson<Parameters<typeof parseLguplusBenefits>[0]>(
         `${LGUPLUS_API_URL}?${params}`
     );
+    // 응답에 전체 건수가 없어, 요청한 행 수보다 적게 돌아와야 마지막 쪽까지 받은 것으로 본다.
+    const truncated = !Array.isArray(collected.value) || collected.value.length >= LGUPLUS_ROW_SIZE;
     return {
         promotions: parseLguplusBenefits(collected.value, LGUPLUS_PAGE_URL),
         products: [],
         documents: [collected.document],
+        ...(truncated && {
+            completeness: {
+                complete: false,
+                message: `U+ 제휴 혜택 목록이 요청 크기(${LGUPLUS_ROW_SIZE}건)에 닿아 전체를 받았는지 확인할 수 없습니다.`,
+            },
+        }),
     };
 }
 
 type NaverCategory = { name: string; code: string };
 type NaverPage = {
     elements: Parameters<typeof parseNaverPayPromotions>[0];
-    pagination: { page: number; totalPages: number };
+    pagination: { page: number; totalPages: number; totalElements?: number };
 };
+
+const NAVERPAY_MAX_PAGES = 50;
 
 async function collectNaverPaySource() {
     const categoryResponse = await fetchJson<NaverCategory[]>(
@@ -311,9 +323,13 @@ async function collectNaverPaySource() {
     const offers: ParsedPromotion[] = [];
     const documents = [categoryResponse.document];
 
+    // 분류마다 첫 쪽의 전체 건수만큼 고유 행사를 모두 받았을 때만 완전 수집으로 본다.
+    const incomplete: string[] = [];
     for (const category of categories) {
         let page = 1;
         let totalPages = 1;
+        let expectedTotal: number | undefined;
+        const seen = new Set<number>();
         do {
             const params = new URLSearchParams({
                 firstCategory: category.code,
@@ -329,12 +345,34 @@ async function collectNaverPaySource() {
                 category.code,
                 NAVERPAY_PAGE_URL,
             ));
-            totalPages = Math.min(result.pagination.totalPages, 20);
+            result.elements.forEach(row => {
+                if (row.promotionSeq) seen.add(row.promotionSeq);
+            });
+            const pageTotal = result.pagination.totalElements;
+            if (page === 1) expectedTotal = pageTotal;
+            else if (pageTotal !== expectedTotal) {
+                incomplete.push(`${category.name} 전체 건수가 수집 중 바뀌었습니다.`);
+            }
+            totalPages = result.pagination.totalPages;
             page += 1;
-        } while (page <= totalPages);
+        } while (page <= Math.min(totalPages, NAVERPAY_MAX_PAGES));
+        if (totalPages > NAVERPAY_MAX_PAGES) {
+            incomplete.push(`${category.name} ${totalPages}쪽 중 ${NAVERPAY_MAX_PAGES}쪽만 수집했습니다.`);
+        } else if (expectedTotal === undefined) {
+            incomplete.push(`${category.name} 전체 건수를 응답에서 확인할 수 없습니다.`);
+        } else if (seen.size !== expectedTotal) {
+            incomplete.push(`${category.name} ${expectedTotal}건 중 ${seen.size}건만 수집했습니다.`);
+        }
     }
 
-    return { promotions: offers, products: [], documents };
+    return {
+        promotions: offers,
+        products: [],
+        documents,
+        ...(incomplete.length > 0 && {
+            completeness: { complete: false, message: `네이버페이 ${incomplete.join(' ')}` },
+        }),
+    };
 }
 
 type ParsedSource = {

@@ -395,6 +395,39 @@ describe('promotion source parsers', () => {
         ))).toBe(true);
     });
 
+    it('keeps the U+ headline benefit when only the usage steps are numbered', () => {
+        const offers = parseLguplusBenefits([{
+            urcMbspJncoNm: '도미노피자',
+            urcMbspCatgNm: '푸드',
+            jncoBnftThumCntn: 'VVIP/VIP : 20% 할인(최대 4만원 할인)<BR/> 우수 : 15% 할인(최대 3만원 할인)',
+            jncoBnftDetlCntn: '일 1회',
+            urcBnftTadvMthdCntn: [
+                '①온라인 : 결제하기 단계에서 LG U+멤버십 할인 선택 후 카드번호 및 생년월일 입력',
+                '②오프라인 : 결제 시 직원에게 [멤버십 바코드] 제시',
+            ].join('<br />'),
+            jncoTadvGrdDetlDscr: 'VVIP/VIP/우수',
+        }, {
+            urcMbspJncoNm: '그리팅',
+            urcMbspCatgNm: '푸드',
+            jncoBnftThumCntn: '1만원 할인(5만원 이상 구매 시)',
+            jncoBnftDetlCntn: '월 1회',
+            urcBnftTadvMthdCntn: [
+                '- U+one 앱 내 쿠폰 다운로드',
+                '①그리팅 앱/웹에서 로그인 &gt; 쿠폰 등록 &gt; 결제',
+                '②그리팅 앱/웹에서 로그인 &gt; 마이페이지 &gt; 나의 쿠폰 &gt; 결제',
+            ].join('<br />'),
+            jncoTadvGrdDetlDscr: 'VVIP/VIP/우수',
+        }], 'https://example.com/uplus');
+
+        expect(offers.map(item => item.offer.action)).toEqual([
+            expect.objectContaining({ type: 'PERCENT', value: 20, maxBenefit: 40_000 }),
+            expect.objectContaining({ type: 'PERCENT', value: 15, maxBenefit: 30_000 }),
+            expect.objectContaining({ type: 'FLAT', value: 10_000 }),
+        ]);
+        expect(offers[2].offer.condition.minSpend).toBe(50_000);
+        expect(offers[0].offer.limitConfig).toEqual({ dailyCount: 1 });
+    });
+
     it('keeps each numbered U+ benefit threshold on its split offer', () => {
         const offers = parseLguplusBenefits([{
             urcMbspJncoNm: '베베쿡',
@@ -714,6 +747,109 @@ describe('promotion source parsers', () => {
                     applicabilityScope: 'STORE_WIDE',
                 },
             },
+        });
+    });
+
+    it('structures Npay participation counts and per-use caps written in the notice text', () => {
+        const october = Date.parse('2026-10-01T00:00:00+09:00');
+        const offers = parseNaverPayPromotions([{
+            promotionSeq: 70,
+            promotionName: 'SK에너지',
+            promotionDescription: 'Npay x 삼성페이 5만원 이상 결제 시',
+            exposeTitle: '3천원 적립',
+            cautionText: '익월 적립\n월 1회 참여 가능',
+        }, {
+            promotionSeq: 71,
+            promotionName: 'CU',
+            promotionDescription: '도시락 전 상품 결제 시',
+            exposeTitle: '40% 할인',
+            acmRate: 40,
+            cautionText: '기간 내 4회, 1회 4,000원 할인 한도',
+            promotionStartDateTime: october,
+            promotionEndDateTime: Date.parse('2026-10-31T23:59:59+09:00'),
+        }, {
+            promotionSeq: 72,
+            promotionName: '카페인중독',
+            promotionDescription: '포인트·머니 1만원 이상 결제 시',
+            exposeTitle: '3천원 적립',
+            cautionText: '매주 1회(월~일) 참여 가능',
+        }, {
+            promotionSeq: 73,
+            promotionName: '이니스프리',
+            promotionDescription: '2만원 이상 결제 시',
+            exposeTitle: '5천원 적립',
+            cautionText: '기간 내 1회 적립 가능합니다.',
+            promotionStartDateTime: october,
+            promotionEndDateTime: Date.parse('2027-01-31T23:59:59+09:00'),
+        }, {
+            promotionSeq: 75,
+            promotionName: '명륜진사갈비',
+            promotionDescription: '포인트·머니 43,800원 이상 결제 시',
+            exposeTitle: '6천원 적립',
+            cautionText: '기간 내 1인 1회 참여 가능',
+            promotionStartDateTime: october,
+            promotionEndDateTime: Date.parse('2026-11-30T23:59:59+09:00'),
+        }, {
+            promotionSeq: 76,
+            promotionName: '휴메이크 휘트니스',
+            promotionDescription: '20만원 이상 결제 시',
+            exposeTitle: '2만원 적립',
+            cautionText: '행사 기간 중 회원(ID)당 1회 참여 가능',
+            promotionStartDateTime: october,
+            promotionEndDateTime: Date.parse('2026-12-31T23:59:59+09:00'),
+        }, {
+            promotionSeq: 74,
+            promotionName: '올리브영',
+            promotionDescription: '1만원 이상 결제 시',
+            exposeTitle: '2천원 적립',
+            cautionText: '11월 1회 지급 예정',
+        }], 'DOMESTIC_INSTORE', 'https://pay.naver.com/benefit/payment/list');
+
+        expect(offers[0].offer.limitConfig).toEqual({ monthlyCount: 1 });
+        expect(offers[0].offer.condition.calculationMode).toBe('CALCULABLE');
+        expect(offers[1].offer.limitConfig).toEqual({ yearlyCount: 4 });
+        expect(offers[1].offer.action).toMatchObject({ type: 'PERCENT', value: 40, maxBenefit: 4_000 });
+        expect(offers[2].offer.limitConfig).toEqual({});
+        expect(offers[2].offer.condition).toMatchObject({
+            calculationMode: 'CONDITIONAL',
+            confirmationRequired: true,
+            requiredNote: '행사 참여 횟수 한도를 이미 채웠는지 확인해야 합니다.',
+        });
+        expect(offers[2].offer.condition.requiredInputs).toContain('TARGET_ELIGIBILITY');
+        expect(offers[3].offer.limitConfig).toEqual({});
+        expect(offers[3].offer.condition.calculationMode).toBe('CONDITIONAL');
+        expect(offers[4].offer.limitConfig).toEqual({ yearlyCount: 1 });
+        expect(offers[5].offer.limitConfig).toEqual({ yearlyCount: 1 });
+        expect(offers[6].offer.limitConfig).toEqual({});
+        expect(offers[6].offer.condition.calculationMode).toBe('CALCULABLE');
+    });
+
+    it('reads Npay online rewards that only carry an amount or rate without a display title', () => {
+        const offers = parseNaverPayPromotions([{
+            promotionSeq: 80,
+            promotionName: '컬리',
+            promotionDescription: '10만원 이상 결제 시',
+            exposeTitle: null,
+            acmAmount: 5_000,
+        }, {
+            promotionSeq: 81,
+            promotionName: '요기요',
+            promotionDescription: '2.8만원 이상 결제 시',
+            exposeTitle: null,
+            acmRate: 3,
+        }], 'ONLINE', 'https://pay.naver.com/benefit/payment/list');
+
+        expect(offers).toHaveLength(2);
+        expect(offers[0].offer).toMatchObject({
+            title: '컬리 5,000원 적립',
+            layer: 'POST_REWARD',
+            action: { type: 'FLAT', value: 5_000 },
+            condition: { minSpend: 100_000 },
+        });
+        expect(offers[1].offer).toMatchObject({
+            title: '요기요 3% 적립',
+            action: { type: 'POINTS', value: 3 },
+            condition: { minSpend: 28_000 },
         });
     });
 

@@ -30,6 +30,7 @@ interface MigrationJournal {
 const sqlite = new Database(':memory:');
 const integrationDb = drizzle(sqlite, { schema });
 let currentNaverPayRows = [...officialNaverPayRows];
+let naverPayMissingRows = 0;
 let currentParisKtHtml = officialParisKtHtmlExcerpt;
 let currentSktDetailAvailable = true;
 let originalOpenAiApiKey: string | undefined;
@@ -79,7 +80,11 @@ const fetchOfficialFixture = vi.fn(async (input: string | URL | Request) => {
     if (url.includes('/benefit/payment/accumulation-promotions')) {
         return jsonResponse({
             elements: currentNaverPayRows,
-            pagination: { page: 1, totalPages: 1 },
+            pagination: {
+                page: 1,
+                totalPages: 1,
+                totalElements: currentNaverPayRows.length + naverPayMissingRows,
+            },
         });
     }
 
@@ -527,5 +532,32 @@ describe('official promotion collection lifecycle', () => {
             .find(offer => offer.id === parisSilverPromotionId)?.status).toBe('PUBLISHED');
         expect(integrationDb.select().from(schema.subscriptionProducts).all())
             .toHaveLength(8);
+    });
+
+    it('treats a Npay page that returns fewer promotions than its total as a partial source', async () => {
+        const naverPayCandidates = () => integrationDb.select().from(schema.promotionCandidates).all()
+            .filter(candidate => candidate.providerId === 'naverpay')
+            .map(candidate => [candidate.id, candidate.status]);
+        const candidatesBefore = naverPayCandidates();
+        const offersBefore = integrationDb.select().from(schema.promotionOffers).all()
+            .filter(offer => offer.providerId === 'naverpay')
+            .map(offer => [offer.id, offer.status]);
+        currentNaverPayRows = [officialNaverPayRows[0]];
+        naverPayMissingRows = 1;
+
+        const results = await collectPromotionCandidates();
+
+        expect(results.find(result => result.sourceId === 'naverpay-benefits')).toMatchObject({
+            status: 'partial',
+            discovered: 0,
+            message: '네이버페이 현장결제 2건 중 1건만 수집했습니다.',
+        });
+        expect(integrationDb.select().from(schema.promotionOffers).all()
+            .filter(offer => offer.providerId === 'naverpay')
+            .map(offer => [offer.id, offer.status])).toEqual(offersBefore);
+        expect(naverPayCandidates()).toEqual(candidatesBefore);
+
+        currentNaverPayRows = [...officialNaverPayRows];
+        naverPayMissingRows = 0;
     });
 });

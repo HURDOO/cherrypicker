@@ -390,6 +390,31 @@ const parseLimitConfig = (text: string): LimitConfig => {
     };
 };
 
+// Npay 안내 문구의 참여 횟수와 1회 한도. "11월 1회"처럼 앞에 숫자가 붙은 달 이름은 월 횟수로 읽지 않는다.
+const parseNaverPayUsageLimits = (text: string) => {
+    const monthly = text.match(/(?<!\d)월\s*(?:최대\s*)?(\d+)\s*회/);
+    const daily = text.match(/(?:1일|하루|(?<![가-힣\d])일)\s*(?:최대\s*)?(\d+)\s*회/);
+    const period = text.match(
+        /(?:기간\s*(?:내|중)|1인\s*당?|인당|(?:ID|아이디)\)?\s*당|계정\s*당|회선\s*당)\s*(?:기간\s*(?:내|중)\s*)?(?:최대\s*)?(\d+)\s*회/
+    );
+    const perUseCap = text.match(
+        /1회\s*((?:[\d,]+(?:\.\d+)?\s*(?:만|천)\s*)+원|[\d,]+(?:\.\d+)?\s*원)\s*(?:할인|적립|캐시백)?\s*한도/
+    );
+    return {
+        ...(monthly && { monthlyCount: Number(monthly[1]) }),
+        ...(daily && { dailyCount: Number(daily[1]) }),
+        ...(period && !monthly && { periodCount: Number(period[1]) }),
+        weekly: /(?:매주|(?<![가-힣])주)\s*(?:최대\s*)?\d+\s*회/.test(text),
+        ...(perUseCap && { perUseCap: parseKoreanAmount(perUseCap[1]) }),
+    };
+};
+
+const sameKstYear = (start?: number | null, end?: number | null) => {
+    if (!start || !end) return false;
+    const year = (time: number) => new Date(time + 9 * 60 * 60 * 1000).getUTCFullYear();
+    return year(start) === year(end);
+};
+
 const parsePurchaseCap = (text: string) => {
     const patterns = [
         /(?:결제|이용|구매|주문)\s*금액[^\n]{0,30}?최대\s*([\d,]+(?:\.\d+)?\s*(?:만|천)?\s*원)/,
@@ -1249,7 +1274,12 @@ export function parseLguplusBenefits(
             const numberedBenefits = [...detailText.matchAll(
                 /[①②③④⑤⑥⑦⑧⑨⑩]\s*([^\n]+)/g
             )].map(match => match[1].trim()).filter(Boolean);
-            if (numberedBenefits.length >= 2) {
+            // 이용 방법·사용 지점도 ①②로 번호를 매기므로, 번호 항목 두 개 이상에 금액이 있을 때만 혜택 목록으로 본다.
+            const numberedBenefitCount = numberedBenefits.filter(benefit => {
+                const benefitAction = parseAction(benefit);
+                return benefitAction && !benefitAction.reward;
+            }).length;
+            if (numberedBenefitCount >= 2) {
                 return numberedBenefits.flatMap((benefit, benefitIndex) => {
                     const benefitAction = parseAction(benefit);
                     if (!benefitAction || benefitAction.reward) return [];
@@ -1447,7 +1477,10 @@ export function parseNaverPayPromotions(
     return rows.flatMap(row => {
         const promotionName = row.promotionName?.trim() ?? '';
         const resolvedBrand = resolveOfficialBrand(promotionName, firstCategory, false);
-        const actionText = row.exposeTitle?.trim() ?? '';
+        // 2026-10 온라인 행사 일부는 노출 제목 없이 적립 금액·요율만 준다. 적립 목록 API라 '적립'으로 표기한다.
+        const actionText = row.exposeTitle?.trim() || (row.acmAmount
+            ? `${row.acmAmount.toLocaleString('ko-KR')}원 적립`
+            : row.acmRate ? `${row.acmRate}% 적립` : '');
         if (!resolvedBrand || !actionText || !row.promotionSeq) return [];
         const brandId = resolvedBrand.id;
         const text = [row.promotionDescription, actionText, row.cautionText]
@@ -1500,7 +1533,21 @@ export function parseNaverPayPromotions(
             textMinSpend !== undefined &&
             row.applyBasisAmount !== textMinSpend;
         const requiresEnrollment = requiresNaverPayEnrollment(classificationText);
-        const maxBenefit = row.limitAcmAmount ?? parseMaxBenefit(text);
+        const usageLimits = parseNaverPayUsageLimits(text);
+        const statedMaxBenefit = row.limitAcmAmount ?? parseMaxBenefit(text);
+        const maxBenefit = usageLimits.perUseCap !== undefined
+            ? Math.min(statedMaxBenefit ?? usageLimits.perUseCap, usageLimits.perUseCap)
+            : statedMaxBenefit;
+        const monthlyCount = [row.limitAcmCount ?? undefined, usageLimits.monthlyCount]
+            .filter((count): count is number => typeof count === 'number' && count > 0)
+            .reduce<number | undefined>((min, count) => min === undefined ? count : Math.min(min, count), undefined);
+        // 기간이 한 해 안에 있으면 "기간 내 N회"는 연 N회와 같다. 주 단위나 해를 넘는 기간은 사용자가 확인한다.
+        const yearlyCount = usageLimits.periodCount !== undefined &&
+            sameKstYear(row.promotionStartDateTime, row.promotionEndDateTime)
+            ? usageLimits.periodCount
+            : undefined;
+        const usageLimitUnmodeled = usageLimits.weekly ||
+            (usageLimits.periodCount !== undefined && yearlyCount === undefined);
         const funding = parseNaverPayFundingTypes(row, classificationText);
         const accountOrCardSpecific = /Npay\s*머니\s*우리\s*통장|통장으로[^\n]{0,30}결제|등록된[^\n]{0,40}(?:체크[·\s]*신용)?카드\s*대상|대상\s*카드|(?:삼성|현대|신한|롯데|우리|제주)(?:은행)?\s*(?:제휴)?카드|카드\s*QR/.test(classificationText);
         const chanceBased = /추첨|랜덤|꽝\s*없는|당첨/.test(text);
@@ -1529,7 +1576,8 @@ export function parseNaverPayPromotions(
         const firstPaymentOnly = /첫\s*(?:충전|결제|구매)/.test(classificationText);
         const userConfirmationRequired = !informationOnly && (
             availabilityLimited || cumulative || fulfillmentRequired ||
-            accountOrCardSpecific || requiresEnrollment || firstPaymentOnly
+            accountOrCardSpecific || requiresEnrollment || firstPaymentOnly ||
+            usageLimitUnmodeled
         );
         const blockingReview = (!informationOnly && compositeBenefit) ||
             (minSpendConflict && !textThresholdSupported) || funding.conflict;
@@ -1608,7 +1656,9 @@ export function parseNaverPayPromotions(
                         ...(availabilityLimited || cumulative || fulfillmentRequired
                             ? ['TARGET_ELIGIBILITY' as const]
                             : []),
-                        ...(firstPaymentOnly ? ['TARGET_ELIGIBILITY' as const] : []),
+                        ...(firstPaymentOnly || usageLimitUnmodeled
+                            ? ['TARGET_ELIGIBILITY' as const]
+                            : []),
                     ]),
                     ...(informationOnly ? {
                         requiredNote: chanceBased
@@ -1619,7 +1669,10 @@ export function parseNaverPayPromotions(
                     } : userConfirmationRequired ? {
                         requiredNote: accountOrCardSpecific
                             ? '대상 통장·카드와 행사 조건을 충족하는지 확인해야 합니다.'
-                            : '선착순·누적·지급 조건을 충족하는지 확인해야 합니다.',
+                            : usageLimitUnmodeled && !availabilityLimited && !cumulative &&
+                                !fulfillmentRequired && !requiresEnrollment && !firstPaymentOnly
+                                ? '행사 참여 횟수 한도를 이미 채웠는지 확인해야 합니다.'
+                                : '선착순·누적·지급 조건을 충족하는지 확인해야 합니다.',
                     } : blockingReview ? {
                         requiredNote: '복수 혜택 계산식 또는 원문 값 충돌을 확인해야 합니다.',
                     } : {}),
@@ -1630,7 +1683,9 @@ export function parseNaverPayPromotions(
                     exclusiveGroup: `naverpay:${row.promotionSeq}`,
                 },
                 limitConfig: {
-                    ...(row.limitAcmCount && { monthlyCount: row.limitAcmCount }),
+                    ...(usageLimits.dailyCount && { dailyCount: usageLimits.dailyCount }),
+                    ...(monthlyCount && { monthlyCount }),
+                    ...(yearlyCount && { yearlyCount }),
                 },
                 certainty: informationOnly || blockingReview
                     ? 'CONDITIONAL'
