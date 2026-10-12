@@ -1662,6 +1662,64 @@ describe('card benefit extraction', () => {
         expect(validate(false)).toEqual([expect.stringContaining('월 금액 한도 2,000원의 공식 숫자 근거가 없습니다')]);
     });
 
+    it('reads a point-denominated per-purchase cap as won only with the one-point-one-won quote', () => {
+        const genericCard: Card = {
+            id: 'generic-card',
+            name: '테스트 카드',
+            company: '테스트',
+            color: 'bg-blue-500',
+            limitTable: [],
+        };
+        const capQuote = '4개 편의점 이용 시 10% 적립 4개 편의점 통합 일 1회, 월 3회, 1회 최대 1천 포인트까지 적립';
+        const pointQuote = '마이신한포인트 1포인트는 1원과 동일한 가치를 가집니다.';
+        const validate = (withPointQuote: boolean) => validateCardBenefitExtraction({
+            schemaVersion: 2 as const,
+            completeness: 'FULL' as const,
+            card: { id: genericCard.id, name: genericCard.name, company: genericCard.company, limitTable: [] },
+            rules: [{
+                id: 'generic-convenience',
+                cardId: genericCard.id,
+                includedBrands: ['gs25'],
+                excludedBrands: [],
+                platformType: 'OFFLINE' as const,
+                usesCardLimit: false,
+                description: '편의점 10% 적립',
+                detail: '',
+                condition: {},
+                action: { type: 'PERCENT' as const, value: 10, maxDiscount: 1_000 },
+                limitConfig: { dailyCount: 1, monthlyCount: 3 },
+            }],
+            evidence: [
+                {
+                    id: 'convenience',
+                    ruleIds: ['generic-convenience'],
+                    fields: ['description', 'action', 'limitConfig'] as const,
+                    quote: capQuote,
+                    sourceUrl: 'https://example.com/card',
+                    location: '편의점 적립',
+                },
+                ...(withPointQuote ? [{
+                    id: 'point-value',
+                    ruleIds: ['generic-convenience'],
+                    fields: ['action'] as const,
+                    quote: pointQuote,
+                    sourceUrl: 'https://example.com/card',
+                    location: '포인트 운영기준',
+                }] : []),
+            ],
+            notes: [],
+        }, {
+            card: genericCard,
+            sourceUrl: 'https://example.com/card',
+            sourceText: `${capQuote}\n${pointQuote}`,
+        }, {
+            brandIds: new Set(['gs25']),
+        }).errors.filter(error => error.includes('건별 최대 혜택'));
+
+        expect(validate(true)).toEqual([]);
+        expect(validate(false)).toEqual([expect.stringContaining('건별 최대 혜택')]);
+    });
+
     it('accepts the same days of every month as annual dates and caps the list', () => {
         const genericCard: Card = {
             id: 'generic-card',

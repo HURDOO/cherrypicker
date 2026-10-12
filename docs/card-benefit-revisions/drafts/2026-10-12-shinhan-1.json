@@ -1,0 +1,102 @@
+{
+  "cards": [
+    {
+      "id": "shinhan_sol_tripj_check",
+      "name": "신한카드 SOL트립앤J 체크",
+      "company": "신한카드",
+      "color": "bg-blue-500",
+      "issuerProductCode": "1237542",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "신한카드 SOL트립앤J 체크 상품 페이지",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1237542_2206.html",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "shinhan_sol_travelj_check",
+      "name": "신한카드 SOL트래블J 체크",
+      "company": "신한카드",
+      "color": "bg-blue-500",
+      "issuerProductCode": "1232877",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "신한카드 SOL트래블J 체크 상품 페이지",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1232877_2206.html",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "shinhan_pli_check",
+      "name": "신한카드 플리 체크(산리오캐릭터즈)",
+      "company": "신한카드",
+      "color": "bg-blue-500",
+      "issuerProductCode": "1220330",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "신한카드 플리 체크(산리오캐릭터즈) 상품 페이지",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1220330_2206.html",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "shinhan_kpass_check",
+      "name": "K-패스 신한카드 체크",
+      "company": "신한카드",
+      "color": "bg-blue-500",
+      "issuerProductCode": "1225544",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "K-패스 신한카드 체크 상품 페이지",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1225544_2206.html",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "shinhan_point_plan_check",
+      "name": "신한카드 Point Plan 체크",
+      "company": "신한카드",
+      "color": "bg-blue-500",
+      "issuerProductCode": "1226114",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "신한카드 Point Plan 체크 상품 페이지",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1226114_2206.html",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "신한카드 포인트 세부 운영기준",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/helpdesk/terms/terms44/1186828_1200.html",
+          "sourceKind": "NOTICE",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

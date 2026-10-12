@@ -1,0 +1,102 @@
+{
+  "cards": [
+    {
+      "id": "shinhan_point_plan_check_jjangu",
+      "name": "신한카드 Point Plan 체크 캐릭터형(짱구)",
+      "company": "신한카드",
+      "color": "bg-blue-500",
+      "issuerProductCode": "1230740",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "신한카드 Point Plan 체크 캐릭터형(짱구) 상품 페이지",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1230740_2206.html",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "shinhan_kakaopay_check",
+      "name": "카카오페이 신한 체크카드",
+      "company": "신한카드",
+      "color": "bg-blue-500",
+      "issuerProductCode": "1187963",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "카카오페이 신한 체크카드 상품 페이지",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187963_2206.html",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "shinhan_pick_i_check",
+      "name": "신한카드 Pick I 체크 캐릭터형(한교동)",
+      "company": "신한카드",
+      "color": "bg-blue-500",
+      "issuerProductCode": "1226245",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "신한카드 Pick I 체크 캐릭터형(한교동) 상품 페이지",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1226245_2206.html",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "신한카드 포인트 세부 운영기준",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/helpdesk/terms/terms44/1186828_1200.html",
+          "sourceKind": "NOTICE",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "shinhan_main_bank_check",
+      "name": "신한카드 주거래 체크",
+      "company": "신한카드",
+      "color": "bg-blue-500",
+      "issuerProductCode": "1187975",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "신한카드 주거래 체크 상품 페이지",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187975_2206.html",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "shinhan_deep_dream_minions",
+      "name": "신한카드 Deep Dream 체크(미니언즈)",
+      "company": "신한카드",
+      "color": "bg-blue-500",
+      "issuerProductCode": "1187959",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "신한카드 Deep Dream 체크(미니언즈) 상품 페이지",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1187959_2206.html",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

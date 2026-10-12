@@ -549,7 +549,10 @@ const validateRuleSemanticEvidence = (
         if (ruleRow.limitConfig.sharedFields?.length && !ruleRow.sharedGroupId) {
             errors.push(`공유 필드가 있지만 공유 한도 그룹이 없습니다: ${label}`);
         }
-        const actionEvidence = evidenceTextForRule(ruleRow.id, evidence);
+        const pointsAreWon = statesPointEqualsWon(evidence);
+        const actionEvidence = pointsAreWon
+            ? pointAmountsAsWon(evidenceTextForRule(ruleRow.id, evidence))
+            : evidenceTextForRule(ruleRow.id, evidence);
         const actionFieldEvidence = evidenceTextForRule(ruleRow.id, evidence, 'action');
         const actionPercentages = percentageValuesIn(actionFieldEvidence);
         if (ruleRow.action.type === 'PERCENT' && ruleRow.action.value > 0 &&
