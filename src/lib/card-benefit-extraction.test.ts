@@ -1553,6 +1553,54 @@ describe('card benefit extraction', () => {
         ]));
     });
 
+    it('accepts a per-purchase cap stated after its minimum spend and keeps rejecting monthly caps', () => {
+        const genericCard: Card = {
+            id: 'generic-card',
+            name: '테스트 카드',
+            company: '테스트',
+            color: 'bg-blue-500',
+            limitTable: [],
+        };
+        const quote = '배달앱 5% 할인 배달의 민족, 요기요 건당 이용금액 1만원 이상 시 최대 1,000원 할인 ' +
+            '(월 최대 6,000원 할인)';
+        const validate = (maxDiscount: number) => validateCardBenefitExtraction({
+            schemaVersion: 2 as const,
+            completeness: 'FULL' as const,
+            card: { id: genericCard.id, name: genericCard.name, company: genericCard.company, limitTable: [] },
+            rules: [{
+                id: 'generic-delivery',
+                cardId: genericCard.id,
+                includedBrands: ['baemin'],
+                excludedBrands: [],
+                platformType: 'ONLINE' as const,
+                usesCardLimit: false,
+                description: '배달앱 5% 할인',
+                detail: '',
+                condition: { minSpend: 10_000 },
+                action: { type: 'PERCENT' as const, value: 5, maxDiscount },
+                limitConfig: { monthlyAmount: 6_000 },
+            }],
+            evidence: [{
+                id: 'delivery',
+                ruleIds: ['generic-delivery'],
+                fields: ['description', 'action', 'condition', 'limitConfig'] as const,
+                quote,
+                sourceUrl: 'https://example.com/card',
+                location: '배달앱 할인',
+            }],
+            notes: [],
+        }, {
+            card: genericCard,
+            sourceUrl: 'https://example.com/card',
+            sourceText: quote,
+        }, {
+            brandIds: new Set(['baemin']),
+        }).errors.filter(error => error.includes('건별 최대 혜택'));
+
+        expect(validate(1_000)).toEqual([]);
+        expect(validate(6_000)).toEqual([expect.stringContaining('건별 최대 혜택이 일·월 한도에서 잘못 파생')]);
+    });
+
     it('rejects a numeric performance condition absent from its official evidence', () => {
         const genericCard: Card = {
             id: 'generic-card',

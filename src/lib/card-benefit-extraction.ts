@@ -545,7 +545,13 @@ const validateRuleSemanticEvidence = (
                 ruleRow.action.value) >= 0.0001) {
             errors.push(`할인율 ${ruleRow.action.value}%의 공식 숫자 근거가 없습니다: ${label}`);
         }
-        if (ruleRow.action.maxDiscount !== undefined &&
+        // "건당 이용금액 2만원 이상 시 최대 2,500원 할인" states a per-purchase cap after its minimum.
+        const minimumThenCap = [...normalizeText(actionEvidence).matchAll(new RegExp(
+            `건당\\s*(?:이용\\s*금액|결제\\s*금액)?\\s*${moneyTokenSource}\\s*이상\\s*` +
+            `(?:결제|이용)?\\s*시\\s*최대\\s*(${moneyTokenSource})`,
+            'gi',
+        ))].some(match => parseKoreanMoney(match[1]) === ruleRow.action.maxDiscount);
+        if (ruleRow.action.maxDiscount !== undefined && !minimumThenCap &&
             !new RegExp(
                 `(?:결제\\s*)?(?:건당|1\\s*회(?:\\s*당)?)\\s*` +
                 `(?:최대|한도)?\\s*${moneyTokenSource}(?:까지)?(?:\\s*(?:할인|적립|캐시백))?`,

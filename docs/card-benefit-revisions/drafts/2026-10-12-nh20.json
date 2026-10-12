@@ -1,0 +1,30 @@
+{
+  "cards": [
+    {
+      "id": "nh_20haebom_check",
+      "name": "NH20해봄체크카드",
+      "company": "NH농협카드",
+      "color": "bg-emerald-500",
+      "issuerProductCode": "90000359",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "NH20해봄체크카드 상품 페이지",
+          "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "NH20해봄체크카드 상품설명서",
+          "sourceUrl": "https://card.nonghyup.com/file/ebank/product/info/M21012.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}
