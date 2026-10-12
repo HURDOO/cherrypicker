@@ -410,12 +410,12 @@ const koreanMoneyValuesIn = (value: string) => unique(
 
 // "2천점", "5만 포인트", "5천 하나머니": read as won only after an official quote states that one point is one won.
 export const pointAmountsAsWon = (value: string) => value.normalize('NFKC').replace(
-    /([0-9][0-9,]*(?:\.[0-9]+)?\s*(?:억|만|천|백)?)\s*(?:점|포인트|하나머니)/g,
+    /([0-9][0-9,]*(?:\.[0-9]+)?\s*(?:억|만|천|백)?)\s*(?:점|M\s*포인트|포인트|하나머니)/g,
     '$1원',
 );
 
 export const statesPointEqualsWon = (evidence: CardBenefitEvidence[]) => evidence.some(item => (
-    /1\s*(?:점|포인트|하나머니)\s*(?:은|는|=)?\s*1\s*원/.test(item.quote.normalize('NFKC'))
+    /1\s*(?:점|M\s*포인트|포인트|하나머니)\s*(?:은|는|=)?\s*1\s*원/.test(item.quote.normalize('NFKC'))
 ));
 
 const percentageValuesIn = (value: string) => unique(

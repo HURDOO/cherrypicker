@@ -1,0 +1,92 @@
+{
+  "cards": [
+    {
+      "id": "hyundai_check_cashback",
+      "name": "현대카드 체크(캐시백형)",
+      "company": "현대카드",
+      "color": "bg-gray-700",
+      "issueStatus": "ACTIVE",
+      "issuerProductCode": "CCD",
+      "sources": [
+        {
+          "label": "현대카드 체크(캐시백형) 최신 가이드북",
+          "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03394",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "hyundai_check_applepay",
+      "name": "현대카드 체크(Apple Pay Rewards)",
+      "company": "현대카드",
+      "color": "bg-gray-700",
+      "issueStatus": "ACTIVE",
+      "issuerProductCode": "CCA",
+      "sources": [
+        {
+          "label": "현대카드 체크(Apple Pay Rewards) 최신 가이드북",
+          "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03398",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "hyundai_check_point",
+      "name": "현대카드 체크(포인트형)",
+      "company": "현대카드",
+      "color": "bg-gray-700",
+      "issueStatus": "ACTIVE",
+      "issuerProductCode": "CCM",
+      "sources": [
+        {
+          "label": "현대카드 체크(포인트형) 최신 가이드북",
+          "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "hyundai_m_check",
+      "name": "현대카드M CHECK",
+      "company": "현대카드",
+      "color": "bg-gray-700",
+      "issueStatus": "DISCONTINUED",
+      "sources": [
+        {
+          "label": "현대카드M·X CHECK·HYBRID 가이드북(2026-06-01)",
+          "sourceUrl": "https://www.hyundaicard.com/upload/card/260601_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_MX%20%EC%B2%B4%ED%81%AC%ED%95%98%EC%9D%B4%EB%B8%8C%EB%A6%AC%EB%93%9C%EC%B9%B4%EB%93%9C.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "hyundai_x_check",
+      "name": "현대카드X CHECK",
+      "company": "현대카드",
+      "color": "bg-gray-700",
+      "issueStatus": "DISCONTINUED",
+      "sources": [
+        {
+          "label": "현대카드M·X CHECK·HYBRID 가이드북(2026-06-01)",
+          "sourceUrl": "https://www.hyundaicard.com/upload/card/260601_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_MX%20%EC%B2%B4%ED%81%AC%ED%95%98%EC%9D%B4%EB%B8%8C%EB%A6%AC%EB%93%9C%EC%B9%B4%EB%93%9C.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

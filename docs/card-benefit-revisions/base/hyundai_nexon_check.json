@@ -1,0 +1,78 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "hyundai_nexon_check",
+      "name": "넥슨 현대카드 CHECK",
+      "company": "현대카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "hd_nxck_nexon_point_info",
+        "cardId": "hyundai_nexon_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[정보] 국내 가맹점 0.5% 넥슨 현대카드 포인트 적립",
+        "detail": "국내 가맹점 이용금액의 0.5%를 넥슨 게임에서 쓰는 넥슨 현대카드 포인트로 적립(월 이용금액 50만원까지, 실적 조건 없음). 현금성 혜택이 아니라 금액을 자동 계산하지 않습니다.",
+        "condition": {},
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "신규 발급이 2026-01-27 중단된 상품이다. 기존 보유자를 위해 최신 가이드북(2026-08-01 시행) 기준으로 게시한다.",
+      "넥슨 현대카드 포인트는 게임 재화라 결제 추천 금액에 넣지 않는다."
+    ],
+    "evidence": [
+      {
+        "id": "hd_nxck_nexon_point_info-1",
+        "ruleIds": [
+          "hd_nxck_nexon_point_info"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "실적 조건 없이 국내 가맹점 이용금액의 0.5% 넥슨 현대카드 포인트 적립",
+        "sourceUrl": "https://www.hyundaicard.com/upload/card/T_AWO-20260508-1840-49_%EB%84%A5%EC%8A%A8_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_CHECK_V2.pdf",
+        "location": "[정보] 국내 가맹점 0.5% 넥슨 현대카드 포인트 적립",
+        "page": 3
+      },
+      {
+        "id": "hd_nxck_nexon_point_info-2",
+        "ruleIds": [
+          "hd_nxck_nexon_point_info"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "적립한도 월 이용금액 50만원 한도(적립한도 초과 시 미적립)",
+        "sourceUrl": "https://www.hyundaicard.com/upload/card/T_AWO-20260508-1840-49_%EB%84%A5%EC%8A%A8_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_CHECK_V2.pdf",
+        "location": "[정보] 국내 가맹점 0.5% 넥슨 현대카드 포인트 적립",
+        "page": 3
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "nexon-point",
+        "ruleIds": [
+          "hd_nxck_nexon_point_info"
+        ],
+        "sourceUrl": "https://www.hyundaicard.com/upload/card/T_AWO-20260508-1840-49_%EB%84%A5%EC%8A%A8_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_CHECK_V2.pdf",
+        "quote": "· 넥슨 현대카드 포인트 사용 및 관리 기준은 넥슨 홈페이지 참고",
+        "reason": "넥슨 현대카드 포인트는 넥슨 게임 안에서만 쓰는 포인트라 현금 할인이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_NON_CASH"
+      }
+    ]
+  }
+}

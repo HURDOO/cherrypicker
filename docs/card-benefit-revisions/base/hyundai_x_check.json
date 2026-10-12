@@ -1,0 +1,146 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "hyundai_x_check",
+      "name": "현대카드X CHECK",
+      "company": "현대카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "hd_xck_base",
+        "cardId": "hyundai_x_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내외 가맹점 0.3% X캐시백 적립",
+        "detail": "국내외 모든 가맹점 0.3% X캐시백 적립. 당월 이용금액 100만원 이상이면 0.6%(별도 안내). 적립 한도 없음.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "hd_xck_monthly_1m_info",
+        "cardId": "hyundai_x_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[정보] 당월 100만원 이상 이용 시 0.6% X캐시백",
+        "detail": "결제일에 청구되는 당월 이용금액이 100만원 이상이면 0.6% 적립. 이번 달 합계를 앱이 결제 시점에 알 수 없어 기본 0.3%로 계산합니다.",
+        "condition": {},
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "신규 발급이 2026-04-28 중단된 상품이다. 기존 보유자를 위해 마지막 가이드북(2026-06-01 시행) 기준으로 게시한다.",
+      "X캐시백은 매월 10일 결제계좌로 1 X캐시백=1원 자동 입금된다."
+    ],
+    "evidence": [
+      {
+        "id": "hd_xck_base-1",
+        "ruleIds": [
+          "hd_xck_base"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "월 100만원 미만 이용 시 0.3% X캐시백 적립",
+        "sourceUrl": "https://www.hyundaicard.com/upload/card/260601_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_MX%20%EC%B2%B4%ED%81%AC%ED%95%98%EC%9D%B4%EB%B8%8C%EB%A6%AC%EB%93%9C%EC%B9%B4%EB%93%9C.pdf",
+        "location": "국내외 가맹점 0.3% X캐시백 적립",
+        "page": 9
+      },
+      {
+        "id": "hd_xck_base-2",
+        "ruleIds": [
+          "hd_xck_base"
+        ],
+        "fields": [
+          "action"
+        ],
+        "quote": "X캐시백 계좌입금 시 1 X캐시백=1원으로 환산되어 사용",
+        "sourceUrl": "https://www.hyundaicard.com/upload/card/260601_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_MX%20%EC%B2%B4%ED%81%AC%ED%95%98%EC%9D%B4%EB%B8%8C%EB%A6%AC%EB%93%9C%EC%B9%B4%EB%93%9C.pdf",
+        "location": "국내외 가맹점 0.3% X캐시백 적립",
+        "page": 10
+      },
+      {
+        "id": "hd_xck_base-3",
+        "ruleIds": [
+          "hd_xck_base"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "적립 대상 X CHECK : 국내외에서 사용한 모든 물품 구매 및 서비스 이용 대금의 입금액",
+        "sourceUrl": "https://www.hyundaicard.com/upload/card/260601_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_MX%20%EC%B2%B4%ED%81%AC%ED%95%98%EC%9D%B4%EB%B8%8C%EB%A6%AC%EB%93%9C%EC%B9%B4%EB%93%9C.pdf",
+        "location": "국내외 가맹점 0.3% X캐시백 적립",
+        "page": 20
+      },
+      {
+        "id": "hd_xck_base-4",
+        "ruleIds": [
+          "hd_xck_base"
+        ],
+        "fields": [
+          "limitConfig",
+          "condition"
+        ],
+        "quote": "적립 한도 · 연간 적립 한도 무제한",
+        "sourceUrl": "https://www.hyundaicard.com/upload/card/260601_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_MX%20%EC%B2%B4%ED%81%AC%ED%95%98%EC%9D%B4%EB%B8%8C%EB%A6%AC%EB%93%9C%EC%B9%B4%EB%93%9C.pdf",
+        "location": "국내외 가맹점 0.3% X캐시백 적립",
+        "page": 20
+      },
+      {
+        "id": "hd_xck_monthly_1m_info-1",
+        "ruleIds": [
+          "hd_xck_monthly_1m_info"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "월 100만원 이상 이용 시 0.6% X캐시백 적립",
+        "sourceUrl": "https://www.hyundaicard.com/upload/card/260601_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_MX%20%EC%B2%B4%ED%81%AC%ED%95%98%EC%9D%B4%EB%B8%8C%EB%A6%AC%EB%93%9C%EC%B9%B4%EB%93%9C.pdf",
+        "location": "[정보] 당월 100만원 이상 이용 시 0.6% X캐시백",
+        "page": 9
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "monthly-rate",
+        "ruleIds": [
+          "hd_xck_monthly_1m_info"
+        ],
+        "sourceUrl": "https://www.hyundaicard.com/upload/card/260601_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_MX%20%EC%B2%B4%ED%81%AC%ED%95%98%EC%9D%B4%EB%B8%8C%EB%A6%AC%EB%93%9C%EC%B9%B4%EB%93%9C.pdf",
+        "quote": "당월 이용금액은 결제일자에 청구된 해당 카드의 일시불 이용금액 · 체크결제에 따른 즉시 출금액 및 신용 일시불 이용금액 합산",
+        "reason": "당월 이용금액 100만원 기준 요율은 결제 시점에 정할 수 없음",
+        "affectsValue": true,
+        "patternId": "INFO_MULTI_RATE_UNRESOLVED"
+      },
+      {
+        "id": "accrual-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.hyundaicard.com/upload/card/260601_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_MX%20%EC%B2%B4%ED%81%AC%ED%95%98%EC%9D%B4%EB%B8%8C%EB%A6%AC%EB%93%9C%EC%B9%B4%EB%93%9C.pdf",
+        "quote": "적립 제외 장기카드대출(카드론), 단기카드대출(현금서비스), 연회비, 제수수료, 이자, 지방세·국세 등 세금 납부액, 도시가스 요금, 대학·대학원 등록금 납부 결제 건 및 자동납부 서비스 이용 수수료, 당사의 모든 할인 서비스 및 무이자 할부 이용 금액, 국제브랜드 수수료 및 해외 서비스 수수료",
+        "reason": "세금·도시가스·등록금 등은 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ]
+  }
+}

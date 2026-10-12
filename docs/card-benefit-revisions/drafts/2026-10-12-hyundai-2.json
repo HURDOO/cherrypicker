@@ -1,0 +1,55 @@
+{
+  "cards": [
+    {
+      "id": "hyundai_nexon_check",
+      "name": "넥슨 현대카드 CHECK",
+      "company": "현대카드",
+      "color": "bg-gray-700",
+      "issueStatus": "DISCONTINUED",
+      "sources": [
+        {
+          "label": "넥슨 현대카드 CHECK 가이드북(2026-08-01)",
+          "sourceUrl": "https://www.hyundaicard.com/upload/card/T_AWO-20260508-1840-49_%EB%84%A5%EC%8A%A8_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_CHECK_V2.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "hyundai_sc_m_check",
+      "name": "SC제일은행-현대카드M CHECK",
+      "company": "현대카드",
+      "color": "bg-gray-700",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "SC제일은행-현대카드 M·X CHECK 가이드북(2026-08-01)",
+          "sourceUrl": "https://www.hyundaicard.com/upload/card/T_AOB-20260709-1651-46_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_SC_MX%20CHECK_V3_%EA%B3%B5%EC%8B%9C%EC%8B%A4%EC%9A%A9.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "hyundai_sc_x_check",
+      "name": "SC제일은행-현대카드X CHECK",
+      "company": "현대카드",
+      "color": "bg-gray-700",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "SC제일은행-현대카드 M·X CHECK 가이드북(2026-08-01)",
+          "sourceUrl": "https://www.hyundaicard.com/upload/card/T_AOB-20260709-1651-46_%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81_SC_MX%20CHECK_V3_%EA%B3%B5%EC%8B%9C%EC%8B%A4%EC%9A%A9.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

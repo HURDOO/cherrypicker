@@ -1670,6 +1670,15 @@ describe('card benefit extraction', () => {
             id: 'hana', ruleIds: [], fields: ['action'], sourceUrl: 'https://example.com', quote: '적립기준 : 하나머니(1하나머니=1원)',
         }])).toBe(true);
         expect(pointAmountsAsWon('월 통합 적립한도 5천 하나머니')).toBe('월 통합 적립한도 5천원');
+        expect(statesPointEqualsWon([{
+            id: 'hyundai', ruleIds: [], fields: ['action'], sourceUrl: 'https://example.com',
+            quote: '· 일상 사용처, M몰, 자동차 구매 등은 1 M포인트 = 1원으로 사용',
+        }])).toBe(true);
+        expect(statesPointEqualsWon([{
+            id: 'hyundai-exchange', ruleIds: [], fields: ['action'], sourceUrl: 'https://example.com',
+            quote: 'H-Coin, 현대카드 Gift카드, 상품권, 연회비 결제는 1 M포인트=0.67원으로 환산됩니다.',
+        }])).toBe(false);
+        expect(pointAmountsAsWon('대상점 통합해 월 5천 M포인트 적립 한도')).toBe('대상점 통합해 월 5천원 적립 한도');
     });
 
     it('reads a point-denominated per-purchase cap as won only with the one-point-one-won quote', () => {

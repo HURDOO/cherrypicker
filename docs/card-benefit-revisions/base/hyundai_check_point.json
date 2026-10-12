@@ -1,0 +1,546 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "hyundai_check_point",
+      "name": "현대카드 체크(포인트형)",
+      "company": "현대카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "hd_ckpt_base",
+        "cardId": "hyundai_check_point",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내외 가맹점 0.5% M포인트 적립",
+        "detail": "국내외 모든 가맹점 0.5% M포인트 적립(1 M포인트=1원으로 사용, 교환 시 2/3원). 전월 실적·한도 없음.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 0.5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "hd_ckpt_restaurant",
+        "cardId": "hyundai_check_point",
+        "category": "food",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "일반음식점 5% M포인트 적립",
+        "detail": "일반음식점 5% M포인트 적립. 대상점 통합 월 5천원 한도(초과 시 기본 혜택), 전월 30만원 이상(신규 발급 다음 달까지 면제).",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "현대카드 가맹점 업종 기준 일반음식점으로 결제되는지 확인해야 합니다(패스트푸드·카페 등 다른 업종, PG·간편결제 승인 제외)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "hd_ckpt_extra"
+      },
+      {
+        "id": "hd_ckpt_delivery",
+        "cardId": "hyundai_check_point",
+        "category": "delivery",
+        "includedBrands": [
+          "baemin",
+          "coupangeats",
+          "yogiyo"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": false,
+        "description": "배달 앱(배달의민족·쿠팡이츠·요기요) 5% M포인트 적립",
+        "detail": "배달 앱(배달의민족·쿠팡이츠·요기요) 5% M포인트 적립. 대상점 통합 월 5천원 한도(초과 시 기본 혜택), 전월 30만원 이상(신규 발급 다음 달까지 면제).",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "hd_ckpt_extra"
+      },
+      {
+        "id": "hd_ckpt_convenience",
+        "cardId": "hyundai_check_point",
+        "category": "convenience",
+        "includedBrands": [
+          "gs25",
+          "cu",
+          "seveneleven",
+          "emart24"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": false,
+        "description": "편의점(GS25·CU·세븐일레븐·이마트24) 5% M포인트 적립",
+        "detail": "편의점(GS25·CU·세븐일레븐·이마트24) 5% M포인트 적립. 대상점 통합 월 5천원 한도(초과 시 기본 혜택), 전월 30만원 이상(신규 발급 다음 달까지 면제).",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "hd_ckpt_extra"
+      },
+      {
+        "id": "hd_ckpt_transit",
+        "cardId": "hyundai_check_point",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "대중교통(시내버스·지하철) 5% M포인트 적립",
+        "detail": "대중교통(시내버스·지하철) 5% M포인트 적립. 대상점 통합 월 5천원 한도(초과 시 기본 혜택), 전월 30만원 이상(신규 발급 다음 달까지 면제).",
+        "condition": {
+          "minPerformance": 300000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "hd_ckpt_extra"
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "M포인트는 원문대로 1 M포인트=1원(일상 사용처·M몰)으로 계산한다. H-Coin·상품권 교환은 2/3원이다.",
+      "추가 혜택과 기본 혜택은 중복되지 않아 결제처마다 큰 혜택 하나만 계산한다. 월 5천 M포인트 한도를 다 쓰면 기본 0.5%가 적용된다.",
+      "일반음식점은 현대카드 업종 기준이라 외식 분류 결제처에 확인 조건으로 둔다."
+    ],
+    "evidence": [
+      {
+        "id": "hd_ckpt_base-1",
+        "ruleIds": [
+          "hd_ckpt_base"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "실적·한도 제한 없이 국내외 가맹점 0.5% M포인트 적립",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "국내외 가맹점 0.5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_base-2",
+        "ruleIds": [
+          "hd_ckpt_base"
+        ],
+        "fields": [
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "· 실적 조건 및 적립 한도 없음",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "국내외 가맹점 0.5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_base-3",
+        "ruleIds": [
+          "hd_ckpt_base"
+        ],
+        "fields": [
+          "action"
+        ],
+        "quote": "· 일상 사용처, M몰, 자동차 구매 등은 1 M포인트 = 1원으로 사용",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "국내외 가맹점 0.5% M포인트 적립",
+        "page": 7
+      },
+      {
+        "id": "hd_ckpt_restaurant-1",
+        "ruleIds": [
+          "hd_ckpt_restaurant"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "전월 이용 금액 30만원 이상 시 일반음식점, 배달 앱, 편의점, 대중교통 5% M포인트 적립",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "일반음식점 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_restaurant-2",
+        "ruleIds": [
+          "hd_ckpt_restaurant"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "대상점 - 일반음식점 - 배달 앱 : 배달의민족, 쿠팡이츠, 요기요 - 편의점 : GS25, CU, 세븐일레븐, 이마트24 - 대중교통 : 시내버스, 지하철",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "일반음식점 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_restaurant-3",
+        "ruleIds": [
+          "hd_ckpt_restaurant"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "· 대상점 통합해 월 5천 M포인트 적립 한도(적립 한도 초과 시 기본 혜택 적립률 적용)",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "일반음식점 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_restaurant-4",
+        "ruleIds": [
+          "hd_ckpt_restaurant"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "· 신규 발급 시 카드 수령 등록월 다음 달 이용 건까지는 전월 이용 금액 30만원 미만도 추가 혜택 제공",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "일반음식점 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_restaurant-5",
+        "ruleIds": [
+          "hd_ckpt_restaurant"
+        ],
+        "fields": [
+          "action",
+          "limitConfig"
+        ],
+        "quote": "· 일상 사용처, M몰, 자동차 구매 등은 1 M포인트 = 1원으로 사용",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "일반음식점 5% M포인트 적립",
+        "page": 7
+      },
+      {
+        "id": "hd_ckpt_delivery-1",
+        "ruleIds": [
+          "hd_ckpt_delivery"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "전월 이용 금액 30만원 이상 시 일반음식점, 배달 앱, 편의점, 대중교통 5% M포인트 적립",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "배달 앱(배달의민족·쿠팡이츠·요기요) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_delivery-2",
+        "ruleIds": [
+          "hd_ckpt_delivery"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "대상점 - 일반음식점 - 배달 앱 : 배달의민족, 쿠팡이츠, 요기요 - 편의점 : GS25, CU, 세븐일레븐, 이마트24 - 대중교통 : 시내버스, 지하철",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "배달 앱(배달의민족·쿠팡이츠·요기요) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_delivery-3",
+        "ruleIds": [
+          "hd_ckpt_delivery"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "· 대상점 통합해 월 5천 M포인트 적립 한도(적립 한도 초과 시 기본 혜택 적립률 적용)",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "배달 앱(배달의민족·쿠팡이츠·요기요) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_delivery-4",
+        "ruleIds": [
+          "hd_ckpt_delivery"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "· 신규 발급 시 카드 수령 등록월 다음 달 이용 건까지는 전월 이용 금액 30만원 미만도 추가 혜택 제공",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "배달 앱(배달의민족·쿠팡이츠·요기요) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_delivery-5",
+        "ruleIds": [
+          "hd_ckpt_delivery"
+        ],
+        "fields": [
+          "action",
+          "limitConfig"
+        ],
+        "quote": "· 일상 사용처, M몰, 자동차 구매 등은 1 M포인트 = 1원으로 사용",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "배달 앱(배달의민족·쿠팡이츠·요기요) 5% M포인트 적립",
+        "page": 7
+      },
+      {
+        "id": "hd_ckpt_delivery-6",
+        "ruleIds": [
+          "hd_ckpt_delivery"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "· 배달 앱은 대상점 공식 홈페이지 및 앱 내 결제 건에 한해 추가 혜택 적용되며",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "배달 앱(배달의민족·쿠팡이츠·요기요) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_convenience-1",
+        "ruleIds": [
+          "hd_ckpt_convenience"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "전월 이용 금액 30만원 이상 시 일반음식점, 배달 앱, 편의점, 대중교통 5% M포인트 적립",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "편의점(GS25·CU·세븐일레븐·이마트24) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_convenience-2",
+        "ruleIds": [
+          "hd_ckpt_convenience"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "대상점 - 일반음식점 - 배달 앱 : 배달의민족, 쿠팡이츠, 요기요 - 편의점 : GS25, CU, 세븐일레븐, 이마트24 - 대중교통 : 시내버스, 지하철",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "편의점(GS25·CU·세븐일레븐·이마트24) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_convenience-3",
+        "ruleIds": [
+          "hd_ckpt_convenience"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "· 대상점 통합해 월 5천 M포인트 적립 한도(적립 한도 초과 시 기본 혜택 적립률 적용)",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "편의점(GS25·CU·세븐일레븐·이마트24) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_convenience-4",
+        "ruleIds": [
+          "hd_ckpt_convenience"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "· 신규 발급 시 카드 수령 등록월 다음 달 이용 건까지는 전월 이용 금액 30만원 미만도 추가 혜택 제공",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "편의점(GS25·CU·세븐일레븐·이마트24) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_convenience-5",
+        "ruleIds": [
+          "hd_ckpt_convenience"
+        ],
+        "fields": [
+          "action",
+          "limitConfig"
+        ],
+        "quote": "· 일상 사용처, M몰, 자동차 구매 등은 1 M포인트 = 1원으로 사용",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "편의점(GS25·CU·세븐일레븐·이마트24) 5% M포인트 적립",
+        "page": 7
+      },
+      {
+        "id": "hd_ckpt_convenience-6",
+        "ruleIds": [
+          "hd_ckpt_convenience"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "· 편의점은 현장 결제 건에 한해 추가 혜택 적용되며",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "편의점(GS25·CU·세븐일레븐·이마트24) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_transit-1",
+        "ruleIds": [
+          "hd_ckpt_transit"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "전월 이용 금액 30만원 이상 시 일반음식점, 배달 앱, 편의점, 대중교통 5% M포인트 적립",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "대중교통(시내버스·지하철) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_transit-2",
+        "ruleIds": [
+          "hd_ckpt_transit"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "대상점 - 일반음식점 - 배달 앱 : 배달의민족, 쿠팡이츠, 요기요 - 편의점 : GS25, CU, 세븐일레븐, 이마트24 - 대중교통 : 시내버스, 지하철",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "대중교통(시내버스·지하철) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_transit-3",
+        "ruleIds": [
+          "hd_ckpt_transit"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "· 대상점 통합해 월 5천 M포인트 적립 한도(적립 한도 초과 시 기본 혜택 적립률 적용)",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "대중교통(시내버스·지하철) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_transit-4",
+        "ruleIds": [
+          "hd_ckpt_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "· 신규 발급 시 카드 수령 등록월 다음 달 이용 건까지는 전월 이용 금액 30만원 미만도 추가 혜택 제공",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "대중교통(시내버스·지하철) 5% M포인트 적립",
+        "page": 4
+      },
+      {
+        "id": "hd_ckpt_transit-5",
+        "ruleIds": [
+          "hd_ckpt_transit"
+        ],
+        "fields": [
+          "action",
+          "limitConfig"
+        ],
+        "quote": "· 일상 사용처, M몰, 자동차 구매 등은 1 M포인트 = 1원으로 사용",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "대중교통(시내버스·지하철) 5% M포인트 적립",
+        "page": 7
+      },
+      {
+        "id": "hd_ckpt_transit-6",
+        "ruleIds": [
+          "hd_ckpt_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "· 시외버스 및 고속버스 결제 건은 국내외 가맹점으로 구분되어 기본 혜택 적용",
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "location": "대중교통(시내버스·지하철) 5% M포인트 적립",
+        "page": 4
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "quote": "전월 이용 금액 합산 제외 기준 · 장기카드대출(카드론), 단기카드대출(현금서비스), 연회비, 제수수료, 이자 · 국제브랜드 수수료 및 해외서비스 수수료 · 공과금 납부액(국세, 관세, 지방세 , 지방세외수입, 상하수도 요금, 벌과금, 과태료, 인지세, 송달료, 민원 발급 수수료 등 국가 또는 공공단체가 부과하는 부담금) · 상품권 등 현금성 유가증권 구매 및 선불 카드 구매·충전 금액 · 현대카드 체크(포인트형) 이용 금액만 인정되며, 그 외 모든 카드 이용 금액은 합산 불가",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "accrual-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "quote": "적립 제외 기준 · 장기카드대출(카드론), 단기카드대출(현금서비스), 연회비, 제수수료, 이자 · 국제브랜드 수수료 및 해외서비스 수수료 · 공과금 납부액(국세, 관세, 지방세, 지방세외수입, 상하수도 요금, 벌과금, 과태료, 인지세, 송달료, 민원 발급 수수료 등 국가 또는 공공단체가 부과하는 부담금) · 전기 요금, TV 수신료, 도시가스 요금, 아파트 관리비, 부동산 임대료(월세), 자동납부 서비스 이용 수수료 · 사립유치원 교육비 납입금, 초·중·고교 학교 납입금, 대학·대학원 등록금 납부 결제 건 · 상품권 등 현금성 유가증권 구매 및 선불 카드 구매·충전 금액 · 건강보험, 국민연금, 고용보험, 산재보험 및 장애인 고용 부담금 · 고속도로 통행 요금, 후불하이패스카드 이용 금액, 고속버스(차내 단말기 및 고속버스 앱 결제 포함) · 현대카드 체크(포인트형) 혜택 외 현대카드의 모든 할인 및 무이자 할부 서비스 적용된 결제 건의 전체 이용 금액",
+        "reason": "공과금·등록금·상품권·고속버스 등은 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "pg-path",
+        "ruleIds": [
+          "hd_ckpt_restaurant",
+          "hd_ckpt_delivery",
+          "hd_ckpt_convenience",
+          "hd_ckpt_transit"
+        ],
+        "sourceUrl": "https://www.hyundaicard.com/cpu/ug/CPUUG2001_0405.hc?cDS=00&c=03396",
+        "quote": "결제 승인된 가맹점이 해당 업체가 아닌 PG결제(결제대행) 또는 키오스크, 간편결제 가맹점명으로 확인되는 경우 해당 가맹점으로 분류되어 추가 혜택 제외되니",
+        "reason": "PG·키오스크·간편결제 가맹점명으로 승인되면 추가 혜택 제외",
+        "affectsValue": true,
+        "patternId": "MERCHANT_APPROVAL_PATH"
+      }
+    ]
+  }
+}
