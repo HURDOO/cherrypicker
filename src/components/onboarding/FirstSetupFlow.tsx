@@ -27,6 +27,7 @@ import type {
     UserBenefitProfile,
     WorkspacePreferences,
 } from '@/types';
+import { getTelecomTierOptions, matchTelecomTierOption } from '@/utils/telecomTiers';
 
 const STEPS: Array<{ id: FirstSetupStep; label: string }> = [
     { id: 'CARDS', label: '카드' },
@@ -40,26 +41,6 @@ const previousStep: Partial<Record<FirstSetupStep, FirstSetupStep>> = {
     BENEFITS: 'CARDS',
     PERFORMANCE: 'BENEFITS',
     FAVORITES: 'PERFORMANCE',
-};
-
-const TELECOM_TIER_ORDER = [
-    '일반',
-    'SILVER',
-    'WHITE',
-    '우수',
-    'GOLD',
-    'VIP',
-    'VVIP',
-];
-
-const SKT_TIER_OPTIONS = ['SILVER', 'GOLD', 'VIP'];
-
-const compareTelecomTiers = (left: string, right: string) => {
-    const leftIndex = TELECOM_TIER_ORDER.indexOf(left.toLocaleUpperCase('ko-KR'));
-    const rightIndex = TELECOM_TIER_ORDER.indexOf(right.toLocaleUpperCase('ko-KR'));
-    return (leftIndex < 0 ? Number.MAX_SAFE_INTEGER : leftIndex) -
-        (rightIndex < 0 ? Number.MAX_SAFE_INTEGER : rightIndex) ||
-        left.localeCompare(right, 'ko-KR');
 };
 
 function SelectionButton({
@@ -267,19 +248,13 @@ export function FirstSetupFlow({
     const selectedTelecomProvider = telecomProviders.find(
         provider => provider.id === selectedTelecomId
     );
-    const telecomTierOptions = useMemo(() => {
-        if (!selectedTelecomId || !catalog) return [];
-        const collectedTiers = [...new Set(catalog.promotions
-            .filter(offer => offer.providerId === selectedTelecomId)
-            .flatMap(offer => offer.condition.telecomTiers ?? [])
-            .map(tier => tier.trim())
-            .filter(Boolean))]
-            .sort(compareTelecomTiers);
-        if (collectedTiers.length > 0) return collectedTiers;
-        return selectedTelecomId === 'skt' ? SKT_TIER_OPTIONS : [];
-    }, [catalog, selectedTelecomId]);
+    const telecomTierOptions = useMemo(
+        () => getTelecomTierOptions(selectedTelecomId, catalog?.promotions ?? []),
+        [catalog, selectedTelecomId]
+    );
+    const selectedTelecomTier = matchTelecomTierOption(selectedTelecom?.tier, telecomTierOptions);
     const isTelecomTierMissing = Boolean(
-        selectedTelecomId && telecomTierOptions.length > 0 && !selectedTelecom?.tier
+        selectedTelecomId && telecomTierOptions.length > 0 && !selectedTelecomTier
     );
     const isTelecomModeMissing = selectedTelecomId === 'skt' && !selectedTelecom?.mode;
     const isTelecomSetupIncomplete = isTelecomTierMissing || isTelecomModeMissing;
@@ -489,7 +464,7 @@ export function FirstSetupFlow({
                                             {telecomTierOptions.map(tier => (
                                                 <SelectionButton
                                                     key={tier}
-                                                    selected={selectedTelecom?.tier === tier}
+                                                    selected={selectedTelecomTier === tier}
                                                     disabled={isSaving}
                                                     onClick={() => void persistProfile({
                                                         ...benefitProfile,

@@ -74,6 +74,7 @@ import {
     normalizeGeneralPaymentLabel,
     toPaymentTargetSnapshot,
 } from '@/utils/paymentTarget';
+import { getTelecomTierOptions, matchTelecomTierOption } from '@/utils/telecomTiers';
 
 const formatWon = (value: number) => `${value.toLocaleString()}원`;
 
@@ -528,10 +529,14 @@ function HomePageContent() {
     );
     const benefitBrandSuggestions = benefitBrandSuggestionResult.suggestions;
     const incompleteTelecomProvider = useMemo(() => {
+        if (!catalog) return undefined;
         const membership = benefitProfile.telecomMemberships.find(item => (
-            !item.tier?.trim() || (item.providerId === 'skt' && !item.mode)
+            !matchTelecomTierOption(
+                item.tier,
+                getTelecomTierOptions(item.providerId, catalog.promotions),
+            ) || (item.providerId === 'skt' && !item.mode)
         ));
-        if (!membership || !catalog) return undefined;
+        if (!membership) return undefined;
         const hasTierSpecificOffers = catalog.promotions.some(offer => (
             offer.providerId === membership.providerId &&
             (offer.condition.telecomTiers?.length ?? 0) > 0

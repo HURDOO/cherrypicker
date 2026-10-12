@@ -32,6 +32,7 @@ import {
     DEFAULT_SMALL_BENEFIT_THRESHOLD,
     MAX_SMALL_BENEFIT_THRESHOLD,
 } from '@/utils/recommendationPreferences';
+import { getTelecomTierOptions, matchTelecomTierOption } from '@/utils/telecomTiers';
 
 const emptyProfile: UserBenefitProfile = {
     telecomMemberships: [],
@@ -75,7 +76,17 @@ export function BenefitProfileSettings() {
     );
     const selectedTelecom = profile.telecomMemberships[0];
     const requiresTelecomMode = selectedTelecom?.providerId === 'skt';
-    const isTelecomTierMissing = Boolean(selectedTelecom && !selectedTelecom.tier?.trim());
+    const telecomTierOptions = useMemo(
+        () => getTelecomTierOptions(selectedTelecom?.providerId, catalogState.snapshot?.promotions ?? []),
+        [catalogState.snapshot, selectedTelecom?.providerId]
+    );
+    const selectedTelecomTier = matchTelecomTierOption(selectedTelecom?.tier, telecomTierOptions);
+    const unmatchedTelecomTier = telecomTierOptions.length > 0 && !selectedTelecomTier
+        ? selectedTelecom?.tier?.trim()
+        : undefined;
+    const isTelecomTierMissing = Boolean(selectedTelecom && (telecomTierOptions.length > 0
+        ? !selectedTelecomTier
+        : !selectedTelecom.tier?.trim()));
     const isTelecomProfileIncomplete = isTelecomTierMissing || Boolean(
         requiresTelecomMode && !selectedTelecom?.mode
     );
@@ -342,24 +353,60 @@ export function BenefitProfileSettings() {
                                     </div>
                                 </fieldset>
                             )}
-                            <input
-                                aria-label="멤버십 등급"
-                                value={selectedTelecom.tier ?? ''}
-                                onChange={event => setProfile(current => ({
-                                    ...current,
-                                    telecomMemberships: [{
-                                        ...selectedTelecom,
-                                        tier: event.target.value,
-                                    }],
-                                }))}
-                                placeholder="등급 입력 (예: VIP, VVIP)"
-                                className="mt-3 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-bold outline-none focus:border-blue-500"
-                            />
-                            {isTelecomProfileIncomplete && (
+                            {telecomTierOptions.length > 0 ? (
+                                <fieldset className="mt-3">
+                                    <legend className="text-[10px] font-black text-gray-500">
+                                        멤버십 등급
+                                    </legend>
+                                    <div className="mt-2 grid grid-cols-3 gap-2">
+                                        {telecomTierOptions.map(tier => (
+                                            <button
+                                                type="button"
+                                                key={tier}
+                                                aria-pressed={selectedTelecomTier === tier}
+                                                onClick={() => setProfile(current => ({
+                                                    ...current,
+                                                    telecomMemberships: [{
+                                                        ...selectedTelecom,
+                                                        tier,
+                                                    }],
+                                                }))}
+                                                className={`rounded-xl border px-3 py-2 text-xs font-black ${
+                                                    selectedTelecomTier === tier
+                                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                                        : 'border-gray-200 text-gray-500'
+                                                }`}
+                                            >
+                                                {tier}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </fieldset>
+                            ) : (
+                                <input
+                                    aria-label="멤버십 등급"
+                                    value={selectedTelecom.tier ?? ''}
+                                    onChange={event => setProfile(current => ({
+                                        ...current,
+                                        telecomMemberships: [{
+                                            ...selectedTelecom,
+                                            tier: event.target.value,
+                                        }],
+                                    }))}
+                                    placeholder="등급 입력 (예: VIP, VVIP)"
+                                    className="mt-3 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-bold outline-none focus:border-blue-500"
+                                />
+                            )}
+                            {unmatchedTelecomTier && (
+                                <p className="mt-2 text-[10px] font-bold leading-relaxed text-amber-600">
+                                    저장된 등급 &lsquo;{unmatchedTelecomTier}&rsquo;은 목록에 없어 혜택 계산에 쓰지 않아요. 등급을 다시 골라주세요.
+                                </p>
+                            )}
+                            {isTelecomProfileIncomplete && !unmatchedTelecomTier && (
                                 <p className="mt-2 text-[10px] font-bold text-amber-600">
                                     {requiresTelecomMode
-                                        ? 'T멤버십 혜택 유형과 등급을 모두 입력해주세요.'
-                                        : '멤버십 등급을 입력해주세요.'}
+                                        ? 'T멤버십 혜택 유형과 등급을 모두 선택해주세요.'
+                                        : '멤버십 등급을 선택해주세요.'}
                                 </p>
                             )}
                         </>
