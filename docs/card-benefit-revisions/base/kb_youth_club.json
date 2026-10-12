@@ -1,0 +1,1065 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "kb_youth_club",
+      "name": "KB Youth Club 체크카드",
+      "company": "KB국민카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "kb_youth_a_ott",
+        "cardId": "kb_youth_club",
+        "category": "subscription",
+        "includedBrands": [
+          "netflix",
+          "youtube",
+          "tving",
+          "official_897337624b4d74d5"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": false,
+        "description": "[A팩] OTT 50% 할인",
+        "detail": "넷플릭스, 유튜브 프리미엄, 티빙, 스포티파이 공식 홈페이지 정기결제 이용권 50% 할인, 월 5천원 한도. 인앱결제·단건 결제·포인트/캐시 충전과 유튜브 채널 구독은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 KB Youth Club 선택서비스가 A팩인지 확인해야 합니다(신청 다음 달 1일부터 적용). 공식 홈페이지 정기결제(인앱결제 제외)인지도 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 50,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000
+        }
+      },
+      {
+        "id": "kb_youth_a_app",
+        "cardId": "kb_youth_club",
+        "category": "shopping",
+        "includedBrands": [
+          "google_play",
+          "app_store"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": false,
+        "description": "[A팩] 앱마켓 30% 할인",
+        "detail": "구글 플레이스토어, 애플 앱스토어 건당 5천원 이상 이용 시 30% 할인, 월 5천원 한도.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 KB Youth Club 선택서비스가 A팩인지 확인해야 합니다(신청 다음 달 1일부터 적용).",
+          "minSpend": 5000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 30,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000
+        }
+      },
+      {
+        "id": "kb_youth_a_leisure",
+        "cardId": "kb_youth_club",
+        "category": "movie",
+        "includedBrands": [
+          "official_81119c5e77351e6b",
+          "official_78a6b10c8c76a24b"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[A팩] 노래방·PC방 20% 할인",
+        "detail": "노래방 및 비디오방/게임방 업종에서 건당 5천원 이상 이용 시 20% 할인, 월 2천원 한도.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 KB Youth Club 선택서비스가 A팩인지 확인해야 합니다(신청 다음 달 1일부터 적용).",
+          "minSpend": 5000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 20,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_youth_a_transport",
+        "cardId": "kb_youth_club",
+        "category": "transport",
+        "includedBrands": [
+          "taxi",
+          "rail"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[A팩] 택시·철도 20% 할인",
+        "detail": "택시 및 철도 업종에서 건당 5천원 이상 이용 시 20% 할인, 월 2천원 한도.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 KB Youth Club 선택서비스가 A팩인지 확인해야 합니다(신청 다음 달 1일부터 적용).",
+          "minSpend": 5000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 20,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_youth_a_convenience",
+        "cardId": "kb_youth_club",
+        "category": "convenience",
+        "includedBrands": [
+          "gs25",
+          "cu"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": false,
+        "description": "[A팩] 편의점 KB Pay 20% 할인",
+        "detail": "GS25, CU 오프라인 매장에서 KB Pay로 결제 시 20% 할인, 월 2천원 한도. 백화점·대형마트 등 일부 입점 매장은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 KB Youth Club 선택서비스가 A팩인지 확인해야 합니다(신청 다음 달 1일부터 적용). KB Pay로 결제하는지도 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 20,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_youth_a_cinema",
+        "cardId": "kb_youth_club",
+        "category": "movie",
+        "includedBrands": [
+          "cgv",
+          "megabox",
+          "lotte_cinema"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[A팩] 영화관 4천원 할인",
+        "detail": "CGV, 메가박스, 롯데시네마 공식 홈페이지/앱 및 현장 결제 건당 1만5천원 이상 시 4천원 할인, 월 1회. 매점, 관람권(상품권) 구입, 예매대행사이트는 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 KB Youth Club 선택서비스가 A팩인지 확인해야 합니다(신청 다음 달 1일부터 적용). 매점·관람권 구입이 아닌 영화 티켓 결제인지도 확인해야 합니다.",
+          "minSpend": 15000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 4000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 4000
+        }
+      },
+      {
+        "id": "kb_youth_b_membership",
+        "cardId": "kb_youth_club",
+        "category": "subscription",
+        "includedBrands": [
+          "naver_plus",
+          "coupang_wow"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": false,
+        "description": "[B팩] 쇼핑 멤버십 50% 할인",
+        "detail": "네이버플러스 멤버십, 쿠팡와우 멤버십 공식 홈페이지/앱 정기결제 이용권 50% 할인, 월 5천원 한도.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 KB Youth Club 선택서비스가 B팩인지 확인해야 합니다(신청 다음 달 1일부터 적용)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 50,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000
+        }
+      },
+      {
+        "id": "kb_youth_b_telecom",
+        "cardId": "kb_youth_club",
+        "category": "transport",
+        "includedBrands": [
+          "telecom"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[B팩] 이동통신요금 자동납부 30% 할인",
+        "detail": "SKT, KT, LG U+, Liiv M 이동통신 자동납부 요금 30% 할인, 월 5천원 한도. 인터넷, IPTV 등 결합상품은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 KB Youth Club 선택서비스가 B팩인지 확인해야 합니다(신청 다음 달 1일부터 적용). 이동통신 요금을 이 카드로 자동납부하는지도 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 30,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000
+        }
+      },
+      {
+        "id": "kb_youth_b_fashion_online",
+        "cardId": "kb_youth_club",
+        "category": "shopping",
+        "includedBrands": [
+          "musinsa",
+          "29cm",
+          "official_3dde4b1ff5236999",
+          "zigzag",
+          "ably",
+          "official_d4a28b1338cfc93c"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": false,
+        "description": "[B팩] 온라인패션몰·야놀자 20% 할인",
+        "detail": "무신사, 29CM, W컨셉, 지그재그, 에이블리, 야놀자 공식 홈페이지/앱 결제 20% 할인. 올리브영과 합쳐 월 2천원 한도이며 오프라인 매장 결제는 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 KB Youth Club 선택서비스가 B팩인지 확인해야 합니다(신청 다음 달 1일부터 적용)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 20,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000
+        },
+        "sharedGroupId": "kb_youth_b_fashion_life"
+      },
+      {
+        "id": "kb_youth_b_oliveyoung",
+        "cardId": "kb_youth_club",
+        "category": "life",
+        "includedBrands": [
+          "oliveyoung"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[B팩] 올리브영 20% 할인",
+        "detail": "올리브영 오프라인 매장 및 공식 홈페이지/앱 결제 20% 할인. 온라인패션몰·야놀자와 합쳐 월 2천원 한도이며 백화점·대형마트 등 일부 입점 매장은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 KB Youth Club 선택서비스가 B팩인지 확인해야 합니다(신청 다음 달 1일부터 적용)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 20,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000
+        },
+        "sharedGroupId": "kb_youth_b_fashion_life"
+      },
+      {
+        "id": "kb_youth_b_delivery",
+        "cardId": "kb_youth_club",
+        "category": "delivery",
+        "includedBrands": [
+          "baemin",
+          "coupangeats"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": false,
+        "description": "[B팩] 배달앱 20% 할인",
+        "detail": "배달의민족, 쿠팡이츠 공식 앱 결제 20% 할인, 월 2천원 한도. 배달 현장 결제와 멤버십 이용권은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 KB Youth Club 선택서비스가 B팩인지 확인해야 합니다(신청 다음 달 1일부터 적용)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 20,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_youth_b_convenience",
+        "cardId": "kb_youth_club",
+        "category": "convenience",
+        "includedBrands": [
+          "gs25",
+          "cu"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": false,
+        "description": "[B팩] 편의점 KB Pay 20% 할인",
+        "detail": "GS25, CU 오프라인 매장에서 KB Pay로 결제 시 20% 할인, 월 2천원 한도. 백화점·대형마트 등 일부 입점 매장은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 KB Youth Club 선택서비스가 B팩인지 확인해야 합니다(신청 다음 달 1일부터 적용). KB Pay로 결제하는지도 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 20,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_youth_b_date",
+        "cardId": "kb_youth_club",
+        "category": "food",
+        "includedBrands": [
+          "outback",
+          "vips",
+          "everland",
+          "lotte_world"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[B팩] 데이트 4천원 할인",
+        "detail": "아웃백스테이크하우스, VIPS, 에버랜드, 롯데월드 건당 1만원 이상 이용 시 4천원 할인, 월 1회. 레스토랑의 입점 매장·배달과 놀이공원의 상품권·매점은 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 KB Youth Club 선택서비스가 B팩인지 확인해야 합니다(신청 다음 달 1일부터 적용).",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 4000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 4000
+        }
+      },
+      {
+        "id": "kb_youth_promo_coffee",
+        "cardId": "kb_youth_club",
+        "category": "cafe",
+        "includedBrands": [
+          "starbucks",
+          "mega"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[프로모션] 커피 30% 할인",
+        "detail": "스타벅스, 메가커피 30% 할인, 월 5천원 한도.",
+        "condition": {
+          "minPerformance": 200000,
+          "startsAt": "2026-02-27",
+          "endsAt": "2026-12-31",
+          "manualCheckRequired": true,
+          "requiredNote": "2026.2.26~12.31 안에 Youth Club 멤버십 가입(만 18~29세)과 정보제공동의를 마쳤는지 확인해야 합니다. 요건 충족 다음 날부터 1년간 적용되며, 앱은 2026-12-31까지만 계산합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 30,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 5000
+        }
+      },
+      {
+        "id": "kb_youth_promo_shopping",
+        "cardId": "kb_youth_club",
+        "category": "shopping",
+        "includedBrands": [
+          "naver_plus_store",
+          "coupang"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": false,
+        "description": "[프로모션] 온라인쇼핑 50% 할인",
+        "detail": "네이버플러스스토어, 쿠팡 50% 할인, 월 3천원 한도. 멤버십과 쿠팡이츠 결제는 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "startsAt": "2026-02-27",
+          "endsAt": "2026-12-31",
+          "manualCheckRequired": true,
+          "requiredNote": "2026.2.26~12.31 안에 Youth Club 멤버십 가입(만 18~29세)과 정보제공동의를 마쳤는지 확인해야 합니다. 요건 충족 다음 날부터 1년간 적용되며, 앱은 2026-12-31까지만 계산합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 50,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 3000
+        }
+      },
+      {
+        "id": "kb_youth_promo_transit",
+        "cardId": "kb_youth_club",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[프로모션] 대중교통 20% 할인",
+        "detail": "RF 후불교통(지하철, 버스) 20% 할인, 월 2천원 한도. 시외·고속·공항버스는 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "startsAt": "2026-02-27",
+          "endsAt": "2026-12-31",
+          "manualCheckRequired": true,
+          "requiredNote": "2026.2.26~12.31 안에 Youth Club 멤버십 가입(만 18~29세)과 정보제공동의를 마쳤는지 확인해야 합니다. 요건 충족 다음 날부터 1년간 적용되며, 앱은 2026-12-31까지만 계산합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 20,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000
+        }
+      },
+      {
+        "id": "kb_youth_promo_overseas_info",
+        "cardId": "kb_youth_club",
+        "category": "etc",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "[프로모션] 해외 가맹점 10% 할인(월 2만원·연 4만원, 정보)",
+        "detail": "해외 가맹점 10% 할인, 월 2만원·연 4만원 한도. 연간 한도를 계산할 수 없어 금액을 자동 계산하지 않습니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "startsAt": "2026-02-27",
+          "endsAt": "2026-12-31",
+          "manualCheckRequired": true,
+          "requiredNote": "2026.2.26~12.31 안에 Youth Club 멤버십 가입(만 18~29세)과 정보제공동의를 마쳤는지 확인해야 합니다. 요건 충족 다음 날부터 1년간 적용되며, 앱은 2026-12-31까지만 계산합니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "2026-10-12 세션 작성(TASK-14, AI API 미사용).",
+      "A팩·B팩은 매월 하나만 선택되므로 팩별 혜택을 선택 확인 조건부로 둔다. 팩 선택을 카드 선택에 반영하는 방식은 결정 대기 목록에 있다.",
+      "최초 발급 실적 유예(전월 20만원 미만 시 영역별 한도의 50%)는 계산하지 않아 보수적으로 0원으로 본다.",
+      "프로모션 해외 할인은 연 4만원 한도를 계산할 수 없어 정보로만 안내한다.",
+      "Mastercard 플래티늄 기본서비스는 결제 할인과 무관해 규칙으로 만들지 않는다."
+    ],
+    "evidence": [
+      {
+        "id": "kb_youth_a_ott-1",
+        "ruleIds": [
+          "kb_youth_a_ott"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "OTT 넷플릭스, 유튜브, 티빙, 스포티파이 50% 5,000원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[A팩] OTT 50% 할인"
+      },
+      {
+        "id": "kb_youth_a_ott-2",
+        "ruleIds": [
+          "kb_youth_a_ott"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[OTT] 공식 홈페이지를 통한 정기결제 이용권에 한함 (인앱결제, 단건 결제, 포인트 및 캐시 충전 등은 제외) 유튜브는 유튜브 프리미엄 멤버십 결제 건에 한함 (채널 구독 등 제외)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[A팩] OTT 50% 할인"
+      },
+      {
+        "id": "kb_youth_a_app-1",
+        "ruleIds": [
+          "kb_youth_a_app"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "APP 구글 플레이스토어, 애플 앱스토어 (건당 5,000원 이상 이용시) 30% 5,000원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[A팩] 앱마켓 30% 할인"
+      },
+      {
+        "id": "kb_youth_a_leisure-1",
+        "ruleIds": [
+          "kb_youth_a_leisure"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "여가 노래방, PC방(건당 5,000원 이상 이용시) 20% 2,000원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[A팩] 노래방·PC방 20% 할인"
+      },
+      {
+        "id": "kb_youth_a_leisure-2",
+        "ruleIds": [
+          "kb_youth_a_leisure"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[여가] 노래방 및 비디오방/게임방 업종 결제 건에 한함",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[A팩] 노래방·PC방 20% 할인"
+      },
+      {
+        "id": "kb_youth_a_transport-1",
+        "ruleIds": [
+          "kb_youth_a_transport"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "교통 택시, 철도(건당 5,000원 이상 이용시) 20% 2,000원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[A팩] 택시·철도 20% 할인"
+      },
+      {
+        "id": "kb_youth_a_transport-2",
+        "ruleIds": [
+          "kb_youth_a_transport"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[교통] 택시 및 철도 업종 결제 건에 한함",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[A팩] 택시·철도 20% 할인"
+      },
+      {
+        "id": "kb_youth_a_convenience-1",
+        "ruleIds": [
+          "kb_youth_a_convenience"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "편의점 GS25, CU에서 KB Pay로 결제 시 20% 2,000원 영화관",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[A팩] 편의점 KB Pay 20% 할인"
+      },
+      {
+        "id": "kb_youth_a_convenience-2",
+        "ruleIds": [
+          "kb_youth_a_convenience"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[편의점] 오프라인 매장에서 KB Pay로 이용 시 제공 백화점, 대형마트 등 일부 입점 매장 제외 [영화관]",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[A팩] 편의점 KB Pay 20% 할인"
+      },
+      {
+        "id": "kb_youth_a_cinema-1",
+        "ruleIds": [
+          "kb_youth_a_cinema"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "영화관 CGV, 메가박스, 롯데시네마 (건당 15,000원 이상 이용시) 4,000원 4,000원(1회)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[A팩] 영화관 4천원 할인"
+      },
+      {
+        "id": "kb_youth_a_cinema-2",
+        "ruleIds": [
+          "kb_youth_a_cinema"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[영화관] 공식 홈페이지/모바일 앱 및 영화관 현장 결제건에 한함 (단, 매점, 관람권(상품권) 구입, 예매대행사이트는 제외)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[A팩] 영화관 4천원 할인"
+      },
+      {
+        "id": "kb_youth_b_membership-1",
+        "ruleIds": [
+          "kb_youth_b_membership"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "쇼핑 멤버십 네이버플러스 멤버십, 쿠팡와우 멤버십 50% 5,000원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 쇼핑 멤버십 50% 할인"
+      },
+      {
+        "id": "kb_youth_b_membership-2",
+        "ruleIds": [
+          "kb_youth_b_membership"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[쇼핑멤버십] 공식 홈페이지/모바일 앱을 통한 정기결제 이용권 결제 시 제공",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 쇼핑 멤버십 50% 할인"
+      },
+      {
+        "id": "kb_youth_b_telecom-1",
+        "ruleIds": [
+          "kb_youth_b_telecom"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "통신요금 SKT, KT, LG U+, Liiv M 이동통신 자동납부 요금 30% 5,000원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 이동통신요금 자동납부 30% 할인"
+      },
+      {
+        "id": "kb_youth_b_telecom-2",
+        "ruleIds": [
+          "kb_youth_b_telecom"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[통신요금] 인터넷, IPTV 등 결합상품 제외",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 이동통신요금 자동납부 30% 할인"
+      },
+      {
+        "id": "kb_youth_b_fashion_online-1",
+        "ruleIds": [
+          "kb_youth_b_fashion_online"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "패션/라이프 온라인패션몰 (무신사, 29CM, W컨셉, 지그재그, 에이블리), 올리브영, 야놀자 20% 2,000원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 온라인패션몰·야놀자 20% 할인"
+      },
+      {
+        "id": "kb_youth_b_fashion_online-2",
+        "ruleIds": [
+          "kb_youth_b_fashion_online"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[패션/라이프] 온라인패션몰은 공식 홈페이지/모바일 앱 결제 시 제공(오프라인 매장 결제 제외)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 온라인패션몰·야놀자 20% 할인"
+      },
+      {
+        "id": "kb_youth_b_fashion_online-3",
+        "ruleIds": [
+          "kb_youth_b_fashion_online"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "야놀자는 공식 홈페이지/모바일 결제 시 제공",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 온라인패션몰·야놀자 20% 할인"
+      },
+      {
+        "id": "kb_youth_b_oliveyoung-1",
+        "ruleIds": [
+          "kb_youth_b_oliveyoung"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "패션/라이프 온라인패션몰 (무신사, 29CM, W컨셉, 지그재그, 에이블리), 올리브영, 야놀자 20% 2,000원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 올리브영 20% 할인"
+      },
+      {
+        "id": "kb_youth_b_oliveyoung-2",
+        "ruleIds": [
+          "kb_youth_b_oliveyoung"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "올리브영은 오프라인 매장 및 공식 홈페이지/모바일 앱 결제 시 제공 (백화점, 대형마트 등 일부 입점 매장 제외)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 올리브영 20% 할인"
+      },
+      {
+        "id": "kb_youth_b_delivery-1",
+        "ruleIds": [
+          "kb_youth_b_delivery"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "배달 배달의민족, 쿠팡이츠 20% 2,000원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 배달앱 20% 할인"
+      },
+      {
+        "id": "kb_youth_b_delivery-2",
+        "ruleIds": [
+          "kb_youth_b_delivery"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[배달] 공식 모바일 앱 결제 시 제공(배달 현장 결제건 제외), 멤버십 이용권은 할인 대상 제외",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 배달앱 20% 할인"
+      },
+      {
+        "id": "kb_youth_b_convenience-1",
+        "ruleIds": [
+          "kb_youth_b_convenience"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "편의점 GS25, CU에서 KB Pay로 결제 시 20% 2,000원 데이트",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 편의점 KB Pay 20% 할인"
+      },
+      {
+        "id": "kb_youth_b_convenience-2",
+        "ruleIds": [
+          "kb_youth_b_convenience"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[편의점] 오프라인 매장에서 KB Pay로 이용 시 제공 백화점, 대형마트 등 일부 입점 매장 제외 [데이트]",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 편의점 KB Pay 20% 할인"
+      },
+      {
+        "id": "kb_youth_b_date-1",
+        "ruleIds": [
+          "kb_youth_b_date"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "데이트 아웃백스테이크하우스, VIPS, 에버랜드, 롯데월드 (건당 10,000원 이상 이용시) 4,000원 4,000원(1회)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 데이트 4천원 할인"
+      },
+      {
+        "id": "kb_youth_b_date-2",
+        "ruleIds": [
+          "kb_youth_b_date"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[데이트] 레스토랑은 백화점/대형마트 등 일부 입점 매장 및 배달 제외 놀이공원은 공식 오프라인 창구, 발권기 및 공식 홈페이지/앱에서 티켓 요금 결제 시 제공 (상품권, 매점 등은 제외)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[B팩] 데이트 4천원 할인"
+      },
+      {
+        "id": "kb_youth_promo_coffee-1",
+        "ruleIds": [
+          "kb_youth_promo_coffee"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "커피 스타벅스, 메가커피 30% 5,000원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[프로모션] 커피 30% 할인"
+      },
+      {
+        "id": "kb_youth_promo_shopping-1",
+        "ruleIds": [
+          "kb_youth_promo_shopping"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "온라인쇼핑 네이버플러스스토어, 쿠팡 50% 3,000원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[프로모션] 온라인쇼핑 50% 할인"
+      },
+      {
+        "id": "kb_youth_promo_shopping-2",
+        "ruleIds": [
+          "kb_youth_promo_shopping"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[온라인쇼핑] 멤버십 및 쿠팡이츠 결제 건 제외",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[프로모션] 온라인쇼핑 50% 할인"
+      },
+      {
+        "id": "kb_youth_promo_transit-1",
+        "ruleIds": [
+          "kb_youth_promo_transit"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "대중교통 RF대중교통(지하철, 버스) 20% 2,000원",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[프로모션] 대중교통 20% 할인"
+      },
+      {
+        "id": "kb_youth_promo_transit-2",
+        "ruleIds": [
+          "kb_youth_promo_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "[대중교통] RF 후불교통 이용 건에 한하며, 시외버스/고속버스/공항버스 제외",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[프로모션] 대중교통 20% 할인"
+      },
+      {
+        "id": "kb_youth_promo_overseas_info-1",
+        "ruleIds": [
+          "kb_youth_promo_overseas_info"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "해외 해외 가맹점 10% 20,000원 (연 4만원)",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "[프로모션] 해외 가맹점 10% 할인(월 2만원·연 4만원, 정보)"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "kb_youth_a_ott",
+          "kb_youth_a_app",
+          "kb_youth_a_leisure",
+          "kb_youth_a_transport",
+          "kb_youth_a_convenience",
+          "kb_youth_a_cinema",
+          "kb_youth_b_membership",
+          "kb_youth_b_telecom",
+          "kb_youth_b_fashion_online",
+          "kb_youth_b_oliveyoung",
+          "kb_youth_b_delivery",
+          "kb_youth_b_convenience",
+          "kb_youth_b_date",
+          "kb_youth_promo_coffee",
+          "kb_youth_promo_shopping",
+          "kb_youth_promo_transit",
+          "kb_youth_promo_overseas_info"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "전월 이용실적 20만원 이상 시 제공됩니다.",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "전월 실적 조건"
+      },
+      {
+        "id": "shared-2",
+        "ruleIds": [
+          "kb_youth_a_ott",
+          "kb_youth_a_app",
+          "kb_youth_a_leisure",
+          "kb_youth_a_transport",
+          "kb_youth_a_convenience",
+          "kb_youth_a_cinema",
+          "kb_youth_b_membership",
+          "kb_youth_b_telecom",
+          "kb_youth_b_fashion_online",
+          "kb_youth_b_oliveyoung",
+          "kb_youth_b_delivery",
+          "kb_youth_b_convenience",
+          "kb_youth_b_date"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "서비스팩 2종 중 선택한 옵션에 대한 혜택만 제공 서비스팩 변경은 KB국민카드 홈페이지 및 KB Pay 앱을 통해 가능 선택서비스 변경 시 신청일 기준 다음달 1일부터 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "선택서비스 안내사항"
+      },
+      {
+        "id": "shared-3",
+        "ruleIds": [
+          "kb_youth_promo_coffee",
+          "kb_youth_promo_shopping",
+          "kb_youth_promo_transit",
+          "kb_youth_promo_overseas_info"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "대상: 2026.2.26(목)~12.31(목) 안에 아래 조건을 모두 충족한 고객(순서 상관 없음) ①KB Youth Club 체크카드 보유 ②Youth Club 멤버십 가입 (만 18세~29세) 및 정보제공동의 내용: 대상 요건을 충족한 다음 날부터 1년간 아래 혜택 적용",
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "location": "프로모션 대상"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "quote": "전월 이용실적 제외 대상 포인트리 충전금액, 상품권 및 선불카드 구입·충전 금액, 아파트관리비, 정부지원금(보육료, 유치원보조비, 바우처 이용금액 등), 대학(원)등록금, 국세, 지방세, 4대 사회보험료(건강/연금/고용/산재), 각종 수수료 및 이자, 연체료, 무승인전표(RF후불교통요금/자판기/터널이용료 /고속버스 취소 반환수수료 등), 취소금액",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "quote": "상품권 및 선불카드(선불전자지급수단 포함) 구입·충전금액의 경우 할인대상에서 제외됩니다.",
+        "reason": "상품권·선불카드 구입·충전은 할인 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "hosted-store-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "quote": "구매/예약 대행사이트를 통한 결제 및 호텔, 백화점, 대형마트, 철도/역사 등에 입점한 가맹점 이용 시 할인 대상에서 제외될 수 있습니다.",
+        "reason": "카드 공통 입점 매장 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      }
+    ],
+    "proposedBrands": [
+      {
+        "id": "official_897337624b4d74d5",
+        "name": "스포티파이",
+        "categoryId": "subscription",
+        "aliases": [
+          "Spotify"
+        ],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "quote": "OTT 넷플릭스, 유튜브, 티빙, 스포티파이 50% 5,000원"
+      },
+      {
+        "id": "official_81119c5e77351e6b",
+        "name": "노래방",
+        "categoryId": "movie",
+        "aliases": [
+          "코인노래방",
+          "노래연습장"
+        ],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "quote": "[여가] 노래방 및 비디오방/게임방 업종 결제 건에 한함"
+      },
+      {
+        "id": "official_78a6b10c8c76a24b",
+        "name": "PC방",
+        "categoryId": "movie",
+        "aliases": [
+          "게임방",
+          "피시방"
+        ],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "quote": "여가 노래방, PC방(건당 5,000원 이상 이용시) 20% 2,000원"
+      },
+      {
+        "id": "official_d4a28b1338cfc93c",
+        "name": "야놀자",
+        "categoryId": "life",
+        "aliases": [
+          "Yanolja"
+        ],
+        "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+        "quote": "야놀자는 공식 홈페이지/모바일 결제 시 제공"
+      }
+    ]
+  }
+}
