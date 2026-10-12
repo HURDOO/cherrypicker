@@ -14,6 +14,8 @@ import type {
 export interface CardBenefitRevisionPatch {
     /** Why the revision exists; appended to the candidate notes. */
     note: string;
+    /** JSON merge patch for the card's basic fields, such as a renamed product. The ID is fixed. */
+    card?: Record<string, unknown>;
     /** JSON merge patches (RFC 7396) keyed by rule ID. `null` removes a field. */
     rules?: Record<string, Record<string, unknown>>;
     removeRuleIds?: string[];
@@ -109,8 +111,13 @@ export function applyCardBenefitRevisionPatch(
         const kept = clause.ruleIds.filter(ruleId => !removed.has(ruleId));
         return kept.length > 0 ? [{ ...clause, ruleIds: kept }] : [];
     });
+    const card = patch.card
+        ? mergePatch(extraction.card, patch.card) as CardBenefitExtraction['card']
+        : structuredClone(extraction.card);
+    if (card.id !== extraction.card.id) throw new Error(`카드 ID는 바꿀 수 없습니다: ${extraction.card.id}`);
     const next: CardBenefitExtraction = {
         ...structuredClone(extraction),
+        card,
         rules,
         evidence: [...evidence, ...structuredClone(patch.addEvidence ?? [])],
         notes: [...extraction.notes, patch.note],

@@ -148,6 +148,20 @@ describe('applyCardBenefitRevisionPatch', () => {
         })).toThrow('missing');
     });
 
+    it('patches card fields but keeps the card ID', () => {
+        const next = applyCardBenefitRevisionPatch(extraction, {
+            note: '상품명 변경',
+            card: { name: '새 카드' },
+        });
+
+        expect(next.card).toEqual({ ...extraction.card, name: '새 카드' });
+        expect(extraction.card.name).toBe('카드');
+        expect(() => applyCardBenefitRevisionPatch(extraction, {
+            note: '오타',
+            card: { id: 'other' },
+        })).toThrow('카드 ID');
+    });
+
     it('refuses rule IDs that are not in the approved extraction', () => {
         expect(() => applyCardBenefitRevisionPatch(extraction, {
             note: '오타',
