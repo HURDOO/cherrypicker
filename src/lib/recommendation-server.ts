@@ -61,10 +61,12 @@ export function calculateRecommendationForUser(
         .where(cardVisibleToUser(userId))
         .orderBy(asc(cards.name))
         .all();
+    const visibleCardIds = new Set(cardRows.map(row => row.id));
     const ruleRows = db.select().from(benefitRules)
         .where(or(isNull(benefitRules.userId), eq(benefitRules.userId, userId)))
         .orderBy(asc(benefitRules.cardId), asc(benefitRules.description))
-        .all();
+        .all()
+        .filter(row => visibleCardIds.has(row.cardId));
     const historyRows = db.select().from(transactionHistory)
         .where(and(
             eq(transactionHistory.userId, userId),

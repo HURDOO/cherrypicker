@@ -42,10 +42,12 @@ export async function GET(request: Request) {
             .where(cardVisibleToUser(user.id))
             .orderBy(asc(cards.name))
             .all();
+        const visibleCardIds = new Set(cardRows.map(row => row.id));
         const ruleRows = db.select().from(benefitRules)
             .where(or(isNull(benefitRules.userId), eq(benefitRules.userId, user.id)))
             .orderBy(asc(benefitRules.cardId), asc(benefitRules.description))
-            .all();
+            .all()
+            .filter(row => visibleCardIds.has(row.cardId));
         const performanceRows = db.select().from(userCardPerformances)
             .where(eq(userCardPerformances.userId, user.id))
             .orderBy(desc(userCardPerformances.performanceMonth))

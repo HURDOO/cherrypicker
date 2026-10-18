@@ -92,6 +92,8 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
                 .where(isNull(brands.userId))
                 .orderBy(asc(brands.sortOrder), asc(brands.name), asc(brands.id))
                 .all();
+            const publishedCardIds = new Set(systemCards.map(card => card.id));
+            // A card taken back to DRAFT keeps its rule rows for history; only published cards' rules are public.
             const rules = tx.select().from(benefitRules)
                 .where(isNull(benefitRules.userId))
                 .orderBy(
@@ -100,6 +102,7 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
                     asc(benefitRules.id)
                 )
                 .all()
+                .filter(row => publishedCardIds.has(row.cardId))
                 .map(toRule);
             const promotions = tx.select().from(promotionOffers)
                 .where(eq(promotionOffers.status, 'PUBLISHED'))
@@ -112,7 +115,7 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
                 .map(toPromotionOffer);
             const browsableAutoBrandIds = autoBrowsableBrandIds({
                 brands: brandRows.filter(row => row.discoveryVisibility === 'AUTO'),
-                publishedCardIds: new Set(systemCards.map(card => card.id)),
+                publishedCardIds,
                 rules,
                 promotions,
                 today: koreaDate(),
