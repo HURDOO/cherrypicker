@@ -1398,6 +1398,13 @@ export function parseLguplusBenefits(
 
 export const LGUPLUS_VIPKOK_USAGE_GROUP_ID = 'telecom:lguplus:vipkok';
 
+// 을/를 by the last syllable's final consonant; Latin or digit endings read better with 을(를).
+const objectParticle = (word: string) => {
+    const code = word.trim().slice(-1).charCodeAt(0);
+    if (code < 0xac00 || code > 0xd7a3) return '을(를)';
+    return (code - 0xac00) % 28 === 0 ? '를' : '을';
+};
+
 /**
  * VIP콕 is a monthly pick for U+ VIP and VVIP members: one benefit across all VIP콕 brands per month,
  * opened in the U+one app before paying. Each offer shares that single monthly use and asks the user
@@ -1423,7 +1430,7 @@ export function parseLguplusVipKokBenefits(
                     headlineEligible: false,
                     manualCheckRequired: true,
                     confirmationRequired: true,
-                    requiredNote: `VIP콕은 VIP·VVIP가 한 달에 하나만 고르는 혜택입니다. 이번 달 U+one 앱 > VIP콕 혜택에서 ${brandName}을(를) 골라 혜택보기(바코드 또는 쿠폰받기)를 했는지 확인하세요. 결제할 때 그 바코드나 쿠폰을 보여 줘야 할인됩니다.`,
+                    requiredNote: `VIP콕은 VIP·VVIP가 한 달에 하나만 고르는 혜택입니다. 이번 달 U+one 앱 > VIP콕 혜택에서 ${brandName}${objectParticle(brandName)} 골라 혜택보기(바코드 또는 쿠폰받기)를 했는지 확인하세요. 결제할 때 그 바코드나 쿠폰을 보여 줘야 할인됩니다.`,
                 },
                 limitConfig: {
                     ...parsed.offer.limitConfig,

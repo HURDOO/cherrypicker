@@ -331,9 +331,9 @@ describe('promotion source parsers', () => {
             expect(item.offer.title.startsWith('VIP콕 ')).toBe(true);
         });
         expect(offers.find(item => item.offer.title.includes('쉐이크쉑'))?.offer.condition.requiredNote)
-            .toContain('U+one 앱 > VIP콕 혜택에서 쉐이크쉑');
+            .toContain('U+one 앱 > VIP콕 혜택에서 쉐이크쉑을 골라');
         expect(offers.find(item => item.offer.title.includes('어드벤처'))?.offer.condition.requiredNote)
-            .toContain('롯데월드 어드벤처');
+            .toContain('롯데월드 어드벤처를 골라');
     });
 
     it('parses combined Korean amount units without dropping the ten-thousands digit', () => {
