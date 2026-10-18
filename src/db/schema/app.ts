@@ -89,6 +89,7 @@ export const cards = sqliteTable('cards', {
     network: text('network').$type<CardNetwork>(),
     performancePolicy: text('performance_policy', { mode: 'json' })
         .$type<CardPerformancePolicyV1>(),
+    searchAliases: text('search_aliases', { mode: 'json' }).$type<string[]>(),
     catalogStatus: text('catalog_status')
         .$type<SystemCardCatalogStatus>()
         .notNull()

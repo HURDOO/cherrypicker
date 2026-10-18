@@ -56,6 +56,7 @@ export function toCard(row: typeof cards.$inferSelect): Card {
         limitTable: row.limitTable,
         ...(row.network && { network: row.network }),
         ...(row.performancePolicy && { performancePolicy: row.performancePolicy }),
+        ...(row.searchAliases?.length && { searchAliases: [...row.searchAliases] }),
         ...(row.userId && { userId: row.userId }),
     };
 }

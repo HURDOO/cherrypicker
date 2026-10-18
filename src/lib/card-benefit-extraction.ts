@@ -16,6 +16,7 @@ import {
     OpenAIStructuredResponseClient,
     resolveOpenAIReasoningEffort,
 } from './openai-responses';
+import { validateCardSearchAliases } from '@/utils/cardSearch';
 import type { StructuredResponseClient } from './structured-response';
 import {
     analyzeAlternativeManualChecks,
@@ -782,6 +783,7 @@ export function validateCardBenefitExtraction(
         if (typeof value.card.company !== 'string' || !value.card.company.trim()) {
             errors.push('카드사 이름이 올바르지 않습니다.');
         }
+        errors.push(...validateCardSearchAliases(value.card.searchAliases));
         if (!Array.isArray(value.card.limitTable)) {
             errors.push('실적별 통합 한도 표가 올바르지 않습니다.');
         } else {

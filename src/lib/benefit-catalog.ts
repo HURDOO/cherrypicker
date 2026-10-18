@@ -66,6 +66,7 @@ const toCatalogCard = (card: Card): CatalogCard => ({
     limitTable: clone(card.limitTable),
     ...(card.network && { network: card.network }),
     ...(card.performancePolicy && { performancePolicy: clone(card.performancePolicy) }),
+    ...(card.searchAliases?.length && { searchAliases: [...card.searchAliases] }),
 });
 
 const toCatalogRule = (rule: BenefitRule): CatalogBenefitRule => ({

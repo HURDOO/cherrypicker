@@ -1,5 +1,6 @@
 import type { BenefitCatalogSnapshot } from '@/types';
 import { validateBenefitProgram } from '@/utils/benefit-dsl';
+import { validateCardSearchAliases } from '@/utils/cardSearch';
 import { validateCardPerformancePolicy } from '@/utils/performance-policy';
 
 type BenefitCatalogContent = Omit<
@@ -118,6 +119,10 @@ export function assertBenefitCatalogReferences(snapshot: BenefitCatalogContent) 
     const providerIds = new Set(snapshot.providers.map(provider => provider.id));
 
     snapshot.cards.forEach(card => {
+        const aliasErrors = validateCardSearchAliases(card.searchAliases);
+        if (aliasErrors.length > 0) {
+            throw new Error(`공개 카드 ${card.id}의 검색 별칭이 올바르지 않습니다: ${aliasErrors[0]}`);
+        }
         if ('performancePolicy' in card) {
             const ruleIds = new Set(snapshot.rules
                 .filter(rule => rule.cardId === card.id)

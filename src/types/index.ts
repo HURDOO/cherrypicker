@@ -93,6 +93,8 @@ export interface Card {
     limitTable: LimitTableItem[]; // Ordered by threshold desc usually, or handled in logic
     network?: CardNetwork;
     performancePolicy?: CardPerformancePolicyV1;
+    /** Other names on the physical card, such as a character design, used only for search. */
+    searchAliases?: string[];
 }
 
 export type FirstSetupStep =
@@ -329,7 +331,7 @@ export interface CardBenefitProposedBrand {
 export interface CardBenefitExtraction {
     schemaVersion: 2;
     completeness: 'FULL';
-    card: Pick<Card, 'id' | 'name' | 'company' | 'limitTable' | 'network' | 'performancePolicy'>;
+    card: Pick<Card, 'id' | 'name' | 'company' | 'limitTable' | 'network' | 'performancePolicy' | 'searchAliases'>;
     rules: BenefitRule[];
     evidence: CardBenefitEvidence[];
     unsupportedClauses?: CardBenefitUnsupportedClause[];

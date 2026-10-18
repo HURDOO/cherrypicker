@@ -1,0 +1,1 @@
+ALTER TABLE `cards` ADD `search_aliases` text;

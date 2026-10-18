@@ -4,6 +4,7 @@ import { Check, CreditCard, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import clsx from 'clsx';
 import type { Card } from '@/types';
+import { matchCardSearch } from '@/utils/cardSearch';
 
 export function SystemCardSelector({
     cards,
@@ -17,18 +18,16 @@ export function SystemCardSelector({
     onToggle: (cardId: string) => void;
 }) {
     const [query, setQuery] = useState('');
-    const normalizedQuery = query.trim().toLocaleLowerCase('ko-KR');
-    const filteredCards = useMemo(() => cards.filter(card => (
-        !normalizedQuery ||
-        card.name.toLocaleLowerCase('ko-KR').includes(normalizedQuery) ||
-        card.company.toLocaleLowerCase('ko-KR').includes(normalizedQuery)
-    )), [cards, normalizedQuery]);
+    const filteredCards = useMemo(() => cards.flatMap(card => {
+        const match = matchCardSearch(card, query);
+        return match ? [{ card, matchedAlias: match.matchedAlias }] : [];
+    }), [cards, query]);
     const selected = new Set(selectedCardIds);
 
     return (
         <div>
             <label className="relative block">
-                <span className="sr-only">카드 이름 또는 카드사 검색</span>
+                <span className="sr-only">카드 이름, 카드사 또는 디자인 이름 검색</span>
                 <Search
                     className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
                     aria-hidden="true"
@@ -37,13 +36,13 @@ export function SystemCardSelector({
                     type="search"
                     value={query}
                     onChange={event => setQuery(event.target.value)}
-                    placeholder="카드 이름 또는 카드사 검색"
+                    placeholder="카드 이름, 카드사, 디자인 이름 검색"
                     className="min-h-11 w-full rounded-2xl border border-gray-200 bg-white pl-10 pr-4 text-sm font-bold text-gray-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 />
             </label>
 
             <div className="mt-3 max-h-[42vh] space-y-2 overflow-y-auto pr-1" aria-live="polite">
-                {filteredCards.map(card => {
+                {filteredCards.map(({ card, matchedAlias }) => {
                     const isSelected = selected.has(card.id);
                     return (
                         <button
@@ -72,6 +71,11 @@ export function SystemCardSelector({
                                 <span className="mt-0.5 block text-[11px] font-bold text-gray-500">
                                     {card.company}
                                 </span>
+                                {matchedAlias && (
+                                    <span className="mt-0.5 block text-[11px] font-bold text-blue-700">
+                                        {matchedAlias} 디자인도 이 카드로 선택해요
+                                    </span>
+                                )}
                             </span>
                             <span className={clsx(
                                 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border',
@@ -88,7 +92,7 @@ export function SystemCardSelector({
                     <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center">
                         <p className="text-sm font-black text-gray-700">검색 결과가 없어요</p>
                         <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
-                            카드사나 카드 이름을 다르게 검색해 보세요. 지원 카드가 아니라면
+                            카드사, 카드 이름, 카드에 적힌 디자인 이름으로 다시 검색해 보세요. 지원 카드가 아니라면
                             비공개 베타 운영자에게 카카오톡으로 알려주세요.
                         </p>
                         <button

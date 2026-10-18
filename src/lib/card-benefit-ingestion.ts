@@ -719,6 +719,7 @@ export async function collectSystemCardBenefits(cardId: string, options: {
                         limitTable: card.limitTable,
                         ...(card.network && { network: card.network }),
                         ...(card.performancePolicy && { performancePolicy: card.performancePolicy }),
+                        ...(card.searchAliases && { searchAliases: card.searchAliases }),
                     },
                     rules: [],
                     evidence: [],
@@ -1063,6 +1064,7 @@ const applySnapshot = (
             limitTable: snapshot.card.limitTable,
             network: snapshot.card.network ?? null,
             performancePolicy: snapshot.card.performancePolicy ?? null,
+            searchAliases: snapshot.card.searchAliases?.length ? snapshot.card.searchAliases : null,
         })
         .where(eq(cards.id, snapshot.card.id))
         .run();
@@ -1428,6 +1430,7 @@ export function reviewCardBenefitCandidate(
             limitTable: validation.extraction.card.limitTable,
             network: validation.extraction.card.network,
             performancePolicy: validation.extraction.card.performancePolicy ?? before.card.performancePolicy,
+            searchAliases: validation.extraction.card.searchAliases,
         },
         rules: validation.extraction.rules.map(ruleRow => ({
             ...ruleRow,

@@ -1,0 +1,17 @@
+{
+  "note": "[세션 임시 승인] 2026-10-19 TASK-14 D2: 디자인만 다른 변형 카드를 원본 카드의 검색 별칭으로 찾게 한다(혜택 변경 없음, AI API 미사용).",
+  "cards": {
+    "shinhan_deep_dream": {
+      "card": { "searchAliases": ["미니언즈"] },
+      "note": "신한카드 Deep Dream 체크(미니언즈)는 원본과 혜택이 같다."
+    },
+    "shinhan_point_plan_check": {
+      "card": { "searchAliases": ["짱구"] },
+      "note": "신한카드 Point Plan 체크 캐릭터형(짱구)은 원본과 혜택이 같다."
+    },
+    "shinhan_kakaopay_check": {
+      "card": { "searchAliases": ["무지"] },
+      "note": "카카오페이 신한 체크카드(무지)는 원본과 혜택이 같다."
+    }
+  }
+}

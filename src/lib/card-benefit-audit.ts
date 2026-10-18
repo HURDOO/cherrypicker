@@ -245,6 +245,7 @@ export function createCardBenefitCandidateAudit(options: {
             network: options.baseline.card.network,
             limitTable: options.baseline.card.limitTable,
             performancePolicy: options.baseline.card.performancePolicy,
+            searchAliases: options.baseline.card.searchAliases,
         },
         {
             name: options.extraction.card.name,
@@ -252,6 +253,7 @@ export function createCardBenefitCandidateAudit(options: {
             network: options.extraction.card.network,
             limitTable: options.extraction.card.limitTable,
             performancePolicy: options.extraction.card.performancePolicy,
+            searchAliases: options.extraction.card.searchAliases,
         },
     ).map(change => ({
         scope: 'CARD' as const,
