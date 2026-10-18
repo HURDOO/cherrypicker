@@ -1,17 +1,27 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne } from 'drizzle-orm';
 import { db } from '@/db';
 import {
     brands,
     promotionCandidates,
     promotionCollectionRuns,
     promotionOffers,
+    promotionSourceDocuments,
     subscriptionProducts,
     transactionBenefits,
 } from '@/db/schema';
 import { toPromotionOffer } from './db-mappers';
 import { summarizePromotionCollectionRun } from './promotion-collection-run';
 import { decodePromotionHtml } from './html-decoding';
+import {
+    checkGoodDealGate,
+    goodDealDocumentBrands,
+    goodDealPromotions,
+    goodDealSourceDocument,
+    GOODDEAL_HOME_URL,
+    GOODDEAL_SOURCE_ID,
+    type GoodDealObservation,
+} from './gooddeal-observation';
 import { normalizePromotionDraft } from './promotion-input';
 import {
     classifyParsedPromotions,
@@ -81,7 +91,7 @@ type PromotionSource = {
     label: string;
     kind: 'skt-html' | 'lguplus-api' | 'naverpay-api' |
         'paris-skt-html' | 'paris-kt-html' | 'tlj-html' |
-        't-universe-composite' | 'unsupported';
+        't-universe-composite' | 'app-observation' | 'unsupported';
     unsupportedMessage?: string;
     legacyUrls?: string[];
 };
@@ -175,11 +185,12 @@ export const promotionSources: PromotionSource[] = [
         unsupportedMessage: '공개 페이지는 2023년 앱 소개글이며 현재 행사 목록이 아니어서 자동 게시하지 않습니다.',
     },
     {
-        id: 'kakaopay-gooddeal',
-        url: 'https://story.kakaopay.com/318-kakaopay-benefit/',
+        id: GOODDEAL_SOURCE_ID,
+        url: GOODDEAL_HOME_URL,
         label: '카카오페이 굿딜',
-        kind: 'unsupported',
-        unsupportedMessage: '공개 글에는 현재 브랜드별 상품권 가격이 없어 앱/API 출처가 확보될 때까지 자동 게시하지 않습니다.',
+        kind: 'app-observation',
+        unsupportedMessage: '관측 앱이 올린 기록으로만 반영합니다. 서버는 앱 화면을 수집하지 않습니다.',
+        legacyUrls: ['https://story.kakaopay.com/318-kakaopay-benefit/'],
     },
 ];
 
@@ -667,7 +678,7 @@ export async function parseSource(
     if (source.kind === 'naverpay-api') {
         return collectNaverPaySource();
     }
-    if (source.kind === 'unsupported') {
+    if (source.kind === 'unsupported' || source.kind === 'app-observation') {
         return { promotions: [], products: [], documents: [] };
     }
     if (source.kind === 't-universe-composite') {
@@ -826,6 +837,7 @@ const providerSourceCoverage: Record<string, string[]> = {
     lguplus: ['tlj-membership', 'lguplus-membership'],
     naverpay: ['naverpay-benefits'],
     't-universe': ['t-universe-products'],
+    [GOODDEAL_SOURCE_ID]: [GOODDEAL_SOURCE_ID],
 };
 
 const providerExpiryReportSource: Record<string, string> = {
@@ -834,6 +846,7 @@ const providerExpiryReportSource: Record<string, string> = {
     lguplus: 'lguplus-membership',
     naverpay: 'naverpay-benefits',
     't-universe': 't-universe-products',
+    [GOODDEAL_SOURCE_ID]: GOODDEAL_SOURCE_ID,
 };
 
 const legacyTUniversePromotions = new Map([
@@ -1528,7 +1541,7 @@ export async function collectPromotionCandidates(
     const sktAiParser = createSktPromotionAiParser(cachedSktPromotionAiResults());
 
     for (const source of promotionSources) {
-        if (source.kind === 'unsupported') {
+        if (source.kind === 'unsupported' || source.kind === 'app-observation') {
             rejectLegacyPlaceholders(source, currentTime());
             results.push({
                 sourceId: source.id,
@@ -1723,4 +1736,119 @@ export async function collectPromotionCandidates(
     }).run();
 
     return results;
+}
+
+export type GoodDealIngestResult = {
+    status: 'applied' | 'held' | 'duplicate';
+    reasons: string[];
+    itemCount: number;
+    discovered: number;
+    published: number;
+    unchanged: number;
+    reviewRequired: number;
+    removalQueued: number;
+    expired: number;
+};
+
+const GOODDEAL_HISTORY_LIMIT = 60;
+
+/**
+ * Applies one phone observation of the GoodDeal home. Every upload is kept as a source document;
+ * only one that passes the gate creates candidates, and those publish without review because the
+ * offers are information-only. Brands missing from two passing uploads expire through the usual
+ * removal policy, with the next day's upload as the second observation.
+ */
+export function ingestGoodDealObservation(
+    observation: GoodDealObservation,
+    options: { now?: Date } = {},
+): GoodDealIngestResult {
+    const now = options.now ? new Date(options.now) : new Date();
+    const source = promotionSources.find(item => item.id === GOODDEAL_SOURCE_ID)!;
+    const history = db.select({
+        contentHash: promotionSourceDocuments.contentHash,
+        rawContent: promotionSourceDocuments.rawContent,
+        responseMetadata: promotionSourceDocuments.responseMetadata,
+    })
+        .from(promotionSourceDocuments)
+        .where(eq(promotionSourceDocuments.collectionSourceId, source.id))
+        .orderBy(desc(promotionSourceDocuments.collectedAt))
+        .limit(GOODDEAL_HISTORY_LIMIT)
+        .all();
+    const empty = {
+        itemCount: observation.items.length,
+        discovered: 0,
+        published: 0,
+        unchanged: 0,
+        reviewRequired: 0,
+        removalQueued: 0,
+        expired: 0,
+    };
+    const unchecked = goodDealSourceDocument(observation, []);
+    if (history.some(document => document.contentHash === unchecked.contentHash)) {
+        return { status: 'duplicate', reasons: [], ...empty };
+    }
+    const observedTimes = history.flatMap(document => {
+        const observedAt = document.responseMetadata.appObservation?.observedAt;
+        return observedAt ? [new Date(observedAt)] : [];
+    });
+    const lastPassed = history.find(document => (
+        document.responseMetadata.appObservation?.gate.passed === true
+    ));
+    const reasons = checkGoodDealGate(observation, {
+        now,
+        previousBrands: lastPassed ? goodDealDocumentBrands(lastPassed.rawContent) : undefined,
+        latestObservedAt: observedTimes.length > 0
+            ? new Date(Math.max(...observedTimes.map(time => time.getTime())))
+            : undefined,
+    });
+    const observedAt = observation.observedAt;
+    const sourceBundle = persistPromotionSourceBundle(
+        source.id,
+        [goodDealSourceDocument(observation, reasons)],
+        observedAt,
+    );
+    if (reasons.length > 0) return { status: 'held', reasons, ...empty };
+
+    const parsed = goodDealPromotions(observation);
+    const auditDocuments = preparePromotionAuditDocuments(
+        sourceBundle.documents.map(document => ({
+            id: document.id,
+            sourceUrl: document.sourceUrl,
+            extractedText: document.extractedText,
+        })),
+    );
+    const result = { ...empty };
+    const observedIds = new Set<string>();
+    parsed.forEach(promotion => {
+        observedIds.add(autoPromotionId(promotion.offer.providerId, promotion.sourceKey));
+        const persisted = persistParsedPromotion(
+            promotion,
+            observedAt,
+            source.id,
+            sourceBundle,
+            auditDocuments,
+        );
+        if (persisted.inserted) result.discovered += 1;
+        else result.unchanged += 1;
+        if (persisted.published) result.published += 1;
+        if (persisted.reviewRequired) result.reviewRequired += 1;
+    });
+    rejectMissingPendingCandidates(source, parsed, sourceBundle.sourceBundleHash, observedAt);
+    const removal = queueMissingAutoPromotions(
+        new Set([source.id]),
+        observedIds,
+        new Map([[source.id, sourceBundle]]),
+        observedAt,
+    ).get(source.id);
+    result.removalQueued = removal?.queued ?? 0;
+    result.expired = removal?.autoExpired ?? 0;
+    // Unchanged rates keep their candidate, so record the sighting on the offer for staleness.
+    db.update(promotionOffers)
+        .set({ collectedAt: observedAt })
+        .where(and(
+            inArray(promotionOffers.id, [...observedIds]),
+            ne(promotionOffers.status, 'EXPIRED'),
+        ))
+        .run();
+    return { status: 'applied', reasons: [], ...result };
 }

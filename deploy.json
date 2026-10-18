@@ -16,7 +16,8 @@
     "BETTER_AUTH_SECRET"
   ],
   "optionalSecrets": [
-    "OPENAI_API_KEY"
+    "OPENAI_API_KEY",
+    "KAKAOPAY_GOODDEAL_UPLOAD_TOKEN"
   ],
   "resources": {
     "memoryMiB": 768,

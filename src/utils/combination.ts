@@ -197,6 +197,20 @@ const matchesChannel = (offer: PromotionOffer, isOnline: boolean) => {
     return offer.channels.includes('OFFLINE');
 };
 
+// Rates read on the owner's phone (KakaoPay GoodDeal) are refreshed by a daily upload.
+const OBSERVED_OFFER_STALE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Collected from the observer app rather than an official page, so it carries a sighting time. */
+const isAppObservedOffer = (offer: PromotionOffer, provider: PromotionProvider | undefined) =>
+    provider?.kind === 'GOODDEAL' && offer.id.startsWith('promotion-auto-') && Boolean(offer.collectedAt);
+
+const isStaleObservedOffer = (
+    offer: PromotionOffer,
+    provider: PromotionProvider | undefined,
+    now: Date,
+) => isAppObservedOffer(offer, provider) &&
+    now.getTime() - new Date(offer.collectedAt!).getTime() > OBSERVED_OFFER_STALE_AFTER_MS;
+
 const isPublishedAndCurrent = (offer: PromotionOffer, now: Date) => {
     if (offer.status !== 'PUBLISHED') return false;
     if (offer.startsAt && new Date(offer.startsAt) > now) return false;
@@ -861,6 +875,7 @@ export function calculateBestCombinations(
     const confirmedConditionIds = new Set(input.confirmedConditionIds ?? []);
     const currentOffers = input.promotions.filter(offer =>
         isPublishedAndCurrent(offer, now) &&
+        !isStaleObservedOffer(offer, providerById.get(offer.providerId), now) &&
         matchesPaymentTarget(offer, input.target) &&
         matchesChannel(offer, input.isOnline) &&
         isTelecomEligible(offer, providerById.get(offer.providerId), input.profile) &&
@@ -993,6 +1008,9 @@ export function calculateBestCombinations(
             }),
             ...(offer.condition.requiredNote && {
                 requiredNote: offer.condition.requiredNote,
+            }),
+            ...(isAppObservedOffer(offer, providerById.get(offer.providerId)) && {
+                observedAt: offer.collectedAt,
             }),
         }));
     const calculableOffers = currentOffers.filter(offer =>

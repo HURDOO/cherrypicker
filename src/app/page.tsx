@@ -77,6 +77,11 @@ import {
 import { getTelecomTierOptions, matchTelecomTierOption } from '@/utils/telecomTiers';
 
 const formatWon = (value: number) => `${value.toLocaleString()}원`;
+const formatObservedDate = (value: string) => new Date(value).toLocaleDateString('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'Asia/Seoul',
+});
 
 const layerMeta: Record<BenefitLayer, {
     label: string;
@@ -1493,7 +1498,7 @@ function HomePageContent() {
                                     정보 제공 혜택 {recommendation.informationalOffers.length}개
                                 </p>
                                 <p className="mt-1 text-[10px] text-violet-800/70">
-                                    최대치·추첨처럼 확정할 수 없는 정보는 혜택 금액과 순위에 포함하지 않았어요.
+                                    최대치·추첨이나 한도를 모르는 할인처럼 확정할 수 없는 정보는 혜택 금액과 순위에 포함하지 않았어요.
                                 </p>
                                 <div className="mt-3 space-y-1 border-t border-violet-200 pt-3">
                                     {recommendation.informationalOffers.map(offer => (
@@ -1502,9 +1507,11 @@ function HomePageContent() {
                                                 {offer.providerName} · {offer.title}
                                             </p>
                                             <p className="mt-1 text-[9px] font-black text-violet-700">
-                                                {offer.valueSemantics === 'UP_TO'
-                                                    ? '최대치 정보'
-                                                    : '추첨·확률형 정보'} · 정보 제공
+                                                {offer.observedAt
+                                                    ? `${formatObservedDate(offer.observedAt)} 관측`
+                                                    : offer.valueSemantics === 'UP_TO'
+                                                        ? '최대치 정보'
+                                                        : '추첨·확률형 정보'} · 정보 제공
                                             </p>
                                             {(offer.eligibleItemSummary || offer.requiredNote) && (
                                                 <p className="mt-1 text-[9px] font-bold text-violet-800/65">

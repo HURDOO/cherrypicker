@@ -512,6 +512,15 @@ export interface PromotionSourceDocumentMetadata {
         aiFailures?: Array<{ brandId: string; message: string }>;
         failedUrls?: string[];
     };
+    /** Present on records uploaded by the phone observer app; see `docs/promotion-source-policy.md`. */
+    appObservation?: {
+        app: string;
+        appVersion: string | null;
+        parserVersion: number;
+        observedAt: string;
+        itemCount: number;
+        gate: { passed: boolean; reasons: string[] };
+    };
 }
 
 export interface PromotionCandidateEvidenceReference {
@@ -755,6 +764,8 @@ export interface RecommendationResponse {
         actionValue: number;
         eligibleItemSummary?: string;
         requiredNote?: string;
+        /** When an app-observed rate, such as KakaoPay GoodDeal, was last seen. */
+        observedAt?: string;
     }>;
     /** The user's unpriced card benefits that name this merchant; never part of totals. */
     cardInformationRules: Array<{

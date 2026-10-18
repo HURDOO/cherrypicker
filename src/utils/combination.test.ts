@@ -916,6 +916,37 @@ describe('calculateBestCombinations', () => {
         )).toBe(false);
     });
 
+    it('shows a phone-observed GoodDeal rate with its sighting time and hides it after a week', () => {
+        const goodDeal = offer('promotion-auto-gooddeal', {
+            providerId: 'kakaopay-gooddeal',
+            layer: 'PAY',
+            title: '테스트 브랜드 20% 할인',
+            channels: ['OFFLINE'],
+            action: { type: 'PERCENT', value: 20 },
+            condition: {
+                amountBasis: 'REMAINING_AMOUNT',
+                applicabilityScope: 'STORE_WIDE',
+                calculationMode: 'INFORMATION_ONLY',
+            },
+            compatibility: { requiredPayProviderIds: ['kakaopay-gooddeal'] },
+            collectedAt: '2026-07-20T23:00:00.000Z',
+        });
+        const fresh = calculateBestCombinations(input([goodDeal]));
+        const stale = calculateBestCombinations(input([goodDeal], {
+            now: new Date('2026-07-28T00:00:00.000Z'),
+        }));
+
+        expect(fresh.informationalOffers).toEqual([expect.objectContaining({
+            id: 'promotion-auto-gooddeal',
+            providerName: '카카오페이 굿딜',
+            observedAt: '2026-07-20T23:00:00.000Z',
+        })]);
+        expect(fresh.combinations.flatMap(item => item.steps).some(step =>
+            step.promotionId === 'promotion-auto-gooddeal'
+        )).toBe(false);
+        expect(stale.informationalOffers).toEqual([]);
+    });
+
     it('keeps lottery information out and applies user-confirmable eligibility only after confirmation', () => {
         const lottery = offer('lottery', {
             providerId: 'naverpay',

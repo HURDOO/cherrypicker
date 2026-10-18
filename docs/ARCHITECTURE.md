@@ -135,6 +135,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 - 제공자·구독: `promotion_providers`, `subscription_products`
 - 게시 혜택: `promotion_offers`. `usage_group_id`는 하나의 공식 혜택에서 파생된 유형·등급 variant가 공유할 일·월·연 한도를 식별한다.
 - 원문 bundle: `promotion_source_documents`, `promotion_source_bundles`, 연결 테이블
+- 앱 관측: 카카오페이 굿딜은 서버가 수집하지 않는다. 폰 관측 앱이 올린 기록을 `kakaopay-gooddeal` 출처의 원문 document로 저장하고, metadata의 `appObservation.gate`에 관문 결과를 남긴다. 통과한 기록만 브랜드별 정보 혜택 후보를 만들고 자동 게시하며, 다음 날 업로드를 두 번째 관측으로 삼아 기존 삭제 감지를 그대로 쓴다. 변하지 않은 혜택도 업로드마다 `collectedAt`을 관측 시각으로 바꾸고, 추천 엔진은 7일보다 오래된 굿딜 혜택을 뺀다. 정기 수집은 이 출처를 건너뛴다.
 - 후보·실행: `promotion_candidates`, `promotion_collection_runs`
 - 구조화 안전장치: 출처별 parser가 반복 확인된 표시 금액, 항목별 U+ 혜택, 상품·카테고리·고객 범위와 복합 정보용 혜택을 구조화한다. SKT parser는 할인형·적립형을 별도 action으로 만들고 상세의 횟수·혜택 금액 상한·최소 결제·상품 범위·채널·카드 형태 조건을 필드별 근거와 연결한다. 쿠폰 다운로드 앱을 구매 채널로 간주하지 않으며, 목록·상세에 같은 문장이 있어도 요구된 브랜드 상세 문서 안에서 근거 존재를 별도로 확인한다. 규칙 미해석 브랜드의 AI 보조 결과는 원문 hash, provider·model, variant와 field evidence를 후보 diff에 보존한다. 복수 혜택·요율이나 상품·대상 계산을 단일 금액으로 확정할 수 없으면 정보 제공 또는 조건부로 낮추며, 모든 신규·변경 SKT 후보는 사람 검수 전 게시하지 않는다. 공식 API 필드와 표시 문구의 충돌이 단일 원문 안에서 해소되지 않으면 `autoPublish`를 차단하고 후보로 남긴다.
 - 자동 삭제: `promotion_candidates.diff.removalObservation`에 완전 수집별 출처 bundle과 시각을 누적한다. 첫 누락 5분 뒤 자동 재수집에서도 사라진 경우만 `REMOVAL_AUTO_CONFIRMED`로 승인하고, 자동 처리 주체·정책·관측 목록을 같은 diff에 보존한다. CLI는 두 번째 수집까지 프로세스를 유지하고, 관리자 수동 수집은 단일 앱 프로세스의 중복 방지 타이머로 재확인한다. 재시작으로 타이머가 사라져도 후보가 DB에 남아 다음 완전 수집에서 다시 판정된다.
@@ -152,6 +153,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 
 - `GET /api/catalog`: 로그인 없는 공용 snapshot. schema v3에 게시 DSL program을 포함하고, parser는 브라우저에 남은 v2도 계속 읽는다. `ETag`/`If-None-Match`로 304를 지원하고 개인·내부 검수 데이터를 제외한다.
 - `GET /api/health`: SQLite 연결을 확인하고 `ok` 또는 503 `unavailable`을 `no-store`로 반환한다.
+- `POST /api/app-observations/kakaopay-gooddeal`: 굿딜 관측 앱 업로드. 세션 대신 `KAKAOPAY_GOODDEAL_UPLOAD_TOKEN` Bearer 토큰만 받고, 토큰이 없으면 503으로 닫힌다. 기록은 원문 document로 보존하고 검증 관문을 통과하면 정보 혜택으로 자동 게시하며, 통과하지 못하면 422와 사유를 돌려준다(`src/lib/gooddeal-observation.ts`, `ingestGoodDealObservation`).
 
 ### 6.2 인증 API
 
@@ -233,7 +235,7 @@ npm run db:seed
 - 기본 개발 브랜치는 `main` 하나이며 `promotion` 브랜치는 2026-10-09 main에 병합한 뒤 제거했다. 배포 계약의 목표 앱 ID는 `cherrypicker`다. 기존 `cherrypicker-promotion` 운영 앱에서의 전환은 `docs/cherrypicker-domain-transition.md`로 관리하며, 계약 변경만으로 기존 앱의 도메인·DB가 이동했다고 간주하지 않는다.
 - `cherrypicker-demo` 앱은 `contest-demo` 브랜치의 공모전 버전(`b2ec3ec` 기반, 첫 방문 데모 프로필 포함)을 시연용으로 유지하는 별도 배포다. main의 배포 계약과 독립적이며 main에 병합하지 않는다.
 - Docker entrypoint의 인증 origin은 명시적인 `BETTER_AUTH_URL`, 플랫폼의 `APP_BASE_URL`, `https://cherrypicker.app.hurdoo.kr` 순서로 결정한다. 기존·신규 호스트에서 동일한 이미지의 인증과 mutation origin 검사가 각각의 주소를 따른다.
-- `deploy.json`은 2026-09-28 승인에 따라 첫 계정 생성 없이 public 접근과 `ALLOW_SIGN_UP=false`, `/api/health`, `/data` 영속 볼륨, 필수 `BETTER_AUTH_SECRET`과 선택 `OPENAI_API_KEY`의 names-only 계약을 선언한다. 설정 전용 handoff를 대시보드에서 적용하며 계정 없는 동안 관리자·계정 동기화는 사용하지 않는다. 새 앱은 2026-09-16 승인에 따라 빈 DB에 커밋된 migration·seed를 적용하며 기존 DB를 이전하지 않는다.
+- `deploy.json`은 2026-09-28 승인에 따라 첫 계정 생성 없이 public 접근과 `ALLOW_SIGN_UP=false`, `/api/health`, `/data` 영속 볼륨, 필수 `BETTER_AUTH_SECRET`과 선택 `OPENAI_API_KEY`·`KAKAOPAY_GOODDEAL_UPLOAD_TOKEN`의 names-only 계약을 선언한다. 설정 전용 handoff를 대시보드에서 적용하며 계정 없는 동안 관리자·계정 동기화는 사용하지 않는다. 새 앱은 2026-09-16 승인에 따라 빈 DB에 커밋된 migration·seed를 적용하며 기존 DB를 이전하지 않는다.
 - Docker entrypoint는 기존 DB가 있으면 시작 전 snapshot을 만들고 migration·seed를 적용한 뒤 단일 Next.js 프로세스를 실행한다.
 - 이미지 롤백은 `/data` SQLite 상태를 되돌리지 않는다. schema 변경 전에는 일관된 백업과 복구 가능성을 확인한다.
 - 비공개 베타 전에 새 상시 외부 백업 계층은 추가하지 않지만, 이미 구현된 온라인 backup·verify·restore 런북을 1회 검증한다.

@@ -74,6 +74,7 @@ CARD_BENEFIT_AI_MAX_SOURCE_CHARS=240000
 CARD_BENEFIT_BATCH_MAX_AI_CARDS=2
 SHINHAN_SOL_TRAVEL_GUIDE_PDF_URL=
 PROMOTION_AI_MAX_CALLS=25
+KAKAOPAY_GOODDEAL_UPLOAD_TOKEN=
 ```
 
 `DATABASE_PATH`의 상대 경로는 명령을 실행한 현재 디렉터리를 기준으로 합니다. 운영 환경에서는 절대 경로를 권장합니다. `BETTER_AUTH_URL`은 사용자가 실제로 접속하는 origin과 정확히 같아야 하며 운영 환경에서는 공개 HTTPS 주소를 사용합니다.
@@ -82,6 +83,7 @@ PROMOTION_AI_MAX_CALLS=25
 `ADMIN_ACCESS_MODE=FIRST_USER`는 단일 소유자 설치를 위한 명시적 대체 방식입니다. `ADMIN_EMAILS`가 비어 있고 회원가입이 닫힌 경우에만 가장 먼저 생성된 계정을 관리자로 인정합니다. 이메일 목록을 설정하면 목록이 항상 우선하며 첫 계정 대체 방식은 비활성화됩니다.
 `OPENAI_API_KEY`는 선택 사항입니다. 값이 없거나 호출이 실패하면 프로모션은 공식 문구를 보수적으로 판정하는 규칙 분류기로 계속 수집합니다. `OPENAI_MODEL`의 기본값은 `gpt-5.6-luna`이며 `PROMOTION_AI_MODEL`과 `CARD_BENEFIT_AI_MODEL`로 작업별 모델을 덮어쓸 수 있습니다. `PROMOTION_AI_MAX_CALLS`는 한 번의 수집에서 AI로 재확인할 모호한 혜택 수를 제한합니다. AI에는 공개된 혜택 문구만 보내며 사용자 카드·결제·계정 데이터는 보내지 않습니다.
 카드 혜택은 OpenAI Responses API의 구조화 출력으로 먼저 공식 문서의 혜택 섹션을 전수 목록화하고, 두 번째 호출에서 `BenefitRule[]`과 원문 근거로 연결합니다. 인벤토리 누락과 잘못된 인용은 검증 오류로 남아 승인이 차단됩니다. 게시본 대비 고위험 삭제는 diff에 강조하고 승인 직전 별도 확인을 요구하므로, 공식 원문에서 실제로 사라졌거나 기존 입력을 바로잡는 변경은 검수 후 게시할 수 있습니다. 키가 없거나 호출에 실패하면 SOL트래블만 기존 보수적 규칙 추출기로 전환하며, AI 우선 adapter 카드는 후보 생성을 중단합니다. `CARD_BENEFIT_BATCH_MAX_AI_CARDS`는 전체 카드 재검증 한 번에 AI로 새로 구조화할 카드 수를 제한하며 기본값은 2입니다. 원문 의미 해시가 같은 카드는 이 한도를 쓰지 않고 기존 검증 결과를 재사용합니다.
+`KAKAOPAY_GOODDEAL_UPLOAD_TOKEN`은 폰의 굿딜 관측 앱이 `POST /api/app-observations/kakaopay-gooddeal`로 할인율을 올릴 때 쓰는 32자 이상의 선택 토큰입니다. 값이 없으면 업로드 API는 503으로 닫혀 있습니다. 같은 값을 관측 앱 설정에 넣고, 폰을 잃어버리면 새 값으로 바꿉니다. 받는 규칙은 [`docs/promotion-source-policy.md`](docs/promotion-source-policy.md)의 `앱 관측`에 있습니다.
 `SHINHAN_SOL_TRAVEL_GUIDE_PDF_URL`은 신한카드가 공개한 SOL트래블 체크 상품안내 PDF 주소를 확인했을 때만 설정하는 선택 값입니다. 수집기는 `shinhancard.com`의 HTTPS 문서만 허용하며 상품 페이지에서 같은 소유자의 PDF 링크가 발견되면 별도 설정 없이도 보조 출처로 수집합니다.
 
 ### 데이터베이스 준비와 실행
@@ -207,7 +209,7 @@ migration·seed를 적용해 시작하며 기존 계정·검수 데이터는 이
 사용합니다.
 
 관리형 배포 계약은 필수 secret 이름으로 `BETTER_AUTH_SECRET`, 선택 secret
-이름으로 `OPENAI_API_KEY`만 선언합니다. 실제 값이나 Pi의 파일 경로는 저장소,
+이름으로 `OPENAI_API_KEY`와 `KAKAOPAY_GOODDEAL_UPLOAD_TOKEN`만 선언합니다. 실제 값이나 Pi의 파일 경로는 저장소,
 이미지, 배포 JSON에 넣지 않습니다. 등록된 앱의 **설정** 화면에서 names-only
 계약을 먼저 적용한 뒤, private dashboard의 **Secrets** 화면에서 필요한 값을
 사용자가 직접 설정합니다. 필수 값이 준비되어 `secretsReady=true`로 확인된
