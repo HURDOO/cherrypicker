@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     parseLguplusBenefits,
+    parseLguplusVipKokBenefits,
     parseNaverPayPromotions,
     parseParisMembershipHtml,
     parseSktMembershipHtml,
@@ -295,6 +296,44 @@ describe('promotion source parsers', () => {
         expect(offers.slice(0, 2).every(item => item.autoPublish)).toBe(true);
         expect(offers[2].autoPublish).toBe(true);
         expect(offers[2].offer.action.valueSemantics).toBe('UP_TO');
+    });
+
+    it('shares one monthly VIP콕 pick across brands and asks the member to confirm it', () => {
+        const offers = parseLguplusVipKokBenefits([{
+            urcMbspJncoNo: 501,
+            urcMbspJncoNm: '롯데월드 어드벤처',
+            jncoBnftThumCntn: '종합이용권(1 Day/AFTER 4) 42% 할인 (동반 1인 30% 할인)',
+            jncoBnftDetlCntn: 'VIP콕 통합 월 1회',
+            urcBnftTadvMthdCntn: '① U+one 앱 > VIP콕 혜택 > 롯데월드 어드벤처 > 멤버십 바코드 보기 ② 결제 시 직원에게 [멤버십 바코드] 제시',
+            jncoTadvGrdDetlDscr: 'VVIP/VIP',
+            urcMbspCatgNm: 'VIP콕',
+        }, {
+            urcMbspJncoNo: 502,
+            urcMbspJncoNm: '쉐이크쉑',
+            jncoBnftThumCntn: '5천원 할인(2만원 이상 구매 시)',
+            jncoBnftDetlCntn: 'VIP콕 통합 월 1회',
+            urcBnftTadvMthdCntn: '① U+one 앱 > VIP콕 혜택 > 쉐이크쉑 > 혜택보기 > 쿠폰받기 ② 결제 시 직원에게 쿠폰 제시',
+            jncoTadvGrdDetlDscr: 'VVIP/VIP',
+            urcMbspCatgNm: 'VIP콕',
+        }], 'https://example.com/uplus');
+
+        expect(offers.length).toBeGreaterThanOrEqual(2);
+        offers.forEach(item => {
+            expect(item.sourceKey.startsWith('vipkok:')).toBe(true);
+            expect(item.offer.usageGroupId).toBe('telecom:lguplus:vipkok');
+            expect(item.offer.limitConfig).toMatchObject({ monthlyCount: 1, sharedFields: ['monthlyCount'] });
+            expect(item.offer.condition).toMatchObject({
+                manualCheckRequired: true,
+                confirmationRequired: true,
+                telecomTiers: expect.arrayContaining(['VIP', 'VVIP']),
+            });
+            expect(item.offer.certainty).toBe('CONDITIONAL');
+            expect(item.offer.title.startsWith('VIP콕 ')).toBe(true);
+        });
+        expect(offers.find(item => item.offer.title.includes('쉐이크쉑'))?.offer.condition.requiredNote)
+            .toContain('U+one 앱 > VIP콕 혜택에서 쉐이크쉑');
+        expect(offers.find(item => item.offer.title.includes('어드벤처'))?.offer.condition.requiredNote)
+            .toContain('롯데월드 어드벤처');
     });
 
     it('parses combined Korean amount units without dropping the ten-thousands digit', () => {

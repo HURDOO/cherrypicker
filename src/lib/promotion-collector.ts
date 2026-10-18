@@ -34,6 +34,7 @@ import type {
 } from '@/types';
 import {
     parseLguplusBenefits,
+    parseLguplusVipKokBenefits,
     parseNaverPayPromotions,
     parseParisMembershipHtml,
     parseSktMembershipHtml,
@@ -303,16 +304,26 @@ async function collectLguplusSource() {
     const collected = await fetchJson<Parameters<typeof parseLguplusBenefits>[0]>(
         `${LGUPLUS_API_URL}?${params}`
     );
+    // VIP콕(VIP·VVIP가 매달 하나 고르는 혜택)은 같은 API의 다른 혜택 구분(01)이다.
+    params.set('urcMbspBnftDivsCd', '01');
+    const vipKok = await fetchJson<Parameters<typeof parseLguplusVipKokBenefits>[0]>(
+        `${LGUPLUS_API_URL}?${params}`
+    );
     // 응답에 전체 건수가 없어, 요청한 행 수보다 적게 돌아와야 마지막 쪽까지 받은 것으로 본다.
-    const truncated = !Array.isArray(collected.value) || collected.value.length >= LGUPLUS_ROW_SIZE;
+    const truncated = [collected.value, vipKok.value].some(value => (
+        !Array.isArray(value) || value.length >= LGUPLUS_ROW_SIZE
+    ));
     return {
-        promotions: parseLguplusBenefits(collected.value, LGUPLUS_PAGE_URL),
+        promotions: [
+            ...parseLguplusBenefits(collected.value, LGUPLUS_PAGE_URL),
+            ...parseLguplusVipKokBenefits(vipKok.value, LGUPLUS_PAGE_URL),
+        ],
         products: [],
-        documents: [collected.document],
+        documents: [collected.document, vipKok.document],
         ...(truncated && {
             completeness: {
                 complete: false,
-                message: `U+ 제휴 혜택 목록이 요청 크기(${LGUPLUS_ROW_SIZE}건)에 닿아 전체를 받았는지 확인할 수 없습니다.`,
+                message: `U+ 제휴·VIP콕 혜택 목록이 요청 크기(${LGUPLUS_ROW_SIZE}건)에 닿아 전체를 받았는지 확인할 수 없습니다.`,
             },
         }),
     };
