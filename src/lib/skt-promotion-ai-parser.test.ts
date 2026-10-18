@@ -176,6 +176,25 @@ describe('SKT promotion AI fallback parser', () => {
         });
     });
 
+    it('keeps a won amount read into a percentage-based type as information', async () => {
+        const wonAsCashback = {
+            benefits: [{ ...validOutput.benefits[0], actionType: 'CASHBACK' }],
+        };
+        const cashback = await new SktPromotionAiParser(new FakeProvider(wonAsCashback), 5).parse(input);
+        const pointMode = await new SktPromotionAiParser(new FakeProvider(validOutput), 5).parse({
+            ...input,
+            variants: [{ ...input.variants[0], membershipMode: 'POINTS' }],
+        });
+
+        [cashback, pointMode].forEach(result => expect(result.promotions[0]).toMatchObject({
+            offer: {
+                action: { value: 0, valueSemantics: 'UP_TO' },
+                condition: { calculationMode: 'INFORMATION_ONLY' },
+            },
+        }));
+        expect(pointMode.promotions[0].offer.action.type).toBe('POINTS');
+    });
+
     it('expands a short exact quote to its full official source line for audit', async () => {
         const monthlyLine = '온라인 상품 예약 시 월 1회 3,000원 페이백을 제공합니다.';
         const monthlyInput = {

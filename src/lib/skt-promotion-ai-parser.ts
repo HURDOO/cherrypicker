@@ -277,7 +277,13 @@ const buildPromotion = (options: {
     if (!resolvedBrand) throw new Error('OpenAI SKT 후보의 브랜드를 확인할 수 없습니다.');
     const itemScoped = benefit.applicabilityScope === 'CATEGORY' ||
         benefit.applicabilityScope === 'PRODUCT_SET';
-    const unsupportedActionValue = !fieldSupportsNumber(
+    const pointVariant = variant.membershipMode === 'POINTS';
+    const actionType = pointVariant ? 'POINTS' : benefit.actionType;
+    // Percentage-based types cannot carry a won amount such as "3,000원 페이백" or a point-mode
+    // "마일리지 3,000점"; such a value stays as information instead of failing the whole SKT run.
+    const percentageOverflow = ['PERCENT', 'POINTS', 'CASHBACK'].includes(actionType) &&
+        benefit.actionValue > 100;
+    const unsupportedActionValue = percentageOverflow || !fieldSupportsNumber(
         fieldEvidence,
         'action.value',
         benefit.actionValue,
@@ -333,9 +339,8 @@ const buildPromotion = (options: {
             ...(fieldEvidence['action.valueSemantics'] ?? []),
         ]);
     }
-    const pointVariant = variant.membershipMode === 'POINTS';
     const action: PromotionAction = {
-        type: pointVariant ? 'POINTS' : benefit.actionType,
+        type: actionType,
         value: unsupportedActionValue ? 0 : benefit.actionValue,
         valueSemantics: unsupportedActionValue ? 'UP_TO' : benefit.valueSemantics,
         ...(fieldSupportsNumber(fieldEvidence, 'action.maxBenefit', benefit.maxBenefit) &&
