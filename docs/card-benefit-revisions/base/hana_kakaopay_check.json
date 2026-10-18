@@ -1,0 +1,260 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "hana_kakaopay_check",
+      "name": "카카오페이 체크카드(하나)",
+      "company": "하나카드",
+      "limitTable": [
+        {
+          "threshold": 400000,
+          "limit": 10000
+        },
+        {
+          "threshold": 250000,
+          "limit": 7000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "hana_kakaopay_pay",
+        "cardId": "hana_kakaopay_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "카카오페이 결제 7% 캐쉬백",
+        "detail": "카카오페이에 이 카드를 등록해 1만원 이상 결제하면 7% 캐쉬백, 일 1회·월 4회. 캐쉬백 통합 월 한도 7천·1만원(전월 25만·40만원 이상). 카카오페이 결제금액은 전월 실적에서 제외됩니다.",
+        "condition": {
+          "minPerformance": 250000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000,
+          "manualCheckRequired": true,
+          "requiredNote": "카카오페이에 이 카드를 등록해 카카오페이로 결제하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 7,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "dailyCount": 1,
+          "monthlyCount": 4
+        }
+      },
+      {
+        "id": "hana_kakaopay_telecom",
+        "cardId": "hana_kakaopay_check",
+        "includedBrands": [
+          "telecom",
+          "official_9bbb35da2138970c",
+          "official_99d3fd0fa8fe115e"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "통신요금 자동이체 3천원 캐쉬백",
+        "detail": "SKT·KT·LG U+ 통신요금 5만원 이상 자동이체 결제 시 3천원 캐쉬백, 월 1회. 통합 월 한도를 함께 씁니다.",
+        "condition": {
+          "minPerformance": 250000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 50000,
+          "manualCheckRequired": true,
+          "requiredNote": "통신요금을 이 카드로 자동이체 납부하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 3000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1
+        }
+      },
+      {
+        "id": "hana_kakaopay_coffee",
+        "cardId": "hana_kakaopay_check",
+        "includedBrands": [
+          "starbucks"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "커피전문점 5% 캐쉬백",
+        "detail": "스타벅스(카페베네·파스쿠찌 포함) 1만원 이상 결제 시 5% 캐쉬백. 통합 월 한도를 함께 씁니다.",
+        "condition": {
+          "minPerformance": 250000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "hana_kakaopay_transit",
+        "cardId": "hana_kakaopay_check",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "대중교통 5% 캐쉬백",
+        "detail": "버스·지하철(시내·마을·광역·공항버스, 지하철, 공항철도) 월 5만원 이상 이용 시 5% 캐쉬백. 시외·고속버스 제외. 통합 월 한도를 함께 씁니다.",
+        "condition": {
+          "minPerformance": 250000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 대중교통 이용금액이 5만원 이상인지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.hanacard.co.kr/OPI42000000D.web?_frame=no&CD_PD_SEQ=11528",
+        "quote": "카카오페이, 카카오프렌즈샵, 국세/지방세/공과금, 선불카드 충전, 상품권 구매, 아이행복카드 정부지원 금 전월실적 제외",
+        "reason": "카카오페이 결제 등은 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ],
+    "notes": [
+      "2026-10-19 세션 작성(TASK-14 D3, AI API 미사용). 2026-10-12에 공식 페이지를 찾지 못해 보류했던 카드를 다시 찾아 공식 상품 페이지를 구조화했다.",
+      "검색 결과의 하나카드 상품 페이지(OPI42000000D, CD_PD_SEQ=11528)를 출처로 쓴다. 카페베네·파스쿠찌는 등록된 결제처가 없어 설명에만 남긴다.",
+      "대중교통 월 5만원 이상 조건은 앱이 이번 달 누적을 알지 못해 확인 조건으로 둔다(NH20해봄과 같은 방식)."
+    ],
+    "evidence": [
+      {
+        "id": "kakaopay",
+        "ruleIds": [
+          "hana_kakaopay_pay"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "카카오페이 캐쉬백 혜택1 카카오페이 캐쉬백률 7% 제공조건 1만원 이상 결제 시 제공한도 일 1회, 월 4회",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI42000000D.web?_frame=no&CD_PD_SEQ=11528",
+        "location": "카카오페이 캐쉬백"
+      },
+      {
+        "id": "kakaopay-what",
+        "ruleIds": [
+          "hana_kakaopay_pay"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "카카오페이: 카카오톡 안에서 개인 신용/체크카드 등록 후 비밀번호만으로 결제할 수 있는 간편결제",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI42000000D.web?_frame=no&CD_PD_SEQ=11528",
+        "location": "카카오페이 캐쉬백"
+      },
+      {
+        "id": "telecom",
+        "ruleIds": [
+          "hana_kakaopay_telecom"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "통신요금 자동이체 캐쉬백 혜택2 SKT, KT, U+ 통신요금 자동이체 캐쉬백금액 3천원 제공조건 5만원 이상 결제 시 제공한도 월 1회",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI42000000D.web?_frame=no&CD_PD_SEQ=11528",
+        "location": "통신요금 자동이체 캐쉬백"
+      },
+      {
+        "id": "coffee",
+        "ruleIds": [
+          "hana_kakaopay_coffee"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "커피전문점 캐쉬백 혜택3 스타벅스, 카페베네, 파스쿠찌 캐쉬백률 5% 제공조건 1만원 이상 결제 시",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI42000000D.web?_frame=no&CD_PD_SEQ=11528",
+        "location": "커피전문점 캐쉬백"
+      },
+      {
+        "id": "transit",
+        "ruleIds": [
+          "hana_kakaopay_transit"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "대중교통 캐쉬백 혜택4 대중교통(버스, 지하철) 캐쉬백률 5% 제공조건 월 5만원 이상 결제 시",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI42000000D.web?_frame=no&CD_PD_SEQ=11528",
+        "location": "대중교통 캐쉬백"
+      },
+      {
+        "id": "transit-scope",
+        "ruleIds": [
+          "hana_kakaopay_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "대중교통 : 시내버스, 마을버스, 광역버스, 공항버스, 지하철, 공항철도 (시외버스, 고속버스 제외)",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI42000000D.web?_frame=no&CD_PD_SEQ=11528",
+        "location": "대중교통 캐쉬백"
+      },
+      {
+        "id": "cap",
+        "ruleIds": [
+          "hana_kakaopay_pay",
+          "hana_kakaopay_telecom",
+          "hana_kakaopay_coffee",
+          "hana_kakaopay_transit"
+        ],
+        "fields": [
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "캐쉬백 한도 전월(1일~말일) 실적 25만원 이상 40만원 이상 한도 7 천원 1 만원",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI42000000D.web?_frame=no&CD_PD_SEQ=11528",
+        "location": "캐쉬백 한도"
+      },
+      {
+        "id": "waiver",
+        "ruleIds": [
+          "hana_kakaopay_pay",
+          "hana_kakaopay_telecom",
+          "hana_kakaopay_coffee",
+          "hana_kakaopay_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "최초 카드 사용 등록 후 다음달 말까지는 전월 사용금액 25만원 미만시에도 전월 카드 사용금액 25만원 기준으로 서비스 제공",
+        "sourceUrl": "https://www.hanacard.co.kr/OPI42000000D.web?_frame=no&CD_PD_SEQ=11528",
+        "location": "캐쉬백 서비스 제공 방법"
+      }
+    ]
+  }
+}

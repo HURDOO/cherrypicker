@@ -1,0 +1,30 @@
+{
+  "cards": [
+    {
+      "id": "shinhan_sol_plan_check",
+      "name": "SOL 메이트 신한카드 SOL Plan 체크",
+      "company": "신한카드",
+      "color": "bg-blue-500",
+      "issuerProductCode": "1239102",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "SOL 메이트 신한카드 SOL Plan 체크 상품 페이지",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "신한카드 포인트 세부 운영기준",
+          "sourceUrl": "https://www.shinhancard.com/pconts/html/helpdesk/terms/terms44/1186828_1200.html",
+          "sourceKind": "NOTICE",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

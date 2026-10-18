@@ -1,0 +1,149 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "nh_allone_check",
+      "name": "NH올원체크카드",
+      "company": "NH농협카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "nh_allone_low",
+        "cardId": "nh_allone_check",
+        "includedBrands": [],
+        "excludedBrands": [
+          "overseas_payment"
+        ],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내 건당 2만원 이상 0.2% NH포인트",
+        "detail": "국내 건당 2만원 이상 10만원 미만 결제 0.2% NH포인트 적립(1점=1원), 전월 실적 조건과 한도 없음. 무이자할부 결제는 적립 제외.",
+        "condition": {
+          "minSpend": 20000,
+          "maxSpendExclusive": 100000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_allone_high",
+        "cardId": "nh_allone_check",
+        "includedBrands": [],
+        "excludedBrands": [
+          "overseas_payment"
+        ],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내 건당 10만원 이상 0.4% NH포인트",
+        "detail": "국내 건당 10만원 이상 결제 0.4% NH포인트 적립, 전월 실적 조건과 한도 없음.",
+        "condition": {
+          "minSpend": 100000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.4,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_allone_overseas",
+        "cardId": "nh_allone_check",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "해외 이용액 0.4% NH포인트",
+        "detail": "해외 건당 2만원 이상 결제 0.4% NH포인트 적립, 전월 실적 조건과 한도 없음.",
+        "condition": {
+          "minSpend": 20000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.4,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "installment",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000311",
+        "quote": "무이자할부 서비스 이용 시, 무이자 혜택이 제공되므로 포인트 적립 서비스는 제공되지 않습니다.",
+        "reason": "무이자할부는 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000311",
+        "quote": "제세공과금(국세, 지방세, 우체국 우편요금), 상품권, 기프트카드, 장·단기 카드대출, 대학등록금 이용금액은 서비스에서 제외됩니다.",
+        "reason": "세금·상품권 등은 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ],
+    "notes": [
+      "2026-10-19 세션 작성(TASK-14 D3, AI API 미사용). 2026-10-12에 공식 페이지를 찾지 못해 보류했던 카드를 다시 찾아 공식 상품 페이지를 구조화했다.",
+      "NH농협카드 현재 상품 목록에는 없지만 상품 페이지(CD_WRS_SQNO=90000311)가 공개되어 있고 발급 종료 표시가 없다. OK캐쉬백·GS&Point·POP 제휴 적립은 제휴사 포인트라 규칙으로 만들지 않는다."
+    ],
+    "evidence": [
+      {
+        "id": "table",
+        "ruleIds": [
+          "nh_allone_low",
+          "nh_allone_high",
+          "nh_allone_overseas"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "전월실적에 상관없이 0.2 ~ 0.4% 적립\n기본 적립\n건별 이용액\n0.2%\n2만원 이상 이용 시\n0.4%\n10만원 이상 이용 시\n해외이용액은 0.4% 적립",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000311",
+        "location": "기본서비스(NH포인트)"
+      },
+      {
+        "id": "min",
+        "ruleIds": [
+          "nh_allone_low",
+          "nh_allone_high",
+          "nh_allone_overseas"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "적립서비스는 2만원 이상 이용건에 한해 제공됩니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000311",
+        "location": "서비스 이용조건"
+      },
+      {
+        "id": "unit",
+        "ruleIds": [
+          "nh_allone_low",
+          "nh_allone_high",
+          "nh_allone_overseas"
+        ],
+        "fields": [
+          "action"
+        ],
+        "quote": "1점 이상 시 현금처럼 사용 가능 (1점=1원)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000311",
+        "location": "NH포인트 사용방법"
+      }
+    ]
+  }
+}

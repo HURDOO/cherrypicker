@@ -1,0 +1,40 @@
+{
+  "note": "[세션 임시 승인] 2026-10-19 TASK-14 D3 공식 페이지를 다시 찾은 카드의 첫 혜택(AI API 미사용).",
+  "cards": {
+    "hana_kakaopay_check": {
+      "sourceBundleHash": "4b318be4ebb9355d30851d0feceb093964546242d750c4f30a2acd8850c0095c",
+      "base": {
+        "path": "base/hana_kakaopay_check.json",
+        "sha256": "4a403e1db96e4f53bff28ab3d87afcc632ca88f8dc706e2f7ba105e4289f72fe"
+      }
+    },
+    "nh_oleun_point_check": {
+      "sourceBundleHash": "54d91f385cc06a5e4c36cd48bd3e284477671c728e98c02eb9f12df83a2cfe29",
+      "base": {
+        "path": "base/nh_oleun_point_check.json",
+        "sha256": "b8f011329168282a7f2f0f05d9e9b467e755644bae9ed329ad80a14a1c7df715"
+      }
+    },
+    "nh_allone_check": {
+      "sourceBundleHash": "db51e27dd2a829baac3686407f8f915ce052ca1fb685195232671e5198c39940",
+      "base": {
+        "path": "base/nh_allone_check.json",
+        "sha256": "469cfbd845f35417252b9e7dd3ecafd8e3d9052c26e3e285bf3b11fc1b45278e"
+      }
+    },
+    "nh_dczoom_check": {
+      "sourceBundleHash": "f13ce4a50581282d8256ac6a0a532c6742de07c447816f7b4b1b7872072d7f8a",
+      "base": {
+        "path": "base/nh_dczoom_check.json",
+        "sha256": "f81a06d48be2c5aa36f93bb411f7029c98cb3aad24147641ad24e54e7032203b"
+      }
+    },
+    "shinhan_sol_plan_check": {
+      "sourceBundleHash": "189300d11881741a6e814128e3bf90fb1318fb22f2979a01d651d84dbf0c8b9d",
+      "base": {
+        "path": "base/shinhan_sol_plan_check.json",
+        "sha256": "8195ff20f5e97f2f3974c5a738612e5fbea352f10f359b00870f1e4d955099ee"
+      }
+    }
+  }
+}

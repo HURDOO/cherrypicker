@@ -1,0 +1,249 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "nh_oleun_point_check",
+      "name": "올바른POINT체크카드",
+      "company": "NH농협카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "nh_oleunpt_base",
+        "cardId": "nh_oleun_point_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "전 가맹점 0.2% NH포인트",
+        "detail": "전 가맹점 0.2% NH포인트 적립(1점=1원), 전월 실적 조건과 적립 한도 없음.",
+        "condition": {
+          "stackableWithRuleIds": [
+            "nh_oleunpt_extra"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_oleunpt_extra",
+        "cardId": "nh_oleun_point_check",
+        "includedBrands": [
+          "hanaro_mart",
+          "official_02f9ff5c7f4f578d",
+          "gs25",
+          "cu",
+          "oliveyoung",
+          "cgv",
+          "starbucks",
+          "paris_baguette",
+          "overseas_payment",
+          "official_2f7252a65f7a09e5",
+          "official_5dc9340cf4657d5a",
+          "official_eb61ca0600217f7f",
+          "official_37014fd31e7bc4d6"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "생활 가맹점 0.3% 추가 적립",
+        "detail": "하나로마트·클럽, 농협몰, GS25·CU·올리브영, CGV, 스타벅스·파리바게뜨, 해외 일시불·면세점 0.3% 추가 적립(기본 0.2%와 합쳐 0.5%), 전월 실적 30만원 이상, 한도 없음. 편의점·잡화, 커피·제과는 역사·백화점·아울렛 입점 매장 제외.",
+        "condition": {
+          "minPerformance": 300000,
+          "stackableWithRuleIds": [
+            "nh_oleunpt_base",
+            "nh_oleunpt_hanaro"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_oleunpt_hanaro",
+        "cardId": "nh_oleun_point_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "하나로고객 0.3% 우대 적립",
+        "detail": "전월 하나로고객(블루·그린·로얄·골드·탑클래스)이면 기본 0.2% 대신 0.3%(전월 실적 30만원 이상 100만원 미만, 100만원 이상은 0.4%지만 앱은 0.3%로 계산). 생활 가맹점 추가 0.3%와 함께 적용됩니다.",
+        "condition": {
+          "minPerformance": 300000,
+          "manualCheckRequired": true,
+          "requiredNote": "전월 NH농협 하나로고객 등급(블루 이상)인지 확인해야 합니다.",
+          "stackableWithRuleIds": [
+            "nh_oleunpt_extra"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_oleunpt_lounge_info",
+        "cardId": "nh_oleun_point_check",
+        "includedBrands": [
+          "airport_lounge"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국제공항 라운지 무료 이용(정보)",
+        "detail": "인천·김포·김해공항 지정 라운지 본인 연 1회 무료, 전월 실적 50만원 이상.",
+        "condition": {
+          "minPerformance": 500000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "lounge-non-cash",
+        "ruleIds": [
+          "nh_oleunpt_lounge_info"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000381",
+        "quote": "국제공항 라운지 무료이용",
+        "reason": "라운지 이용은 현금 혜택이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_NON_CASH"
+      },
+      {
+        "id": "hosted-stores",
+        "ruleIds": [
+          "nh_oleunpt_extra"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000381",
+        "quote": "편의점·잡화, 커피·제과 : 역사, 백화점 및 할인(아울렛)점 입장매장은 적립 미제공",
+        "reason": "입점 매장 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      },
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000381",
+        "quote": "대학(대학원등록금), 교육비(학부모분담금), 임대료, 각종 세금 및 공과금, 우체국 우편요금, 사회보험(국민건강 / 국민연금 / 고용 / 산재), 아파트관리비, 도시가스 요금, 전기요금",
+        "reason": "앱이 거래 종류를 판정할 수 없는 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000381",
+        "quote": "포인트(전부/일부)결제 시 포인트 사용분은 포인트 적립시 제외됩니다.",
+        "reason": "세금·상품권 등은 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ],
+    "notes": [
+      "2026-10-19 세션 작성(TASK-14 D3, AI API 미사용). 2026-10-12에 공식 페이지를 찾지 못해 보류했던 카드를 다시 찾아 공식 상품 페이지를 구조화했다.",
+      "NH농협카드 현재 상품 목록에는 없지만 상품 페이지(CD_WRS_SQNO=90000381)가 공개되어 있고 발급 종료 표시가 없다.",
+      "전월 실적 조건 서비스는 사용등록한 달에는 제공되지 않는다는 문구가 있지만, 그 달은 전월 실적이 없어 실적 조건으로 걸러진다."
+    ],
+    "evidence": [
+      {
+        "id": "summary",
+        "ruleIds": [
+          "nh_oleunpt_base",
+          "nh_oleunpt_extra",
+          "nh_oleunpt_hanaro"
+        ],
+        "fields": [
+          "description",
+          "limitConfig"
+        ],
+        "quote": "적립한도 없이 0.2% ~ 0.7% NH포인트 적립",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000381",
+        "location": "포인트 적립"
+      },
+      {
+        "id": "base",
+        "ruleIds": [
+          "nh_oleunpt_base",
+          "nh_oleunpt_hanaro"
+        ],
+        "fields": [
+          "action",
+          "condition"
+        ],
+        "quote": "전 가맹점 기본적립\n하나로고객 우대적립\n적립률\n0.2%\n0.3%\n0.4%\n전월실적\n조건 없음\n30만원 이상\n100만원 미만\n100만원 이상",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000381",
+        "location": "기본적립"
+      },
+      {
+        "id": "extra",
+        "ruleIds": [
+          "nh_oleunpt_extra"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "쇼핑\n하나로마트·클럽\n농협몰(nonghyupmall.com)\n0.3 %\n30만원\n이상\n편의점·잡화\nGS25, CU, 올리브영\n영화\nCGV\n커피·제과\n스타벅스, 파리바게뜨\n해외관련\n해외일시불, 면세점",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000381",
+        "location": "추가적립"
+      },
+      {
+        "id": "hanaro",
+        "ruleIds": [
+          "nh_oleunpt_hanaro"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "하나로 고객은 NH농협은행, 농축협이 운영하는 우수고객 제도로 전월 하나로 고객 전등급(블루, 그린, 로얄, 골드, 탑클래스)에 해당할 경우 기본적립(0.2%)과 전월 이용실적 구간별 포인트 적립(0.1~0.2%)이 추가되어 하나로고객 우대적립 (0.3~0.4%)이 적용됩니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000381",
+        "location": "포인트 적립 관련 유의 사항"
+      },
+      {
+        "id": "unit",
+        "ruleIds": [
+          "nh_oleunpt_base",
+          "nh_oleunpt_extra",
+          "nh_oleunpt_hanaro"
+        ],
+        "fields": [
+          "action"
+        ],
+        "quote": "1점 이상 시 현금처럼 사용 가능 (1점=1원)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000381",
+        "location": "NH포인트 사용방법"
+      },
+      {
+        "id": "lounge",
+        "ruleIds": [
+          "nh_oleunpt_lounge_info"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "서비스는 본인 회원 대상 연 1회 범위 내에서 제공됩니다.\n서비스 조건 : 전월 이용실적 50만원 이상 시 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000381",
+        "location": "국제공항 라운지 무료이용"
+      }
+    ]
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "cards": [
+    {
+      "id": "hana_npay_money_check",
+      "name": "네이버페이 머니 하나 체크카드",
+      "company": "하나카드",
+      "color": "bg-emerald-500",
+      "issuerProductCode": "17594",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        { "label": "네이버페이 머니 하나 체크카드 모바일 상품 페이지", "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1030M.web?CD_PD_SEQ=17594", "sourceKind": "PRODUCT_PAGE", "candidateRole": "PRIMARY", "required": true, "discoverLinkedPdfs": false }
+      ]
+    },
+    {
+      "id": "hana_kakaopay_check",
+      "name": "카카오페이 체크카드(하나)",
+      "company": "하나카드",
+      "color": "bg-amber-500",
+      "issuerProductCode": "11528",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        { "label": "카카오페이 체크카드 상품 페이지", "sourceUrl": "https://www.hanacard.co.kr/OPI42000000D.web?_frame=no&CD_PD_SEQ=11528", "sourceKind": "PRODUCT_PAGE", "candidateRole": "PRIMARY", "required": true, "discoverLinkedPdfs": false }
+      ]
+    },
+    {
+      "id": "nh_oleun_point_check",
+      "name": "올바른POINT체크카드",
+      "company": "NH농협카드",
+      "color": "bg-teal-500",
+      "issuerProductCode": "90000381",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        { "label": "올바른POINT체크카드 상품 페이지", "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000381", "sourceKind": "PRODUCT_PAGE", "candidateRole": "PRIMARY", "required": true, "discoverLinkedPdfs": true }
+      ]
+    },
+    {
+      "id": "nh_allone_check",
+      "name": "NH올원체크카드",
+      "company": "NH농협카드",
+      "color": "bg-emerald-500",
+      "issuerProductCode": "90000311",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        { "label": "NH올원체크카드 상품 페이지", "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000311", "sourceKind": "PRODUCT_PAGE", "candidateRole": "PRIMARY", "required": true, "discoverLinkedPdfs": true }
+      ]
+    },
+    {
+      "id": "nh_dczoom_check",
+      "name": "DC줌체크카드(비씨)",
+      "company": "NH농협카드",
+      "color": "bg-rose-500",
+      "issuerProductCode": "90000325",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        { "label": "DC줌체크카드(비씨) 상품 페이지", "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000325", "sourceKind": "PRODUCT_PAGE", "candidateRole": "PRIMARY", "required": true, "discoverLinkedPdfs": true }
+      ]
+    }
+  ]
+}

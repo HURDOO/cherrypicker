@@ -1,0 +1,378 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "nh_dczoom_check",
+      "name": "DC줌체크카드(비씨)",
+      "company": "NH농협카드",
+      "limitTable": [
+        {
+          "threshold": 500000,
+          "limit": 7000
+        },
+        {
+          "threshold": 200000,
+          "limit": 3000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "nh_dczoom_family_restaurant",
+        "cardId": "nh_dczoom_check",
+        "includedBrands": [
+          "outback",
+          "official_a0d3b962ff4a7b58",
+          "vips"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "패밀리레스토랑 10% 청구할인",
+        "detail": "아웃백·온더보더·VIPS 건당 2만원 이상 10% 청구할인. 통합 월 3천·7천원(전월 20만·50만원 이상).",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 20000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_dczoom_online_shopping",
+        "cardId": "nh_dczoom_check",
+        "includedBrands": [
+          "gmarket",
+          "auction",
+          "elevenst",
+          "official_87d787b1cd2ed2af",
+          "coupang",
+          "official_48e09381b9c28d17",
+          "tmon"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "온라인쇼핑·소셜커머스 10% 청구할인",
+        "detail": "G마켓·옥션·11번가·인터파크·쿠팡·위메프·티켓몬스터 건당 2만원 이상 10% 청구할인. 통합 월 한도를 함께 씁니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 20000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_dczoom_coffee",
+        "cardId": "nh_dczoom_check",
+        "includedBrands": [
+          "starbucks",
+          "coffeebean"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "커피전문점 10% 청구할인",
+        "detail": "스타벅스(사이렌오더 포함)·커피빈(카페베네·탐앤탐스 포함) 건당 1만원 이상 10% 청구할인. 통합 월 한도를 함께 씁니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_dczoom_transit",
+        "cardId": "nh_dczoom_check",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "대중교통 10% 청구할인",
+        "detail": "버스·지하철 월 매입 2만원 이상 시 10% 청구할인. 통합 월 한도를 함께 씁니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 대중교통 이용금액이 2만원 이상인지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_dczoom_bookstore",
+        "cardId": "nh_dczoom_check",
+        "includedBrands": [
+          "kyobo",
+          "official_933878a563e25745",
+          "official_c3cefad16205f984",
+          "yes24"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "서점 10% 청구할인",
+        "detail": "교보문고·영풍문고·YES24(인터넷서점 포함) 건당 2만원 이상 10% 청구할인. 통합 월 한도를 함께 씁니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 20000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_dczoom_medical",
+        "cardId": "nh_dczoom_check",
+        "includedBrands": [
+          "medical",
+          "official_15f1e20a3b64a1f7"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "병원·약국 10% 청구할인",
+        "detail": "BC 가맹점 분류상 병원·약국 건당 2만원 이상 10% 청구할인. 통합 월 한도를 함께 씁니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 20000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "nh_dczoom_movie",
+        "cardId": "nh_dczoom_check",
+        "includedBrands": [
+          "cgv",
+          "lotte_cinema",
+          "megabox"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "영화관 1,500원 청구할인",
+        "detail": "CGV·롯데시네마·메가박스 건당 1만원 이상 1,500원 청구할인. 통합 월 한도를 함께 씁니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1500,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-discount-half",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000325",
+        "quote": "※ 할인대상 업종 이용액은 전월실적 산정 시 50% 적용",
+        "reason": "할인대상 업종 이용액은 실적에 50%만 반영",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "hosted-and-gift",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000325",
+        "quote": "※ 백화점 및 할인(아울렛)점 입점매장은 제외될 수 있으며, 상품권 구매(기프트카드 구입, 충전 포함)는 제외됩니다.",
+        "reason": "입점 매장·상품권 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      }
+    ],
+    "notes": [
+      "2026-10-19 세션 작성(TASK-14 D3, AI API 미사용). 2026-10-12에 공식 페이지를 찾지 못해 보류했던 카드를 다시 찾아 공식 상품 페이지를 구조화했다.",
+      "NH농협카드 현재 상품 목록에는 없지만 상품 페이지(CD_WRS_SQNO=90000325)가 공개되어 있고 발급 종료 표시가 없다. 페이지의 준법 심의필 기간(2023.06~2024.05)은 지났다.",
+      "카페베네·탐앤탐스는 등록된 결제처가 없어 설명에만 남긴다. 대중교통 월 2만원 이상 조건은 확인 조건으로 둔다."
+    ],
+    "evidence": [
+      {
+        "id": "family",
+        "ruleIds": [
+          "nh_dczoom_family_restaurant"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "주요 패밀리레스토랑 10% 청구할인\n아웃백, 온더보더, VIPS",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000325",
+        "location": "주요서비스"
+      },
+      {
+        "id": "shopping",
+        "ruleIds": [
+          "nh_dczoom_online_shopping"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "주요 온라인쇼핑몰·소셜커머스 10% 청구할인\n온라인쇼핑：G마켓, 옥션, 11번가, 인터파크\n소셜커머스：쿠팡, 위메프, 티켓몬스터",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000325",
+        "location": "주요서비스"
+      },
+      {
+        "id": "coffee",
+        "ruleIds": [
+          "nh_dczoom_coffee"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "주요 커피 전문점 10% 청구할인\n스타벅스(사이렌오더 포함), 커피빈, 카페베네, 탐앤탐스",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000325",
+        "location": "주요서비스"
+      },
+      {
+        "id": "transit",
+        "ruleIds": [
+          "nh_dczoom_transit"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "대중교통(버스, 지하철) 10% 청구할인\n월(1일~말일) 매입 기준 2만원 이상 시 할인 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000325",
+        "location": "주요서비스"
+      },
+      {
+        "id": "book",
+        "ruleIds": [
+          "nh_dczoom_bookstore"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "주요 서점 10% 청구할인\n교보문고, 영풍문고, Yes24 (인터넷서점 포함)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000325",
+        "location": "주요서비스"
+      },
+      {
+        "id": "medical",
+        "ruleIds": [
+          "nh_dczoom_medical"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "전국 병원·약국 10% 청구할인\nBC가맹점 분류상 병원 또는 약국으로 등록된 가맹점",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000325",
+        "location": "주요서비스"
+      },
+      {
+        "id": "movie",
+        "ruleIds": [
+          "nh_dczoom_movie"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "전국 주요 영화관 1,500원 청구할인\nCGV, 롯데시네마, 메가박스",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000325",
+        "location": "주요서비스"
+      },
+      {
+        "id": "min-spend",
+        "ruleIds": [
+          "nh_dczoom_family_restaurant",
+          "nh_dczoom_online_shopping",
+          "nh_dczoom_coffee",
+          "nh_dczoom_transit",
+          "nh_dczoom_bookstore",
+          "nh_dczoom_medical",
+          "nh_dczoom_movie"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "※ 이용건당 2만원 이상 시 할인 제공(커피/영화는 1만원 이상 시 할인 제공)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000325",
+        "location": "통합 월할인한도"
+      },
+      {
+        "id": "cap",
+        "ruleIds": [
+          "nh_dczoom_family_restaurant",
+          "nh_dczoom_online_shopping",
+          "nh_dczoom_coffee",
+          "nh_dczoom_transit",
+          "nh_dczoom_bookstore",
+          "nh_dczoom_medical",
+          "nh_dczoom_movie"
+        ],
+        "fields": [
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "전월실적\n20만원 ~\n50만원 ~\n통합 월할인한도\n3천원\n7천원",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000325",
+        "location": "통합 월할인한도"
+      },
+      {
+        "id": "waiver",
+        "ruleIds": [
+          "nh_dczoom_family_restaurant",
+          "nh_dczoom_online_shopping",
+          "nh_dczoom_coffee",
+          "nh_dczoom_transit",
+          "nh_dczoom_bookstore",
+          "nh_dczoom_medical",
+          "nh_dczoom_movie"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "카드사용등록일로부터 다음 달 말일까지는 전월 실적 미달시에도 최저한도 기준으로 서비스를 제공하며",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000325",
+        "location": "서비스 이용조건"
+      }
+    ]
+  }
+}

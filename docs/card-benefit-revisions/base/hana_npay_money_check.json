@@ -1,0 +1,156 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "hana_npay_money_check",
+      "name": "네이버페이 머니 하나 체크카드",
+      "company": "하나카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "hana_npaymoney_base",
+        "cardId": "hana_npay_money_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "sharedGroupId": "hana_npay_money_points",
+        "usesCardLimit": false,
+        "description": "국내외 0.6% 네이버페이 포인트",
+        "detail": "국내외 모든 가맹점 0.6% 네이버페이 포인트 적립(결제계좌가 하나은행 페이머니 하나 통장이면 1.2%). 월 1만 포인트, 지난달 실적 25만원 이상. 적립은 다음 달 15일.",
+        "condition": {
+          "minPerformance": 250000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "stackableWithRuleIds": [
+            "hana_npaymoney_hana_account"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.6,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 10000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "hana_npaymoney_hana_account",
+        "cardId": "hana_npay_money_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "sharedGroupId": "hana_npay_money_points",
+        "usesCardLimit": false,
+        "description": "하나은행 결제계좌 추가 0.6% 네이버페이 포인트",
+        "detail": "결제계좌가 하나은행 페이머니 하나 통장이면 0.6%를 더해 모두 1.2% 적립. 발급 때는 필수로 연결되지만 다른 은행 계좌로 바꾸면 0.6%만 적립됩니다. 월 1만 포인트를 함께 씁니다.",
+        "condition": {
+          "minPerformance": 250000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "결제계좌가 하나은행 페이머니 하나 통장인지 확인해야 합니다(다른 은행 계좌면 0.6%만 적립).",
+          "stackableWithRuleIds": [
+            "hana_npaymoney_base"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.6,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 10000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1030M.web?CD_PD_SEQ=17594",
+        "quote": "지난달 실적 제외 대상 국세, 지방세, 공과금(인터넷/모바일 앱을 통한 공과금 납부 금액 포함), 수도/전기요금, 도시가스 요금, 아파트관리비",
+        "reason": "앱이 거래 종류를 판정할 수 없는 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1030M.web?CD_PD_SEQ=17594",
+        "quote": "상품권 및 기프트 카드 구매, 선불카드 및 선불전자지급수단(하나머니 등) 충전 금액, 부동산 임대료, 국내외 ATM 이용 금액은 포인트 적립 대상에서 제외됩니다.",
+        "reason": "상품권·선불 충전 등은 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ],
+    "notes": [
+      "2026-10-19 세션 작성(TASK-14 D3, AI API 미사용). 2026-10-12에 공식 페이지를 찾지 못해 보류했던 카드를 다시 찾아 공식 상품 페이지를 구조화했다.",
+      "사용자가 하나카드 검색으로 찾은 모바일 상품 페이지(MKCDCM1030M)를 출처로 쓴다. 1포인트=1원 문구는 없지만 포인트 한도가 금액 한도로 쓰이는 1만 포인트를 근거 그대로 둔다.",
+      "발급 때 필수인 하나은행 결제계좌는 바꿀 수 있어, 기본 0.6%에 계좌 확인 후 0.6%를 더한다."
+    ],
+    "evidence": [
+      {
+        "id": "rate",
+        "ruleIds": [
+          "hana_npaymoney_base",
+          "hana_npaymoney_hana_account"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "국내/외 모든 가맹점 이용금액의 1.2% 적립\n* 월 적립 한도 1만 포인트",
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1030M.web?CD_PD_SEQ=17594",
+        "location": "네이버페이 포인트 적립 서비스"
+      },
+      {
+        "id": "account",
+        "ruleIds": [
+          "hana_npaymoney_base",
+          "hana_npaymoney_hana_account"
+        ],
+        "fields": [
+          "action",
+          "condition"
+        ],
+        "quote": "본 체크카드 상품은 발급 시 하나은행의 \"페이머니 하나 통장\" 계좌 연결이 필수이며, 이용 중 하나은행 이외의 계좌로 변경 시 적립률은 0.6%가 제공됩니다.",
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1030M.web?CD_PD_SEQ=17594",
+        "location": "주요혜택"
+      },
+      {
+        "id": "performance",
+        "ruleIds": [
+          "hana_npaymoney_base",
+          "hana_npaymoney_hana_account"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "실적 산정 기준 지난달 1일부터 말일(승인 시점 기준)까지 국내외 이용금액 25만원 이상 시 서비스 제공",
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1030M.web?CD_PD_SEQ=17594",
+        "location": "서비스 제공 조건"
+      },
+      {
+        "id": "waiver",
+        "ruleIds": [
+          "hana_npaymoney_base",
+          "hana_npaymoney_hana_account"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "최초 카드 사용등록일로부터 다음 달 말일까지는 지난달 카드 실적과 관계없이 서비스 제공",
+        "sourceUrl": "https://m.hanacard.co.kr/MKCDCM1030M.web?CD_PD_SEQ=17594",
+        "location": "서비스 제공 조건"
+      }
+    ]
+  }
+}

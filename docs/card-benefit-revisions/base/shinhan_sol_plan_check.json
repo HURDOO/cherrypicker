@@ -1,0 +1,621 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "shinhan_sol_plan_check",
+      "name": "SOL 메이트 신한카드 SOL Plan 체크",
+      "company": "신한카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "sol_plan_base_low",
+        "cardId": "shinhan_sol_plan_check",
+        "includedBrands": [],
+        "excludedBrands": [
+          "coffeebean",
+          "ediya",
+          "emart",
+          "emart_traders",
+          "hanaro_mart",
+          "lotte_mart",
+          "medical",
+          "mega",
+          "official_dec01dc9e1a4be41",
+          "paris_baguette",
+          "paulbassett",
+          "starbucks",
+          "tous_les_jours",
+          "twosome",
+          "netflix",
+          "youtube",
+          "tving",
+          "disney",
+          "naver_plus",
+          "coupang_wow"
+        ],
+        "platformType": "ALL",
+        "sharedGroupId": "shinhan_sol_plan_points",
+        "usesCardLimit": false,
+        "description": "국내외 0.2% SOL포인트 기본 적립",
+        "detail": "국내외 이용금액 0.2% SOL포인트 적립(포인트박스 입금 시 1원), 전월 20만원 이상 60만원 미만. 특별 적립 가맹점과 OTT·멤버십은 제외. 기본·특별 통합 월 3만 포인트.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 30000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "sol_plan_base_high",
+        "cardId": "shinhan_sol_plan_check",
+        "includedBrands": [],
+        "excludedBrands": [
+          "coffeebean",
+          "ediya",
+          "emart",
+          "emart_traders",
+          "hanaro_mart",
+          "lotte_mart",
+          "medical",
+          "mega",
+          "official_dec01dc9e1a4be41",
+          "paris_baguette",
+          "paulbassett",
+          "starbucks",
+          "tous_les_jours",
+          "twosome",
+          "netflix",
+          "youtube",
+          "tving",
+          "disney",
+          "naver_plus",
+          "coupang_wow"
+        ],
+        "platformType": "ALL",
+        "sharedGroupId": "shinhan_sol_plan_points",
+        "usesCardLimit": false,
+        "description": "국내외 0.4% SOL포인트 기본 적립",
+        "detail": "전월 60만원 이상이면 국내외 이용금액 0.4% SOL포인트 적립. 통합 월 3만 포인트.",
+        "condition": {
+          "minPerformance": 600000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.4,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 30000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "sol_plan_special_hospital_low",
+        "cardId": "shinhan_sol_plan_check",
+        "includedBrands": [
+          "medical",
+          "official_dec01dc9e1a4be41"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "sharedGroupId": "shinhan_sol_plan_points",
+        "usesCardLimit": false,
+        "description": "병원 1% 특별 적립",
+        "detail": "병원(종합·개인·치과·동물병원) 오프라인 결제 1% SOL포인트, 전월 20만원 이상 60만원 미만. 영역별 이용금액 월 30만원까지, 입점 매장 제외. 통합 월 3만 포인트.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 이 영역 이용금액이 30만원을 넘지 않았는지 확인해야 합니다(영역별 월 30만원까지만 적립)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 30000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "sol_plan_special_hospital_high",
+        "cardId": "shinhan_sol_plan_check",
+        "includedBrands": [
+          "medical",
+          "official_dec01dc9e1a4be41"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "sharedGroupId": "shinhan_sol_plan_points",
+        "usesCardLimit": false,
+        "description": "병원 2% 특별 적립",
+        "detail": "병원(종합·개인·치과·동물병원) 오프라인 결제 2% SOL포인트, 전월 60만원 이상. 영역별 이용금액 월 30만원까지, 입점 매장 제외. 통합 월 3만 포인트.",
+        "condition": {
+          "minPerformance": 600000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 이 영역 이용금액이 30만원을 넘지 않았는지 확인해야 합니다(영역별 월 30만원까지만 적립)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 30000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "sol_plan_special_mart_low",
+        "cardId": "shinhan_sol_plan_check",
+        "includedBrands": [
+          "emart",
+          "emart_traders",
+          "lotte_mart",
+          "hanaro_mart"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "sharedGroupId": "shinhan_sol_plan_points",
+        "usesCardLimit": false,
+        "description": "마트 1% 특별 적립",
+        "detail": "마트(이마트·트레이더스·롯데마트·농협 하나로마트) 오프라인 결제 1% SOL포인트, 전월 20만원 이상 60만원 미만. 영역별 이용금액 월 30만원까지, 입점 매장 제외. 통합 월 3만 포인트.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 이 영역 이용금액이 30만원을 넘지 않았는지 확인해야 합니다(영역별 월 30만원까지만 적립)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 30000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "sol_plan_special_mart_high",
+        "cardId": "shinhan_sol_plan_check",
+        "includedBrands": [
+          "emart",
+          "emart_traders",
+          "lotte_mart",
+          "hanaro_mart"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "sharedGroupId": "shinhan_sol_plan_points",
+        "usesCardLimit": false,
+        "description": "마트 2% 특별 적립",
+        "detail": "마트(이마트·트레이더스·롯데마트·농협 하나로마트) 오프라인 결제 2% SOL포인트, 전월 60만원 이상. 영역별 이용금액 월 30만원까지, 입점 매장 제외. 통합 월 3만 포인트.",
+        "condition": {
+          "minPerformance": 600000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 이 영역 이용금액이 30만원을 넘지 않았는지 확인해야 합니다(영역별 월 30만원까지만 적립)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 30000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "sol_plan_special_cafe_low",
+        "cardId": "shinhan_sol_plan_check",
+        "includedBrands": [
+          "starbucks",
+          "ediya",
+          "coffeebean",
+          "twosome",
+          "paulbassett",
+          "mega",
+          "paris_baguette",
+          "tous_les_jours"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "sharedGroupId": "shinhan_sol_plan_points",
+        "usesCardLimit": false,
+        "description": "카페 1% 특별 적립",
+        "detail": "카페(스타벅스·이디야·커피빈·투썸·폴바셋·메가커피·파리바게뜨·뚜레쥬르, 커피전문점·제과점 업종) 오프라인 결제 1% SOL포인트, 전월 20만원 이상 60만원 미만. 영역별 이용금액 월 30만원까지, 입점 매장 제외. 통합 월 3만 포인트.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 이 영역 이용금액이 30만원을 넘지 않았는지 확인해야 합니다(영역별 월 30만원까지만 적립)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 30000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "sol_plan_special_cafe_high",
+        "cardId": "shinhan_sol_plan_check",
+        "includedBrands": [
+          "starbucks",
+          "ediya",
+          "coffeebean",
+          "twosome",
+          "paulbassett",
+          "mega",
+          "paris_baguette",
+          "tous_les_jours"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "sharedGroupId": "shinhan_sol_plan_points",
+        "usesCardLimit": false,
+        "description": "카페 2% 특별 적립",
+        "detail": "카페(스타벅스·이디야·커피빈·투썸·폴바셋·메가커피·파리바게뜨·뚜레쥬르, 커피전문점·제과점 업종) 오프라인 결제 2% SOL포인트, 전월 60만원 이상. 영역별 이용금액 월 30만원까지, 입점 매장 제외. 통합 월 3만 포인트.",
+        "condition": {
+          "minPerformance": 600000,
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 이 영역 이용금액이 30만원을 넘지 않았는지 확인해야 합니다(영역별 월 30만원까지만 적립)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 30000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "sol_plan_ott_membership",
+        "cardId": "shinhan_sol_plan_check",
+        "includedBrands": [
+          "netflix",
+          "youtube",
+          "tving",
+          "disney",
+          "naver_plus",
+          "coupang_wow"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": false,
+        "description": "OTT·멤버십 100% SOL포인트",
+        "detail": "넷플릭스·유튜브 프리미엄·티빙·디즈니플러스·네이버플러스·쿠팡 와우 공식 홈페이지 정기결제 100% SOL포인트, 월 최대 2천 포인트(결제계좌 일잔액 200만원 이상 15일이면 5천 포인트). 전월 카드 이용 60만원 이상과 결제계좌 일잔액 100만원 이상 영업일 15일 이상이 함께 필요합니다.",
+        "condition": {
+          "minPerformance": 600000,
+          "manualCheckRequired": true,
+          "requiredNote": "공식 홈페이지 정기결제인지, 지난달 결제계좌 일잔액 100만원 이상인 영업일이 15일 이상인지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 100,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2000
+        }
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "pg-approval",
+        "ruleIds": [],
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "quote": "가맹점 정보가 해당 업체가 아닌 결제대행업체(PG) 또는 간편결제 전용 가맹점으로 확인되는 경우 ‘결제대행업체’ 또는 ‘간편결제’ 가맹점으로 분류되어 적립대상에서 제외됩니다.",
+        "reason": "카드 공통 PG·간편결제 승인 문구. 2026-10-11 사용자 결정(KB)처럼 실사용 검증 전까지 조건으로 두지 않는다.",
+        "affectsValue": false
+      },
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "quote": "무이자할부(슬림할부 등 부분 무이자 포함) 이용거래",
+        "reason": "무이자할부·세금·상품권 등은 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "no-stacking",
+        "ruleIds": [],
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "quote": "SOL메이트 신한카드 SOL Plan 체크 서비스 이외의 프로모션 할인이 적용된 거래",
+        "reason": "다른 프로모션 할인 거래는 적립 제외",
+        "affectsValue": true,
+        "patternId": "CARD_OFFER_NO_STACKING"
+      }
+    ],
+    "notes": [
+      "2026-10-19 세션 작성(TASK-14 D3, AI API 미사용). 2026-10-12에 공식 페이지를 찾지 못해 보류했던 카드를 다시 찾아 공식 상품 페이지를 구조화했다.",
+      "2026-05-28 출시된 시니어 대상 체크카드다. 기본·특별 적립의 실적 구간별 요율은 구간마다 규칙을 나눠 큰 요율 하나만 적용되게 했고, 월 3만 포인트를 함께 쓴다.",
+      "특별 적립의 영역별 이용금액 월 30만원 상한은 금액 한도로 바꿀 수 없어 확인 조건으로 둔다(체크카드 TOP100 공통 개선 후보와 같은 문제).",
+      "‘모을수록’ 포인트박스 10% 추가 입금은 포인트박스 계좌가 필요해 계산하지 않는다. OTT·멤버십은 더 낮은 2천 포인트 한도로 계산한다."
+    ],
+    "evidence": [
+      {
+        "id": "base-rates",
+        "ruleIds": [
+          "sol_plan_base_low",
+          "sol_plan_base_high"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "카드 전월 이용금액\n(일시불+할부)\n20만원 이상\n60만원 미만\n60만원 이상\n기본 적립\n0.2%\n0.4%",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "쓸수록 SOLSOL 서비스"
+      },
+      {
+        "id": "special-rates",
+        "ruleIds": [
+          "sol_plan_special_hospital_low",
+          "sol_plan_special_hospital_high",
+          "sol_plan_special_mart_low",
+          "sol_plan_special_mart_high",
+          "sol_plan_special_cafe_low",
+          "sol_plan_special_cafe_high"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "20만원 이상\n60만원 미만\n60만원 이상\n특별 적립\n1.0%\n2.0%",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "쓸수록 SOLSOL 서비스"
+      },
+      {
+        "id": "cap",
+        "ruleIds": [
+          "sol_plan_base_low",
+          "sol_plan_base_high",
+          "sol_plan_special_hospital_low",
+          "sol_plan_special_hospital_high",
+          "sol_plan_special_mart_low",
+          "sol_plan_special_mart_high",
+          "sol_plan_special_cafe_low",
+          "sol_plan_special_cafe_high"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "기본 적립과 특별 적립을 통합하여 월 3만 포인트 한도까지 적립됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "쓸수록 SOLSOL 서비스"
+      },
+      {
+        "id": "unit",
+        "ruleIds": [
+          "sol_plan_base_low",
+          "sol_plan_base_high",
+          "sol_plan_special_hospital_low",
+          "sol_plan_special_hospital_high",
+          "sol_plan_special_mart_low",
+          "sol_plan_special_mart_high",
+          "sol_plan_special_cafe_low",
+          "sol_plan_special_cafe_high",
+          "sol_plan_ott_membership"
+        ],
+        "fields": [
+          "action",
+          "limitConfig"
+        ],
+        "quote": "마이신한포인트 1포인트는 1원과 동일한 가치를 가집니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/helpdesk/terms/terms44/1186828_1200.html",
+        "location": "포인트 세부 운영기준"
+      },
+      {
+        "id": "sol-point",
+        "ruleIds": [
+          "sol_plan_base_low",
+          "sol_plan_base_high",
+          "sol_plan_special_hospital_low",
+          "sol_plan_special_hospital_high",
+          "sol_plan_special_mart_low",
+          "sol_plan_special_mart_high",
+          "sol_plan_special_cafe_low",
+          "sol_plan_special_cafe_high",
+          "sol_plan_ott_membership"
+        ],
+        "fields": [
+          "action"
+        ],
+        "quote": "SOL포인트 1포인트는 마이신한포인트 1포인트, 포인트박스로 입금 시 1원과 동일한 가치를 가집니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "SOL포인트 안내"
+      },
+      {
+        "id": "special-areas",
+        "ruleIds": [
+          "sol_plan_special_hospital_low",
+          "sol_plan_special_hospital_high",
+          "sol_plan_special_mart_low",
+          "sol_plan_special_mart_high",
+          "sol_plan_special_cafe_low",
+          "sol_plan_special_cafe_high"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "병원 \n종합병원, 개인병원, 치과병원, 동물병원, 응급실운영병원 업종 \n마트 \n이마트, 트레이더스 홀세일클럽, 롯데마트, 농협 하나로마트 \n카페 \n스타벅스, 이디야, 커피빈, 투썸플레이스, 폴바셋, 메가커피, 파리바게뜨, 뚜레쥬르, 커피전문점/제과점 업종",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "특별 적립 영역"
+      },
+      {
+        "id": "special-area-cap",
+        "ruleIds": [
+          "sol_plan_special_hospital_low",
+          "sol_plan_special_hospital_high",
+          "sol_plan_special_mart_low",
+          "sol_plan_special_mart_high",
+          "sol_plan_special_cafe_low",
+          "sol_plan_special_cafe_high"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "특별 적립 영역의 경우, 병원/마트/카페 각 영역별로 이용금액 기준 월 30만원까지 서비스가 적용됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "쓸수록 SOLSOL 서비스"
+      },
+      {
+        "id": "special-offline",
+        "ruleIds": [
+          "sol_plan_special_hospital_low",
+          "sol_plan_special_hospital_high",
+          "sol_plan_special_mart_low",
+          "sol_plan_special_mart_high",
+          "sol_plan_special_cafe_low",
+          "sol_plan_special_cafe_high"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "특별 적립 영역은 오프라인 매장 이용시에만 적립되며, 백화점, 할인점, 면세점, 공항 등 입점 매장 이용금액은 적립되지 않습니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "쓸수록 SOLSOL 서비스"
+      },
+      {
+        "id": "no-stack",
+        "ruleIds": [
+          "sol_plan_base_low",
+          "sol_plan_base_high"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "기본 적립과 특별 적립은 중복 적용되지 않으며, 특별 적립 영역 가맹점은 기본 적립 대상에서 제외됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "쓸수록 SOLSOL 서비스"
+      },
+      {
+        "id": "ott-excluded",
+        "ruleIds": [
+          "sol_plan_base_low",
+          "sol_plan_base_high"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "‘담을수록 SOLSOL 서비스’ 대상 영역(OTT/멤버십)은 기본 적립 대상에서 제외됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "쓸수록 SOLSOL 서비스"
+      },
+      {
+        "id": "waiver",
+        "ruleIds": [
+          "sol_plan_base_low",
+          "sol_plan_special_hospital_low",
+          "sol_plan_special_mart_low",
+          "sol_plan_special_cafe_low"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "‘SOL메이트 신한카드 SOL Plan 체크’ 최초 신규 발급 회원*은 카드 사용 등록한 월(간편결제 등록 포함)의 다음달(등록월+1개월)까지는 아래와 같은 전월 이용금액 구간의 서비스가 적용됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "전월 이용금액 기준"
+      },
+      {
+        "id": "ott",
+        "ruleIds": [
+          "sol_plan_ott_membership"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "OTT·멤버십 영역 이용금액의 100% SOL포인트 적립",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "담을수록 SOLSOL 서비스"
+      },
+      {
+        "id": "ott-cap",
+        "ruleIds": [
+          "sol_plan_ott_membership"
+        ],
+        "fields": [
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "결제계좌의 일 잔액이 100만원 이상인 영업일수가 15일 이상인 경우 2천 포인트, 일 잔액이 200만원 이상인 영업일수가 15일 이상인 경우 5천 포인트까지 적립됩니다.",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "담을수록 SOLSOL 서비스"
+      },
+      {
+        "id": "ott-performance",
+        "ruleIds": [
+          "sol_plan_ott_membership"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "SOL메이트 신한카드 SOL Plan 체크 카드 이용금액이 60만원 이상",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "담을수록 SOLSOL 서비스"
+      },
+      {
+        "id": "ott-brands",
+        "ruleIds": [
+          "sol_plan_ott_membership"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "넷플릭스, 유튜브 프리미엄, 티빙, 디즈니플러스 \n멤버십 \n네이버플러스 멤버십, 쿠팡 와우 멤버십",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "담을수록 SOLSOL 서비스"
+      },
+      {
+        "id": "ott-recurring",
+        "ruleIds": [
+          "sol_plan_ott_membership"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "OTT, 멤버십 영역은 공식 홈페이지를 통한 정기결제(자동납부) 시에만 적립되며",
+        "sourceUrl": "https://www.shinhancard.com/pconts/html/card/apply/check/1239102_2206.html",
+        "location": "담을수록 SOLSOL 서비스"
+      }
+    ]
+  }
+}
