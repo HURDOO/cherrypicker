@@ -415,8 +415,10 @@ export const pointAmountsAsWon = (value: string) => value.normalize('NFKC').repl
     '$1원',
 );
 
+// Woori Card writes "1모아포인트 = 1꿀 = 1원": the point and its WON Members name are both one won.
 export const statesPointEqualsWon = (evidence: CardBenefitEvidence[]) => evidence.some(item => (
-    /1\s*(?:점|M\s*포인트|포인트|하나머니)\s*(?:은|는|=)?\s*1\s*원/.test(item.quote.normalize('NFKC'))
+    /1\s*(?:점|M\s*포인트|모아\s*포인트|포인트|하나머니)\s*(?:은|는|=)?\s*(?:1\s*꿀\s*=\s*)?1\s*원/
+        .test(item.quote.normalize('NFKC'))
 ));
 
 const percentageValuesIn = (value: string) => unique(

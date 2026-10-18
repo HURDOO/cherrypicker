@@ -67,10 +67,14 @@ export function resolveChromePath(env: Record<string, string | undefined> = proc
 // keeps texts that were not on screen before (popups may live in a shadow root or a dialog).
 const PAGE_SCRIPT = `async (revealText) => {
     const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    // Product text often arrives through a request after the page shell, so wait at least 3s and
+    // until the text length holds for three readings in a row (1.5s).
     let previous = -1;
-    for (let attempt = 0; attempt < 24; attempt += 1) {
+    let stableReadings = 0;
+    for (let attempt = 0; attempt < 40; attempt += 1) {
         const length = document.body ? document.body.innerText.length : 0;
-        if (length > 0 && length === previous) break;
+        stableReadings = length > 0 && length === previous ? stableReadings + 1 : 0;
+        if (attempt >= 6 && stableReadings >= 3) break;
         previous = length;
         await sleep(500);
     }

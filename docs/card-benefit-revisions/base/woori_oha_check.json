@@ -1,0 +1,911 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "woori_oha_check",
+      "name": "카드의정석2 오하CHECK",
+      "company": "우리카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "oha_shopping_online",
+        "cardId": "woori_oha_check",
+        "includedBrands": [
+          "coupang",
+          "musinsa",
+          "zigzag"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "sharedGroupId": "woori_oha_check_shopping",
+        "usesCardLimit": false,
+        "description": "SHOPPING 온라인쇼핑 5% 캐시백",
+        "detail": "쿠팡(일반결제·쿠페이), 무신사·지그재그(공식 앱·홈페이지) 결제 5% 캐시백, 건당 최대 1천원. SHOPPING 영역 월 2천·4천·6천원(전월 20만·50만·70만원 이상). 쿠팡 와우 멤버십, 네이버페이·우리WON페이로 승인된 무신사·지그재그 결제는 제외. 카드로 직접 결제한 건만 해당합니다. 카카오페이 등 간편결제 가맹점명으로 승인되면 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 2000
+            },
+            {
+              "threshold": 500000,
+              "limit": 4000
+            },
+            {
+              "threshold": 700000,
+              "limit": 6000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "oha_shopping_easypay",
+        "cardId": "woori_oha_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "sharedGroupId": "woori_oha_check_shopping",
+        "usesCardLimit": false,
+        "description": "SHOPPING 간편결제 5% 캐시백",
+        "detail": "네이버페이·우리WON페이에 이 카드를 등록해 온라인에서 결제하면 5% 캐시백, 건당 최대 1천원. SHOPPING 영역 한도를 함께 씁니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "네이버페이 또는 우리WON페이에 이 카드를 등록해 온라인에서 결제하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 2000
+            },
+            {
+              "threshold": 500000,
+              "limit": 4000
+            },
+            {
+              "threshold": 700000,
+              "limit": 6000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "oha_shopping_optical",
+        "cardId": "woori_oha_check",
+        "includedBrands": [
+          "official_b202f355fb019aab",
+          "official_535374cc4d0ce3fa"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "sharedGroupId": "woori_oha_check_shopping",
+        "usesCardLimit": false,
+        "description": "SHOPPING 안경/렌즈 5% 캐시백",
+        "detail": "오프라인 안경점 업종 결제 5% 캐시백, 건당 최대 1천원. SHOPPING 영역 한도를 함께 씁니다. 네이버페이·우리WON페이 승인 매출 제외.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 2000
+            },
+            {
+              "threshold": 500000,
+              "limit": 4000
+            },
+            {
+              "threshold": 700000,
+              "limit": 6000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "oha_eat_siren_order",
+        "cardId": "woori_oha_check",
+        "includedBrands": [
+          "starbucks"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "sharedGroupId": "woori_oha_check_eat",
+        "usesCardLimit": false,
+        "description": "EAT 스타벅스 사이렌오더 5% 캐시백",
+        "detail": "스타벅스 공식 앱 사이렌오더 결제 5% 캐시백, 건당 최대 1천원. EAT 영역 월 2천·4천·6천원. 스타벅스카드 구매·충전, 백화점·대형할인점 등 임대매장 결제 제외.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "스타벅스 공식 앱의 사이렌오더로 결제하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 2000
+            },
+            {
+              "threshold": 500000,
+              "limit": 4000
+            },
+            {
+              "threshold": 700000,
+              "limit": 6000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "oha_eat_delivery",
+        "cardId": "woori_oha_check",
+        "includedBrands": [
+          "baemin",
+          "coupangeats"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "sharedGroupId": "woori_oha_check_eat",
+        "usesCardLimit": false,
+        "description": "EAT 배달 5% 캐시백",
+        "detail": "배달의민족·쿠팡이츠(B마트 포함) 공식 앱·홈페이지 결제 5% 캐시백, 건당 최대 1천원. EAT 영역 한도를 함께 씁니다. 가맹점 직접결제·상품권 구매, 네이버페이·우리WON페이 승인 매출 제외. 카드로 직접 결제한 건만 해당합니다. 카카오페이 등 간편결제 가맹점명으로 승인되면 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 2000
+            },
+            {
+              "threshold": 500000,
+              "limit": 4000
+            },
+            {
+              "threshold": 700000,
+              "limit": 6000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "oha_eat_kurly_pass",
+        "cardId": "woori_oha_check",
+        "includedBrands": [
+          "official_bafb6daea8c80e18"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "sharedGroupId": "woori_oha_check_eat",
+        "usesCardLimit": false,
+        "description": "EAT 컬리패스 5% 캐시백",
+        "detail": "마켓컬리 컬리패스 멤버십 자동납부 결제 5% 캐시백(월 1회), 건당 최대 1천원. 일반 상품 구매는 대상이 아닙니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "컬리패스 멤버십 자동납부 결제인지 확인해야 합니다(일반 상품 구매 제외)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 2000
+            },
+            {
+              "threshold": 500000,
+              "limit": 4000
+            },
+            {
+              "threshold": 700000,
+              "limit": 6000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ],
+          "monthlyCount": 1
+        }
+      },
+      {
+        "id": "oha_play_ott",
+        "cardId": "woori_oha_check",
+        "includedBrands": [
+          "netflix",
+          "official_875845411b04a8c3"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "sharedGroupId": "woori_oha_check_play",
+        "usesCardLimit": false,
+        "description": "PLAY OTT 5% 캐시백",
+        "detail": "넷플릭스(Basic·Standard·Premium, 광고형 제외)·멜론 공식 앱·홈페이지에서 직접 신청한 정기결제 5% 캐시백, 건당 최대 1천원. PLAY 영역 월 3천·6천·9천원.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "공식 앱·홈페이지에서 직접 신청한 정기결제인지 확인해야 합니다(넷플릭스 광고형 스탠다드 제외)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 3000
+            },
+            {
+              "threshold": 500000,
+              "limit": 6000
+            },
+            {
+              "threshold": 700000,
+              "limit": 9000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "oha_play_ticket",
+        "cardId": "woori_oha_check",
+        "includedBrands": [
+          "interpark_ticket"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "sharedGroupId": "woori_oha_check_play",
+        "usesCardLimit": false,
+        "description": "PLAY 공연티켓 5% 캐시백",
+        "detail": "NOL인터파크티켓 공식 앱·홈페이지 예매 5% 캐시백, 건당 최대 1천원. YES24티켓·티켓링크·멜론티켓도 대상이지만 등록된 결제처가 없어 설명으로만 안내합니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 3000
+            },
+            {
+              "threshold": 500000,
+              "limit": 6000
+            },
+            {
+              "threshold": 700000,
+              "limit": 9000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "oha_life_transit",
+        "cardId": "woori_oha_check",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "sharedGroupId": "woori_oha_check_life",
+        "usesCardLimit": false,
+        "description": "LIFE 대중교통 5% 캐시백",
+        "detail": "시내버스·지하철 후불교통 이용금액 5% 캐시백, 건당 최대 1천원. LIFE 영역 월 3천·6천·9천원. 고속·시외·공항버스, 공항철도 직통열차 제외.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 3000
+            },
+            {
+              "threshold": 500000,
+              "limit": 6000
+            },
+            {
+              "threshold": 700000,
+              "limit": 9000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "oha_life_telecom",
+        "cardId": "woori_oha_check",
+        "includedBrands": [
+          "telecom",
+          "official_9bbb35da2138970c",
+          "official_99d3fd0fa8fe115e"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "sharedGroupId": "woori_oha_check_life",
+        "usesCardLimit": false,
+        "description": "LIFE 이동통신 5% 캐시백",
+        "detail": "SKT·KT·LG U+·헬로모바일·KTM모바일·U+유모바일 휴대전화 요금 자동납부 5% 캐시백, 건당 최대 1천원. 인터넷·집전화 결합상품 제외.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "휴대전화 요금을 이 카드로 통신사에 자동납부하는지 확인해야 합니다(인터넷·집전화 결합상품 제외)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 3000
+            },
+            {
+              "threshold": 500000,
+              "limit": 6000
+            },
+            {
+              "threshold": 700000,
+              "limit": 9000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "oha_life_overseas",
+        "cardId": "woori_oha_check",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "sharedGroupId": "woori_oha_check_life",
+        "usesCardLimit": false,
+        "description": "LIFE 해외 5% 캐시백",
+        "detail": "해외 온·오프라인 가맹점 5% 캐시백, 건당 최대 1천원. Mastercard(해외겸용) 카드만 제공되고 국내전용 카드는 제외. 해외 결제 수수료가 따로 붙을 수 있습니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "해외겸용(Mastercard) 카드인지 확인해야 합니다(국내전용 카드 제외)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 3000
+            },
+            {
+              "threshold": 500000,
+              "limit": 6000
+            },
+            {
+              "threshold": 700000,
+              "limit": 9000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "oha_life_language_test",
+        "cardId": "woori_oha_check",
+        "includedBrands": [
+          "toeic",
+          "opic",
+          "hsk",
+          "teps"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "sharedGroupId": "woori_oha_check_life",
+        "usesCardLimit": false,
+        "description": "LIFE 어학시험 5% 캐시백",
+        "detail": "TOEIC·OPIc·HSK·TEPS·TOEFL 응시료 5% 캐시백, 건당 최대 1천원. LIFE 영역 한도를 함께 씁니다. 네이버페이·우리WON페이 승인 매출 제외.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 3000
+            },
+            {
+              "threshold": 500000,
+              "limit": 6000
+            },
+            {
+              "threshold": 700000,
+              "limit": 9000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "quote": "아파트관리비(임대료), 정부지원금(보육료, 유치원보조비, 바우처 이용금액 등), 대학(대학원) 등록금, 국세·지방세·공공요금(공과금)*, 상품권·기프트카드·선불카드 구매 및 충전금액, 교통카드(모바일 포함) 구매 및 충전금액, 고속버스(차내 단말기 및 고속버스 APP 결제), 각종 수수료 및 이자, 매출취소금액, 해외가맹점 이용금액은 전월실적에 포함되지 않습니다.",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "quote": "캐시백 제외 : 국세·지방세·공공요금(공과금)*, 대학(대학원) 등록금, 상품권·기프트카드·선불카드 구매 및 충전금액, 교통카드(모바일 포함)구매 및 충전금액",
+        "reason": "세금·상품권·교통카드 충전 등은 혜택 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "no-stacking",
+        "ruleIds": [],
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "quote": "다른 프로모션과 중복되지 않으며",
+        "reason": "다른 쿠폰·할인 행사와 중복되지 않음",
+        "affectsValue": true,
+        "patternId": "CARD_OFFER_NO_STACKING"
+      },
+      {
+        "id": "pg-approval",
+        "ruleIds": [],
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "quote": "가맹점 정보가 해당 업체가 아닌 결제대행업체(PG) 또는 우리WON페이, 네이버페이를 제외한 간편결제 전용 가맹점으로 확인되는 경우 '결제대행업체' 또는 '간편결제' 가맹점으로 분류되어 캐시백 대상에서 제외됩니다.",
+        "reason": "카드 공통 PG·간편결제 승인 문구. 2026-10-11 사용자 결정(KB)처럼 실사용 검증 전까지 조건으로 두지 않고 규칙 설명에 안내한다.",
+        "affectsValue": false
+      }
+    ],
+    "notes": [
+      "2026-10-19 세션 작성(TASK-14 D5, AI API 미사용). 우리카드 모바일 상품 페이지를 로컬 Chrome으로 렌더링한 원문을 구조화했다. PC 페이지는 한도표가 이미지라 모바일 페이지를 쓴다.",
+      "SHOPPING·EAT·PLAY·LIFE 영역별 월 한도를 같은 영역 규칙끼리 공유한다. 통합 한도 표의 영역 합계가 곧 카드 전체 한도라 카드 통합 한도는 따로 두지 않는다.",
+      "카드 공통 PG·간편결제 승인 문구는 2026-10-11 사용자 결정(KB 공통 문구)과 같이 조건으로 두지 않고 규칙 설명에 안내한다.",
+      "YES24티켓·티켓링크·멜론티켓, B마트(배민 앱 내), TOEFL은 등록된 결제처가 없어 설명에만 남긴다."
+    ],
+    "evidence": [
+      {
+        "id": "shopping-online",
+        "ruleIds": [
+          "oha_shopping_online"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "쿠팡, 무신사, 지그재그\n매출 건당 최대 1천원까지 캐시백 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "SHOPPING 온라인 쇼핑"
+      },
+      {
+        "id": "shopping-online-coupang",
+        "ruleIds": [
+          "oha_shopping_online"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "쿠팡 : 일반결제 및 쿠페이 결제 시 캐시백 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "SHOPPING 온라인 쇼핑"
+      },
+      {
+        "id": "easypay",
+        "ruleIds": [
+          "oha_shopping_easypay"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "해당 서비스는 페이에 본 카드를 등록하여 온라인업종에서 사용한 경우 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "SHOPPING 간편결제"
+      },
+      {
+        "id": "optical",
+        "ruleIds": [
+          "oha_shopping_optical"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "해당 서비스는 오프라인 안경점에서 사용한 경우 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "SHOPPING 안경/렌즈"
+      },
+      {
+        "id": "siren",
+        "ruleIds": [
+          "oha_eat_siren_order"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "스타벅스 공식 앱을 통한 사이렌오더 결제 건에 한하며",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "EAT 커피"
+      },
+      {
+        "id": "delivery",
+        "ruleIds": [
+          "oha_eat_delivery",
+          "oha_eat_kurly_pass"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "배달의민족, 쿠팡이츠, B마트, 마켓컬리(컬리패스)",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "EAT 배달/주문"
+      },
+      {
+        "id": "kurly-pass",
+        "ruleIds": [
+          "oha_eat_kurly_pass"
+        ],
+        "fields": [
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "마켓컬리(컬리패스) : 멤버십 자동납부 결제 건에 한하여 캐시백 제공 (월 1회)",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "EAT 배달/주문"
+      },
+      {
+        "id": "ott",
+        "ruleIds": [
+          "oha_play_ott"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "넷플릭스 : 공식 앱 및 홈페이지를 통해 직접 신청한 정기결제 건에 한하며",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "PLAY OTT"
+      },
+      {
+        "id": "ticket",
+        "ruleIds": [
+          "oha_play_ticket"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "NOL인터파크티켓, YES24티켓, 티켓링크, 멜론티켓",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "PLAY 공연티켓"
+      },
+      {
+        "id": "transit",
+        "ruleIds": [
+          "oha_life_transit"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "시내버스, 지하철 후불교통 이용금액",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "LIFE 대중교통"
+      },
+      {
+        "id": "telecom",
+        "ruleIds": [
+          "oha_life_telecom"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "SKT, KT, LG U+, 헬로모바일, KTM모바일, U+유모바일",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "LIFE 이동통신"
+      },
+      {
+        "id": "telecom-autopay",
+        "ruleIds": [
+          "oha_life_telecom"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "휴대전화 요금을 본 카드로 대상 통신사에 자동납부 신청 후",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "LIFE 이동통신"
+      },
+      {
+        "id": "overseas",
+        "ruleIds": [
+          "oha_life_overseas"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "Mastercard 브랜드만 제공(국내전용 브랜드 제공 불가)",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "LIFE 해외"
+      },
+      {
+        "id": "exam",
+        "ruleIds": [
+          "oha_life_language_test"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "TOEIC, OPIc, HSK, TEPS, TOEFL",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "LIFE 어학시험"
+      },
+      {
+        "id": "rate",
+        "ruleIds": [
+          "oha_shopping_online",
+          "oha_shopping_easypay",
+          "oha_shopping_optical",
+          "oha_eat_siren_order",
+          "oha_eat_delivery",
+          "oha_eat_kurly_pass",
+          "oha_play_ott",
+          "oha_play_ticket",
+          "oha_life_transit",
+          "oha_life_telecom",
+          "oha_life_overseas",
+          "oha_life_language_test"
+        ],
+        "fields": [
+          "action"
+        ],
+        "quote": "SHOPPING 5% 캐시백\nEAT 5% 캐시백\nPLAY 5% 캐시백\nLIFE 5% 캐시백",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "혜택 요약"
+      },
+      {
+        "id": "per-purchase-cap",
+        "ruleIds": [
+          "oha_shopping_online",
+          "oha_shopping_easypay",
+          "oha_shopping_optical",
+          "oha_eat_siren_order",
+          "oha_eat_delivery",
+          "oha_eat_kurly_pass",
+          "oha_play_ott",
+          "oha_play_ticket",
+          "oha_life_transit",
+          "oha_life_telecom",
+          "oha_life_overseas",
+          "oha_life_language_test"
+        ],
+        "fields": [
+          "action"
+        ],
+        "quote": "매출 건당 최대 1천원까지 캐시백 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "통합 월 캐시백한도 및 유의사항"
+      },
+      {
+        "id": "performance",
+        "ruleIds": [
+          "oha_shopping_online",
+          "oha_shopping_easypay",
+          "oha_shopping_optical",
+          "oha_eat_siren_order",
+          "oha_eat_delivery",
+          "oha_eat_kurly_pass",
+          "oha_play_ott",
+          "oha_play_ticket",
+          "oha_life_transit",
+          "oha_life_telecom",
+          "oha_life_overseas",
+          "oha_life_language_test"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "전월 국내가맹점 이용실적 20만원 이상 시 캐시백 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "통합 월 캐시백한도 및 유의사항"
+      },
+      {
+        "id": "waiver",
+        "ruleIds": [
+          "oha_shopping_online",
+          "oha_shopping_easypay",
+          "oha_shopping_optical",
+          "oha_eat_siren_order",
+          "oha_eat_delivery",
+          "oha_eat_kurly_pass",
+          "oha_play_ott",
+          "oha_play_ticket",
+          "oha_life_transit",
+          "oha_life_telecom",
+          "oha_life_overseas",
+          "oha_life_language_test"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "카드 수령(사용)등록일과 사용개시일 중 빠른 날을 기준으로 다음달 말일까지는 전월 실적 조건 미충족 시에도 최저 실적 구간 서비스를 제공합니다.",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "실적 산정 방법 안내"
+      },
+      {
+        "id": "tier-shopping",
+        "ruleIds": [
+          "oha_shopping_online",
+          "oha_shopping_easypay",
+          "oha_shopping_optical"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "20만원 이상\nSHOPPING\n2천원\n50만원 이상\nSHOPPING\n4천원\n70만원 이상\nSHOPPING\n6천원",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "통합 월 캐시백한도"
+      },
+      {
+        "id": "tier-eat",
+        "ruleIds": [
+          "oha_eat_siren_order",
+          "oha_eat_delivery",
+          "oha_eat_kurly_pass"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "20만원 이상\nEAT\n2천원\n50만원 이상\nEAT\n4천원\n70만원 이상\nEAT\n6천원",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "통합 월 캐시백한도"
+      },
+      {
+        "id": "tier-play",
+        "ruleIds": [
+          "oha_play_ott",
+          "oha_play_ticket"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "20만원 이상\nPLAY\n3천원\n50만원 이상\nPLAY\n6천원\n70만원 이상\nPLAY\n9천원",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "통합 월 캐시백한도"
+      },
+      {
+        "id": "tier-life",
+        "ruleIds": [
+          "oha_life_transit",
+          "oha_life_telecom",
+          "oha_life_overseas",
+          "oha_life_language_test"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "20만원 이상\nLIFE\n3천원\n50만원 이상\nLIFE\n6천원\n70만원 이상\nLIFE\n9천원",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+        "location": "통합 월 캐시백한도"
+      }
+    ]
+  }
+}

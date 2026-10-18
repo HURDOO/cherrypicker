@@ -1,0 +1,54 @@
+{
+  "note": "[세션 임시 승인] 2026-10-19 TASK-14 D5 우리카드 체크카드 첫 혜택(로컬 Chrome 렌더링 원문, AI API 미사용).",
+  "cards": {
+    "woori_oha_check": {
+      "sourceBundleHash": "d9ec416003a9228e04c492372fafedb370af0417e58a57ad3919379662f98d2f",
+      "base": {
+        "path": "base/woori_oha_check.json",
+        "sha256": "02efaf768557df01e4643e1c40a0b317decf2ad13da9db0cea9e31221002f866"
+      }
+    },
+    "woori_qwerty_check": {
+      "sourceBundleHash": "a392d8e539d9347b2a373ac2062948f62db75360c8635ccd6cdaa68c370edd73",
+      "base": {
+        "path": "base/woori_qwerty_check.json",
+        "sha256": "070dfbc9ed351b29834ab5784164238df51f9ecd62136e00f17e9eae0c926e0e"
+      }
+    },
+    "woori_everyday_check": {
+      "sourceBundleHash": "cd640747f4fd38c59071fd195f26c8601a62af03fa49ac1c42ab7261b7473d2f",
+      "base": {
+        "path": "base/woori_everyday_check.json",
+        "sha256": "b7bd5a064bdf37a51902557bcf7ed8f4884796f4ac54c5673d6904577f0fab7a"
+      }
+    },
+    "woori_grandblue_check": {
+      "sourceBundleHash": "49ea44049a839b9a6a0ed7b9d2e706a05168c049b39dcbb3e048947bd8f0abb1",
+      "base": {
+        "path": "base/woori_grandblue_check.json",
+        "sha256": "68f7479b74d52fbb1650c6d0f94f30667854928b85c24bea788f9bae0e3edbfe"
+      }
+    },
+    "woori_travelwallet_check": {
+      "sourceBundleHash": "2df0cca45ad4f8f22da102bd6783f66f87fada987ac48d9ad7105a3a97dfeb11",
+      "base": {
+        "path": "base/woori_travelwallet_check.json",
+        "sha256": "d7d26361fbbfd29239fe72b0781a101d9f025df4b519a827186c1a74cd63d6e1"
+      }
+    },
+    "woori_wibee_travel_check": {
+      "sourceBundleHash": "536a7177fb5fd8984e0b821649554113030ca762e3da0c21df3173352cf834e7",
+      "base": {
+        "path": "base/woori_wibee_travel_check.json",
+        "sha256": "94b7490c73f5d085b04ca8085923be367cd169bba184adf228d90adbc827d258"
+      }
+    },
+    "woori_wibee_travel_j_check": {
+      "sourceBundleHash": "2d2c97796a96f3c1640cfacd1449285ffc451070bb4a782c6acdfd93a52a1444",
+      "base": {
+        "path": "base/woori_wibee_travel_j_check.json",
+        "sha256": "fe82ec77aaf7c7968df145f329824d999fbbab3399386647c94b1532c60a06a3"
+      }
+    }
+  }
+}

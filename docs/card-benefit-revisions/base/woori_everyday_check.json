@@ -1,0 +1,463 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "woori_everyday_check",
+      "name": "카드의정석2 EVERYDAY CHECK",
+      "company": "우리카드",
+      "limitTable": [
+        {
+          "threshold": 600000,
+          "limit": 10000
+        },
+        {
+          "threshold": 300000,
+          "limit": 10000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "everyday_special_coffee",
+        "cardId": "woori_everyday_check",
+        "includedBrands": [
+          "starbucks",
+          "paulbassett",
+          "twosome",
+          "mammoth",
+          "official_149ee0d555be8e34"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "커피 1% 특별 적립",
+        "detail": "스타벅스(사이렌오더 포함)·폴바셋·투썸플레이스·매머드커피 1% 꿀머니 적립(1꿀=1원). 폴바셋·투썸·매머드커피는 온라인 결제 제외, 상품권·선불카드 구매·충전과 백화점·공항 등 입점 매장 제외. 영역별 월 3천·6천원(전월 30만·60만원 이상), 추가·특별 적립 통합 월 1만원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 3000
+            },
+            {
+              "threshold": 600000,
+              "limit": 6000
+            }
+          ]
+        }
+      },
+      {
+        "id": "everyday_special_mart",
+        "cardId": "woori_everyday_check",
+        "includedBrands": [
+          "emart",
+          "lotte_mart",
+          "homeplus",
+          "official_721c9dc57004b418"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": true,
+        "description": "쇼핑(대형마트) 1% 특별 적립",
+        "detail": "이마트·롯데마트·홈플러스·GS더프레시(홈플러스 익스프레스·롯데슈퍼 포함) 오프라인 결제 1% 꿀머니 적립. 온라인 결제 제외. 영역별 월 3천·6천원, 통합 월 1만원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 3000
+            },
+            {
+              "threshold": 600000,
+              "limit": 6000
+            }
+          ]
+        }
+      },
+      {
+        "id": "everyday_special_transit",
+        "cardId": "woori_everyday_check",
+        "includedBrands": [
+          "transport_public",
+          "taxi"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "교통 1% 특별 적립",
+        "detail": "버스·지하철 후불교통, 택시(오프라인 결제·카카오T 택시) 1% 꿀머니 적립. 고속·시외·공항버스, 공항철도 직통열차 제외. 영역별 월 3천·6천원, 통합 월 1만원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 3000
+            },
+            {
+              "threshold": 600000,
+              "limit": 6000
+            }
+          ]
+        }
+      },
+      {
+        "id": "everyday_special_fuel",
+        "cardId": "woori_everyday_check",
+        "includedBrands": [
+          "official_590a0ae1543df11c"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "SK주유소 1% 특별 적립",
+        "detail": "SK주유소 1% 꿀머니 적립, 1일 1회·월 3회. LPG충전소 제외. 영역별 월 3천·6천원, 통합 월 1만원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 3000
+            },
+            {
+              "threshold": 600000,
+              "limit": 6000
+            }
+          ],
+          "dailyCount": 1,
+          "monthlyCount": 3
+        }
+      },
+      {
+        "id": "everyday_wonpay",
+        "cardId": "woori_everyday_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "우리WON페이 0.5% 추가 적립",
+        "detail": "우리WON페이에 이 카드를 등록해 온라인에서 결제하면 기본 적립에 더해 0.5% 꿀머니 추가 적립. 매장 QR·바코드·NFC 결제와 상품권·선불 충전 제외. 월 3천·6천원, 통합 월 1만원.",
+        "condition": {
+          "minPerformance": 300000,
+          "minSpend": 10000,
+          "manualCheckRequired": true,
+          "requiredNote": "우리WON페이에 이 카드를 등록해 온라인에서 결제하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 300000,
+              "limit": 3000
+            },
+            {
+              "threshold": 600000,
+              "limit": 6000
+            }
+          ]
+        }
+      },
+      {
+        "id": "everyday_base",
+        "cardId": "woori_everyday_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내외 가맹점 0.2% 기본 적립",
+        "detail": "국내·해외 가맹점 0.2% 꿀머니 적립(1꿀=1원), 전월 실적 조건과 한도 없음. 특별 적립 대상 결제는 특별 적립이 우선이고, 특별 적립 한도를 넘긴 뒤에는 기본 적립이 적용됩니다.",
+        "condition": {
+          "fallbackAfterRuleIds": [
+            "everyday_special_coffee",
+            "everyday_special_mart",
+            "everyday_special_transit",
+            "everyday_special_fuel"
+          ]
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.2,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "quote": "아파트 관리비, LH/SH/전북개발공사 등 공공임대료, 부동산임대료, 정부지원금(보육료, 유치원보조비, 바우처\n이용금액 등), 대학(대학원) 등록금, 국세, 지방세, 공공요금(공과금)*",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "quote": "적립 제외 : 국세, 지방세, 공공요금(공과금)*, 대학(대학원)등록금",
+        "reason": "세금·상품권·교통카드 충전 등은 혜택 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "no-stacking",
+        "ruleIds": [],
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "quote": "기타쿠폰, 할인혜택 등 다른 프로모션과 중복되지 않으며",
+        "reason": "다른 쿠폰·할인 행사와 중복되지 않음",
+        "affectsValue": true,
+        "patternId": "CARD_OFFER_NO_STACKING"
+      },
+      {
+        "id": "pg-approval",
+        "ruleIds": [],
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "quote": "가맹점 정보가 해당 업체가 아닌 결제대행업체(PG) 또는 간편결제 전용 가맹점으로 확인되는 경우 '결제대행업체'\n또는 '간편결제' 가맹점으로 분류되어 적립 대상에서 제외됩니다.",
+        "reason": "카드 공통 PG·간편결제 승인 문구. 2026-10-11 사용자 결정(KB)처럼 실사용 검증 전까지 조건으로 두지 않고 규칙 설명에 안내한다.",
+        "affectsValue": false
+      },
+      {
+        "id": "hosted-stores",
+        "ruleIds": [
+          "everyday_special_coffee"
+        ],
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "quote": "백화점/대형할인점/면세점/공항/미군부대/리조트 등 일부 입점 매장은 적립 제외",
+        "reason": "커피전문점 입점 매장 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      }
+    ],
+    "notes": [
+      "2026-10-19 세션 작성(TASK-14 D5, AI API 미사용). 우리카드 모바일 상품 페이지(Chrome 렌더링)를 구조화했다.",
+      "특별 적립 영역별 한도 3천·6천원과 추가·특별 적립 통합 월 1만원을 카드 통합 한도로 둔다. 기본 0.2%는 통합 한도와 별개다.",
+      "롯데슈퍼·홈플러스 익스프레스는 등록된 결제처가 없어 설명에만 남긴다. 카드 공통 PG 문구는 조건으로 두지 않는다(2026-10-11 결정 준용)."
+    ],
+    "evidence": [
+      {
+        "id": "base",
+        "ruleIds": [
+          "everyday_base"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "국내 / 해외 가맹점 0.2% 적립\n전월 실적 조건 없음, 적립한도 제한 없음",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "location": "기본 적립"
+      },
+      {
+        "id": "base-fallback",
+        "ruleIds": [
+          "everyday_base"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "‘기본 적립’ 과 중복 적용 불가(‘특별 적립’ 우선 적용)",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "location": "특별 적립"
+      },
+      {
+        "id": "base-after-limit",
+        "ruleIds": [
+          "everyday_base"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "추가/특별 적립의 '통합 월 한도' 및 '각 영역별 적립한도' 중 하나의 한도를 초과한 이후 결제한 건에 대해서는\n기본 적립 혜택 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "location": "추가/특별 적립"
+      },
+      {
+        "id": "wonpay",
+        "ruleIds": [
+          "everyday_wonpay"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "우리WON페이 0.5% 추가 적립\n전월 실적 30만원 이상 시 적립 제공\n1만원 미만 결제 건 적립 제외\n우리WON페이에 본 카드를 등록하여 온라인에서 결제 시 적립 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "location": "추가 적립"
+      },
+      {
+        "id": "special-rate",
+        "ruleIds": [
+          "everyday_special_coffee",
+          "everyday_special_mart",
+          "everyday_special_transit",
+          "everyday_special_fuel"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "생활소비 1% 특별 적립",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "location": "특별 적립"
+      },
+      {
+        "id": "coffee",
+        "ruleIds": [
+          "everyday_special_coffee"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "스타벅스, 폴바셋, 투썸플레이스, 매머드커피\n스타벅스 : 사이렌오더를 통한 결제 건도 적립 제공\n폴바셋, 투썸플레이스, 매머드커피 : 온라인 결제 건 적립 제외",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "location": "특별 적립 커피"
+      },
+      {
+        "id": "mart",
+        "ruleIds": [
+          "everyday_special_mart"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "이마트, 롯데마트, 홈플러스\n홈플러스 익스프레스, GS 더프레시, 롯데슈퍼(롯데프레시)\n온라인 결제 건 적립 제외",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "location": "특별 적립 쇼핑"
+      },
+      {
+        "id": "transit",
+        "ruleIds": [
+          "everyday_special_transit"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "버스, 지하철, 택시\n버스, 지하철 : 후불교통요금 이용 건에 한하여 적립 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "location": "특별 적립 교통"
+      },
+      {
+        "id": "taxi",
+        "ruleIds": [
+          "everyday_special_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "택시 : 오프라인 결제 및 카카오T(택시) 이용 건에 한하여 적립 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "location": "특별 적립 교통"
+      },
+      {
+        "id": "fuel",
+        "ruleIds": [
+          "everyday_special_fuel"
+        ],
+        "fields": [
+          "description",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "SK주유소\n1일 1회, 월 3회 제공\nLPG충전소 적립 제외",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "location": "특별 적립 주유"
+      },
+      {
+        "id": "special-condition",
+        "ruleIds": [
+          "everyday_special_coffee",
+          "everyday_special_mart",
+          "everyday_special_transit",
+          "everyday_special_fuel"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "전월 실적 30만원 이상 시 적립 제공\n1만원 미만 결제 건 적립 제외",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "location": "특별 적립"
+      },
+      {
+        "id": "caps",
+        "ruleIds": [
+          "everyday_special_coffee",
+          "everyday_special_mart",
+          "everyday_special_transit",
+          "everyday_special_fuel",
+          "everyday_wonpay"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "30만원 이상\n60만원 이상\n우리WON페이\n3천원\n1만원\n6천원\n1만원\n커피\n3천원\n6천원\n쇼핑\n3천원\n6천원\n교통\n3천원\n6천원\n주유\n3천원\n6천원",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "location": "추가/특별 적립 한도"
+      },
+      {
+        "id": "point-unit",
+        "ruleIds": [
+          "everyday_base",
+          "everyday_wonpay",
+          "everyday_special_coffee",
+          "everyday_special_mart",
+          "everyday_special_transit",
+          "everyday_special_fuel"
+        ],
+        "fields": [
+          "action"
+        ],
+        "quote": "적립/사용단위 : 1모아포인트 = 1꿀 = 1원",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+        "location": "포인트 적립 안내"
+      }
+    ]
+  }
+}

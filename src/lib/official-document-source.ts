@@ -88,6 +88,8 @@ const OFFICIAL_CONTENT_WINDOWS: Array<{ site: RegExp; start: RegExp; end: RegExp
     { site: /\(주\)카카오뱅크/, start: /상품공시\s+펀드공시/, end: /닫기 버튼/ },
     // 우리카드 상품(Chrome 렌더링): 상단 경로 메뉴부터 하단 빠른메뉴 전까지
     { site: /우리카드/, start: /Home\s+카드 와 같은 뎁스의 메뉴목록/, end: /카드 빠른메뉴 접기/ },
+    // 우리카드 모바일 상품(Chrome 렌더링, 한도표가 글자로 나온다): 관심 고객 수 뒤부터 준법 심의필 전까지
+    { site: /우리카드/, start: /명이 관심있어요\n/, end: /준법 심의필/ },
     // 토스뱅크 카드(Chrome 렌더링): 전체 메뉴 끝의 기업뱅킹 뒤부터 준법감시인 심의필 전까지
     { site: /토스뱅크\(주\)/, start: /기업뱅킹 기업뱅킹\n/, end: /준법감시인 심의필/ },
 ];

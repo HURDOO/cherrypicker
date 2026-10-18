@@ -331,6 +331,13 @@ describe('official document source adapter', () => {
                 ],
             },
             {
+                name: '우리카드 모바일 상품',
+                page: (menu: string, benefit: string, popup: string) => [
+                    `카드 | 우리카드(개인) ${menu}`, `${menu.length},348 명이 관심있어요`, benefit,
+                    `준법 심의필 2026-C01345 ${popup}`,
+                ],
+            },
+            {
                 name: '토스뱅크 카드',
                 page: (menu: string, benefit: string, popup: string) => [
                     `토스뱅크 ${menu}`, '기업뱅킹 기업뱅킹', benefit,

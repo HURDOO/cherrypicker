@@ -1,0 +1,785 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "woori_wibee_travel_j_check",
+      "name": "위비트래블 J 체크카드",
+      "company": "우리카드",
+      "limitTable": [
+        {
+          "threshold": 700000,
+          "limit": 30000
+        },
+        {
+          "threshold": 500000,
+          "limit": 20000
+        },
+        {
+          "threshold": 200000,
+          "limit": 10000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "wibeej_japan_offline",
+        "cardId": "woori_wibee_travel_j_check",
+        "includedBrands": [
+          "overseas_payment",
+          "japan_convenience"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "sharedGroupId": "woori_wibee_travel_j_check_overseas",
+        "usesCardLimit": true,
+        "description": "해외(일본) 오프라인 10% 캐시백",
+        "detail": "일본 오프라인 가맹점 10% 캐시백, 건당 최대 1천원. 해외 영역 월 2천·4천·6천원(전월 20만·50만·70만원 이상). 일본 3대 편의점·스타벅스·맥도날드는 더 큰 일본 여행 서비스(50%)가 먼저 적용됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "일본 내 오프라인 가맹점 결제인지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 2000
+            },
+            {
+              "threshold": 500000,
+              "limit": 4000
+            },
+            {
+              "threshold": 700000,
+              "limit": 6000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "wibeej_shopping_easypay",
+        "cardId": "woori_wibee_travel_j_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "sharedGroupId": "woori_wibee_travel_j_check_shopping",
+        "usesCardLimit": true,
+        "description": "쇼핑 간편결제 5% 캐시백",
+        "detail": "우리WON페이·네이버페이 온라인 결제 5% 캐시백, 건당 최대 1천원. 오프라인 결제와 상품권·선불 충전 제외. 쇼핑 영역 월 2천·4천·6천원.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "우리WON페이 또는 네이버페이로 온라인에서 결제하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 2000
+            },
+            {
+              "threshold": 500000,
+              "limit": 4000
+            },
+            {
+              "threshold": 700000,
+              "limit": 6000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "wibeej_shopping_online",
+        "cardId": "woori_wibee_travel_j_check",
+        "includedBrands": [
+          "coupang",
+          "musinsa",
+          "29cm"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "sharedGroupId": "woori_wibee_travel_j_check_shopping",
+        "usesCardLimit": true,
+        "description": "쇼핑 쿠팡·무신사·29CM 5% 캐시백",
+        "detail": "쿠팡·무신사·29CM 공식 앱·홈페이지 온라인 결제 5% 캐시백, 건당 최대 1천원. 쿠팡 멤버십 정기결제, 우리WON페이·네이버페이 승인 매출 제외. 쇼핑 영역 한도를 함께 씁니다. 카드로 직접 결제한 건만 해당합니다. 카카오페이 등 간편결제 가맹점명으로 승인되면 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 2000
+            },
+            {
+              "threshold": 500000,
+              "limit": 4000
+            },
+            {
+              "threshold": 700000,
+              "limit": 6000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "wibeej_shopping_oliveyoung",
+        "cardId": "woori_wibee_travel_j_check",
+        "includedBrands": [
+          "oliveyoung"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "sharedGroupId": "woori_wibee_travel_j_check_shopping",
+        "usesCardLimit": true,
+        "description": "쇼핑 올리브영 5% 캐시백",
+        "detail": "올리브영 오프라인 결제 5% 캐시백, 건당 최대 1천원. 백화점·대형마트 등 입점 점포와 임대매장 제외. 쇼핑 영역 한도를 함께 씁니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 2000
+            },
+            {
+              "threshold": 500000,
+              "limit": 4000
+            },
+            {
+              "threshold": 700000,
+              "limit": 6000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "wibeej_food_siren_order",
+        "cardId": "woori_wibee_travel_j_check",
+        "includedBrands": [
+          "starbucks"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "sharedGroupId": "woori_wibee_travel_j_check_food",
+        "usesCardLimit": true,
+        "description": "푸드 스타벅스 사이렌오더 5% 캐시백",
+        "detail": "스타벅스 공식 앱 사이렌오더 결제 5% 캐시백, 건당 최대 1천원. 스타벅스카드 구매·충전, 백화점·대형마트 등 임대매장 제외. 푸드 영역 월 3천·6천·9천원.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "스타벅스 공식 앱의 사이렌오더로 결제하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 3000
+            },
+            {
+              "threshold": 500000,
+              "limit": 6000
+            },
+            {
+              "threshold": 700000,
+              "limit": 9000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "wibeej_food_delivery",
+        "cardId": "woori_wibee_travel_j_check",
+        "includedBrands": [
+          "baemin",
+          "coupangeats",
+          "official_bafb6daea8c80e18"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "sharedGroupId": "woori_wibee_travel_j_check_food",
+        "usesCardLimit": true,
+        "description": "푸드 배달 5% 캐시백",
+        "detail": "배달의민족·쿠팡이츠·컬리 공식 앱·홈페이지 앱 내 카드결제 5% 캐시백, 건당 최대 1천원. 컬리 멤버십 정기결제, 가맹점 직접결제, 상품권 구매 제외. 푸드 영역 한도를 함께 씁니다. 카드로 직접 결제한 건만 해당합니다. 카카오페이 등 간편결제 가맹점명으로 승인되면 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 3000
+            },
+            {
+              "threshold": 500000,
+              "limit": 6000
+            },
+            {
+              "threshold": 700000,
+              "limit": 9000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "wibeej_daily_transit",
+        "cardId": "woori_wibee_travel_j_check",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "sharedGroupId": "woori_wibee_travel_j_check_daily",
+        "usesCardLimit": true,
+        "description": "일상 대중교통 5% 캐시백",
+        "detail": "시내버스·지하철 후불교통 터치(RF) 결제 5% 캐시백, 건당 최대 1천원. 고속·공항버스, 공항철도 직통열차 제외. 일상 영역 월 3천·6천·9천원.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 3000
+            },
+            {
+              "threshold": 500000,
+              "limit": 6000
+            },
+            {
+              "threshold": 700000,
+              "limit": 9000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "wibeej_daily_telecom",
+        "cardId": "woori_wibee_travel_j_check",
+        "includedBrands": [
+          "telecom",
+          "official_9bbb35da2138970c",
+          "official_99d3fd0fa8fe115e"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "sharedGroupId": "woori_wibee_travel_j_check_daily",
+        "usesCardLimit": true,
+        "description": "일상 이동통신 5% 캐시백",
+        "detail": "SKT·KT·LG U+ 휴대전화 요금 자동납부 5% 캐시백, 건당 최대 1천원. 인터넷·집전화 결합상품과 알뜰폰 제외. 일상 영역 한도를 함께 씁니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "휴대전화 요금을 이 카드로 SKT·KT·LG U+에 자동납부하는지 확인해야 합니다(알뜰폰·결합상품 제외)."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmountByPerformance": [
+            {
+              "threshold": 200000,
+              "limit": 3000
+            },
+            {
+              "threshold": 500000,
+              "limit": 6000
+            },
+            {
+              "threshold": 700000,
+              "limit": 9000
+            }
+          ],
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        }
+      },
+      {
+        "id": "wibeej_overseas_fee_info",
+        "cardId": "woori_wibee_travel_j_check",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "해외 이용수수료 면제(정보)",
+        "detail": "해외 온·오프라인 결제 시 해외서비스 수수료(건당 US$0.5)와 국제 브랜드 수수료(1%) 면제. 전월 실적 조건과 한도 없음.",
+        "condition": {},
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "wibeej_japan_convenience_info",
+        "cardId": "woori_wibee_travel_j_check",
+        "includedBrands": [
+          "japan_convenience"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "일본 3대 편의점 50% 캐시백(정보)",
+        "detail": "세븐일레븐·패밀리마트·로손 50% 캐시백, 반기별 5천원(1~6월·7~12월)·연 1만원, 전월 국내 이용실적 30만원 이상. 반기 한도를 계산할 수 없어 금액을 자동 계산하지 않습니다.",
+        "condition": {
+          "minPerformance": 300000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "wibeej_japan_cafe_info",
+        "cardId": "woori_wibee_travel_j_check",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "일본 스타벅스·맥도날드 50% 캐시백(정보)",
+        "detail": "일본 스타벅스·맥도날드 50% 캐시백, 반기별 5천원·연 1만원, 전월 국내 이용실적 30만원 이상. 일본 매장을 구분할 결제처가 없고 반기 한도를 계산할 수 없어 금액을 자동 계산하지 않습니다.",
+        "condition": {
+          "minPerformance": 300000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "fee-financial",
+        "ruleIds": [
+          "wibeej_overseas_fee_info"
+        ],
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "quote": "면제(건당 US$0.5)",
+        "reason": "해외 수수료 면제는 결제 할인이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_FINANCIAL_PRODUCT"
+      },
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "quote": "각종 수수료 및 이자, 매출취소금액, 해외 가맹점 이용금액은 전월실적에 포함되지 않습니다.",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "quote": "캐시백 제외 : 국세·지방세·공공요금(공과금)*, 대학(대학원) 등록금, 상품권·기프트카드·선불카드 구매 및 충전금액",
+        "reason": "세금·상품권·교통카드 충전 등은 혜택 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ],
+    "notes": [
+      "2026-10-19 세션 작성(TASK-14 D5, AI API 미사용). 우리카드 모바일 상품 페이지(Chrome 렌더링)를 구조화했다.",
+      "해외·쇼핑·푸드·일상 영역 한도를 같은 영역 규칙끼리 공유하고, 통합 월 1만·2만·3만원을 카드 통합 한도로 둔다. 간편결제는 공식 페이지 구조상 ② 쇼핑 영역에 속한다.",
+      "일본 여행 서비스(50%)는 반기 한도를 계산할 수 없어 정보로 둔다. 일본 오프라인 10%는 결제처가 일본인지 앱이 모르므로 확인 질문을 둔다."
+    ],
+    "evidence": [
+      {
+        "id": "japan-conv",
+        "ruleIds": [
+          "wibeej_japan_convenience_info"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "세븐일레븐, 패밀리마트, 로손\n캐시백 금액 기준 반기별 5천원 (1~6월 / 7~12월 각 5천원)\n연 1만원까지 캐시백 제공\n전월 국내 가맹점 이용 실적 30만원 이상 시 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "일본 여행 서비스"
+      },
+      {
+        "id": "japan-cafe",
+        "ruleIds": [
+          "wibeej_japan_cafe_info"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "스타벅스/맥도날드\n캐시백 금액 기준 반기별 5천원 (1~6월 / 7~12월 각 5천원)\n연 1만원까지 캐시백 제공\n전월 국내 가맹점 이용 실적 30만원 이상 시 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "일본 여행 서비스"
+      },
+      {
+        "id": "japan-offline",
+        "ruleIds": [
+          "wibeej_japan_offline"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "① 해외 10% 캐시백\n일본 오프라인 가맹점",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "국내외 캐시백 서비스"
+      },
+      {
+        "id": "japan-no-stack",
+        "ruleIds": [
+          "wibeej_japan_offline"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "'일본 여행 서비스'와 '국내외 캐시백 서비스 - 해외(일본) 10% 캐시백'은 중복 적용되지 않으며, 서비스의 제공 가맹점이 중복될 경우 캐시백 금액이 더 큰 서비스 기준으로 적용됩니다.",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "국내외 캐시백 서비스"
+      },
+      {
+        "id": "rates",
+        "ruleIds": [
+          "wibeej_shopping_easypay",
+          "wibeej_shopping_online",
+          "wibeej_shopping_oliveyoung",
+          "wibeej_food_siren_order",
+          "wibeej_food_delivery",
+          "wibeej_daily_transit",
+          "wibeej_daily_telecom"
+        ],
+        "fields": [
+          "action"
+        ],
+        "quote": "② 국내 쇼핑 5% 캐시백\n③ 국내 푸드 5% 캐시백\n④ 국내 일상 5% 캐시백",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "국내외 캐시백 서비스"
+      },
+      {
+        "id": "performance",
+        "ruleIds": [
+          "wibeej_japan_offline",
+          "wibeej_shopping_easypay",
+          "wibeej_shopping_online",
+          "wibeej_shopping_oliveyoung",
+          "wibeej_food_siren_order",
+          "wibeej_food_delivery",
+          "wibeej_daily_transit",
+          "wibeej_daily_telecom"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "'국내외 캐시백 서비스'는 위비트래블 J 체크카드의 전월 국내 가맹점 이용 실적 20만원 이상 시 서비스가 제공됩니다.",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "유의사항"
+      },
+      {
+        "id": "waiver",
+        "ruleIds": [
+          "wibeej_japan_offline",
+          "wibeej_shopping_easypay",
+          "wibeej_shopping_online",
+          "wibeej_shopping_oliveyoung",
+          "wibeej_food_siren_order",
+          "wibeej_food_delivery",
+          "wibeej_daily_transit",
+          "wibeej_daily_telecom"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "국내외 캐시백 서비스는 위비트래블 J 체크카드 최초 (신규)발급* 회원의 경우 카드 수령(사용)등록일과 사용개시일 중 빠른 날을 기준으로 다음달 말일까지는 전월실적 조건 미충족 시에도 최저 실적 구간 서비스를 제공합니다.",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "유의사항"
+      },
+      {
+        "id": "delivery-app",
+        "ruleIds": [
+          "wibeej_food_delivery"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "배달 앱에서 '앱 내 카드결제' 통한 온라인 결제 건에 한하여 캐시백 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "배달/주문"
+      },
+      {
+        "id": "transit-rf",
+        "ruleIds": [
+          "wibeej_daily_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "후불교통기능을 이용한 터치(RF) 거래 건에 한하여 캐시백 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "대중교통"
+      },
+      {
+        "id": "per-purchase-cap",
+        "ruleIds": [
+          "wibeej_japan_offline",
+          "wibeej_shopping_easypay",
+          "wibeej_shopping_online",
+          "wibeej_shopping_oliveyoung",
+          "wibeej_food_siren_order",
+          "wibeej_food_delivery",
+          "wibeej_daily_transit",
+          "wibeej_daily_telecom"
+        ],
+        "fields": [
+          "action"
+        ],
+        "quote": "매출 건당 최대 1천원까지 캐시백 제공",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "유의사항"
+      },
+      {
+        "id": "easypay",
+        "ruleIds": [
+          "wibeej_shopping_easypay"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "우리WON페이, 네이버페이\n간편결제와 타 서비스 매출 중복 시 간편결제 서비스 적용",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "간편결제"
+      },
+      {
+        "id": "online",
+        "ruleIds": [
+          "wibeej_shopping_online",
+          "wibeej_shopping_oliveyoung"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "쿠팡, 무신사, 29CM, 올리브영",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "온/오프라인 쇼핑"
+      },
+      {
+        "id": "online-only",
+        "ruleIds": [
+          "wibeej_shopping_online"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "쿠팡, 무신사, 29CM : 공식 앱 및 홈페이지를 통한 온라인 결제 건에 한함",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "온/오프라인 쇼핑"
+      },
+      {
+        "id": "oliveyoung-offline",
+        "ruleIds": [
+          "wibeej_shopping_oliveyoung"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "올리브영 : 오프라인 결제건에 한하며, 대형시설물 입점점포 및 임대매장(백화점, 대형마트, 미군부대 등)은 캐시백 제외",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "온/오프라인 쇼핑"
+      },
+      {
+        "id": "siren",
+        "ruleIds": [
+          "wibeej_food_siren_order"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "스타벅스 공식 앱을 통한 사이렌오더 결제 건에 한함",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "커피"
+      },
+      {
+        "id": "delivery",
+        "ruleIds": [
+          "wibeej_food_delivery"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "배달의민족, 쿠팡이츠, 컬리",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "배달/주문"
+      },
+      {
+        "id": "transit",
+        "ruleIds": [
+          "wibeej_daily_transit"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "시내버스, 지하철",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "대중교통"
+      },
+      {
+        "id": "telecom",
+        "ruleIds": [
+          "wibeej_daily_telecom"
+        ],
+        "fields": [
+          "description",
+          "condition"
+        ],
+        "quote": "본 카드로 대상 통신사에 휴대전화 요금 자동납부 신청 후 결제 건에 한함",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "이동통신"
+      },
+      {
+        "id": "caps",
+        "ruleIds": [
+          "wibeej_japan_offline",
+          "wibeej_shopping_easypay",
+          "wibeej_shopping_online",
+          "wibeej_shopping_oliveyoung",
+          "wibeej_food_siren_order",
+          "wibeej_food_delivery",
+          "wibeej_daily_transit",
+          "wibeej_daily_telecom"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "해외\n2천원\n4천원\n6천원\n쇼핑\n2천원\n4천원\n6천원\n푸드\n3천원\n6천원\n9천원\n일상\n3천원\n6천원\n9천원\n통합 월 캐시백 한도\n1만원\n2만원\n3만원",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "통합 월 캐시백 한도"
+      },
+      {
+        "id": "caps-tiers",
+        "ruleIds": [
+          "wibeej_japan_offline",
+          "wibeej_shopping_easypay",
+          "wibeej_shopping_online",
+          "wibeej_shopping_oliveyoung",
+          "wibeej_food_siren_order",
+          "wibeej_food_delivery",
+          "wibeej_daily_transit",
+          "wibeej_daily_telecom"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "20만원 이상\n50만원 이상\n70만원 이상",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "통합 월 캐시백 한도"
+      },
+      {
+        "id": "fee",
+        "ruleIds": [
+          "wibeej_overseas_fee_info"
+        ],
+        "fields": [
+          "description",
+          "action"
+        ],
+        "quote": "면제(건당 US$0.5)\n면제(이용금액의 1%)",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+        "location": "해외 가맹점 이용수수료 면제"
+      }
+    ]
+  }
+}

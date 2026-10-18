@@ -1,0 +1,74 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "woori_travelwallet_check",
+      "name": "우리 트래블월렛 체크카드",
+      "company": "우리카드",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "travelwallet_points",
+        "cardId": "woori_travelwallet_check",
+        "includedBrands": [],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "국내외 가맹점 0.3% 트래블 포인트",
+        "detail": "국내외 가맹점 0.3% 트래블 포인트 적립(1포인트=1원, 트래블월렛 앱에서 사용), 전월 실적 조건과 적립 한도 없음. 트래블월렛 유효 회원만 적립됩니다.",
+        "condition": {},
+        "action": {
+          "type": "PERCENT",
+          "value": 0.3,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500096",
+        "quote": "적립 제외 : 정부지원금(보육료, 유치원보조비, 바우처 이용금액 등), 아파트 관리비, LH/SH/전북개발공사 등\n공공임대료, 부동산임대료, 초·중·고 학교 납부금, 대학(대학원)등록금, 국세, 지방세, 관세",
+        "reason": "세금·상품권 등은 적립 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ],
+    "notes": [
+      "2026-10-19 세션 작성(TASK-14 D5, AI API 미사용). 우리카드 모바일 상품 페이지(Chrome 렌더링)를 구조화했다. 해외 이용 수수료 면제는 결제 할인이 아니라 규칙으로 만들지 않는다."
+    ],
+    "evidence": [
+      {
+        "id": "rate",
+        "ruleIds": [
+          "travelwallet_points"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "국내외 가맹점 0.3% 트래블 포인트 적립\n전월 실적 조건 없음, 적립 한도 제한 없음",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500096",
+        "location": "혜택 1"
+      },
+      {
+        "id": "unit",
+        "ruleIds": [
+          "travelwallet_points"
+        ],
+        "fields": [
+          "action"
+        ],
+        "quote": "적립/사용단위 : 1포인트 = 1원",
+        "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500096",
+        "location": "트래블 포인트"
+      }
+    ]
+  }
+}

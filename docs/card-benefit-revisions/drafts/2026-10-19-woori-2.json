@@ -1,0 +1,40 @@
+{
+  "cards": [
+    {
+      "id": "woori_qwerty_check",
+      "name": "QWERTY 우리카드 체크",
+      "company": "우리카드",
+      "color": "bg-orange-500",
+      "issuerProductCode": "500101",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "QWERTY 우리카드 체크 모바일 상품 페이지",
+          "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500101",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "woori_travelwallet_check",
+      "name": "우리 트래블월렛 체크카드",
+      "company": "우리카드",
+      "color": "bg-indigo-500",
+      "issuerProductCode": "500096",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "우리 트래블월렛 체크카드 모바일 상품 페이지",
+          "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500096",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

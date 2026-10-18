@@ -1,0 +1,94 @@
+{
+  "cards": [
+    {
+      "id": "woori_oha_check",
+      "name": "카드의정석2 오하CHECK",
+      "company": "우리카드",
+      "color": "bg-sky-500",
+      "issuerProductCode": "500054",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "카드의정석2 오하CHECK 모바일 상품 페이지",
+          "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500054",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "woori_wibee_travel_check",
+      "name": "위비트래블 체크카드",
+      "company": "우리카드",
+      "color": "bg-teal-500",
+      "issuerProductCode": "103489",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "위비트래블 체크카드 모바일 상품 페이지",
+          "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103489",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "woori_wibee_travel_j_check",
+      "name": "위비트래블 J 체크카드",
+      "company": "우리카드",
+      "color": "bg-rose-500",
+      "issuerProductCode": "103490",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "위비트래블 J 체크카드 모바일 상품 페이지",
+          "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=103490",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "woori_everyday_check",
+      "name": "카드의정석2 EVERYDAY CHECK",
+      "company": "우리카드",
+      "color": "bg-blue-500",
+      "issuerProductCode": "500055",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "카드의정석2 EVERYDAY CHECK 모바일 상품 페이지",
+          "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=500055",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "woori_grandblue_check",
+      "name": "그랑블루 체크카드",
+      "company": "우리카드",
+      "color": "bg-violet-500",
+      "issuerProductCode": "227977",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "그랑블루 체크카드 모바일 상품 페이지",
+          "sourceUrl": "https://m.wooricard.com/dcmw/yh1/crd/crd01/M1CRD101S02.do?cdPrdCd=227977",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

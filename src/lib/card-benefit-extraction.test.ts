@@ -1679,6 +1679,14 @@ describe('card benefit extraction', () => {
             quote: 'H-Coin, 현대카드 Gift카드, 상품권, 연회비 결제는 1 M포인트=0.67원으로 환산됩니다.',
         }])).toBe(false);
         expect(pointAmountsAsWon('대상점 통합해 월 5천 M포인트 적립 한도')).toBe('대상점 통합해 월 5천원 적립 한도');
+        expect(statesPointEqualsWon([{
+            id: 'woori', ruleIds: [], fields: ['action'], sourceUrl: 'https://example.com',
+            quote: '적립/사용단위 : 1모아포인트 = 1꿀 = 1원',
+        }])).toBe(true);
+        expect(statesPointEqualsWon([{
+            id: 'woori-other-rate', ruleIds: [], fields: ['action'], sourceUrl: 'https://example.com',
+            quote: '1모아포인트 = 1꿀 = 0.7원',
+        }])).toBe(false);
     });
 
     it('reads a point-denominated per-purchase cap as won only with the one-point-one-won quote', () => {
