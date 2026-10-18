@@ -1,0 +1,88 @@
+{
+  "cards": [
+    {
+      "id": "kb_youth_club_a",
+      "name": "KB Youth Club 체크카드(A팩)",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "KB Youth Club 체크카드 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "kb_youth_club_b",
+      "name": "KB Youth Club 체크카드(B팩)",
+      "company": "KB국민카드",
+      "color": "bg-amber-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "KB Youth Club 체크카드 상품 페이지",
+          "sourceUrl": "https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=04124",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "nh_20haebom_check_travel",
+      "name": "NH20해봄체크카드(여행해봄)",
+      "company": "NH농협카드",
+      "color": "bg-emerald-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "NH20해봄체크카드 상품 페이지",
+          "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "NH20해봄체크카드 상품설명서",
+          "sourceUrl": "https://card.nonghyup.com/file/ebank/product/info/M21012.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "nh_20haebom_check_play",
+      "name": "NH20해봄체크카드(놀이해봄)",
+      "company": "NH농협카드",
+      "color": "bg-emerald-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "NH20해봄체크카드 상품 페이지",
+          "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "NH20해봄체크카드 상품설명서",
+          "sourceUrl": "https://card.nonghyup.com/file/ebank/product/info/M21012.pdf",
+          "sourceKind": "PRODUCT_GUIDE_PDF",
+          "candidateRole": "SUPPORTING",
+          "required": false,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

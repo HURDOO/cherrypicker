@@ -1,0 +1,33 @@
+{
+  "note": "[세션 임시 승인] 2026-10-19 TASK-14 D1: 고르는 혜택 타입별로 카드를 나눠 타입 혜택을 확정으로 계산한다(AI API 미사용).",
+  "cards": {
+    "kb_youth_club_a": {
+      "sourceBundleHash": "7b407ca922162afbd8707d534fbedf55e7984d79ff7e3eaa1a5ebb57fb5cd2f2",
+      "base": {
+        "path": "base/kb_youth_club_a.json",
+        "sha256": "9f0898a6cfbe922f79b707eb56531d55997eaa8ca2a185c83deef593a828a933"
+      }
+    },
+    "kb_youth_club_b": {
+      "sourceBundleHash": "7b407ca922162afbd8707d534fbedf55e7984d79ff7e3eaa1a5ebb57fb5cd2f2",
+      "base": {
+        "path": "base/kb_youth_club_b.json",
+        "sha256": "14d07096804f36338e7ef5da6f892896e642dd7771748ac9426b4ef631f87911"
+      }
+    },
+    "nh_20haebom_check_travel": {
+      "sourceBundleHash": "b4bee7a6e4150dcc385a028e063ee0e7a13f3882de7a6ff7aadc0444c55ef612",
+      "base": {
+        "path": "base/nh_20haebom_check_travel.json",
+        "sha256": "64a4a02619cd5dfcdda27ff39e44763d4943f762825179fecb64c79f0f7f674c"
+      }
+    },
+    "nh_20haebom_check_play": {
+      "sourceBundleHash": "b4bee7a6e4150dcc385a028e063ee0e7a13f3882de7a6ff7aadc0444c55ef612",
+      "base": {
+        "path": "base/nh_20haebom_check_play.json",
+        "sha256": "b667d174e8c711824a3b382788e736673a4a529b8f58db7f3c1bf9884e366963"
+      }
+    }
+  }
+}

@@ -1,0 +1,686 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "nh_20haebom_check_travel",
+      "name": "NH20해봄체크카드(여행해봄)",
+      "company": "NH농협카드",
+      "limitTable": [
+        {
+          "threshold": 1000000,
+          "limit": 10000
+        },
+        {
+          "threshold": 600000,
+          "limit": 7000
+        },
+        {
+          "threshold": 400000,
+          "limit": 5000
+        },
+        {
+          "threshold": 200000,
+          "limit": 3000
+        },
+        {
+          "threshold": 0,
+          "limit": 0
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "nh20t_shopping",
+        "cardId": "nh_20haebom_check_travel",
+        "category": "shopping",
+        "includedBrands": [
+          "gmarket",
+          "auction",
+          "official_87d787b1cd2ed2af",
+          "elevenst",
+          "official_02f9ff5c7f4f578d"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "온라인 쇼핑몰 5% 할인",
+        "detail": "G마켓, 옥션, 인터파크, 11번가, 농협몰 건당 2만원 이상 시 5% 할인, 건당 최대 2,500원·월 최대 8,000원.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 20000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 2500,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 8000
+        }
+      },
+      {
+        "id": "nh20t_bookstore",
+        "cardId": "nh_20haebom_check_travel",
+        "category": "shopping",
+        "includedBrands": [
+          "yes24",
+          "official_e61bd7d6251e68e2",
+          "aladin",
+          "official_e6f8788a6767f6b2",
+          "kyobo",
+          "official_933878a563e25745",
+          "official_c3cefad16205f984"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "온라인 서점 5% 할인",
+        "detail": "YES24, 인터파크도서, 알라딘, 교보문고, 영풍문고 온라인 서점 건당 2만원 이상 시 5% 할인, 건당 최대 2,500원. 어학시험과 합쳐 월 최대 8,000원.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 20000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 2500,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 8000,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "nh20t_self_development"
+      },
+      {
+        "id": "nh20t_language_test",
+        "cardId": "nh_20haebom_check_travel",
+        "category": "shopping",
+        "includedBrands": [
+          "toeic",
+          "teps",
+          "jpt"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "어학시험 5% 할인",
+        "detail": "토익(스피킹), 텝스, JPT, KPE 건당 2만원 이상 시 5% 할인, 건당 최대 2,500원, 월 1회·연 6회. 온라인 서점과 합쳐 월 최대 8,000원.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 20000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 2500,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 8000,
+          "monthlyCount": 1,
+          "yearlyCount": 6,
+          "sharedFields": [
+            "monthlyAmount"
+          ]
+        },
+        "sharedGroupId": "nh20t_self_development"
+      },
+      {
+        "id": "nh20t_cgv",
+        "cardId": "nh_20haebom_check_travel",
+        "category": "movie",
+        "includedBrands": [
+          "cgv"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "CGV 온라인 예매 2,000원 할인",
+        "detail": "CGV 홈페이지·모바일앱 예매 1만원 이상 결제 시 2,000원 할인, 월 1회.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1
+        }
+      },
+      {
+        "id": "nh20t_delivery",
+        "cardId": "nh_20haebom_check_travel",
+        "category": "delivery",
+        "includedBrands": [
+          "baemin",
+          "yogiyo"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "배달앱 5% 할인",
+        "detail": "배달의민족, 요기요 건당 1만원 이상 시 5% 할인, 건당 최대 1,000원·월 최대 6,000원.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 6000
+        }
+      },
+      {
+        "id": "nh20t_app",
+        "cardId": "nh_20haebom_check_travel",
+        "category": "shopping",
+        "includedBrands": [
+          "app_store",
+          "google_play"
+        ],
+        "excludedBrands": [],
+        "platformType": "ONLINE",
+        "usesCardLimit": true,
+        "description": "앱마켓 1,000원 할인",
+        "detail": "애플 앱스토어, 구글 플레이스토어 1,000원 할인(1,000원 미만이면 결제금액까지), 월 1회.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW"
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyCount": 1
+        }
+      },
+      {
+        "id": "nh20t_telecom",
+        "cardId": "nh_20haebom_check_travel",
+        "category": "transport",
+        "includedBrands": [
+          "telecom"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "이동통신 자동납부 2,500원 할인",
+        "detail": "SK텔레콤, KT, LGU+ 이동통신 요금 자동납부 5만원 이상 결제 시 2,500원 할인, 월 1건. 알뜰폰 통신사는 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 50000,
+          "manualCheckRequired": true,
+          "requiredNote": "SK텔레콤·KT·LGU+(알뜰폰 제외) 이동통신 요금을 이 카드로 자동납부하는지 확인해야 합니다."
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 2500,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 2500
+        }
+      },
+      {
+        "id": "nh20t_coffee",
+        "cardId": "nh_20haebom_check_travel",
+        "category": "cafe",
+        "includedBrands": [
+          "starbucks",
+          "ediya"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "커피 20% 할인",
+        "detail": "스타벅스(사이렌 오더 포함), 이디야 건당 1만원 이상 시 20% 할인, 월 최대 3,000원. 백화점·할인점·쇼핑몰 입점매장은 제외될 수 있습니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 20,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 3000
+        }
+      },
+      {
+        "id": "nh20t_gs25",
+        "cardId": "nh_20haebom_check_travel",
+        "category": "convenience",
+        "includedBrands": [
+          "gs25"
+        ],
+        "excludedBrands": [],
+        "platformType": "OFFLINE",
+        "usesCardLimit": true,
+        "description": "GS25 5% 할인",
+        "detail": "GS25 가두매장 건당 1만원 이상 시 5% 할인, 건당 최대 1,000원·월 최대 3,000원. 백화점·할인점·쇼핑몰 입점매장은 제외될 수 있습니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "maxDiscount": 1000,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 3000
+        }
+      },
+      {
+        "id": "nh20t_transit",
+        "cardId": "nh_20haebom_check_travel",
+        "category": "transport",
+        "includedBrands": [
+          "transport_public"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "대중교통 10% 할인",
+        "detail": "후불교통 버스·지하철 10% 할인, 월 최대 3,000원. 교통사업자별 월 이용금액이 2만원 이상일 때 제공되며 시외·고속버스는 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "manualCheckRequired": true,
+          "requiredNote": "이번 달 해당 교통사업자 후불교통 이용금액이 2만원 이상인지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 10,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 3000
+        }
+      },
+      {
+        "id": "nh20t_overseas",
+        "cardId": "nh_20haebom_check_travel",
+        "category": "etc",
+        "includedBrands": [
+          "overseas_payment"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "해외 전가맹점 1% 할인",
+        "detail": "해외 전가맹점(해외직구 포함) 건당 2만원 이상 시 1% 할인, 통합 월 할인한도와 별도로 월 최대 10만원. 해외 브랜드·이용수수료는 할인대상 금액에서 제외됩니다.",
+        "condition": {
+          "minPerformance": 200000,
+          "performanceWaiver": "NEW_CARD_REGISTRATION_WINDOW",
+          "minSpend": 20000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "monthlyAmount": 100000
+        }
+      },
+      {
+        "id": "nh20t_travel_lounge_info",
+        "cardId": "nh_20haebom_check_travel",
+        "category": "etc",
+        "includedBrands": [
+          "airport_lounge"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": false,
+        "description": "인천공항 라운지 무료 이용(정보)",
+        "detail": "여행해봄 타입 발급 시 전월 실적 50만원 이상이면 인천공항 라운지(마티나, 스카이허브) 무료, 통합 월 1회·연 2회.",
+        "condition": {
+          "minPerformance": 500000
+        },
+        "action": {
+          "type": "FLAT",
+          "value": 0,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "notes": [
+      "발급 때 여행해봄 타입을 고른 사용자의 카드다(발급 후 변경 불가). 놀이해봄 혜택은 넣지 않는다.",
+      "2026-10-12 세션 작성, 2026-10-19 TASK-14 D1 결정으로 해봄 타입별 카드로 나눔(AI API 미사용).",
+      "주요서비스는 On-Line·Off-Line 영역별 월 할인한도와 총 할인한도가 함께 있다. 영역별 한도를 계산할 수 없어 실적 구간마다 더 작은 Off-Line 한도(3천·5천·7천·1만원)를 카드 통합 한도로 두어 과대 계산을 막는다.",
+      "해외 전가맹점 할인의 \"전월실적 20만원 이상\" 문구는 다른 주요서비스와 같은 실적 조건으로 보고 신규카드 유예를 함께 적용한다.",
+      "반디앤루니스(영업 종료)·KPE·통도환타지아·광주패밀리랜드 등 등록되지 않은 결제처는 설명에만 남긴다. 교육 콘텐츠와 GS리테일 POP 서비스는 결제 할인 계산과 무관해 규칙으로 만들지 않는다."
+    ],
+    "evidence": [
+      {
+        "id": "nh20t_shopping-1",
+        "ruleIds": [
+          "nh20t_shopping"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "온라인 쇼핑몰 5% 할인 G마켓, 옥션, 인터파크, 11번가, 농협몰 건당 이용금액 2만원 이상 시 최대 2,500원 할인(월 최대 8,000원 할인)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "온라인 쇼핑몰 5% 할인"
+      },
+      {
+        "id": "nh20t_bookstore-1",
+        "ruleIds": [
+          "nh20t_bookstore"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "온라인 서점 YES24, 인터파크도서, 알라딘, 교보문고, 반디앤루니스, 영풍문고 어학시험 토익(스피킹), 텝스, JPT, KPE 건당 이용금액 2만원 이상 시 최대 2,500원 할인(월 최대 8,000원 할인)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "온라인 서점 5% 할인"
+      },
+      {
+        "id": "nh20t_language_test-1",
+        "ruleIds": [
+          "nh20t_language_test"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "어학시험 토익(스피킹), 텝스, JPT, KPE 건당 이용금액 2만원 이상 시 최대 2,500원 할인(월 최대 8,000원 할인)※ 어학시험은 월 1회, 연 6회 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "어학시험 5% 할인"
+      },
+      {
+        "id": "nh20t_cgv-1",
+        "ruleIds": [
+          "nh20t_cgv"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "CGV 온라인 예매(홈페이지, 모바일앱) 2,000원 할인 1만원 이상 결제 시 (월 1회)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "CGV 온라인 예매 2,000원 할인"
+      },
+      {
+        "id": "nh20t_delivery-1",
+        "ruleIds": [
+          "nh20t_delivery"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "배달앱 5% 할인 배달의 민족, 요기요 건당 이용금액 1만원 이상 시 최대 1,000원 할인 (월 최대 6,000원 할인)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "배달앱 5% 할인"
+      },
+      {
+        "id": "nh20t_app-1",
+        "ruleIds": [
+          "nh20t_app"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "limitConfig"
+        ],
+        "quote": "어플리케이션 1,000원 할인 애플 앱스토어, 구글 플레이스토어 어플리케이션 가격이 1,000원 미만인 경우 결제된 금액까지 할인 (월 1회)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "앱마켓 1,000원 할인"
+      },
+      {
+        "id": "nh20t_telecom-1",
+        "ruleIds": [
+          "nh20t_telecom"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "이동통신 자동납부 2,500원 할인 SK텔레콤, KT, LGU+ ※ 알뜰폰 통신사는 제외 5만원 이상 결제 시 (월 1건)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "이동통신 자동납부 2,500원 할인"
+      },
+      {
+        "id": "nh20t_coffee-1",
+        "ruleIds": [
+          "nh20t_coffee"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "커피 20% 할인 스타벅스, 이디야 건당 이용금액 1만원 이상 시 (월 최대 3,000원 할인)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "커피 20% 할인"
+      },
+      {
+        "id": "nh20t_gs25-1",
+        "ruleIds": [
+          "nh20t_gs25"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "GS25 5% 할인 건당 이용금액 1만원 이상 시 최대 1,000원 할인 (월 최대 3,000원 할인)",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "GS25 5% 할인"
+      },
+      {
+        "id": "nh20t_transit-1",
+        "ruleIds": [
+          "nh20t_transit"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "대중교통(버스/지하철) 10% 할인 각 교통사업자별 월 이용금액이 2만원 이상 시 (월 최대 3,000원 할인) ※ 후불교통 이용건이며, 시외 · 고속버스는 제외됨",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "대중교통 10% 할인"
+      },
+      {
+        "id": "nh20t_overseas-1",
+        "ruleIds": [
+          "nh20t_overseas"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "해외 전가맹점 (해외직구 포함) 이용금액 1% 할인 건당 이용금액 2만원 이상 시 통합 월 할인한도와 별도로 월 최대 10만원 할인",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "해외 전가맹점 1% 할인"
+      },
+      {
+        "id": "nh20t_overseas-2",
+        "ruleIds": [
+          "nh20t_overseas"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "해외 전가맹점 할인은 전월실적 20만원 이상 시 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "해외 전가맹점 1% 할인"
+      },
+      {
+        "id": "nh20t_travel_lounge_info-1",
+        "ruleIds": [
+          "nh20t_travel_lounge_info"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "인천 공항라운지 무료이용 서비스 통합 월 1회, 연 2회 제공 서비스 조건 : 전월 이용실적 50만원 이상 시 제공",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "[여행해봄] 인천공항 라운지 무료 이용(정보)"
+      },
+      {
+        "id": "shared-1",
+        "ruleIds": [
+          "nh20t_shopping",
+          "nh20t_bookstore",
+          "nh20t_language_test",
+          "nh20t_cgv",
+          "nh20t_delivery",
+          "nh20t_app",
+          "nh20t_telecom",
+          "nh20t_coffee",
+          "nh20t_gs25",
+          "nh20t_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "주요서비스 통합 월 할인한도 전월실적 20만원 이상 ~40만원 미만 40만원 이상 ~60만원 미만 60만원 이상 ~100만원 미만 100만원 이상 On-Line 4천원 8천원 1만 5천원 2만 5천원 Off-Line 3천원 5천원 7천원 1만원 총 할인한도 7천원 1만 3천원 2만 2천원 3만 5천원",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "주요서비스 통합 월 할인한도"
+      },
+      {
+        "id": "shared-2",
+        "ruleIds": [
+          "nh20t_shopping",
+          "nh20t_bookstore",
+          "nh20t_language_test",
+          "nh20t_cgv",
+          "nh20t_delivery",
+          "nh20t_app",
+          "nh20t_telecom",
+          "nh20t_coffee",
+          "nh20t_gs25",
+          "nh20t_transit"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "특정한 제한조건이 없는 경우 카드사용등록일로부터 다음 달 말일까지는 전월실적 미달시에도 최저한도 기준으로 서비스를 제공하며, 전월실적 조건 달성시해당 구간의 할인한도를 제공합니다.",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "서비스 이용조건"
+      },
+      {
+        "id": "shared-3",
+        "ruleIds": [
+          "nh20t_travel_lounge_info"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "해봄 선택 서비스_ 여행해봄/놀이해봄 Type 중 택 1 카드발급 신청시 택일 및 발급 후 변경 불가 통합 월 할인한도와 별도 운영",
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "location": "해봄 선택 서비스"
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "perf-discount-merchant-half",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "quote": "전월실적 산정 시 할인대상 가맹점 이용액은 50% 반영",
+        "reason": "할인대상 가맹점 이용액은 실적에 50%만 반영",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "perf-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "quote": "대학(대학원)등록금, 각종 세금 및 공과금, 우체국 우편요금, 사회보험(국민건강,국민연금,고용/산재), 아파트관리비, 도시가스요금, 전기요금, 상품권및 선불카드류구매(충전 포함), 각종 수수료 및 이자, 연체료, 거래 취소금액,포인트(전부/일부) 결제 시 포인트 사용분 등의 이용금액은 제외됩니다.",
+        "reason": "앱이 거래 종류를 판정할 수 없는 전월 실적 제외",
+        "affectsValue": true,
+        "patternId": "PERF_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "no-stacking",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "quote": "본 카드의 할인 서비스는 타 프로모션 등 NH농협카드의 다른 청구할인 혜택과 중복 적용 되지 않으며, 할인혜택이 큰 금액만 적용됩니다.",
+        "reason": "NH농협카드 다른 청구할인과 중복 불가",
+        "affectsValue": true,
+        "patternId": "CARD_OFFER_NO_STACKING"
+      },
+      {
+        "id": "gift-card-excluded",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "quote": "상품권 구매(선불카드 구입, 충전 포함)는 할인이 제외됩니다.",
+        "reason": "상품권·선불카드 구매 할인 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "hosted-stores",
+        "ruleIds": [],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "quote": "※ 백화점, 할인점, 쇼핑몰 내 입점매장은 할인서비스가 제외될 수 있음",
+        "reason": "백화점·할인점·쇼핑몰 입점매장 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      },
+      {
+        "id": "lounge-non-cash",
+        "ruleIds": [
+          "nh20t_travel_lounge_info"
+        ],
+        "sourceUrl": "https://card.nonghyup.com/servlet/IpCc2021R.act?CD_WRS_SQNO=90000359",
+        "quote": "인천 공항라운지 무료이용 서비스 통합 월 1회, 연 2회 제공",
+        "reason": "공항 라운지 무료 이용은 현금 할인이 아님",
+        "affectsValue": true,
+        "patternId": "INFO_NON_CASH"
+      }
+    ]
+  }
+}
