@@ -1,0 +1,79 @@
+{
+  "cards": [
+    {
+      "id": "tossbank_kpass_check_offline",
+      "name": "토스뱅크 K-패스 체크카드(오프라인 캐시백)",
+      "company": "토스뱅크",
+      "color": "bg-sky-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "토스뱅크 체크카드 스위치 캐시백 오프라인 캐시백",
+          "sourceUrl": "https://www.tossbank.com/card/benefits?tab=0",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "토스뱅크 K-패스 체크카드 상품 페이지",
+          "sourceUrl": "https://www.tossbank.com/card/k-pass",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "SUPPORTING",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "tossbank_kpass_check_online",
+      "name": "토스뱅크 K-패스 체크카드(온라인 캐시백)",
+      "company": "토스뱅크",
+      "color": "bg-sky-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "토스뱅크 체크카드 스위치 캐시백 온라인 캐시백",
+          "sourceUrl": "https://www.tossbank.com/card/benefits?tab=1",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "토스뱅크 K-패스 체크카드 상품 페이지",
+          "sourceUrl": "https://www.tossbank.com/card/k-pass",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "SUPPORTING",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "tossbank_kpass_check_anywhere",
+      "name": "토스뱅크 K-패스 체크카드(어디서나 캐시백)",
+      "company": "토스뱅크",
+      "color": "bg-sky-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "토스뱅크 체크카드 스위치 캐시백 어디서나 캐시백",
+          "sourceUrl": "https://www.tossbank.com/card/benefits?tab=2",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        },
+        {
+          "label": "토스뱅크 K-패스 체크카드 상품 페이지",
+          "sourceUrl": "https://www.tossbank.com/card/k-pass",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "SUPPORTING",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

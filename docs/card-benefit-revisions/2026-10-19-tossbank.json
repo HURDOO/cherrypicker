@@ -1,0 +1,47 @@
+{
+  "note": "[세션 임시 승인] 2026-10-19 TASK-14 D1·D5 토스뱅크 체크카드·K-패스 체크카드 스위치 캐시백 종류별 첫 혜택(로컬 Chrome 렌더링 원문, AI API 미사용).",
+  "cards": {
+    "tossbank_check_offline": {
+      "sourceBundleHash": "51443185410d752da09175fac1953789ab993edb26aecf037376d6b1f52ed4cd",
+      "base": {
+        "path": "base/tossbank_check_offline.json",
+        "sha256": "6862b8270b7fdf2ed8a1b5f7bd33df74991f519e7126efcdda6223ab5a5111bc"
+      }
+    },
+    "tossbank_check_online": {
+      "sourceBundleHash": "d9601d87e78536136df6602ff74385a5a8b5aaf53e7a98300d0c54734c9d07ce",
+      "base": {
+        "path": "base/tossbank_check_online.json",
+        "sha256": "ef274ca49e1725048ea63b6cfd7051afa831dfb0a1cb50886580492953a6b1ae"
+      }
+    },
+    "tossbank_check_anywhere": {
+      "sourceBundleHash": "0b6a9f48426a3496b05d7bd63b90c90f604c621165154403e93eb2acc5967eef",
+      "base": {
+        "path": "base/tossbank_check_anywhere.json",
+        "sha256": "b64653ffbc61da5f4f9a9140d5d9aeeb634db8f0759de1a49749a0cc77ee1aee"
+      }
+    },
+    "tossbank_kpass_check_offline": {
+      "sourceBundleHash": "c93ac571d0d065154a433ab766314e82880c08c0679a6f0249d9943f90f8322e",
+      "base": {
+        "path": "base/tossbank_kpass_check_offline.json",
+        "sha256": "1dba72496246031f59f54a7400a36a8d94039da9981787485e28df1f85f7d7e5"
+      }
+    },
+    "tossbank_kpass_check_online": {
+      "sourceBundleHash": "8df5eea45a4d0bfa2abf66ce129c2df217396de42d6f62d1ee4f43130b80fca3",
+      "base": {
+        "path": "base/tossbank_kpass_check_online.json",
+        "sha256": "3cbda245b6d30d12433cfe0feb9d862cef43501226b745dd4c21cd04f49d0a05"
+      }
+    },
+    "tossbank_kpass_check_anywhere": {
+      "sourceBundleHash": "b0f48db5a8bf7e50cb79fb819ff8508c0927efe4d6cb3c989843deb3971de64c",
+      "base": {
+        "path": "base/tossbank_kpass_check_anywhere.json",
+        "sha256": "e999be50ef818e77da57f4eade7403883a20ecef7751b8dc69bb9548e92413b4"
+      }
+    }
+  }
+}
