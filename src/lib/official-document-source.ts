@@ -92,6 +92,8 @@ const OFFICIAL_CONTENT_WINDOWS: Array<{ site: RegExp; start: RegExp; end: RegExp
     { site: /우리카드/, start: /명이 관심있어요\n/, end: /준법 심의필/ },
     // 토스뱅크 카드(Chrome 렌더링): 전체 메뉴 끝의 기업뱅킹 뒤부터 준법감시인 심의필 전까지
     { site: /토스뱅크\(주\)/, start: /기업뱅킹 기업뱅킹\n/, end: /준법감시인 심의필/ },
+    // 케이뱅크 상품(Chrome 렌더링): 순서가 바뀌는 혜택 카루셀 뒤의 자주 묻는 질문부터 끝에 붙인 상세 팝업까지
+    { site: /Copyright Kbank\. All rights reserved\./, start: /\n자주 묻는 질문\nQ /, end: /$/ },
 ];
 
 const officialContentWindow = (text: string) => {

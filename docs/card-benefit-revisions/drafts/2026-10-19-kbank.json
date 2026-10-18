@@ -1,0 +1,55 @@
+{
+  "cards": [
+    {
+      "id": "kbank_one_check_369",
+      "name": "케이뱅크 ONE 체크카드(369 캐시백)",
+      "company": "케이뱅크",
+      "color": "bg-indigo-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "ONE 체크카드(K-패스) 상품 페이지",
+          "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "kbank_one_check_all",
+      "name": "케이뱅크 ONE 체크카드(모두 다 캐시백)",
+      "company": "케이뱅크",
+      "color": "bg-violet-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "ONE 체크카드(K-패스) 상품 페이지",
+          "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    },
+    {
+      "id": "kbank_one_check_here",
+      "name": "케이뱅크 ONE 체크카드(여기서 더 캐시백)",
+      "company": "케이뱅크",
+      "color": "bg-blue-500",
+      "issueStatus": "ACTIVE",
+      "sources": [
+        {
+          "label": "ONE 체크카드(K-패스) 상품 페이지",
+          "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+          "sourceKind": "PRODUCT_PAGE",
+          "candidateRole": "PRIMARY",
+          "required": true,
+          "discoverLinkedPdfs": false
+        }
+      ]
+    }
+  ]
+}

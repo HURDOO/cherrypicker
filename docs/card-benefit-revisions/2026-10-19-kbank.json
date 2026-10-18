@@ -1,0 +1,26 @@
+{
+  "note": "[세션 임시 승인] 2026-10-19 TASK-14 D1·D5 케이뱅크 ONE 체크카드 프로모션별 첫 혜택(로컬 Chrome 렌더링 원문, AI API 미사용).",
+  "cards": {
+    "kbank_one_check_369": {
+      "sourceBundleHash": "d9bb147c9670184a69bd754744813d72c854737bf4819c97ef31f4c7de8585d2",
+      "base": {
+        "path": "base/kbank_one_check_369.json",
+        "sha256": "e390dbd11ed6a339eb85b2ab22b95008689e468c320843a06f0e9e313f393ce5"
+      }
+    },
+    "kbank_one_check_all": {
+      "sourceBundleHash": "90850cbf663452e81ecbd3aaa4a232db7988b170dccdd61f43eb27a181ffbe55",
+      "base": {
+        "path": "base/kbank_one_check_all.json",
+        "sha256": "6b5a0f41371817cb97a7409307d74c524c1e3a73a8ce1044ac1e376447419cd3"
+      }
+    },
+    "kbank_one_check_here": {
+      "sourceBundleHash": "90850cbf663452e81ecbd3aaa4a232db7988b170dccdd61f43eb27a181ffbe55",
+      "base": {
+        "path": "base/kbank_one_check_here.json",
+        "sha256": "77a7fae6e9ed6249e725398b4b6fa527383ecbb4f7814d04e6644b4f85614b3b"
+      }
+    }
+  }
+}

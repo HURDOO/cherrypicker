@@ -1,0 +1,402 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "kbank_one_check_here",
+      "name": "케이뱅크 ONE 체크카드(여기서 더 캐시백)",
+      "company": "케이뱅크",
+      "limitTable": [
+        {
+          "threshold": 0,
+          "limit": 25000
+        }
+      ]
+    },
+    "rules": [
+      {
+        "id": "kbank_one_here_coffee",
+        "cardId": "kbank_one_check_here",
+        "includedBrands": [
+          "starbucks",
+          "coffeebean"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "커피 5% 캐시백",
+        "detail": "스타벅스·커피빈 1만원 이상 결제 시 5% 즉시 캐시백, 영역별 1일 700원·프로모션 월 2만 5천원 한도. 이용실적 없음. 간편결제로 결제하면 제공되지 않을 수 있습니다.",
+        "condition": {
+          "startsAt": "2026-09-01",
+          "endsAt": "2026-12-31",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "dailyAmount": 700
+        }
+      },
+      {
+        "id": "kbank_one_here_convenience",
+        "cardId": "kbank_one_check_here",
+        "includedBrands": [
+          "cu",
+          "gs25",
+          "emart24"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "편의점 5% 캐시백",
+        "detail": "CU·GS25·이마트24(편의점 택배·삼성페이 후불교통 결제 제외) 1만원 이상 결제 시 5% 즉시 캐시백, 영역별 1일 700원·프로모션 월 2만 5천원 한도. 이용실적 없음. 간편결제로 결제하면 제공되지 않을 수 있습니다.",
+        "condition": {
+          "startsAt": "2026-09-01",
+          "endsAt": "2026-12-31",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "dailyAmount": 700
+        }
+      },
+      {
+        "id": "kbank_one_here_ott",
+        "cardId": "kbank_one_check_here",
+        "includedBrands": [
+          "netflix",
+          "youtube",
+          "official_0362ad03bc8c5218",
+          "tving"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "OTT 5% 캐시백",
+        "detail": "넷플릭스·유튜브 프리미엄·웨이브·티빙(앱마켓 인앱결제·통신요금 합산 결제 제외) 1만원 이상 결제 시 5% 즉시 캐시백, 영역별 1일 700원·프로모션 월 2만 5천원 한도. 이용실적 없음. 간편결제로 결제하면 제공되지 않을 수 있습니다.",
+        "condition": {
+          "startsAt": "2026-09-01",
+          "endsAt": "2026-12-31",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "dailyAmount": 700
+        }
+      },
+      {
+        "id": "kbank_one_here_delivery",
+        "cardId": "kbank_one_check_here",
+        "includedBrands": [
+          "baemin",
+          "coupangeats",
+          "yogiyo"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "배달 5% 캐시백",
+        "detail": "배달의민족·쿠팡이츠·요기요 1만원 이상 결제 시 5% 즉시 캐시백, 영역별 1일 700원·프로모션 월 2만 5천원 한도. 이용실적 없음. 간편결제로 결제하면 제공되지 않을 수 있습니다.",
+        "condition": {
+          "startsAt": "2026-09-01",
+          "endsAt": "2026-12-31",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "dailyAmount": 700
+        }
+      },
+      {
+        "id": "kbank_one_here_movie",
+        "cardId": "kbank_one_check_here",
+        "includedBrands": [
+          "cgv",
+          "lotte_cinema",
+          "megabox"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "영화 5% 캐시백",
+        "detail": "CGV·롯데시네마·메가박스 직영 홈페이지·앱·현장 결제(상품권·매점 제외) 1만원 이상 결제 시 5% 즉시 캐시백, 영역별 1일 700원·프로모션 월 2만 5천원 한도. 이용실적 없음. 간편결제로 결제하면 제공되지 않을 수 있습니다.",
+        "condition": {
+          "startsAt": "2026-09-01",
+          "endsAt": "2026-12-31",
+          "minSpend": 10000,
+          "manualCheckRequired": true,
+          "requiredNote": "매점·상품권이 아닌 영화 관람 결제인지 확인해야 합니다."
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "dailyAmount": 700
+        }
+      },
+      {
+        "id": "kbank_one_here_telecom",
+        "cardId": "kbank_one_check_here",
+        "includedBrands": [
+          "telecom",
+          "official_9bbb35da2138970c",
+          "official_99d3fd0fa8fe115e"
+        ],
+        "excludedBrands": [],
+        "platformType": "ALL",
+        "usesCardLimit": true,
+        "description": "통신료 5% 캐시백",
+        "detail": "SKT·KT·LG U+ 통신요금(알뜰폰 제외) 1만원 이상 결제 시 5% 즉시 캐시백, 영역별 1일 700원·프로모션 월 2만 5천원 한도. 이용실적 없음. 간편결제로 결제하면 제공되지 않을 수 있습니다.",
+        "condition": {
+          "startsAt": "2026-09-01",
+          "endsAt": "2026-12-31",
+          "minSpend": 10000
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 5,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {
+          "dailyAmount": 700
+        }
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "quote": "국세, 지방세, 범칙금/벌과금/과태료, 4대 보험(국민연금, 건강보험, 고용보험, 산재보험) 및 각종 수수료, 이자, 장애인고용부담금, 상하수도/전기/도시가스요금, 여권발급비용, 국가/공공기관/공공단체에서 개설한 가맹점 이용금액, 아파트관리비, 초/중/고교 납입금, 대학등록금, 상품권/기프트카드/선불카드/포인트 구입 및 충전금액, 현금인출금액, 연체료, 대중교통 이용금액은 캐시백 대상에서 제외돼요.",
+        "reason": "세금·상품권·대중교통 등은 캐시백 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      },
+      {
+        "id": "hosted-stores",
+        "ruleIds": [],
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "quote": "백화점/할인점/아울렛/쇼핑몰/공항/호텔/리조트/철도역사/푸드코트에 입점한 임대매장에서 사용한 금액은 캐시백 대상에서 제외돼요.",
+        "reason": "입점 임대매장 제외",
+        "affectsValue": true,
+        "patternId": "HOSTED_STORE_EXCLUSION"
+      },
+      {
+        "id": "easypay",
+        "ruleIds": [],
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "quote": "간편결제(네이버페이, 카카오페이 등)를 통해 결제 시 캐시백이 제공되지 않을 수 있어요.",
+        "reason": "간편결제 승인 문구. 2026-10-11 사용자 결정(KB)처럼 실사용 검증 전까지 조건으로 두지 않고 규칙 설명에 안내한다.",
+        "affectsValue": false
+      }
+    ],
+    "notes": [
+      "2026-10-19 세션 작성(TASK-14 D1·D5, AI API 미사용). 케이뱅크 상품 페이지를 로컬 Chrome으로 렌더링하고 상세 팝업 3개를 열어 읽은 원문을 구조화했다.",
+      "매달 3개 프로모션 중 하나를 고르는 카드라 D1 결정대로 프로모션별 카드로 나눈다. 첫 결제 뒤 변경은 다음 달 1일부터 적용되므로 사용자가 카드를 바꿔 등록한다.",
+      "시즌6(2026-09-01~2026-12-31) 혜택이라 종료일 뒤에는 계산하지 않는다. 다음 시즌이 공지되면 수정안으로 갱신한다. 대중교통은 이 프로모션에서 제외되고 K-패스 혜택은 정부 환급이라 규칙으로 만들지 않는다.",
+      "프로모션 월 2만 5천원을 카드 통합 한도로, 영역별 1일 700원을 규칙별 일 한도로 둔다."
+    ],
+    "evidence": [
+      {
+        "id": "area-coffee",
+        "ruleIds": [
+          "kbank_one_here_coffee"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "커피\n스타벅스, 커피빈",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "여기서 더 캐시백"
+      },
+      {
+        "id": "area-convenience",
+        "ruleIds": [
+          "kbank_one_here_convenience"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "편의점\nCU, GS25, 이마트24",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "여기서 더 캐시백"
+      },
+      {
+        "id": "area-ott",
+        "ruleIds": [
+          "kbank_one_here_ott"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "OTT\n넷플릭스, 유튜브프리미엄, 웨이브, 티빙",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "여기서 더 캐시백"
+      },
+      {
+        "id": "area-delivery",
+        "ruleIds": [
+          "kbank_one_here_delivery"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "배달\n배달의민족, 쿠팡이츠, 요기요",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "여기서 더 캐시백"
+      },
+      {
+        "id": "area-movie",
+        "ruleIds": [
+          "kbank_one_here_movie"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "영화\nCGV, 롯데시네마, 메가박스",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "여기서 더 캐시백"
+      },
+      {
+        "id": "area-telecom",
+        "ruleIds": [
+          "kbank_one_here_telecom"
+        ],
+        "fields": [
+          "description"
+        ],
+        "quote": "통신료\nSKT, KT, LGU+",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "여기서 더 캐시백"
+      },
+      {
+        "id": "rule",
+        "ruleIds": [
+          "kbank_one_here_coffee",
+          "kbank_one_here_convenience",
+          "kbank_one_here_ott",
+          "kbank_one_here_delivery",
+          "kbank_one_here_movie",
+          "kbank_one_here_telecom"
+        ],
+        "fields": [
+          "action",
+          "condition",
+          "limitConfig"
+        ],
+        "quote": "6개 영역(커피,편의점,OTT,배달,영화,통신) 캐시백 대상 가맹점에서 1만원 이상 결제 시, 영역별 1일 700원 한도 내에서 결제금액의 5% 캐시백이 제공돼요.",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "여기서 더 캐시백 프로모션"
+      },
+      {
+        "id": "monthly-cap",
+        "ruleIds": [
+          "kbank_one_here_coffee",
+          "kbank_one_here_convenience",
+          "kbank_one_here_ott",
+          "kbank_one_here_delivery",
+          "kbank_one_here_movie",
+          "kbank_one_here_telecom"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "본 프로모션은 월 2만 5천원 캐시백 한도 내에서 제공돼요.",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "여기서 더 캐시백 프로모션"
+      },
+      {
+        "id": "period",
+        "ruleIds": [
+          "kbank_one_here_coffee",
+          "kbank_one_here_convenience",
+          "kbank_one_here_ott",
+          "kbank_one_here_delivery",
+          "kbank_one_here_movie",
+          "kbank_one_here_telecom"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "여기서 더 캐시백 프로모션\n기간: 2026.09.01~2026.12.31",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "여기서 더 캐시백"
+      },
+      {
+        "id": "movie",
+        "ruleIds": [
+          "kbank_one_here_movie"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "영화 영역 캐시백은 영화관 직영 홈페이지 및 앱, 현장 결제 시 1일 700원 한도 내에서 제공되며 상품권 구매 및 매점 이용 건은 제외돼요.",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "여기서 더 캐시백"
+      },
+      {
+        "id": "telecom",
+        "ruleIds": [
+          "kbank_one_here_telecom"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "알뜰폰 통신사는 캐시백 대상에서 제외돼요.",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "여기서 더 캐시백"
+      },
+      {
+        "id": "choice",
+        "ruleIds": [
+          "kbank_one_here_coffee",
+          "kbank_one_here_convenience",
+          "kbank_one_here_ott",
+          "kbank_one_here_delivery",
+          "kbank_one_here_movie",
+          "kbank_one_here_telecom"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "케이뱅크 ONE 체크카드의 3개 프로모션(모두 다 캐시백/여기서 더 캐시백/369 캐시백) 중 1개를 선택해 사용할 수 있어요.",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "기타 안내"
+      },
+      {
+        "id": "no-performance",
+        "ruleIds": [
+          "kbank_one_here_coffee",
+          "kbank_one_here_convenience",
+          "kbank_one_here_ott",
+          "kbank_one_here_delivery",
+          "kbank_one_here_movie",
+          "kbank_one_here_telecom"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "이용실적\n없음",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "상품안내"
+      }
+    ]
+  }
+}

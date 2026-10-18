@@ -370,6 +370,18 @@ describe('official document source adapter', () => {
             .not.toBe(createOfficialDocumentSemanticHash(shinhan('리터당 40원 적립', '캐릭터형(이전)')));
     });
 
+    it('ignores K Bank carousel order while keeping its popup details', () => {
+        const kbank = (carousel: string, popup: string) => [
+            'ONE 체크카드(K-패스)', '고객상담', '자주 묻는 질문', '전화상담', carousel, '자주 묻는 질문', 'Q K-패스 마일리지', 'Copyright Kbank. All rights reserved.',
+            popup,
+        ].join('\n');
+        const popup = '모두 다 캐시백\n오프라인 0.6% 캐시백';
+        expect(createOfficialDocumentSemanticHash(kbank('369 캐시백\n모두 다 캐시백', popup)))
+            .toBe(createOfficialDocumentSemanticHash(kbank('모두 다 캐시백\n369 캐시백', popup)));
+        expect(createOfficialDocumentSemanticHash(kbank('369 캐시백', popup)))
+            .not.toBe(createOfficialDocumentSemanticHash(kbank('369 캐시백', '모두 다 캐시백\n오프라인 0.5% 캐시백')));
+    });
+
     it('ignores the as-of date Toss Bank prints next to its exchange interest rate', () => {
         const toss = (asOf: string, rate: string) => [
             '토스뱅크 메뉴', '기업뱅킹 기업뱅킹', `이자 : 모든 통화 금리 ${rate} 적용 (${asOf} 현재)`,

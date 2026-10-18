@@ -241,7 +241,10 @@ async function renderOnce(
         return {
             finalUrl: value.href,
             html: value.html,
-            revealedTexts: value.revealed.filter((text): text is string => typeof text === 'string'),
+            // Carousels reorder their buttons between renders; sorting keeps the stored text stable.
+            revealedTexts: value.revealed
+                .filter((text): text is string => typeof text === 'string')
+                .sort((left, right) => left.localeCompare(right, 'ko')),
         };
     };
 

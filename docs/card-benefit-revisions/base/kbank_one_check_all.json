@@ -1,0 +1,145 @@
+{
+  "extraction": {
+    "schemaVersion": 2,
+    "completeness": "FULL",
+    "card": {
+      "id": "kbank_one_check_all",
+      "name": "케이뱅크 ONE 체크카드(모두 다 캐시백)",
+      "company": "케이뱅크",
+      "limitTable": []
+    },
+    "rules": [
+      {
+        "id": "kbank_one_all_offline",
+        "cardId": "kbank_one_check_all",
+        "includedBrands": [],
+        "excludedBrands": [
+          "overseas_payment",
+          "transport_public"
+        ],
+        "platformType": "OFFLINE",
+        "usesCardLimit": false,
+        "description": "국내 오프라인 0.6% 캐시백",
+        "detail": "국내 모든 오프라인 가맹점 결제금액 0.6% 즉시 캐시백, 이용실적·한도 없음. 해외 결제와 대중교통 제외. 원 단위 미만 절사.",
+        "condition": {
+          "startsAt": "2026-09-01",
+          "endsAt": "2026-12-31"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 0.6,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      },
+      {
+        "id": "kbank_one_all_online",
+        "cardId": "kbank_one_check_all",
+        "includedBrands": [],
+        "excludedBrands": [
+          "overseas_payment",
+          "transport_public"
+        ],
+        "platformType": "ONLINE",
+        "usesCardLimit": false,
+        "description": "국내 온라인 1.1% 캐시백",
+        "detail": "국내 모든 온라인 가맹점 결제금액 1.1% 즉시 캐시백, 이용실적·한도 없음. 해외 결제 제외. 원 단위 미만 절사.",
+        "condition": {
+          "startsAt": "2026-09-01",
+          "endsAt": "2026-12-31"
+        },
+        "action": {
+          "type": "PERCENT",
+          "value": 1.1,
+          "amountBasis": "ORIGINAL_AMOUNT"
+        },
+        "limitConfig": {}
+      }
+    ],
+    "unsupportedClauses": [
+      {
+        "id": "discount-exclusions",
+        "ruleIds": [],
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "quote": "국세, 지방세, 범칙금/벌과금/과태료, 4대 보험(국민연금, 건강보험, 고용보험, 산재보험) 및 각종 수수료, 이자, 장애인고용부담금, 상하수도/전기/도시가스요금, 여권발급비용, 국가/공공기관/공공단체에서 개설한 가맹점 이용금액, 아파트관리비, 초/중/고교 납입금, 대학등록금, 상품권/기프트카드/선불카드/포인트 구입 및 충전금액, 현금인출금액, 연체료, 대중교통 이용금액은 캐시백 대상에서 제외돼요.",
+        "reason": "세금·상품권·대중교통 등은 캐시백 제외",
+        "affectsValue": true,
+        "patternId": "DISCOUNT_EXCLUDE_TRANSACTION_TYPE"
+      }
+    ],
+    "notes": [
+      "2026-10-19 세션 작성(TASK-14 D1·D5, AI API 미사용). 케이뱅크 상품 페이지를 로컬 Chrome으로 렌더링하고 상세 팝업 3개를 열어 읽은 원문을 구조화했다.",
+      "매달 3개 프로모션 중 하나를 고르는 카드라 D1 결정대로 프로모션별 카드로 나눈다. 첫 결제 뒤 변경은 다음 달 1일부터 적용되므로 사용자가 카드를 바꿔 등록한다.",
+      "시즌6(2026-09-01~2026-12-31) 혜택이라 종료일 뒤에는 계산하지 않는다. 다음 시즌이 공지되면 수정안으로 갱신한다. 대중교통은 이 프로모션에서 제외되고 K-패스 혜택은 정부 환급이라 규칙으로 만들지 않는다."
+    ],
+    "evidence": [
+      {
+        "id": "rates",
+        "ruleIds": [
+          "kbank_one_all_offline",
+          "kbank_one_all_online"
+        ],
+        "fields": [
+          "description",
+          "action",
+          "condition"
+        ],
+        "quote": "국내 모든 오프라인 가맹점 결제금액의 0.6% 캐시백\n국내 모든 온라인 가맹점 결제금액의 1.1% 캐시백\n해외 결제건의 경우 캐시백 제공 없음",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "모두 다 캐시백 프로모션"
+      },
+      {
+        "id": "no-limit",
+        "ruleIds": [
+          "kbank_one_all_offline",
+          "kbank_one_all_online"
+        ],
+        "fields": [
+          "limitConfig"
+        ],
+        "quote": "모두 다 캐시백\n시즌6\n국내 어디서든 한도없이",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "모두 다 캐시백"
+      },
+      {
+        "id": "period",
+        "ruleIds": [
+          "kbank_one_all_offline",
+          "kbank_one_all_online"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "모두 다 캐시백 프로모션\n기간: 2026.09.01~2026.12.31",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "모두 다 캐시백"
+      },
+      {
+        "id": "choice",
+        "ruleIds": [
+          "kbank_one_all_offline",
+          "kbank_one_all_online"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "케이뱅크 ONE 체크카드의 3개 프로모션(모두 다 캐시백/여기서 더 캐시백/369 캐시백) 중 1개를 선택해 사용할 수 있어요.",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "기타 안내"
+      },
+      {
+        "id": "no-performance",
+        "ruleIds": [
+          "kbank_one_all_offline",
+          "kbank_one_all_online"
+        ],
+        "fields": [
+          "condition"
+        ],
+        "quote": "이용실적\n없음",
+        "sourceUrl": "https://www.kbanknow.com/web/product/card/one-card",
+        "location": "상품안내"
+      }
+    ]
+  }
+}
