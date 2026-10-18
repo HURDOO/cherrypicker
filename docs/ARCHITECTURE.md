@@ -151,7 +151,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 
 ### 6.1 공개 API
 
-- `GET /api/catalog`: 로그인 없는 공용 snapshot. schema v3에 게시 DSL program을 포함하고, parser는 브라우저에 남은 v2도 계속 읽는다. `ETag`/`If-None-Match`로 304를 지원하고 개인·내부 검수 데이터를 제외한다.
+- `GET /api/catalog`: 로그인 없는 공용 snapshot. schema v3에 게시 DSL program을 포함하고, parser는 브라우저에 남은 v2도 계속 읽는다. `ETag`/`If-None-Match`로 304를 지원하고 개인·내부 검수 데이터를 제외한다. 수집 시각은 앱 관측 혜택(굿딜)에만 `collectedAt`으로 싣는다. 추천 엔진이 관측 날짜를 보여 주고 7일 지난 값을 빼는 데 쓴다.
 - `GET /api/health`: SQLite 연결을 확인하고 `ok` 또는 503 `unavailable`을 `no-store`로 반환한다.
 - `POST /api/app-observations/kakaopay-gooddeal`: 굿딜 관측 앱 업로드. 세션 대신 `KAKAOPAY_GOODDEAL_UPLOAD_TOKEN` Bearer 토큰만 받고, 토큰이 없으면 503으로 닫힌다. 기록은 원문 document로 보존하고 검증 관문을 통과하면 정보 혜택으로 자동 게시하며, 통과하지 못하면 422와 사유를 돌려준다(`src/lib/gooddeal-observation.ts`, `ingestGoodDealObservation`).
 

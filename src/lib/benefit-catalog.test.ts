@@ -276,6 +276,30 @@ describe('benefit catalog builder', () => {
         expect(serialized).not.toContain('publishedAt');
     });
 
+    it('dates phone-observed GoodDeal offers so the engine can show and expire them', () => {
+        const source = createSource();
+        source.providers.push({
+            id: 'kakaopay-gooddeal',
+            name: '카카오페이 굿딜',
+            kind: 'GOODDEAL',
+            isActive: true,
+            sortOrder: 3,
+        });
+        source.promotions.push({
+            ...source.promotions[0],
+            id: 'promotion-auto-gooddeal',
+            providerId: 'kakaopay-gooddeal',
+            title: '커피 20% 할인',
+            collectedAt: '2026-10-19T23:30:00.000Z',
+        });
+
+        const promotions = buildBenefitCatalogSnapshot(source, GENERATED_AT).promotions;
+
+        expect(promotions.find(item => item.id === 'promotion-auto-gooddeal')?.collectedAt)
+            .toBe('2026-10-19T23:30:00.000Z');
+        expect(promotions.find(item => item.id === 'promotion-1')).not.toHaveProperty('collectedAt');
+    });
+
     it('creates a stable content version independent of input order and generation time', () => {
         const source = createSource();
         const reversed: BenefitCatalogSource = {

@@ -109,7 +109,10 @@ const toCatalogSubscriptionProduct = (
     isActive: true,
 });
 
-const toCatalogPromotion = (offer: PromotionOffer): CatalogPromotionOffer => ({
+const toCatalogPromotion = (
+    offer: PromotionOffer,
+    appObserved: boolean,
+): CatalogPromotionOffer => ({
     id: offer.id,
     providerId: offer.providerId,
     ...(offer.usageGroupId && { usageGroupId: offer.usageGroupId }),
@@ -128,6 +131,8 @@ const toCatalogPromotion = (offer: PromotionOffer): CatalogPromotionOffer => ({
     certainty: offer.certainty,
     status: 'PUBLISHED',
     sourceUrl: offer.sourceUrl,
+    // The engine dates and expires phone-observed rates by this; other offers keep it private.
+    ...(appObserved && offer.collectedAt && { collectedAt: offer.collectedAt }),
 });
 
 const toCatalogRouteVerification = (
@@ -215,9 +220,12 @@ export function buildBenefitCatalogSnapshot(
         .sort((left, right) => (
             compareText(left.name, right.name) || compareText(left.id, right.id)
         ));
+    const appObservedProviderIds = new Set(providers
+        .filter(provider => provider.kind === 'GOODDEAL')
+        .map(provider => provider.id));
     const promotions = source.promotions
         .filter(offer => offer.status === 'PUBLISHED' && providerIds.has(offer.providerId))
-        .map(toCatalogPromotion)
+        .map(offer => toCatalogPromotion(offer, appObservedProviderIds.has(offer.providerId)))
         .sort((left, right) => (
             compareText(left.layer, right.layer) ||
             compareText(left.title, right.title) ||

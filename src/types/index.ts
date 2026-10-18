@@ -797,9 +797,11 @@ export type CatalogSubscriptionProduct = Omit<SubscriptionProduct, 'collectedAt'
 };
 export type CatalogPromotionOffer = Omit<
     PromotionOffer,
-    'status' | 'sourceHash' | 'collectedAt' | 'reviewedAt' | 'publishedAt'
+    'status' | 'sourceHash' | 'reviewedAt' | 'publishedAt'
 > & {
     status: 'PUBLISHED';
+    /** Only on app-observed offers (KakaoPay GoodDeal): when the phone last saw the rate. */
+    collectedAt?: string;
 };
 
 export type CardBenefitReviewStatus = 'REVIEWED' | 'NOT_REVIEWED';
