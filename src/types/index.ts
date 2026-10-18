@@ -262,7 +262,9 @@ export interface CardBenefitDocumentMetadata {
     finalUrl?: string;
     contentDisposition?: string;
     rawEncoding?: 'utf8' | 'base64';
-    extractionMethod?: 'html-to-text' | 'pdfjs';
+    extractionMethod?: 'html-to-text' | 'pdfjs' | 'chrome-rendered';
+    /** Popup texts the Chrome renderer opened and appended to the page text. */
+    revealedSectionCount?: number;
     pageCount?: number;
     title?: string;
     noticeDates?: CardBenefitNoticeDates;

@@ -6,6 +6,12 @@ import type {
     CardBenefitSourceKind,
     RuleId,
 } from '@/types';
+import {
+    chromeRenderProfileFor,
+    renderOfficialPageWithChrome,
+    type ChromeRenderProfile,
+    type OfficialPageRenderer,
+} from './chrome-rendered-source';
 import { decodePromotionHtml } from './html-decoding';
 import { extractOfficialNoticeDates } from './official-notice-dates';
 import { htmlToText } from './promotion-parsers';
@@ -80,6 +86,10 @@ const OFFICIAL_CONTENT_WINDOWS: Array<{ site: RegExp; start: RegExp; end: RegExp
     { site: /NH농협카드/, start: /카드상세 이 페이지를 즐겨찾기에 추가/, end: /카드신청 전, 확인해보세요/ },
     // 카카오뱅크 상품: 전체 메뉴 끝의 공시 링크 뒤부터 상품 안내 팝업의 닫기 버튼 전까지
     { site: /\(주\)카카오뱅크/, start: /상품공시\s+펀드공시/, end: /닫기 버튼/ },
+    // 우리카드 상품(Chrome 렌더링): 상단 경로 메뉴부터 하단 빠른메뉴 전까지
+    { site: /우리카드/, start: /Home\s+카드 와 같은 뎁스의 메뉴목록/, end: /카드 빠른메뉴 접기/ },
+    // 토스뱅크 카드(Chrome 렌더링): 전체 메뉴 끝의 기업뱅킹 뒤부터 준법감시인 심의필 전까지
+    { site: /토스뱅크\(주\)/, start: /기업뱅킹 기업뱅킹\n/, end: /준법감시인 심의필/ },
 ];
 
 const officialContentWindow = (text: string) => {
@@ -116,6 +126,8 @@ export const normalizeOfficialDocumentSemantics = (extractedText: string) => {
     return normalized
         // View counters and shared navigation/application chrome change independently of benefits.
         .replace(/조회수\s*:\s*[0-9,]+/g, '조회수: #')
+        // Toss Bank prints today's date next to the foreign currency interest rate.
+        .replace(/\(\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.?\s*현재\)/g, '(#.#.# 현재)')
         .replace(/(?:온라인 신청하기\s*){2,}/g, '온라인 신청하기 ')
         .replace(/(?:간편 신청\s*){2,}/g, '간편 신청 ')
         .replace(/\b(?:BizPHAROS|NiceBizINFO)\b/g, 'KB_WORK_SERVICE')
@@ -331,14 +343,80 @@ export function splitPdfPages(extractedText: string) {
     });
 }
 
+const escapeHtmlText = (value: string) => value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+
+const assertUsableHtmlText = (extractedText: string) => {
+    if (extractedText.length < 100 || /Request Rejected|requested URL was rejected/i.test(extractedText)) {
+        throw new Error('HTML 공식 문서에서 충분한 텍스트를 추출하지 못했습니다.');
+    }
+};
+
+/**
+ * Pages whose benefit text only exists after scripts run are rendered in local Chrome. Popup texts
+ * the renderer opened are appended inside the stored HTML, so the extracted text can be rebuilt
+ * from `rawContent` alone.
+ */
+async function collectRenderedOfficialDocument(
+    definition: OfficialDocumentSourceDefinition,
+    profile: ChromeRenderProfile,
+    renderer: OfficialPageRenderer,
+): Promise<CollectedOfficialDocument> {
+    const rendered = await renderer(definition.sourceUrl, definition.allowedHosts, profile);
+    assertTrustedOfficialSourceUrl(rendered.finalUrl, definition.allowedHosts);
+    const revealed = rendered.revealedTexts
+        .map(text => `<section data-cherrypicker-revealed="true">${
+            escapeHtmlText(text).replace(/\n/g, '<br>')
+        }</section>`)
+        .join('\n');
+    const bodyEnd = rendered.html.lastIndexOf('</body>');
+    const rawContent = !revealed ? rendered.html
+        : bodyEnd >= 0 ? `${rendered.html.slice(0, bodyEnd)}${revealed}\n${rendered.html.slice(bodyEnd)}`
+        : `${rendered.html}\n${revealed}`;
+    if (Buffer.byteLength(rawContent, 'utf8') > HTML_MAX_BYTES) {
+        throw new Error('공식 문서가 허용 크기를 초과했습니다.');
+    }
+    const extractedText = htmlToText(rawContent);
+    assertUsableHtmlText(extractedText);
+    return {
+        definition,
+        sourceUrl: definition.sourceUrl,
+        mediaType: 'text/html',
+        rawContent,
+        extractedText,
+        contentHash: createOfficialDocumentSemanticHash(extractedText),
+        responseMetadata: {
+            ...(rendered.finalUrl !== definition.sourceUrl && { finalUrl: rendered.finalUrl }),
+            rawEncoding: 'utf8',
+            extractionMethod: 'chrome-rendered',
+            ...(rendered.revealedTexts.length > 0 && {
+                revealedSectionCount: rendered.revealedTexts.length,
+            }),
+        },
+    };
+}
+
 export async function collectOfficialDocument(
     definition: OfficialDocumentSourceDefinition,
     options: {
         fetcher?: typeof fetch;
         pdfExtractor?: (bytes: Uint8Array) => Promise<PdfTextExtraction>;
+        renderer?: OfficialPageRenderer;
     } = {},
 ): Promise<CollectedOfficialDocument> {
     assertTrustedOfficialSourceUrl(definition.sourceUrl, definition.allowedHosts);
+    const renderProfile = definition.format === 'html'
+        ? chromeRenderProfileFor(definition.sourceUrl)
+        : undefined;
+    if (renderProfile) {
+        return collectRenderedOfficialDocument(
+            definition,
+            renderProfile,
+            options.renderer ?? renderOfficialPageWithChrome,
+        );
+    }
     const headers = {
         ...requestHeaders,
         accept: definition.format === 'pdf'
@@ -439,9 +517,7 @@ export async function collectOfficialDocument(
     const decodedMediaType = declaredMediaType || 'text/html';
     const rawContent = decodePromotionHtml(bytes, decodedMediaType);
     const extractedText = htmlToText(rawContent);
-    if (extractedText.length < 100 || /Request Rejected|requested URL was rejected/i.test(extractedText)) {
-        throw new Error('HTML 공식 문서에서 충분한 텍스트를 추출하지 못했습니다.');
-    }
+    assertUsableHtmlText(extractedText);
     return {
         definition,
         sourceUrl: definition.sourceUrl,

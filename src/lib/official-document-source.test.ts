@@ -12,6 +12,11 @@ import {
     splitPdfPages,
     type OfficialDocumentSourceDefinition,
 } from './official-document-source';
+import {
+    chromeHostResolverRules,
+    chromeRenderProfileFor,
+    resolveChromePath,
+} from './chrome-rendered-source';
 
 const htmlSource: OfficialDocumentSourceDefinition = {
     id: 'card-page',
@@ -318,6 +323,20 @@ describe('official document source adapter', () => {
                     `카카오뱅크 ${menu} 상품공시 펀드공시`, benefit, `닫기 버튼 ${popup}`, '(주)카카오뱅크',
                 ],
             },
+            {
+                name: '우리카드 상품',
+                page: (menu: string, benefit: string, popup: string) => [
+                    `우리카드 ${menu}`, 'Home\n카드 와 같은 뎁스의 메뉴목록 펼치기 접기 MY', benefit,
+                    `카드 빠른메뉴 접기 ${popup}`,
+                ],
+            },
+            {
+                name: '토스뱅크 카드',
+                page: (menu: string, benefit: string, popup: string) => [
+                    `토스뱅크 ${menu}`, '기업뱅킹 기업뱅킹', benefit,
+                    `준법감시인 심의필 제2026-2953호 ${popup}`, '토스뱅크㈜ 사업자 등록번호',
+                ],
+            },
         ];
         pages.forEach(({ name, page }) => {
             const hash = (menu: string, benefit: string, popup: string) => (
@@ -342,6 +361,69 @@ describe('official document source adapter', () => {
             .toBe(createOfficialDocumentSemanticHash(shinhan('리터당 60원 적립', '캐릭터형(신규)')));
         expect(createOfficialDocumentSemanticHash(shinhan('리터당 60원 적립', '캐릭터형(이전)')))
             .not.toBe(createOfficialDocumentSemanticHash(shinhan('리터당 40원 적립', '캐릭터형(이전)')));
+    });
+
+    it('ignores the as-of date Toss Bank prints next to its exchange interest rate', () => {
+        const toss = (asOf: string, rate: string) => [
+            '토스뱅크 메뉴', '기업뱅킹 기업뱅킹', `이자 : 모든 통화 금리 ${rate} 적용 (${asOf} 현재)`,
+            '준법감시인 심의필', '토스뱅크㈜',
+        ].join('\n');
+        expect(createOfficialDocumentSemanticHash(toss('2026.10.19.', '0%')))
+            .toBe(createOfficialDocumentSemanticHash(toss('2026.10.20.', '0%')));
+        expect(createOfficialDocumentSemanticHash(toss('2026.10.19.', '0%')))
+            .not.toBe(createOfficialDocumentSemanticHash(toss('2026.10.19.', '1%')));
+    });
+
+    it('renders script-only issuer pages in Chrome and keeps the popups it opened', async () => {
+        const fetcher = vi.fn();
+        const renderer = vi.fn().mockResolvedValue({
+            finalUrl: 'https://www.kbanknow.com/web/product/card/one-card',
+            html: `<html><body><h1>ONE 체크카드</h1><p>${'내가 선택하는 3가지 캐시백. '.repeat(8)}</p></body></html>`,
+            revealedTexts: ['모두 다 캐시백\n오프라인 0.6% 캐시백', '여기서 더 캐시백\n<영역별 1일 700원 한도>'],
+        });
+        const source: OfficialDocumentSourceDefinition = {
+            ...htmlSource,
+            sourceUrl: 'https://www.kbanknow.com/web/product/card/one-card',
+            allowedHosts: ['kbanknow.com'],
+        };
+        const collected = await collectOfficialDocument(source, { fetcher, renderer });
+
+        expect(fetcher).not.toHaveBeenCalled();
+        expect(renderer).toHaveBeenCalledWith(source.sourceUrl, ['kbanknow.com'], {
+            host: 'kbanknow.com',
+            revealButtonText: '자세히 보기',
+        });
+        expect(collected.extractedText).toContain('모두 다 캐시백\n오프라인 0.6% 캐시백');
+        expect(collected.extractedText).toContain('<영역별 1일 700원 한도>');
+        // The stored HTML alone rebuilds the extracted text, popups included.
+        expect(collected.rawContent.indexOf('data-cherrypicker-revealed'))
+            .toBeLessThan(collected.rawContent.indexOf('</body>'));
+        expect(collected.responseMetadata).toEqual({
+            rawEncoding: 'utf8',
+            extractionMethod: 'chrome-rendered',
+            revealedSectionCount: 2,
+        });
+
+        renderer.mockResolvedValueOnce({
+            finalUrl: 'https://kbanknow.com.evil.test/one-card',
+            html: '<html><body>redirected</body></html>',
+            revealedTexts: [],
+        });
+        await expect(collectOfficialDocument(source, { fetcher, renderer }))
+            .rejects.toThrow('허용되지 않은 공식 문서 호스트');
+        // PDFs on rendered hosts and every other host keep the plain request path.
+        expect(chromeRenderProfileFor('https://pc.wooricard.com/dcpc/yh1/crd/crd01/H1CRD101S02.do'))
+            .toEqual({ host: 'wooricard.com' });
+        expect(chromeRenderProfileFor('https://www.card.example/cards/one')).toBeUndefined();
+        expect(chromeRenderProfileFor('https://wooricard.com.evil.test/card')).toBeUndefined();
+    });
+
+    it('limits Chrome rendering to the source hosts and the configured browser', () => {
+        expect(chromeHostResolverRules(['wooricard.com'])).toBe(
+            'MAP * ~NOTFOUND, EXCLUDE wooricard.com, EXCLUDE *.wooricard.com',
+        );
+        expect(resolveChromePath({ CARD_SOURCE_CHROME_PATH: ' /opt/chrome/chrome ' }))
+            .toBe('/opt/chrome/chrome');
     });
 
     it('still detects an official event moving from ongoing to ended', () => {
