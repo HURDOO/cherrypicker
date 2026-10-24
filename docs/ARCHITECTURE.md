@@ -129,6 +129,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 - 전체 확인 이력: `card_benefit_collection_runs`
 - `benefit_rules.program_version`과 JSON `program`은 승인된 DSL payload를 보존한다. migration `0018_card-benefit-dsl.sql`은 검증된 백업과 격리 리허설 뒤 실제 로컬 DB에도 적용했다. 운영 배포 DB의 schema 변경은 별도 승인과 백업 검증을 요구한다.
 - migration `0019_card-performance-policy.sql`은 검증된 백업과 격리 리허설 뒤 로컬 DB에 적용했다. 운영 DB에는 적용하거나 배포하지 않았다.
+- migration `0023_merge-duplicate-seed-brands.sql`은 별칭이 없어 `official_` ID로 한 번 더 만들어진 초기 등록 브랜드 5개(알라딘·교보문고·매머드커피·메가박스·엔제리너스)를 원래 브랜드로 합친다. 카드 규칙·프로모션의 브랜드 목록, 사용 그룹, 거래·결제 경로 기록을 옮긴 뒤 복사본을 지운다. 후보·revision의 과거 기록과 `docs/card-benefit-revisions/base`의 SHA 고정 파일은 그대로 둔다. 2026-10-25 검증된 백업과 복사본 리허설 뒤 로컬 DB에 적용했고, 운영 DB에는 해당 브랜드가 없어 적용해도 바뀌는 행이 없다.
 
 ### 5.3 프로모션 수집
 
