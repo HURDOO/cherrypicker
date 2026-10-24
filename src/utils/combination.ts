@@ -785,7 +785,10 @@ const compareCombinations = (a: BenefitCombination, b: BenefitCombination) => {
     }
     const aUnconfirmedSteps = a.steps.filter(step => step.certainty !== 'CONFIRMED').length;
     const bUnconfirmedSteps = b.steps.filter(step => step.certainty !== 'CONFIRMED').length;
-    return aUnconfirmedSteps - bUnconfirmedSteps || compareText(a.id, b.id);
+    if (aUnconfirmedSteps !== bUnconfirmedSteps) return aUnconfirmedSteps - bUnconfirmedSteps;
+    // A pay app that adds nothing is only an extra step, so the plain payment wins the tie.
+    if (Boolean(a.payProviderId) !== Boolean(b.payProviderId)) return a.payProviderId ? 1 : -1;
+    return compareText(a.id, b.id);
 };
 
 const comparePerformanceProgress = (a: BenefitCombination, b: BenefitCombination) => {

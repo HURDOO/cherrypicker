@@ -58,10 +58,9 @@ exports[`recommendation regression contract > keeps the 'cu-membership-pay-card'
       "confirmedValue": 2000,
       "estimatedValue": 0,
       "fundingType": "CARD",
-      "id": "0c783f9e38ec22727a79",
+      "id": "640ca38a060e6a6e2e05",
       "immediateDiscount": 2000,
       "laterReward": 0,
-      "payProviderId": "naverpay",
       "payableAmount": 8000,
       "performanceProgress": {
         "benefitMonth": "2026-10",
@@ -99,9 +98,10 @@ exports[`recommendation regression contract > keeps the 'cu-membership-pay-card'
       "confirmedValue": 2000,
       "estimatedValue": 0,
       "fundingType": "CARD",
-      "id": "640ca38a060e6a6e2e05",
+      "id": "0c783f9e38ec22727a79",
       "immediateDiscount": 2000,
       "laterReward": 0,
+      "payProviderId": "naverpay",
       "payableAmount": 8000,
       "performanceProgress": {
         "benefitMonth": "2026-10",

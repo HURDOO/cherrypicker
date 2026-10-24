@@ -117,6 +117,13 @@ const input = (
 });
 
 describe('calculateBestCombinations', () => {
+
+    it('ranks a plain card payment above an equal pay app payment that adds nothing', () => {
+        const result = calculateBestCombinations(input([], { rules: [] }));
+
+        expect(result.combinations[0]).toEqual(expect.objectContaining({ confirmedValue: 0 }));
+        expect(result.combinations[0].payProviderId).toBeUndefined();
+    });
     it('shows scenario-only card benefits as conditional until the user checks the facts', () => {
         const scenarioRule: BenefitRule = {
             ...cardRule,
