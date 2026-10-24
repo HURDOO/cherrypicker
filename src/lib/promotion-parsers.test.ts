@@ -12,6 +12,7 @@ import {
     applyPromotionSemanticAnalysis,
     classifyPromotionWithRules,
 } from './promotion-semantic-classifier';
+import { INITIAL_BRANDS } from '@/utils/seedData';
 
 describe('promotion source parsers', () => {
     it.each([
@@ -27,6 +28,13 @@ describe('promotion source parsers', () => {
         categoryId,
     ) => {
         expect(resolveOfficialBrand(name, hint)?.discoveredBrand?.categoryId).toBe(categoryId);
+    });
+
+    it('resolves every seeded brand name to the seeded brand instead of a discovered copy', () => {
+        INITIAL_BRANDS.forEach(brand => {
+            expect(resolveOfficialBrand(brand.name), brand.name).toEqual({ id: brand.id });
+        });
+        expect(resolveOfficialBrand('트레이더스')).toEqual({ id: 'emart_traders' });
     });
 
     it('splits an SKT brand into tier-specific structured discounts', () => {

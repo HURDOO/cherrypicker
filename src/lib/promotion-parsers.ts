@@ -12,6 +12,7 @@ import type {
     PromotionSemanticAnalysis,
     TelecomMembershipMode,
 } from '@/types';
+import { INITIAL_BRANDS } from '@/utils/seedData';
 
 export type CollectedPromotionOffer = {
     providerId: string;
@@ -189,6 +190,12 @@ addBrandAliases('yes24', 'YES24', '예스24', '예스24 티켓');
 addBrandAliases('lotte_cinema', '롯데시네마');
 addBrandAliases('everland', '에버랜드');
 addBrandAliases('kakaot', '카카오T', '카카오 T');
+addBrandAliases('emart_traders', '트레이더스');
+// Every seeded brand also resolves by its own name, so no source creates a second copy of it.
+INITIAL_BRANDS.forEach(brand => {
+    const key = normalizeBrand(brand.name);
+    if (!brandAliases.has(key)) brandAliases.set(key, brand.id);
+});
 
 export const findSystemBrandId = (name: string) => brandAliases.get(normalizeBrand(name));
 
