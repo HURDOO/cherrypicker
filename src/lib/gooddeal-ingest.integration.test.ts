@@ -86,7 +86,7 @@ describe('ingestGoodDealObservation', () => {
         expect(offerFor('twosome')).toMatchObject({
             status: 'PUBLISHED',
             action: { type: 'PERCENT', value: 20 },
-            condition: { calculationMode: 'INFORMATION_ONLY' },
+            condition: { calculationMode: 'CONDITIONAL' },
             collectedAt: day(20),
         });
         const chicken = integrationDb.select().from(schema.brands)

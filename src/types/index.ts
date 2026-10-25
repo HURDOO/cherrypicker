@@ -707,6 +707,8 @@ export interface CombinationStep {
     confirmationId?: string;
     requiresConfirmation?: boolean;
     usesCardLimit?: boolean;
+    /** When the rate was read on the owner's phone, for app-observed offers. */
+    observedAt?: string;
 }
 
 export interface BenefitCombination {

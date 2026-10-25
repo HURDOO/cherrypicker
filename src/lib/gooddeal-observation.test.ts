@@ -113,7 +113,7 @@ describe('checkGoodDealGate', () => {
 });
 
 describe('goodDealPromotions', () => {
-    it('publishes each brand as offline information that never enters a total', () => {
+    it('publishes each brand as an offline discount to confirm, capped at one 500,000원 use', () => {
         const [twosome, unknown] = goodDealPromotions(observation(['투썸플레이스', '노랑통닭']));
         expect(twosome).toMatchObject({
             sourceKey: 'gooddeal:투썸플레이스',
@@ -123,11 +123,13 @@ describe('goodDealPromotions', () => {
                 providerId: 'kakaopay-gooddeal',
                 brandIds: ['twosome'],
                 channels: ['OFFLINE'],
-                action: { type: 'PERCENT', value: 5 },
+                action: { type: 'PERCENT', value: 5, maxBenefit: 25_000 },
                 condition: {
                     applicabilityScope: 'STORE_WIDE',
-                    calculationMode: 'INFORMATION_ONLY',
+                    calculationMode: 'CONDITIONAL',
+                    confirmationRequired: true,
                 },
+                certainty: 'CONDITIONAL',
                 compatibility: { requiredPayProviderIds: ['kakaopay-gooddeal'] },
             },
         });

@@ -152,6 +152,10 @@ export function checkGoodDealGate(observation: GoodDealObservation, input: GoodD
     return reasons;
 }
 
+// Most GoodDeal vouchers can be used up to this amount per payment.
+export const GOODDEAL_MAX_USE_AMOUNT = 500_000;
+const GOODDEAL_NOTE = '굿딜 상품권은 보통 1회 50만원까지 쓸 수 있고, 행사 상품은 하루 한도가 더 작을 수 있어요. 굿딜 화면에서 한도를 확인하세요.';
+
 const evidenceText = (item: { brand: string; rate: number }) => `${item.brand} ${item.rate}% 할인`;
 
 /** The stored evidence: the upload as received, with one `브랜드 N% 할인` line per item. */
@@ -203,8 +207,10 @@ export function goodDealDocumentBrands(rawContent: string): string[] {
 export const goodDealSourceKey = (brand: string) => `gooddeal:${normalizeOfficialBrandName(brand)}`;
 
 /**
- * One information-only offer per brand. Daily limits and periods are only on the brand detail
- * screen, which the observer does not open, so the rate never enters a computed total.
+ * One offer per brand that counts as a benefit to confirm. Limits and periods are only on the
+ * brand detail screen, which the observer does not open. Most vouchers allow up to 500,000원 per
+ * use, so the discount is capped there; event items can carry a smaller daily cap, which the
+ * user checks before relying on the amount.
  */
 export function goodDealPromotions(observation: GoodDealObservation): ParsedPromotion[] {
     return observation.items.map(item => {
@@ -221,17 +227,22 @@ export function goodDealPromotions(observation: GoodDealObservation): ParsedProm
                 providerId: GOODDEAL_PROVIDER_ID,
                 layer: 'PAY',
                 title: evidenceText(item),
-                description: '카카오페이 굿딜 홈에서 관측한 할인율입니다. 상품권의 하루 한도와 기간은 확인하지 않았습니다.',
+                description: '카카오페이 굿딜 홈에서 관측한 할인율입니다. 상품권의 한도와 기간은 브랜드 상세 화면에만 있어 확인하지 않았습니다.',
                 brandIds: [resolved.id],
                 categoryIds: [],
                 // GoodDeal vouchers are barcodes shown at the counter.
                 channels: ['OFFLINE'],
-                action: { type: 'PERCENT', value: item.rate },
+                action: {
+                    type: 'PERCENT',
+                    value: item.rate,
+                    maxBenefit: Math.floor(GOODDEAL_MAX_USE_AMOUNT * item.rate / 100),
+                },
                 condition: {
                     amountBasis: 'REMAINING_AMOUNT',
                     applicabilityScope: 'STORE_WIDE',
-                    calculationMode: 'INFORMATION_ONLY',
-                    requiredNote: '굿딜 상품권의 하루 한도와 기간을 확인하지 않아 금액 계산에서 제외합니다.',
+                    calculationMode: 'CONDITIONAL',
+                    confirmationRequired: true,
+                    requiredNote: GOODDEAL_NOTE,
                 },
                 compatibility: {
                     requiredPayProviderIds: [GOODDEAL_PROVIDER_ID],

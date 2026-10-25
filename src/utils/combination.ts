@@ -496,6 +496,9 @@ const applyOffer = (
             confirmationId: offer.id,
             requiresConfirmation: true,
         }),
+        ...(isAppObservedOffer(offer, providerById.get(offer.providerId)) && {
+            observedAt: offer.collectedAt,
+        }),
     });
     return next;
 };
@@ -1085,6 +1088,12 @@ export function calculateBestCombinations(
         );
 
         afterPay.forEach(state => {
+            // Paying "through GoodDeal" means buying its voucher, so the route needs its discount.
+            if (
+                payProviderId &&
+                providerById.get(payProviderId)?.kind === 'GOODDEAL' &&
+                !state.steps.some(step => step.providerId === payProviderId)
+            ) return;
             const fundingOptions: FundingType[] = payProviderId
                 ? [
                     'CARD',

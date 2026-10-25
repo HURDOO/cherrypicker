@@ -145,6 +145,11 @@ function StepRow({
                         )}>
                             {BENEFIT_STATUS_LABELS[step.certainty]}
                         </span>
+                        {step.observedAt && (
+                            <span className="text-[9px] font-black text-gray-400">
+                                {formatObservedDate(step.observedAt)} 관측
+                            </span>
+                        )}
                     </div>
                     <p className="mt-1 text-xs font-black leading-snug text-gray-900">
                         {step.title}
