@@ -496,6 +496,9 @@ const applyOffer = (
             confirmationId: offer.id,
             requiresConfirmation: true,
         }),
+        ...(certainty !== 'CONDITIONAL' && offer.condition.requiredNote && {
+            note: offer.condition.requiredNote,
+        }),
         ...(isAppObservedOffer(offer, providerById.get(offer.providerId)) && {
             observedAt: offer.collectedAt,
         }),
@@ -509,6 +512,7 @@ const compareWorkingStates = (a: WorkingCombination, b: WorkingCombination) => {
         return b.immediateDiscount - a.immediateDiscount;
     }
     if (b.laterReward !== a.laterReward) return b.laterReward - a.laterReward;
+    if (b.conditionalValue !== a.conditionalValue) return b.conditionalValue - a.conditionalValue;
     if (a.requiredChecks.length !== b.requiredChecks.length) {
         return a.requiredChecks.length - b.requiredChecks.length;
     }
@@ -783,6 +787,8 @@ const compareCombinations = (a: BenefitCombination, b: BenefitCombination) => {
         return b.immediateDiscount - a.immediateDiscount;
     }
     if (a.payableAmount !== b.payableAmount) return a.payableAmount - b.payableAmount;
+    // A possible extra benefit to check beats a route that adds nothing.
+    if (b.conditionalValue !== a.conditionalValue) return b.conditionalValue - a.conditionalValue;
     if (a.requiredChecks.length !== b.requiredChecks.length) {
         return a.requiredChecks.length - b.requiredChecks.length;
     }

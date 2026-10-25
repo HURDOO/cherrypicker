@@ -164,6 +164,11 @@ function StepRow({
                     {step.warning}
                 </p>
             )}
+            {step.note && (
+                <p className="mt-2 text-[10px] leading-relaxed text-gray-500">
+                    {step.note}
+                </p>
+            )}
             {canConfirm && (
                 <button
                     type="button"

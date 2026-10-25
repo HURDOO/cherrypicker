@@ -82,7 +82,7 @@ beforeAll(async () => {
 });
 
 describe('GoodDeal offers published as information only', () => {
-    it('become discounts to confirm on the next upload without review', () => {
+    it('become counted discounts on the next upload without review', () => {
         expect(ingest(observation(day(24)))).toMatchObject({ status: 'applied', published: 60 });
         const offers = () => integrationDb.select().from(schema.promotionOffers)
             .where(eq(schema.promotionOffers.providerId, 'kakaopay-gooddeal'))
@@ -97,7 +97,8 @@ describe('GoodDeal offers published as information only', () => {
         offers().forEach(offer => expect(offer).toMatchObject({
             status: 'PUBLISHED',
             action: { value: 5, maxBenefit: 25_000 },
-            condition: { calculationMode: 'CONDITIONAL', confirmationRequired: true },
+            condition: { calculationMode: 'CALCULABLE' },
+            certainty: 'CONFIRMED',
             collectedAt: day(25),
         }));
     });

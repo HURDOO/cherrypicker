@@ -207,10 +207,10 @@ export function goodDealDocumentBrands(rawContent: string): string[] {
 export const goodDealSourceKey = (brand: string) => `gooddeal:${normalizeOfficialBrandName(brand)}`;
 
 /**
- * One offer per brand that counts as a benefit to confirm. Limits and periods are only on the
+ * One offer per brand, counted in the amount by default. Limits and periods are only on the
  * brand detail screen, which the observer does not open. Most vouchers allow up to 500,000원 per
  * use, so the discount is capped there; event items can carry a smaller daily cap, which the
- * user checks before relying on the amount.
+ * step shows as a note instead of asking the user to confirm it first.
  */
 export function goodDealPromotions(observation: GoodDealObservation): ParsedPromotion[] {
     return observation.items.map(item => {
@@ -240,8 +240,7 @@ export function goodDealPromotions(observation: GoodDealObservation): ParsedProm
                 condition: {
                     amountBasis: 'REMAINING_AMOUNT',
                     applicabilityScope: 'STORE_WIDE',
-                    calculationMode: 'CONDITIONAL',
-                    confirmationRequired: true,
+                    calculationMode: 'CALCULABLE',
                     requiredNote: GOODDEAL_NOTE,
                 },
                 compatibility: {
@@ -249,7 +248,7 @@ export function goodDealPromotions(observation: GoodDealObservation): ParsedProm
                     exclusiveGroup: sourceKey,
                 },
                 limitConfig: {},
-                certainty: 'CONDITIONAL',
+                certainty: 'CONFIRMED',
                 sourceUrl: GOODDEAL_HOME_URL,
             },
         };

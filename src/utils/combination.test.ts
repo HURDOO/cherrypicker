@@ -455,7 +455,7 @@ describe('calculateBestCombinations', () => {
         });
     });
 
-    it('does not let an unconfirmed benefit raise the default recommendation rank', () => {
+    it('shows a benefit to check ahead of a route that saves nothing', () => {
         const conditionalOffer = offer('conditional-only', {
             action: { type: 'FLAT', value: 5_000 },
             condition: {
@@ -475,16 +475,13 @@ describe('calculateBestCombinations', () => {
 
         expect(pending.combinations[0]).toMatchObject({
             confirmedValue: 0,
-            payableAmount: 20_000,
-            steps: [],
-        });
-        expect(pending.combinations.find(combination =>
-            combination.steps.some(step => step.promotionId === conditionalOffer.id)
-        )).toMatchObject({
-            confirmedValue: 0,
             conditionalValue: 5_000,
             payableAmount: 20_000,
             potentialPayableAmount: 15_000,
+        });
+        expect(pending.combinations[0].steps[0]).toMatchObject({
+            promotionId: conditionalOffer.id,
+            certainty: 'CONDITIONAL',
         });
         expect(confirmed.combinations[0]).toMatchObject({
             confirmedValue: 5_000,
@@ -954,7 +951,7 @@ describe('calculateBestCombinations', () => {
         expect(stale.informationalOffers).toEqual([]);
     });
 
-    it('counts a phone-observed GoodDeal rate as a benefit to confirm, capped per use', () => {
+    it('counts a phone-observed GoodDeal rate by default and shows its limit as a note', () => {
         const goodDeal = offer('promotion-auto-gooddeal', {
             providerId: 'kakaopay-gooddeal',
             layer: 'PAY',
@@ -964,37 +961,35 @@ describe('calculateBestCombinations', () => {
             condition: {
                 amountBasis: 'REMAINING_AMOUNT',
                 applicabilityScope: 'STORE_WIDE',
-                calculationMode: 'CONDITIONAL',
-                confirmationRequired: true,
+                calculationMode: 'CALCULABLE',
                 requiredNote: '굿딜 한도 확인',
             },
             compatibility: { requiredPayProviderIds: ['kakaopay-gooddeal'] },
-            certainty: 'CONDITIONAL',
+            certainty: 'CONFIRMED',
             collectedAt: '2026-07-23T23:00:00.000Z',
         });
-        const goodDealStep = (result: ReturnType<typeof calculateBestCombinations>) => result
-            .combinations.flatMap(item => item.steps)
-            .find(step => step.promotionId === 'promotion-auto-gooddeal');
 
-        const unconfirmed = calculateBestCombinations(input([goodDeal], { amount: 1_000_000 }));
-        expect(goodDealStep(unconfirmed)).toMatchObject({
-            certainty: 'CONDITIONAL',
-            benefitAmount: 25_000,
-            warning: '굿딜 한도 확인',
-            requiresConfirmation: true,
-            observedAt: '2026-07-23T23:00:00.000Z',
-        });
-        expect(unconfirmed.informationalOffers).toEqual([]);
-        // A confirmed card discount still ranks above an unconfirmed GoodDeal rate.
-        expect(unconfirmed.combinations[0].payProviderId).toBeUndefined();
-
-        const confirmed = calculateBestCombinations(input([goodDeal], {
+        const result = calculateBestCombinations(input([goodDeal], {
             amount: 1_000_000,
             rules: [],
-            confirmedConditionIds: [goodDeal.id],
         }));
-        expect(goodDealStep(confirmed)?.certainty).toBe('CONFIRMED');
-        expect(confirmed.combinations[0].payProviderId).toBe('kakaopay-gooddeal');
+        const step = result.combinations.flatMap(item => item.steps)
+            .find(item => item.promotionId === 'promotion-auto-gooddeal');
+
+        expect(step).toMatchObject({
+            certainty: 'CONFIRMED',
+            benefitAmount: 25_000,
+            note: '굿딜 한도 확인',
+            observedAt: '2026-07-23T23:00:00.000Z',
+        });
+        expect(step?.warning).toBeUndefined();
+        expect(step?.requiresConfirmation).toBeUndefined();
+        expect(result.informationalOffers).toEqual([]);
+        expect(result.combinations[0]).toMatchObject({
+            payProviderId: 'kakaopay-gooddeal',
+            confirmedValue: 25_000,
+            requiredChecks: [],
+        });
     });
 
     it('offers no GoodDeal route without a GoodDeal discount for the brand', () => {
