@@ -32,12 +32,22 @@ const MAX_STRUCTURE_LINE_LENGTH = 300;
 const PERSONAL_MARKERS = ['님', '최근 결제'];
 // The observer's structure lines are ASCII apart from the badge word it may print.
 const STRUCTURE_LINE = /^[\x20-\x7e]*$/;
+// GoodDeal shows `점검 중` before the name of a brand whose vouchers are not on sale, and the
+// observer reads it as part of the name.
+const PAUSED_PREFIX = /^점검\s*중\s*/;
+
+export interface GoodDealItem {
+    brand: string;
+    rate: number;
+    /** Under maintenance on the GoodDeal home, so the voucher cannot be bought today. */
+    paused?: true;
+}
 
 export interface GoodDealObservation {
     observedAt: Date;
     kakaopayVersion: string | null;
     parserVersion: number;
-    items: Array<{ brand: string; rate: number }>;
+    items: GoodDealItem[];
     structure: string[];
 }
 
@@ -72,15 +82,18 @@ export function parseGoodDealUpload(body: Record<string, unknown>): GoodDealObse
         if (!isRecord(item) || typeof item.brand !== 'string' || typeof item.rate !== 'number') {
             throw badRequest('할인 항목 형식이 올바르지 않습니다.');
         }
-        const brand = item.brand.trim();
-        if (!brand || brand.length > MAX_BRAND_LENGTH || !Number.isFinite(item.rate)) {
+        const trimmed = item.brand.trim();
+        const brand = trimmed.replace(PAUSED_PREFIX, '');
+        if (!brand || trimmed.length > MAX_BRAND_LENGTH || !Number.isFinite(item.rate)) {
             throw badRequest('할인 항목 형식이 올바르지 않습니다.');
         }
         // The phone drops these; seeing one means the upload is not what the app should send.
         if (PERSONAL_MARKERS.some(marker => brand.includes(marker))) {
             throw badRequest('개인 표시가 있는 항목은 받을 수 없습니다.');
         }
-        return { brand, rate: item.rate };
+        return brand === trimmed
+            ? { brand, rate: item.rate }
+            : { brand, rate: item.rate, paused: true as const };
     });
     const structure = body.structure ?? [];
     if (
@@ -125,7 +138,7 @@ export function checkGoodDealGate(observation: GoodDealObservation, input: GoodD
         .map(item => item.brand))];
     if (duplicates.length > 0) reasons.push(`같은 브랜드가 두 번 있습니다: ${duplicates.join(', ')}`);
     const outOfRange = observation.items.filter(item => (
-        item.rate < RATE_RANGE.min || item.rate > RATE_RANGE.max
+        !item.paused && (item.rate < RATE_RANGE.min || item.rate > RATE_RANGE.max)
     ));
     if (outOfRange.length > 0) {
         reasons.push(`할인율이 ${RATE_RANGE.min}~${RATE_RANGE.max}% 밖입니다: ${outOfRange
@@ -156,7 +169,10 @@ export function checkGoodDealGate(observation: GoodDealObservation, input: GoodD
 export const GOODDEAL_MAX_USE_AMOUNT = 500_000;
 const GOODDEAL_NOTE = '굿딜 상품권은 보통 1회 50만원까지 쓸 수 있고, 행사 상품은 하루 한도가 더 작을 수 있어요. 굿딜 화면에서 한도를 확인하세요.';
 
-const evidenceText = (item: { brand: string; rate: number }) => `${item.brand} ${item.rate}% 할인`;
+const evidenceText = (item: GoodDealItem) => `${item.brand} ${item.rate}% 할인`;
+const evidenceLine = (item: GoodDealItem) => (
+    item.paused ? `${item.brand} 점검 중` : evidenceText(item)
+);
 
 /** The stored evidence: the upload as received, with one `브랜드 N% 할인` line per item. */
 export function goodDealSourceDocument(
@@ -185,11 +201,16 @@ export function goodDealSourceDocument(
         sourceUrl: GOODDEAL_HOME_URL,
         mediaType: 'application/json',
         rawContent,
-        extractedText: observation.items.map(evidenceText).join('\n'),
+        extractedText: observation.items.map(evidenceLine).join('\n'),
         contentHash: createHash('sha256').update(rawContent).digest('hex'),
         responseMetadata,
     };
 }
+
+/** Brands under maintenance in this observation; their offers are hidden until they return. */
+export const pausedGoodDealBrands = (observation: GoodDealObservation) => observation.items
+    .filter(item => item.paused)
+    .map(item => item.brand);
 
 /** Brands of a stored GoodDeal document, for comparing the next upload against it. */
 export function goodDealDocumentBrands(rawContent: string): string[] {
@@ -213,7 +234,7 @@ export const goodDealSourceKey = (brand: string) => `gooddeal:${normalizeOfficia
  * step shows as a note instead of asking the user to confirm it first.
  */
 export function goodDealPromotions(observation: GoodDealObservation): ParsedPromotion[] {
-    return observation.items.map(item => {
+    return observation.items.filter(item => !item.paused).map(item => {
         const resolved = resolveOfficialBrand(item.brand)!;
         const sourceKey = goodDealSourceKey(item.brand);
         return {

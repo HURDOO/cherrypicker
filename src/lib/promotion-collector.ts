@@ -18,8 +18,11 @@ import {
     goodDealDocumentBrands,
     goodDealPromotions,
     goodDealSourceDocument,
+    goodDealSourceKey,
     GOODDEAL_HOME_URL,
+    GOODDEAL_PROVIDER_ID,
     GOODDEAL_SOURCE_ID,
+    pausedGoodDealBrands,
     type GoodDealObservation,
 } from './gooddeal-observation';
 import { normalizePromotionDraft } from './promotion-input';
@@ -1759,6 +1762,8 @@ export type GoodDealIngestResult = {
     reviewRequired: number;
     removalQueued: number;
     expired: number;
+    /** Brands under maintenance whose offers this upload hid. */
+    paused: number;
 };
 
 const GOODDEAL_HISTORY_LIMIT = 60;
@@ -1767,7 +1772,9 @@ const GOODDEAL_HISTORY_LIMIT = 60;
  * Applies one phone observation of the GoodDeal home. Every upload is kept as a source document;
  * only one that passes the gate creates candidates, and those publish without review because the
  * offers are information-only. Brands missing from two passing uploads expire through the usual
- * removal policy, with the next day's upload as the second observation.
+ * removal policy, with the next day's upload as the second observation. A brand shown as under
+ * maintenance counts as present for the gate, but its offer is hidden at once because the voucher
+ * cannot be bought; it is published again when the brand comes back.
  */
 export function ingestGoodDealObservation(
     observation: GoodDealObservation,
@@ -1793,6 +1800,7 @@ export function ingestGoodDealObservation(
         reviewRequired: 0,
         removalQueued: 0,
         expired: 0,
+        paused: 0,
     };
     const unchecked = goodDealSourceDocument(observation, []);
     if (history.some(document => document.contentHash === unchecked.contentHash)) {
@@ -1845,6 +1853,17 @@ export function ingestGoodDealObservation(
         if (persisted.reviewRequired) result.reviewRequired += 1;
     });
     rejectMissingPendingCandidates(source, parsed, sourceBundle.sourceBundleHash, observedAt);
+    const pausedIds = pausedGoodDealBrands(observation)
+        .map(brand => autoPromotionId(GOODDEAL_PROVIDER_ID, goodDealSourceKey(brand)));
+    if (pausedIds.length > 0) {
+        result.paused = db.update(promotionOffers)
+            .set({ status: 'EXPIRED', updatedAt: observedAt })
+            .where(and(
+                inArray(promotionOffers.id, pausedIds),
+                ne(promotionOffers.status, 'EXPIRED'),
+            ))
+            .run().changes;
+    }
     const removal = queueMissingAutoPromotions(
         new Set([source.id]),
         observedIds,

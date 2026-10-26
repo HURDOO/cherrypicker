@@ -46,6 +46,24 @@ describe('parseGoodDealUpload', () => {
         });
     });
 
+    it('reads a `점검 중` name as the brand under maintenance', () => {
+        const items = parseGoodDealUpload({
+            ...upload,
+            items: [
+                { brand: '점검 중 롯데리아', rate: 5 },
+                { brand: '점검중 세븐일레븐', rate: 3 },
+                { brand: '투썸플레이스', rate: 20 },
+            ],
+        }).items;
+        expect(items).toEqual([
+            { brand: '롯데리아', rate: 5, paused: true },
+            { brand: '세븐일레븐', rate: 3, paused: true },
+            { brand: '투썸플레이스', rate: 20 },
+        ]);
+        expect(() => parseGoodDealUpload({ ...upload, items: [{ brand: '점검 중', rate: 5 }] }))
+            .toThrow('할인 항목 형식');
+    });
+
     it('rejects failed observations, personal markers and structure lines with text', () => {
         expect(() => parseGoodDealUpload({ ...upload, status: 'failed' }))
             .toThrow('성공한 관측만');
@@ -87,6 +105,17 @@ describe('checkGoodDealGate', () => {
             observation([...previous.slice(0, 107), '브랜드 1']),
             { now, previousBrands: previous },
         )).toEqual(['같은 브랜드가 두 번 있습니다: 브랜드 1']);
+    });
+
+    it('counts brands under maintenance as still listed', () => {
+        // 2026-10-27: seven Lotte group brands showed `점검 중` among 110 items.
+        const previous = brands(110);
+        const paused = observation(previous, {
+            items: previous.map((brand, index) => (
+                index < 7 ? { brand, rate: 0, paused: true as const } : { brand, rate: 5 }
+            )),
+        });
+        expect(checkGoodDealGate(paused, { now, previousBrands: previous })).toEqual([]);
     });
 
     it('holds unknown parsers, odd rates and observations out of order or out of time', () => {
@@ -135,6 +164,16 @@ describe('goodDealPromotions', () => {
         expect(twosome.discoveredBrand).toBeUndefined();
         expect(unknown.discoveredBrand).toMatchObject({ name: '노랑통닭', categoryId: 'food' });
         expect(unknown.offer.brandIds).toEqual([unknown.discoveredBrand!.id]);
+    });
+
+    it('publishes nothing for a brand under maintenance and records it as such', () => {
+        const paused = observation([], {
+            items: [{ brand: '롯데리아', rate: 5, paused: true }, { brand: '투썸플레이스', rate: 20 }],
+        });
+        expect(goodDealPromotions(paused).map(promotion => promotion.sourceKey))
+            .toEqual(['gooddeal:투썸플레이스']);
+        expect(goodDealSourceDocument(paused, []).extractedText)
+            .toBe('롯데리아 점검 중\n투썸플레이스 20% 할인');
     });
 
     it('stores each item as an evidence line next to the gate result', () => {

@@ -150,4 +150,26 @@ describe('ingestGoodDealObservation', () => {
         expect(result.status).toBe('held');
         expect(result.reasons).toContain('이미 받은 관측보다 오래된 기록입니다.');
     });
+
+    it('hides a brand under maintenance at once and publishes it again when it returns', () => {
+        const listed = baseBrands.slice(0, -1);
+        const rates = { 투썸플레이스: 3, 노랑통닭: 3 };
+        const paused = observation(day(26), rates, listed);
+        paused.items = paused.items.map(item => (
+            item.brand === '투썸플레이스' ? { ...item, paused: true as const } : item
+        ));
+
+        const during = ingest(paused);
+        expect(during).toMatchObject({ status: 'applied', paused: 1, removalQueued: 0 });
+        expect(offerFor('twosome')?.status).toBe('EXPIRED');
+
+        // Back at the rate it had before the maintenance.
+        const after = ingest(observation(day(27), rates, listed));
+        expect(after).toMatchObject({ status: 'applied', published: 1, paused: 0 });
+        expect(offerFor('twosome')).toMatchObject({
+            status: 'PUBLISHED',
+            action: { value: 3 },
+            collectedAt: day(27),
+        });
+    });
 });
