@@ -1093,14 +1093,15 @@ export function calculateBestCombinations(
             payProviderId,
         );
 
+        const isGoodDeal = payProviderId !== undefined &&
+            providerById.get(payProviderId)?.kind === 'GOODDEAL';
         afterPay.forEach(state => {
             // Paying "through GoodDeal" means buying its voucher, so the route needs its discount.
-            if (
-                payProviderId &&
-                providerById.get(payProviderId)?.kind === 'GOODDEAL' &&
-                !state.steps.some(step => step.providerId === payProviderId)
-            ) return;
-            const fundingOptions: FundingType[] = payProviderId
+            if (isGoodDeal && !state.steps.some(step => step.providerId === payProviderId)) return;
+            // GoodDeal vouchers are bought from the bank account behind KakaoPay, never a card.
+            // A card pays only what a fixed-value voucher leaves, at the store itself.
+            const goodDealFunding: FundingType[] = state.cardChargeBase ? ['CARD'] : ['MONEY'];
+            const fundingOptions: FundingType[] = isGoodDeal ? goodDealFunding : payProviderId
                 ? [
                     'CARD',
                     ...(input.profile.moneyEnabled ? ['MONEY' as const] : []),

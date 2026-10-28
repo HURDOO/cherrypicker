@@ -992,6 +992,31 @@ describe('calculateBestCombinations', () => {
         });
     });
 
+    it('buys a GoodDeal voucher from the account, without a card or its store benefit', () => {
+        const goodDeal = offer('promotion-auto-gooddeal', {
+            providerId: 'kakaopay-gooddeal',
+            layer: 'PAY',
+            channels: ['OFFLINE'],
+            action: { type: 'PERCENT', value: 3, maxBenefit: 15_000 },
+            condition: { amountBasis: 'REMAINING_AMOUNT', calculationMode: 'CALCULABLE' },
+            compatibility: { requiredPayProviderIds: ['kakaopay-gooddeal'] },
+            collectedAt: '2026-07-23T23:00:00.000Z',
+        });
+
+        const result = calculateBestCombinations(input([goodDeal], {
+            profile: { ...profile, moneyEnabled: false },
+        }));
+        const goodDealRoutes = result.combinations.filter(item => (
+            item.payProviderId === 'kakaopay-gooddeal'
+        ));
+
+        expect(goodDealRoutes).toHaveLength(1);
+        expect(goodDealRoutes[0]).toMatchObject({ fundingType: 'MONEY', confirmedValue: 600 });
+        expect(goodDealRoutes[0].cardId).toBeUndefined();
+        expect(goodDealRoutes[0].steps.some(step => step.layer === 'PAYMENT_METHOD')).toBe(false);
+        expect(goodDealRoutes[0].performanceContribution).toBeUndefined();
+    });
+
     it('offers no GoodDeal route without a GoodDeal discount for the brand', () => {
         const result = calculateBestCombinations(input([]));
 
