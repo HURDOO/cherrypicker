@@ -58,6 +58,8 @@ import {
     getUnresolvedConditionSteps,
 } from '@/utils/combinationPresentation';
 import { calculateBestCombinations } from '@/utils/combination';
+import { getPaymentAppActions, type PaymentAppAction } from '@/utils/paymentAppLinks';
+import { PaymentAppButtons } from '@/components/payment/PaymentAppButtons';
 import { buildPromotionUsage } from '@/utils/promotionUsage';
 import {
     getCombinationIntent,
@@ -198,12 +200,14 @@ function LayerCard({
     fallback,
     confirmedConditionIds,
     onConfirm,
+    appActions,
 }: {
     layer: BenefitLayer;
     steps: CombinationStep[];
     fallback: string;
     confirmedConditionIds: Set<string>;
     onConfirm: (promotionId: string) => void;
+    appActions: PaymentAppAction[];
 }) {
     const meta = layerMeta[layer];
     const Icon = meta.icon;
@@ -239,6 +243,7 @@ function LayerCard({
                     {fallback}
                 </p>
             )}
+            <PaymentAppButtons actions={appActions} />
         </div>
     );
 }
@@ -1692,31 +1697,39 @@ function HomePageContent() {
                                         <h2 className="text-sm font-black text-gray-900">이 순서로 결제하세요</h2>
                                     </div>
                                     <div className="space-y-3">
-                                        {(['DISCOUNT', 'PAY', 'PAYMENT_METHOD'] as BenefitLayer[]).map((layer, index) => (
-                                            <React.Fragment key={layer}>
-                                                <LayerCard
-                                                    layer={layer}
-                                                    steps={selectedCombination.steps.filter(step =>
-                                                        step.layer === layer ||
-                                                        (layer === 'PAY' && step.layer === 'POST_REWARD')
+                                        {(['DISCOUNT', 'PAY', 'PAYMENT_METHOD'] as BenefitLayer[]).map((layer, index) => {
+                                            const layerSteps = selectedCombination.steps.filter(step =>
+                                                step.layer === layer ||
+                                                (layer === 'PAY' && step.layer === 'POST_REWARD')
+                                            );
+                                            return (
+                                                <React.Fragment key={layer}>
+                                                    <LayerCard
+                                                        layer={layer}
+                                                        steps={layerSteps}
+                                                        appActions={getPaymentAppActions(
+                                                            selectedCombination,
+                                                            layerSteps,
+                                                            layer === 'PAY',
+                                                        )}
+                                                        fallback={
+                                                            layer === 'DISCOUNT'
+                                                                ? '별도 선할인 없이 진행'
+                                                                : layer === 'PAY'
+                                                                    ? selectedCombination.payProviderName || '페이 미사용'
+                                                                    : selectedCombination.cardName || FUNDING_TYPE_LABELS[selectedCombination.fundingType]
+                                                        }
+                                                        confirmedConditionIds={confirmedConditionIds}
+                                                        onConfirm={handleConfirmCondition}
+                                                    />
+                                                    {index < 2 && (
+                                                        <div className="flex justify-center">
+                                                            <ChevronDown className="h-4 w-4 text-gray-300" />
+                                                        </div>
                                                     )}
-                                                    fallback={
-                                                        layer === 'DISCOUNT'
-                                                            ? '별도 선할인 없이 진행'
-                                                            : layer === 'PAY'
-                                                                ? selectedCombination.payProviderName || '페이 미사용'
-                                                                : selectedCombination.cardName || FUNDING_TYPE_LABELS[selectedCombination.fundingType]
-                                                    }
-                                                    confirmedConditionIds={confirmedConditionIds}
-                                                    onConfirm={handleConfirmCondition}
-                                                />
-                                                {index < 2 && (
-                                                    <div className="flex justify-center">
-                                                        <ChevronDown className="h-4 w-4 text-gray-300" />
-                                                    </div>
-                                                )}
-                                            </React.Fragment>
-                                        ))}
+                                                </React.Fragment>
+                                            );
+                                        })}
                                     </div>
                                 </section>
 
