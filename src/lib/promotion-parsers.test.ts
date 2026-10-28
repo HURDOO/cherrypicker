@@ -160,7 +160,7 @@ describe('promotion source parsers', () => {
         expect(offers.every(item => item.autoPublish === false)).toBe(true);
     });
 
-    it('keeps SKT product and excluded-store conditions out of the confirmed total', () => {
+    it('keeps SKT product conditions out of the confirmed total and notes excluded stores', () => {
         const html = `
             <a class="benefit-box" data-id="771">
                 <span class="brand">공차</span>
@@ -197,13 +197,70 @@ describe('promotion source parsers', () => {
             item.offer.limitConfig.dailyCount === 1 &&
             item.offer.limitConfig.dailyAmount === 20_000
         ))).toBe(true);
-        expect(offers[0].offer.condition.requiredInputs).toEqual([
-            'ELIGIBLE_ITEM_AMOUNT',
-            'STORE_ELIGIBILITY',
-        ]);
+        expect(offers[0].offer.condition.requiredInputs).toEqual(['ELIGIBLE_ITEM_AMOUNT']);
+        expect(offers[0].offer.condition.requiredNote).toBe(
+            '혜택 대상 상품 금액을 확인해야 합니다. 제외 매장 : 공항, 휴게소 외 일부 매장 사용 불가'
+        );
         expect(offers.every(item => item.requiredEvidenceSourceUrl === (
             'https://example.com/detail.do?brandId=771'
         ))).toBe(true);
+    });
+
+    it('counts SKT store-wide benefits that only list excluded items and stores, with a note', () => {
+        const html = `
+            <a class="benefit-box" data-id="146">
+                <span class="brand">CU</span>
+                <dl><dt>할인형</dt><dd><div class="info">
+                    <i class="badge-circle vip"></i><i class="badge-circle gold"></i>1천 원당 100원 할인
+                </div></dd></dl>
+            </a>
+        `;
+        const detail = `
+            <h2>혜택</h2><h2>유의사항</h2><ul>
+                <li>할인/적립 횟수 : 1일 1회</li>
+                <li>일 최대 할인 가능 : VIP/GOLD 20,000원, SILVER 10,000원</li>
+                <li>1천 원 이상 금액 결제 시 혜택 적용</li>
+                <li>- 할인/적립/사용 제외 상품 : 행사 상품(1+1, 2+1 등), 담배, 주류, 종량제 봉투 등</li>
+                <li>- 할인/적립/사용 제외 서비스 : 매장 서비스 전체 (택배, 복권, 인쇄·복사) 등</li>
+                <li>일부 특수 매장(휴게소, 리조트, 공항 등)에서는 할인/적립/사용 불가합니다.</li>
+            </ul>
+        `;
+
+        const [cu] = parseSktMembershipHtml(html, 'https://example.com/list.do', { '146': detail });
+
+        expect(cu.offer.certainty).toBe('CONFIRMED');
+        expect(cu.offer.condition).toMatchObject({
+            applicabilityScope: 'STORE_WIDE',
+            calculationMode: 'CALCULABLE',
+        });
+        expect(cu.offer.condition.requiredInputs ?? []).toEqual([]);
+        expect(cu.offer.condition.itemSpecific).toBeFalsy();
+        expect(cu.offer.condition.requiredNote).toBe(
+            '할인/적립/사용 제외 상품 : 행사 상품(1+1, 2+1 등), 담배, 주류, 종량제 봉투 등 ' +
+            '할인/적립/사용 제외 서비스 : 매장 서비스 전체 (택배, 복권, 인쇄·복사) 등 ' +
+            '일부 특수 매장(휴게소, 리조트, 공항 등)에서는 할인/적립/사용 불가합니다.'
+        );
+        expect(cu.offer.limitConfig.dailyCount).toBe(1);
+        expect(cu.autoPublish).toBe(false);
+    });
+
+    it('still asks to confirm SKT benefits limited to some stores', () => {
+        const html = `
+            <a class="benefit-box" data-id="9">
+                <span class="brand">공차</span>
+                <dl><dt>할인형</dt><dd><div class="info"><i class="badge-circle vip"></i>10% 할인</div></dd></dl>
+            </a>
+        `;
+        const detail = `
+            <h2>혜택</h2><h2>유의사항</h2><ul>
+                <li>일부 매장에서만 이용 가능</li>
+            </ul>
+        `;
+
+        const [offer] = parseSktMembershipHtml(html, 'https://example.com/list.do', { '9': detail });
+
+        expect(offer.offer.condition.requiredInputs).toEqual(['STORE_ELIGIBILITY']);
+        expect(offer.offer.condition.calculationMode).toBe('CONDITIONAL');
     });
 
     it('keeps mixed and maximum-only SKT headlines informational for every mode', () => {
@@ -570,6 +627,36 @@ describe('promotion source parsers', () => {
             name: '이니스프리',
             categoryId: 'life',
         });
+    });
+
+    it('reads a middle-dot card exclusion and "item 전 상품" as money-only and item-specific', () => {
+        const [cu] = parseNaverPayPromotions([{
+            promotionSeq: 24278798653445,
+            promotionName: 'CU',
+            promotionDescription: '도시락 전 상품 결제 시',
+            exposeTitle: '40% 할인',
+            acmRate: 40,
+            cautionText: [
+                '포켓CU 멤버십 QR 스캔 후 도시락 전 상품 구매 시 40% 할인',
+                '기간 내 4회, 1회 4,000원 할인 한도',
+                '카드·삼성페이 결제 시 혜택 적용 불가',
+                'CU 오프라인 점포에서만 적용 가능',
+            ].join('\n'),
+        }], 'DOMESTIC_INSTORE', 'https://pay.naver.com/benefit/payment/list');
+
+        expect(cu.offer.compatibility.allowedFundingTypes).toEqual(['MONEY', 'POINTS']);
+        const analysis = classifyPromotionWithRules(cu);
+        expect(analysis.scope).toBe('PRODUCT_SET');
+        expect(analysis.requiredInputs).toContain('ELIGIBLE_ITEM_AMOUNT');
+
+        const [storeWide] = parseNaverPayPromotions([{
+            promotionSeq: 2,
+            promotionName: '올리브영',
+            promotionDescription: '매장 전 상품 결제 시',
+            exposeTitle: '5% 할인',
+            acmRate: 5,
+        }], 'DOMESTIC_INSTORE', 'https://pay.naver.com/benefit/payment/list');
+        expect(classifyPromotionWithRules(storeWide).scope).not.toBe('PRODUCT_SET');
     });
 
     it('separates Npay funding inclusion, exclusion, and actual enrollment actions', () => {

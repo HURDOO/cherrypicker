@@ -755,22 +755,34 @@ const inferSktScope = (description: string, detailText: string) => {
     const targetLine = lines.find(line => (
         /(?:혜택\s*)?대상\s*(?:상품|제품|메뉴)|제조\s*음료에\s*한함|제조\s*커피[^\n]*도넛[^\n]*한하여|시그니처\s*커피[^\n]*대상/.test(line)
     ));
-    const exclusionLine = lines.find(line => (
-        /(?:상품|제품|메뉴|서비스)[^\n]{0,80}(?:제외|적용\s*불가|이용\s*불가)|(?:제외|특가|행사)\s*(?:상품|제품|메뉴)/.test(line)
-    ));
+    const exclusionPattern = /(?:상품|제품|메뉴|서비스)[^\n]{0,80}(?:제외|적용\s*불가|이용\s*불가)|(?:제외|특가|행사)\s*(?:상품|제품|메뉴|서비스)/;
+    const exclusionLines = lines.filter(line => exclusionPattern.test(line));
+    const exclusionLine = exclusionLines[0];
     const describedProduct = /싱글레귤러|시그니처\s*커피|종합이용권|영화\s*관람권|금액권|(?:상품|제품|메뉴)\s*구매\s*시/.test(description);
-    const scope = targetLine || exclusionLine || describedProduct
+    // "Everything except tobacco, alcohol…" still covers the store; only a named target narrows it.
+    const scope = targetLine || describedProduct
         ? 'PRODUCT_SET' as const
         : 'STORE_WIDE' as const;
-    const eligibleItemSummary = targetLine ?? exclusionLine ?? (
+    const eligibleItemSummary = targetLine ?? (
         describedProduct ? description : undefined
-    );
+    ) ?? (scope === 'PRODUCT_SET' ? exclusionLine : undefined);
     return {
         scope,
         eligibleItemSummary,
+        /** Exclusion lines of a store-wide benefit, shown as a note instead of a confirmation. */
+        exclusionLines: scope === 'STORE_WIDE' ? exclusionLines : [],
         evidence: targetLine ?? exclusionLine ?? description,
     };
 };
+
+/** "Not at some special stores (rest areas, airports…)" excludes; "only at some stores" narrows. */
+const isStoreExclusionOnly = (line: string | undefined) => Boolean(
+    line &&
+    /(?:불가|제외|미적용)/.test(line) &&
+    !/(?:에서만|에\s*한해|에\s*한함|한정|참여\s*매장)/.test(line)
+);
+
+const stripListMarker = (line: string) => line.replace(/^[-*•·]\s*/, '');
 
 const parseSktLimitConfig = (text: string) => {
     const lines = detailLines(text);
@@ -900,7 +912,7 @@ export function parseSktMembershipHtml(
             /[\d,]+(?:\.\d+)?\s*(?:만|천)?\s*원\s*이상/.test(line)
         ));
         const paymentInstrumentRequired = /모바일\s*카드[^\n]{0,80}플라스틱\s*카드|플라스틱\s*카드[^\n]{0,80}모바일\s*카드/i.test(detailText);
-        const storeEligibilityRequired = /일부\s*(?:특수\s*)?매장|제외\s*매장|매장[^\n]{0,40}(?:제외|불가)/.test(detailText);
+        const storeMentioned = /일부\s*(?:특수\s*)?매장|제외\s*매장|매장[^\n]{0,40}(?:제외|불가)/.test(detailText);
         const detailTextLines = detailLines(detailText);
         const paymentInstrumentLine = detailTextLines.find(line => (
             /모바일\s*카드[^\n]{0,80}플라스틱\s*카드|플라스틱\s*카드[^\n]{0,80}모바일\s*카드/i.test(line)
@@ -908,6 +920,9 @@ export function parseSktMembershipHtml(
         const storeEligibilityLine = detailTextLines.find(line => (
             /일부\s*(?:특수\s*)?매장|제외\s*매장|매장[^\n]{0,40}(?:제외|불가)/.test(line)
         ));
+        // Excluded stores become a note; a benefit limited to some stores still needs a check.
+        const storeExclusionOnly = storeMentioned && isStoreExclusionOnly(storeEligibilityLine);
+        const storeEligibilityRequired = storeMentioned && !storeExclusionOnly;
 
         const sections = [...block.matchAll(/<dl[^>]*>([\s\S]*?)<\/dl>/gi)]
             .reduce<Array<{
@@ -1014,7 +1029,7 @@ export function parseSktMembershipHtml(
                 const requiredInputLines = [
                     ...(itemScope.scope === 'PRODUCT_SET' ? [itemScope.evidence] : []),
                     ...(paymentInstrumentLine ? [paymentInstrumentLine] : []),
-                    ...(storeEligibilityLine ? [storeEligibilityLine] : []),
+                    ...(storeEligibilityRequired && storeEligibilityLine ? [storeEligibilityLine] : []),
                 ];
                 const maxBenefitLines = [
                     ...(fixedCap ? [description] : []),
@@ -1039,17 +1054,21 @@ export function parseSktMembershipHtml(
                     limitEvidence: parsedLimits.evidence,
                     maxBenefitLines,
                 });
+                const exclusionNote = [
+                    ...itemScope.exclusionLines,
+                    ...(storeExclusionOnly && storeEligibilityLine ? [storeEligibilityLine] : []),
+                ].map(stripListMarker).join(' ');
                 const conditionNote = mixedBenefit
                     ? '복수 혜택·요율은 공식 상세에서 선택해 확인해야 합니다.'
                     : itemScope.scope === 'PRODUCT_SET' && storeEligibilityRequired
                         ? '혜택 대상 상품 금액과 이용 매장을 확인해야 합니다.'
                         : itemScope.scope === 'PRODUCT_SET'
-                            ? '혜택 대상 상품 금액을 확인해야 합니다.'
+                            ? ['혜택 대상 상품 금액을 확인해야 합니다.', exclusionNote].filter(Boolean).join(' ')
                             : storeEligibilityRequired
                                 ? '이용 매장이 공식 혜택 대상인지 확인해야 합니다.'
                                 : paymentInstrumentRequired
                                     ? '모바일카드·플라스틱카드 종류를 확인해야 합니다.'
-                                    : undefined;
+                                    : exclusionNote || undefined;
                 const result = buildTelecomOffer({
                     providerId: 'skt',
                     brandId,
@@ -1490,7 +1509,7 @@ const hasTrustedNaverPayThresholdLink = (linkUrl?: string | null) => {
 const parseNaverPayFundingTypes = (row: NaverPayPromotion, text: string) => {
     const types: FundingType[] = [];
     const moneyAndPoints = /포인트[·/\s]*(?:와|및|\+)?[·/\s]*머니|머니[·/\s]*(?:와|및|\+)?[·/\s]*포인트/.test(text);
-    const cardExcluded = /카드(?:\s*,\s*삼성페이)?\s*결제\s*시[^\n]{0,30}(?:불가|제외|미적용)|카드\s*결제[^\n]{0,20}(?:불가|제외|미적용)/.test(text);
+    const cardExcluded = /카드(?:\s*[,·ㆍ/]\s*삼성페이)?\s*결제\s*시[^\n]{0,30}(?:불가|제외|미적용)|카드\s*결제[^\n]{0,20}(?:불가|제외|미적용)/.test(text);
     const cardIncluded = row.payMethodType === 'CARD' ||
         /(?:카드로|카드\s*QR|대상\s*카드|카드\s*대상|삼성카드\s*QR|Npay\s*(?:X|×|\*)\s*삼성페이)|카드[^\n]{0,50}결제\s*시/i.test(text);
 
