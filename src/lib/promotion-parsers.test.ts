@@ -244,6 +244,36 @@ describe('promotion source parsers', () => {
         expect(cu.autoPublish).toBe(false);
     });
 
+    it('keeps SKT benefits on named items item-specific even when they also list exclusions', () => {
+        const html = `
+            <a class="benefit-box" data-id="20">
+                <span class="brand">드롭탑</span>
+                <dl><dt>할인형</dt><dd><div class="info"><i class="badge-circle vip"></i>10% 할인</div></dd></dl>
+            </a>
+            <a class="benefit-box" data-id="21">
+                <span class="brand">GS25</span>
+                <dl><dt>할인형</dt><dd><div class="info"><i class="badge-circle vip"></i>매주 화요일, 프레시 푸드 1천 원당 200원 할인</div></dd></dl>
+            </a>
+        `;
+        const offers = parseSktMembershipHtml(html, 'https://example.com/list.do', {
+            '20': '<ul><li>제조 음료 한정 (병/ 캔/ MD상품/ 아이스탑/ 베이커리 제외)</li></ul>',
+            '21': '<ul><li>* 할인 제외 상품: 행사 상품(1+1, 2+1, 증정, 할인)</li></ul>',
+        });
+
+        expect(offers.map(item => item.offer.condition.applicabilityScope))
+            .toEqual(['PRODUCT_SET', 'PRODUCT_SET']);
+
+        const [btv] = parseSktMembershipHtml(`
+            <a class="benefit-box" data-id="22">
+                <span class="brand">SK브로드밴드 B tv</span>
+                <dl><dt>할인형</dt><dd><div class="info"><i class="badge-circle vip"></i>20% 할인</div></dd></dl>
+            </a>
+        `, 'https://example.com/list.do', {
+            '22': '<ul><li>VOD 상품에 한해 T 플러스포인트 사용 가능(100%, 1P 단위)</li></ul>',
+        });
+        expect(btv.offer.condition.applicabilityScope).toBe('STORE_WIDE');
+    });
+
     it('still asks to confirm SKT benefits limited to some stores', () => {
         const html = `
             <a class="benefit-box" data-id="9">

@@ -753,12 +753,18 @@ const inferSktChannels = (text: string) => {
 const inferSktScope = (description: string, detailText: string) => {
     const lines = detailLines(detailText);
     const targetLine = lines.find(line => (
-        /(?:혜택\s*)?대상\s*(?:상품|제품|메뉴)|제조\s*음료에\s*한함|제조\s*커피[^\n]*도넛[^\n]*한하여|시그니처\s*커피[^\n]*대상/.test(line)
+        /(?:혜택\s*)?대상\s*(?:상품|제품|메뉴)|제조\s*음료에\s*한함|제조\s*커피[^\n]*도넛[^\n]*한하여|시그니처\s*커피[^\n]*대상/.test(line) ||
+        // "제조 음료 한정", "정가 메뉴에 한해", "배송상품에 한하며": a named item set, not a count limit.
+        (/(?:상품|제품|메뉴|음료|품목|과목)\s*(?:에\s*)?한(?:정|해|하여|하며|함)/.test(line) &&
+            // Where points can be spent says nothing about the discount itself.
+            !/포인트\s*사용/.test(line))
     ));
     const exclusionPattern = /(?:상품|제품|메뉴|서비스)[^\n]{0,80}(?:제외|적용\s*불가|이용\s*불가)|(?:제외|특가|행사)\s*(?:상품|제품|메뉴|서비스)/;
     const exclusionLines = lines.filter(line => exclusionPattern.test(line));
     const exclusionLine = exclusionLines[0];
-    const describedProduct = /싱글레귤러|시그니처\s*커피|종합이용권|영화\s*관람권|금액권|(?:상품|제품|메뉴)\s*구매\s*시/.test(description);
+    const describedProduct = /싱글레귤러|시그니처\s*커피|종합이용권|영화\s*관람권|금액권|(?:상품|제품|메뉴)\s*구매\s*시/.test(description) ||
+        // A rate on a named item group, e.g. "프레시 푸드 1천 원당 200원 할인".
+        /(?:푸드|음료|커피|도시락|베이커리)\s*[\d,]+\s*(?:천|만)?\s*원\s*당/.test(description);
     // "Everything except tobacco, alcohol…" still covers the store; only a named target narrows it.
     const scope = targetLine || describedProduct
         ? 'PRODUCT_SET' as const
