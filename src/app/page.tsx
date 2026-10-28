@@ -58,7 +58,11 @@ import {
     getUnresolvedConditionSteps,
 } from '@/utils/combinationPresentation';
 import { calculateBestCombinations } from '@/utils/combination';
-import { getPaymentAppActions, type PaymentAppAction } from '@/utils/paymentAppLinks';
+import {
+    getPaymentAppActions,
+    isTMembershipPartner,
+    type PaymentAppAction,
+} from '@/utils/paymentAppLinks';
 import { PaymentAppButtons } from '@/components/payment/PaymentAppButtons';
 import { buildPromotionUsage } from '@/utils/promotionUsage';
 import {
@@ -548,6 +552,11 @@ function HomePageContent() {
         ]
     );
     const benefitBrandSuggestions = benefitBrandSuggestionResult.suggestions;
+    const tMembershipPartner = useMemo(() => isTMembershipPartner(
+        catalog?.promotions ?? [],
+        currentPaymentTarget?.kind === 'BRAND' ? currentPaymentTarget.brand.id : undefined,
+        benefitProfile.telecomMemberships,
+    ), [benefitProfile.telecomMemberships, catalog, currentPaymentTarget]);
     const incompleteTelecomProvider = useMemo(() => {
         if (!catalog) return undefined;
         const membership = benefitProfile.telecomMemberships.find(item => (
@@ -1709,8 +1718,8 @@ function HomePageContent() {
                                                         steps={layerSteps}
                                                         appActions={getPaymentAppActions(
                                                             selectedCombination,
-                                                            layerSteps,
-                                                            layer === 'PAY',
+                                                            layer,
+                                                            { tMembershipPartner },
                                                         )}
                                                         fallback={
                                                             layer === 'DISCOUNT'

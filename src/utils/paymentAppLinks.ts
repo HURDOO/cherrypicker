@@ -1,4 +1,4 @@
-import type { BenefitCombination, CombinationStep } from '@/types';
+import type { BenefitCombination, BenefitLayer, PromotionOffer, TelecomMembership } from '@/types';
 
 // Deep links checked on the owner's Android phone on 2026-10-28.
 // None of them is officially documented, so an app update can change them.
@@ -43,12 +43,40 @@ export function isPaymentAppId(value: unknown): value is PaymentAppId {
 
 const SKT_PROVIDER_ID = 'skt';
 
-function tMembershipAction(): PaymentAppAction {
+function tMembershipAction(counted: boolean): PaymentAppAction {
     return {
         appId: 'tmembership',
         links: [{ mode: 'CODE', label: '바코드', scheme: 'mponepass', path: 'native/barcode' }],
-        hint: '결제 전에 멤버십 바코드를 먼저 보여 주세요.',
+        hint: counted
+            ? '결제 전에 멤버십 바코드를 먼저 보여 주세요.'
+            : 'T멤버십 제휴 매장이에요. 대상 상품이면 할인·적립되니 결제 전에 바코드를 보여 주세요.',
     };
+}
+
+const localDate = (now: Date) => [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+].join('-');
+
+/**
+ * Whether an SKT member should show the barcode at this brand. Most SKT offers only cover some
+ * items, so they rarely become a counted step, but the barcode is still worth showing.
+ */
+export function isTMembershipPartner(
+    offers: Pick<PromotionOffer, 'providerId' | 'brandIds' | 'startsAt' | 'endsAt'>[],
+    brandId: string | undefined,
+    memberships: Pick<TelecomMembership, 'providerId'>[],
+    now = new Date(),
+): boolean {
+    if (!brandId || !memberships.some(item => item.providerId === SKT_PROVIDER_ID)) return false;
+    const today = localDate(now);
+    return offers.some(offer => (
+        offer.providerId === SKT_PROVIDER_ID &&
+        offer.brandIds.includes(brandId) &&
+        (!offer.startsAt || offer.startsAt.slice(0, 10) <= today) &&
+        (!offer.endsAt || offer.endsAt.slice(0, 10) >= today)
+    ));
 }
 
 function payAction(combination: BenefitCombination): PaymentAppAction | undefined {
@@ -117,20 +145,22 @@ function payAction(combination: BenefitCombination): PaymentAppAction | undefine
 
 /**
  * App buttons for one card of the "pay in this order" list.
- * `steps` are the steps that card shows, so the T membership button sits next to its benefit.
+ * The membership barcode goes first, on the discount card; the pay app goes on the pay card.
  */
 export function getPaymentAppActions(
     combination: BenefitCombination,
-    steps: CombinationStep[],
-    includePayProvider: boolean,
+    layer: BenefitLayer,
+    options: { tMembershipPartner?: boolean } = {},
 ): PaymentAppAction[] {
-    const actions: PaymentAppAction[] = [];
-    if (steps.some(step => step.providerId === SKT_PROVIDER_ID)) actions.push(tMembershipAction());
-    if (includePayProvider) {
-        const pay = payAction(combination);
-        if (pay) actions.push(pay);
+    if (layer === 'DISCOUNT') {
+        const counted = combination.steps.some(step => step.providerId === SKT_PROVIDER_ID);
+        return counted || options.tMembershipPartner ? [tMembershipAction(counted)] : [];
     }
-    return actions;
+    if (layer === 'PAY') {
+        const pay = payAction(combination);
+        return pay ? [pay] : [];
+    }
+    return [];
 }
 
 export function orderLinks(links: PaymentAppLink[], preferred?: PaymentAppMode): PaymentAppLink[] {

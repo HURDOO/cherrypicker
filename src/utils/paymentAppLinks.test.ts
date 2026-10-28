@@ -5,6 +5,7 @@ import {
     buildPaymentAppHref,
     detectPaymentAppPlatform,
     getPaymentAppActions,
+    isTMembershipPartner,
     orderLinks,
     parsePaymentAppPreferences,
 } from './paymentAppLinks';
@@ -41,8 +42,7 @@ describe('payment app actions', () => {
     it('opens KakaoPay through KakaoTalk for both card and pay money, asking to switch cards', () => {
         const card = getPaymentAppActions(
             combination({ payProviderId: 'kakaopay', fundingType: 'CARD', cardName: '신한 SOL트래블' }),
-            [],
-            true,
+            'PAY',
         );
         expect(card).toHaveLength(1);
         expect(card[0].appId).toBe('kakaotalk');
@@ -55,24 +55,21 @@ describe('payment app actions', () => {
 
         const money = getPaymentAppActions(
             combination({ payProviderId: 'kakaopay', fundingType: 'MONEY' }),
-            [],
-            true,
+            'PAY',
         );
         expect(money[0].appId).toBe('kakaotalk');
         expect(money[0].hint).toContain('페이머니');
 
         expect(getPaymentAppActions(
             combination({ payProviderId: 'kakaopay', fundingType: 'POINTS' }),
-            [],
-            true,
+            'PAY',
         )).toEqual([]);
     });
 
     it('offers Naver Pay QR and Samsung Pay for cards, and QR only for Npay money', () => {
         const card = getPaymentAppActions(
             combination({ payProviderId: 'naverpay', fundingType: 'CARD', cardName: 'KB 노리2' }),
-            [],
-            true,
+            'PAY',
         );
         expect(card[0].appId).toBe('naverpay');
         expect(card[0].links.map(link => link.mode)).toEqual(['CODE', 'SAMSUNG_PAY']);
@@ -81,8 +78,7 @@ describe('payment app actions', () => {
 
         const money = getPaymentAppActions(
             combination({ payProviderId: 'naverpay', fundingType: 'MONEY' }),
-            [],
-            true,
+            'PAY',
         );
         expect(money[0].links.map(link => link.mode)).toEqual(['CODE']);
     });
@@ -90,31 +86,45 @@ describe('payment app actions', () => {
     it('leaves out GoodDeal, card-only payments and the pay app on other cards', () => {
         expect(getPaymentAppActions(
             combination({ payProviderId: 'kakaopay-gooddeal', fundingType: 'MONEY' }),
-            [],
-            true,
+            'PAY',
         )).toEqual([]);
-        expect(getPaymentAppActions(combination({ cardName: '카드' }), [], true)).toEqual([]);
+        expect(getPaymentAppActions(combination({ cardName: '카드' }), 'PAY')).toEqual([]);
         expect(getPaymentAppActions(
             combination({ payProviderId: 'naverpay', fundingType: 'CARD' }),
-            [],
-            false,
+            'DISCOUNT',
         )).toEqual([]);
     });
 
-    it('puts the T membership barcode on the card that shows an SKT benefit, discount or reward', () => {
-        const skt = step({ providerId: 'skt' });
-        const actions = getPaymentAppActions(combination({}), [skt], false);
-        expect(actions.map(action => action.appId)).toEqual(['tmembership']);
-        expect(actions[0].links[0]).toMatchObject({ scheme: 'mponepass', path: 'native/barcode' });
+    it('puts the T membership barcode on the discount card for counted SKT benefits or SKT partners', () => {
+        const reward = combination({ steps: [step({ providerId: 'skt', layer: 'POST_REWARD' })] });
+        const counted = getPaymentAppActions(reward, 'DISCOUNT');
+        expect(counted.map(action => action.appId)).toEqual(['tmembership']);
+        expect(counted[0].links[0]).toMatchObject({ scheme: 'mponepass', path: 'native/barcode' });
+        expect(counted[0].hint).toContain('먼저 보여');
+        expect(getPaymentAppActions(reward, 'PAY')).toEqual([]);
 
-        const reward = step({ providerId: 'skt', layer: 'POST_REWARD' });
+        const partner = getPaymentAppActions(combination({}), 'DISCOUNT', { tMembershipPartner: true });
+        expect(partner[0].hint).toContain('대상 상품이면');
+        expect(getPaymentAppActions(combination({}), 'DISCOUNT')).toEqual([]);
         expect(getPaymentAppActions(
-            combination({ payProviderId: 'naverpay', fundingType: 'CARD' }),
-            [reward],
-            true,
-        ).map(action => action.appId)).toEqual(['tmembership', 'naverpay']);
+            combination({ steps: [step({ providerId: 'kt' })] }),
+            'DISCOUNT',
+        )).toEqual([]);
+    });
 
-        expect(getPaymentAppActions(combination({}), [step({ providerId: 'kt' })], false)).toEqual([]);
+    it('treats a brand as an SKT partner only for SKT members and offers valid today', () => {
+        const now = new Date(2026, 9, 28);
+        const offers = [
+            { providerId: 'skt', brandIds: ['cu'], startsAt: '2026-10-01', endsAt: '2026-10-31' },
+            { providerId: 'skt', brandIds: ['gs25'], endsAt: '2026-10-27' },
+            { providerId: 'kt', brandIds: ['emart24'] },
+        ];
+        const skt = [{ providerId: 'skt' }];
+        expect(isTMembershipPartner(offers, 'cu', skt, now)).toBe(true);
+        expect(isTMembershipPartner(offers, 'gs25', skt, now)).toBe(false);
+        expect(isTMembershipPartner(offers, 'emart24', skt, now)).toBe(false);
+        expect(isTMembershipPartner(offers, 'cu', [{ providerId: 'kt' }], now)).toBe(false);
+        expect(isTMembershipPartner(offers, undefined, skt, now)).toBe(false);
     });
 });
 
