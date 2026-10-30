@@ -352,6 +352,7 @@ describe('promotion source parsers', () => {
         expect(rental.action).toMatchObject({ type: 'POINTS', value: 5 });
 
         expect(find('광동상회', 'DISCOUNT').action.maxBenefit).toBe(3_000);
+        expect(find('광동상회', 'POINTS').action.maxBenefit).toBe(3_000);
         expect(find('후디스몰', 'DISCOUNT').action.maxBenefit).toBe(50_000);
     });
 
@@ -480,6 +481,19 @@ describe('promotion source parsers', () => {
         expect(offers.every(item => item.offer.brandIds[0] === 'tous_les_jours')).toBe(true);
         expect(offers.every(item => !item.offer.description.includes('2018'))).toBe(true);
         expect(offers.every(item => item.offer.title.length < 80)).toBe(true);
+    });
+
+    it('reads a U+ coupon cap written as "최대 3천원까지 할인"', () => {
+        const [coupon] = parseLguplusBenefits([{
+            urcMbspJncoNo: 900,
+            urcMbspJncoNm: '광동상회',
+            jncoBnftThumCntn: 'VVIP/VIP/우수 : 10% 할인',
+            jncoBnftDetlCntn: '월 1회',
+            urcBnftTadvMthdCntn: '- 본 쿠폰은 최소 구매 금액 제한 없이 최대 3천원까지 할인 혜택 적용 가능합니다.(단, 삼다수 제품 제외)',
+            jncoTadvGrdDetlDscr: 'VVIP/VIP/우수',
+        }], 'https://example.com/uplus');
+
+        expect(coupon.offer.action.maxBenefit).toBe(3_000);
     });
 
     it('parses deterministic U+ API rows and keeps maximum values informational', () => {

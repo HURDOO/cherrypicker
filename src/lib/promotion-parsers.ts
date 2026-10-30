@@ -439,6 +439,12 @@ const parsePurchaseCap = (text: string) => {
     return undefined;
 };
 
+// "최소 구매 금액 제한 없이 최대 3천원까지 할인", "쿠폰 사용 시 최대 10,000원까지 할인받으실 수 있습니다"
+const parseCouponDiscountCap = (text: string) => {
+    const match = text.match(/최대\s*([\d,]+(?:\.\d+)?\s*(?:만|천)?\s*원)\s*까지\s*할인/);
+    return match ? parseKoreanAmount(match[1]) : undefined;
+};
+
 const parseMonthlyPurchaseCap = (text: string) => {
     const match = text.match(
         /월\s*(?:결제|이용|구매|주문)\s*금액[^\n]{0,30}?최대\s*([\d,]+(?:\.\d+)?\s*(?:만|천)?\s*원)/
@@ -1011,9 +1017,10 @@ export function parseSktMembershipHtml(
                     tiers,
                     'monthly',
                 );
+                // A discount shown to 적립형 members ("10% 할인") is capped by the discount wording.
                 const transactionCap = transactionBenefitCapEvidence(
                     combinedBenefitText,
-                    membershipMode,
+                    parsed.reward ? 'POINTS' : 'DISCOUNT',
                     tiers,
                 );
                 const fixedCap = parentheticalBenefitCap(description);
@@ -1326,6 +1333,7 @@ export function parseLguplusBenefits(
         const defaultTiers = parseTiersFromText(row.jncoTadvGrdDetlDscr ?? '');
         const limits = parseLimitConfig(`${benefitText}\n${detailText}`);
         const purchaseCap = parsePurchaseCap(detailText);
+        const couponDiscountCap = parseCouponDiscountCap(detailText);
         const lines = benefitText.split('\n').map(line => line.trim()).filter(Boolean);
         const seenTierGroups = new Map<string, number>();
 
@@ -1334,7 +1342,8 @@ export function parseLguplusBenefits(
             if (!parsed || parsed.reward) return [];
             const tiers = parseTiersFromText(line);
             const effectiveTiers = tiers.length > 0 ? tiers : defaultTiers;
-            const maxBenefit = parseMaxBenefit(line);
+            const maxBenefit = parseMaxBenefit(line) ??
+                (parsed.action.type === 'PERCENT' ? couponDiscountCap : undefined);
             const informational = parsed.action.valueSemantics === 'UP_TO';
             const mixedValueKinds = parsed.action.type === 'PERCENT' &&
                 /\d+(?:\.\d+)?\s*%/.test(line) &&
