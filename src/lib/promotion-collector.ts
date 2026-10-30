@@ -756,8 +756,9 @@ const hashValue = (value: unknown) => createHash('sha256')
     .update(JSON.stringify(value))
     .digest('hex');
 
-const promotionForDiff = (value: Record<string, unknown>) => Object.fromEntries(
-    Object.entries(value).filter(([key]) => ![
+// A stored offer drops empty fields such as `usageGroupId: null`, so ignore them on both sides.
+export const promotionForDiff = (value: Record<string, unknown>) => Object.fromEntries(
+    Object.entries(value).filter(([key, item]) => item !== null && ![
         'id',
         'status',
         'sourceHash',
