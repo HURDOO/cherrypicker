@@ -1010,6 +1010,10 @@ export function parseSktMembershipHtml(
                     tiers,
                 );
                 const fixedCap = parentheticalBenefitCap(description);
+                // 파리크라상 writes "최대 할인 가능 : 모바일 카드 이용 시 VIP/GOLD 20,000원" without "일".
+                const instrumentCap = mobileCardDefault && !dailyCap && !monthlyCap && !transactionCap
+                    ? benefitCapEvidence(combinedBenefitText, membershipMode, tiers)
+                    : undefined;
                 const purchaseCap = parsePurchaseCap(detailText);
                 const parsedLimits = parseSktLimitConfig(combinedBenefitText);
                 const minSpend = parseMinSpend(detailText) ?? (
@@ -1052,7 +1056,7 @@ export function parseSktMembershipHtml(
                 const effectiveLimitConfig: LimitConfig = sharedFields.length > 0
                     ? { ...limitConfig, sharedFields }
                     : limitConfig;
-                const maxBenefit = fixedCap ?? dailyCap?.amount ?? transactionCap?.amount ?? (
+                const maxBenefit = fixedCap ?? dailyCap?.amount ?? transactionCap?.amount ?? instrumentCap?.amount ?? (
                     purchaseCap && parsed.action.type === 'PERCENT'
                         ? Math.floor(purchaseCap * (parsed.action.value / 100))
                         : undefined
@@ -1069,6 +1073,7 @@ export function parseSktMembershipHtml(
                     ...(fixedCap ? [description] : []),
                     ...(dailyCap ? [dailyCap.line] : []),
                     ...(transactionCap ? [transactionCap.line] : []),
+                    ...(instrumentCap ? [instrumentCap.line] : []),
                     ...(purchaseCap ? [description] : []),
                 ];
                 const expectedFields = [

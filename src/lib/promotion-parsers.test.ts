@@ -294,6 +294,12 @@ describe('promotion source parsers', () => {
         expect(vipGold.offer.condition.requiredNote).toContain('천원당 50원 할인(플라스틱카드)');
         expect(vipGold.offer.condition.requiredNote).toContain('일부 점포(휴게소, 역사, 인샵, 특수매장 등) 제외');
 
+        const [parisCroissant] = parseSktMembershipHtml(html, 'https://example.com/list.do', {
+            '300': detail
+                .replace('플라스틱 카드 이용 시 일 최대', '플라스틱 카드 이용 시')
+                .replace('모바일 카드 이용 시 일 최대', '모바일 카드 이용 시'),
+        });
+        expect(parisCroissant.offer.action.maxBenefit).toBe(20_000);
         expect(silver.offer.action).toMatchObject({ type: 'PERCENT', value: 5, maxBenefit: 10_000 });
         expect(silver.offer.condition).toMatchObject({ calculationMode: 'CALCULABLE' });
         expect(silver.offer.condition.requiredInputs ?? []).toEqual([]);
