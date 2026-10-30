@@ -244,6 +244,27 @@ describe('promotion source parsers', () => {
         expect(cu.autoPublish).toBe(false);
     });
 
+    it('reads "사용하실 수 없습니다" store exclusions as a note, not a store check', () => {
+        const [seven] = parseSktMembershipHtml(`
+            <a class="benefit-box" data-id="147">
+                <span class="brand">세븐일레븐</span>
+                <dl><dt>할인형</dt><dd><div class="info"><i class="badge-circle vip"></i>1천 원당 100원 할인</div></dd></dl>
+            </a>
+        `, 'https://example.com/list.do', {
+            '147': `<ul>
+                <li>- 할인/적립/사용 제외 상품 : 행사 상품(1+1, 2+1, 증정, 할인), 담배, 주류 등</li>
+                <li>일부 특수 매장(휴게소, 리조트, 공항 등)에서는 할인 및 적립을 하거나 사용하실 수 없습니다.</li>
+            </ul>`,
+        });
+
+        expect(seven.offer.condition).toMatchObject({
+            applicabilityScope: 'STORE_WIDE',
+            calculationMode: 'CALCULABLE',
+        });
+        expect(seven.offer.condition.requiredInputs ?? []).toEqual([]);
+        expect(seven.offer.condition.requiredNote).toContain('사용하실 수 없습니다.');
+    });
+
     it('keeps SKT benefits on named items item-specific even when they also list exclusions', () => {
         const html = `
             <a class="benefit-box" data-id="20">

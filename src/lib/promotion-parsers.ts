@@ -784,7 +784,7 @@ const inferSktScope = (description: string, detailText: string) => {
 /** "Not at some special stores (rest areas, airports…)" excludes; "only at some stores" narrows. */
 const isStoreExclusionOnly = (line: string | undefined) => Boolean(
     line &&
-    /(?:불가|제외|미적용)/.test(line) &&
+    /(?:불가|제외|미적용|수\s*없)/.test(line) &&
     !/(?:에서만|에\s*한해|에\s*한함|한정|참여\s*매장)/.test(line)
 );
 
