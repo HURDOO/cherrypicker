@@ -381,7 +381,8 @@ describe('promotion source parsers', () => {
                 <dl><dt>할인형</dt><dd><div class="info"><i class="badge-circle vip"></i>20% 할인</div></dd></dl>
             </a>
         `, 'https://example.com/list.do', {
-            '22': '<ul><li>VOD 상품에 한해 T 플러스포인트 사용 가능(100%, 1P 단위)</li></ul>',
+            '22': '<ul><li>VOD 상품에 한해 T 플러스포인트 사용 가능(100%, 1P 단위)</li>' +
+                '<li>할인형 고객님의 경우, VOD 상품에 한해 포인트를 사용하실 수 있으며 월정액 상품은 포인트를 사용하실 수 없습니다.</li></ul>',
         });
         expect(btv.offer.condition.applicabilityScope).toBe('STORE_WIDE');
     });

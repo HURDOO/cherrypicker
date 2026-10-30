@@ -766,7 +766,7 @@ const inferSktScope = (description: string, detailText: string) => {
         // "제조 음료 한정", "정가 메뉴에 한해", "배송상품에 한하며": a named item set, not a count limit.
         (/(?:상품|제품|메뉴|음료|품목|과목)\s*(?:에\s*)?한(?:정|해|하여|하며|함)/.test(line) &&
             // Where points can be spent says nothing about the discount itself.
-            !/포인트\s*사용/.test(line))
+            !/포인트\s*(?:를\s*)?사용/.test(line))
     ));
     const exclusionPattern = /(?:상품|제품|메뉴|서비스)[^\n]{0,80}(?:제외|적용\s*불가|이용\s*불가)|(?:제외|특가|행사)\s*(?:상품|제품|메뉴|서비스)/;
     const exclusionLines = lines.filter(line => exclusionPattern.test(line));
