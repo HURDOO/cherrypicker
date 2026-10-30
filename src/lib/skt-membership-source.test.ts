@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
     buildSktMembershipDetailUrl,
     buildSktMembershipListUrl,
+    isSktCardProductBrand,
     parseSktMembershipListPage,
     validateSktMembershipListPages,
 } from './skt-membership-source';
@@ -375,5 +376,14 @@ describe('SKT membership source completeness', () => {
         });
         expect(result.documents[0].responseMetadata.collectionCompleteness)
             .toMatchObject({ status: 'PARTIAL', failedUrls: [expect.stringContaining('pageNum=0')] });
+    });
+});
+
+describe('SKT card product brands', () => {
+    it('treats T membership co-brand cards as card products, not partner stores', () => {
+        expect(isSktCardProductBrand('T 멤버십 더블 롯데 카드')).toBe(true);
+        expect(isSktCardProductBrand('T 멤버십 더블 롯데 체크카드')).toBe(true);
+        expect(isSktCardProductBrand('CU')).toBe(false);
+        expect(isSktCardProductBrand('T 멤버십 VIP PICK')).toBe(false);
     });
 });

@@ -79,6 +79,7 @@ import {
 } from './promotion-review-policy';
 import {
     buildSktMembershipDetailUrl,
+    isSktCardProductBrand,
     buildSktMembershipListUrl,
     parseSktMembershipListPage,
     validateSktMembershipListPages,
@@ -599,8 +600,12 @@ export async function collectSktMembershipSource(
         brand.officialId,
         brand,
     ]));
+    // Co-brand card products sit in the partner list but are not stores to recommend.
+    const cardProductBrands = inventory.brands.filter(brand => (
+        !deterministicOfficialIds.has(brand.officialId) && isSktCardProductBrand(brand.name)
+    ));
     const unparsedBrands = inventory.brands.filter(brand => (
-        !deterministicOfficialIds.has(brand.officialId)
+        !deterministicOfficialIds.has(brand.officialId) && !isSktCardProductBrand(brand.name)
     ));
     const aiPromotions: ParsedPromotion[] = [];
     const aiFailedBrandIds: string[] = [];
@@ -656,6 +661,9 @@ export async function collectSktMembershipSource(
             aiFailedBrandIds,
         }),
         ...(aiFailures.length > 0 && { aiFailures }),
+        ...(cardProductBrands.length > 0 && {
+            skippedCardProductBrandIds: cardProductBrands.map(brand => brand.officialId),
+        }),
     };
     if (aiFailedBrandIds.length > 0) {
         return {
@@ -676,7 +684,10 @@ export async function collectSktMembershipSource(
         completeness: {
             complete: true,
             message: `SKT 목록 ${inventory.totalCount}건과 상세 ${successfulDetails.length}건을 ` +
-                `완전 수집하고 ${structuredBrandCount}개 브랜드를 구조화했습니다.`,
+                `완전 수집하고 ${structuredBrandCount}개 브랜드를 구조화했습니다.` +
+                (cardProductBrands.length > 0
+                    ? ` 제휴카드 상품 ${cardProductBrands.length}개는 매장 혜택이 아니어서 제외했습니다.`
+                    : ''),
         },
     };
 }

@@ -91,6 +91,9 @@ export function parseSktMembershipListPage(html: string): SktMembershipListPage 
     };
 }
 
+/** "T 멤버십 더블 롯데 카드" is a co-brand card product listed among partners, not a store. */
+export const isSktCardProductBrand = (name: string) => /^T\s*멤버십\s.+카드$/.test(name.trim());
+
 export function buildSktMembershipListUrl(sourceUrl: string, pageNum: number) {
     const url = new URL(sourceUrl);
     url.searchParams.set('pageNum', String(pageNum));

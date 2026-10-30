@@ -325,7 +325,9 @@ const parseAction = (text: string): ParsedAction | undefined => {
     const percentages = unique([...text.matchAll(/(\d+(?:\.\d+)?)\s*%/g)]
         .map(match => Number(match[1])).filter(value => Number.isFinite(value) && value > 0));
     const rates = perThousand.length > 0 ? perThousand : percentages;
-    const reward = /적립|캐시백|포인트/.test(text) && !/할인/.test(text);
+    // "할인 혜택 적용 후 … 5% 적립" is a reward on top of the discount.
+    const reward = /적립|캐시백|포인트/.test(text) &&
+        (!/할인/.test(text) || /할인[^\n]{0,20}적용\s*후[^\n]*(?:적립|캐시백)/.test(text));
 
     if (rates.length > 0) {
         const unitAmount = perThousand.length > 0 ? 1_000 : undefined;
@@ -431,7 +433,8 @@ const parsePurchaseCap = (text: string) => {
     ];
     for (const pattern of patterns) {
         const match = text.match(pattern);
-        if (match) return parseKoreanAmount(match[1]);
+        // "최소 구매 금액 제한 없이 최대 3,000원까지 할인" caps the discount, not the purchase.
+        if (match && !/제한\s*없이/.test(match[0])) return parseKoreanAmount(match[1]);
     }
     return undefined;
 };
@@ -763,6 +766,8 @@ const inferSktScope = (description: string, detailText: string) => {
     const exclusionLines = lines.filter(line => exclusionPattern.test(line));
     const exclusionLine = exclusionLines[0];
     const describedProduct = /싱글레귤러|시그니처\s*커피|종합이용권|영화\s*관람권|금액권|(?:상품|제품|메뉴)\s*구매\s*시/.test(description) ||
+        // Gift card denominations ("5만 원권/3만 원권") and car service items.
+        /[\d,]+\s*(?:만|천)?\s*원권|엔진\s*오일|공임|부가\s*상품/.test(description) ||
         // A rate on a named item group, e.g. "프레시 푸드 1천 원당 200원 할인".
         /(?:푸드|음료|커피|도시락|베이커리)\s*[\d,]+\s*(?:천|만)?\s*원\s*당/.test(description);
     // "Everything except tobacco, alcohol…" still covers the store; only a named target narrows it.
@@ -822,6 +827,8 @@ const transactionBenefitCapEvidence = (
         /1회\s*이용\s*시\s*최대\s*([\d,]+(?:\.\d+)?\s*(?:만|천)?\s*(?:원|P))/u,
         /(?:할인|적립)\s*\([^\n)]{0,50}?최대\s*([\d,]+(?:\.\d+)?\s*(?:만|천)?\s*(?:원|P))/u,
         /(?:할인|적립)[^\n]{0,50}?최대\s*([\d,]+(?:\.\d+)?\s*(?:만|천)?\s*(?:원|P))/u,
+        // "최대 3,000원까지 할인 혜택", "최대 50,000원 할인받으실 수 있습니다"
+        /최대\s*([\d,]+(?:\.\d+)?\s*(?:만|천)?\s*(?:원|P))\s*(?:까지\s*)?(?:할인|적립)/u,
     ];
     return detailLines(text).flatMap(line => {
         if (!benefitPattern.test(line) || /월\s*최대/.test(line)) return [];
@@ -1015,6 +1022,17 @@ export function parseSktMembershipHtml(
                     ? benefitCapEvidence(combinedBenefitText, membershipMode, tiers)
                     : undefined;
                 const purchaseCap = parsePurchaseCap(detailText);
+                // "5% 할인(5만 원권/3만 원권)" with "최대 4장 구매": cap at the largest vouchers.
+                const voucherCountMatch = detailText.match(/최대\s*(\d+)\s*장\s*구매/);
+                const voucherValues = [...description.matchAll(/([\d,]+\s*(?:만|천)?\s*원)권/g)]
+                    .map(match => parseKoreanAmount(match[1]))
+                    .filter((value): value is number => value !== undefined);
+                const voucherCap = voucherCountMatch && voucherValues.length > 0 && parsed.action.type === 'PERCENT'
+                    ? Math.floor(Number(voucherCountMatch[1]) * Math.max(...voucherValues) * (parsed.action.value / 100))
+                    : undefined;
+                const vehicleLine = detailLines(detailText).find(line => (
+                    /수입차|톤\s*초과|차종/.test(line) && /제외|불가/.test(line)
+                ));
                 const parsedLimits = parseSktLimitConfig(combinedBenefitText);
                 const minSpend = parseMinSpend(detailText) ?? (
                     parsed.action.unitAmount ? parsed.action.unitAmount : undefined
@@ -1023,6 +1041,8 @@ export function parseSktMembershipHtml(
                 const mixedBenefit = parsed.ambiguous ||
                     parsed.action.valueSemantics === 'UP_TO' ||
                     /무료|1\s*\+\s*1|동반|짝수\s*월|홀수\s*월|구매한도[^\n]*유의|상시\s*최대|제주[^\n]*내륙/.test(description) ||
+                    // "엔진오일 2만 원 할인 / 공임 10% 할인": two benefits in one line.
+                    /[\d,]+\s*(?:만|천)?\s*원\s*(?:할인|적립)[^\n]*\/[^\n]*\d+(?:\.\d+)?\s*%\s*(?:할인|적립)|\d+(?:\.\d+)?\s*%\s*(?:할인|적립)[^\n]*\/[^\n]*[\d,]+\s*(?:만|천)?\s*원\s*(?:할인|적립)/.test(description) ||
                     ['emart', 'cgv', 'elevenst'].includes(brandId);
                 const requiredInputs: PromotionRequiredInput[] = unique([
                     ...(itemScope.scope === 'PRODUCT_SET'
@@ -1056,7 +1076,7 @@ export function parseSktMembershipHtml(
                 const effectiveLimitConfig: LimitConfig = sharedFields.length > 0
                     ? { ...limitConfig, sharedFields }
                     : limitConfig;
-                const maxBenefit = fixedCap ?? dailyCap?.amount ?? transactionCap?.amount ?? instrumentCap?.amount ?? (
+                const maxBenefit = fixedCap ?? dailyCap?.amount ?? transactionCap?.amount ?? instrumentCap?.amount ?? voucherCap ?? (
                     purchaseCap && parsed.action.type === 'PERCENT'
                         ? Math.floor(purchaseCap * (parsed.action.value / 100))
                         : undefined
@@ -1074,6 +1094,7 @@ export function parseSktMembershipHtml(
                     ...(dailyCap ? [dailyCap.line] : []),
                     ...(transactionCap ? [transactionCap.line] : []),
                     ...(instrumentCap ? [instrumentCap.line] : []),
+                    ...(voucherCap && voucherCountMatch ? [voucherCountMatch[0]] : []),
                     ...(purchaseCap ? [description] : []),
                 ];
                 const expectedFields = [
@@ -1102,7 +1123,7 @@ export function parseSktMembershipHtml(
                     : itemScope.scope === 'PRODUCT_SET' && storeEligibilityRequired
                         ? '혜택 대상 상품 금액과 이용 매장을 확인해야 합니다.'
                         : itemScope.scope === 'PRODUCT_SET'
-                            ? ['혜택 대상 상품 금액을 확인해야 합니다.', exclusionNote].filter(Boolean).join(' ')
+                            ? ['혜택 대상 상품 금액을 확인해야 합니다.', exclusionNote, vehicleLine].filter(Boolean).join(' ')
                             : storeEligibilityRequired
                                 ? '이용 매장이 공식 혜택 대상인지 확인해야 합니다.'
                                 : instrumentInput

@@ -306,6 +306,55 @@ describe('promotion source parsers', () => {
         expect(silver.offer.condition.requiredNote ?? '').not.toContain('플라스틱카드는');
     });
 
+    it('reads SKT voucher, car service, after-discount reward and coupon cap wording', () => {
+        const box = (id: string, brand: string, discount: string, points: string) => `
+            <a class="benefit-box" data-id="${id}">
+                <span class="brand">${brand}</span>
+                <dl><dt>할인형</dt><dd><div class="info"><i class="badge-circle vip"></i>${discount}</div></dd></dl>
+                <dl><dt>적립형</dt><dd><div class="info"><i class="badge-circle vip"></i>${points}</div></dd></dl>
+            </a>`;
+        const html = [
+            box('401', '북앤라이프', '5% 할인(5만 원권/3만 원권)', '5% 할인(5만 원권/3만 원권)'),
+            box('402', '스피드메이트', '국산차 엔진오일 2만 원 할인 / 공임, 부가상품 10% 할인', '국산차 엔진오일 2만 원 할인'),
+            box('403', '빌리카', '제주: 주중/주말 최대 60% 할인', '제주 할인 혜택 적용 후 차량 대여 요금의 5% 적립'),
+            box('404', '광동상회', '10% 할인', '10% 할인'),
+            box('405', '후디스몰', '일반 상품 3만 원 이상 구매 시 25% 할인', '일반 상품 3만 원 이상 구매 시 25% 할인'),
+        ].join('');
+        const offers = parseSktMembershipHtml(html, 'https://example.com/list.do', {
+            '401': '<ul><li>전 등급 1일 1회, 최대 4장 구매 가능</li></ul>',
+            '402': `<ul>
+                <li>최대 할인 금액 : 혜택당 연 1회, 1회 이용 시 최대 20,000원 할인</li>
+                <li>최대 적립 금액 : 혜택당 연 1회, 1회 이용 시 최대 20,000P 적립</li>
+                <li>수입차 및 1.3톤 초과차량은 혜택 대상에서 제외됩니다.</li>
+            </ul>`,
+            '403': '<ul><li>할인/적립 횟수: 1일 1회</li><li>최대 적립 금액: 하루 최대 25,000P</li></ul>',
+            '404': '<ul><li>이 쿠폰으로 최소 구매 금액 제한 없이 최대 3,000원까지 할인 혜택을 받으실 수 있습니다.</li></ul>',
+            '405': '<ul><li>이 쿠폰 사용 시 최대 50,000원 할인받으실 수 있습니다.</li></ul>',
+        });
+        const find = (brand: string, mode: string) => offers.find(item => (
+            item.offer.title.startsWith(brand) && item.offer.condition.telecomModes?.includes(mode as never)
+        ))!.offer;
+
+        const voucher = find('북앤라이프', 'DISCOUNT');
+        expect(voucher.condition.applicabilityScope).toBe('PRODUCT_SET');
+        expect(voucher.condition.eligibleItemSummary).toContain('5만 원권/3만 원권');
+        expect(voucher.action.maxBenefit).toBe(10_000);
+
+        const oilAndLabor = find('스피드메이트', 'DISCOUNT');
+        expect(oilAndLabor.condition.calculationMode).toBe('INFORMATION_ONLY');
+        const oil = find('스피드메이트', 'POINTS');
+        expect(oil.condition.applicabilityScope).toBe('PRODUCT_SET');
+        expect(oil.condition.calculationMode).toBe('CONDITIONAL');
+        expect(oil.condition.requiredNote).toContain('수입차 및 1.3톤 초과차량');
+
+        const rental = find('빌리카', 'POINTS');
+        expect(rental.layer).toBe('POST_REWARD');
+        expect(rental.action).toMatchObject({ type: 'POINTS', value: 5 });
+
+        expect(find('광동상회', 'DISCOUNT').action.maxBenefit).toBe(3_000);
+        expect(find('후디스몰', 'DISCOUNT').action.maxBenefit).toBe(50_000);
+    });
+
     it('keeps SKT benefits on named items item-specific even when they also list exclusions', () => {
         const html = `
             <a class="benefit-box" data-id="20">
