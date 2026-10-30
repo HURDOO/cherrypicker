@@ -614,6 +614,8 @@ export interface PromotionCompatibility {
     allowStackWithSameLayer?: boolean;
     blocksCardBenefit?: boolean;
     allowResidualPayment?: boolean;
+    /** Source says it cannot stack with other discounts, so no other provider's offer joins it. */
+    exclusiveWithOtherProviders?: boolean;
 }
 
 export interface PromotionOffer {

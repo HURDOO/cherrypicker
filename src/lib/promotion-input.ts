@@ -270,6 +270,9 @@ export function normalizePromotionDraft(value: unknown): NormalizedPromotionDraf
         allowStackWithSameLayer: boolean(compatibilityInput.allowStackWithSameLayer),
         blocksCardBenefit: boolean(compatibilityInput.blocksCardBenefit),
         allowResidualPayment: boolean(compatibilityInput.allowResidualPayment),
+        ...(boolean(compatibilityInput.exclusiveWithOtherProviders) && {
+            exclusiveWithOtherProviders: true,
+        }),
     };
 
     const limitInput = record(input.limitConfig ?? {}, '한도 조건');

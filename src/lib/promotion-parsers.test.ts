@@ -265,6 +265,41 @@ describe('promotion source parsers', () => {
         expect(seven.offer.condition.requiredNote).toContain('사용하실 수 없습니다.');
     });
 
+    it('counts Paris Baguette at the mobile card rate and notes the plastic card rate', () => {
+        const html = `
+            <a class="benefit-box" data-id="300">
+                <span class="brand">파리바게뜨</span>
+                <dl><dt>할인형</dt><dd>
+                    <div class="info"><i class="badge-circle vip"></i><i class="badge-circle gold"></i>천원당 100원 할인(모바일카드) / 천원당 50원 할인(플라스틱카드)</div>
+                    <div class="info"><i class="badge-circle silver"></i>천원당 50원 할인 (모바일카드/플라스틱카드)</div>
+                </dd></dl>
+            </a>
+        `;
+        const detail = `<ul>
+            <li>할인 또는 적립 혜택을 받기 위해서는 반드시 직원에게 T 멤버십 App 내 일회용 바코드 또는 플라스틱 카드를 제시해야 합니다.</li>
+            <li>횟수 제한 : 1일 1회 결제금액 1천 원 이상 시 할인 또는 적립 가능</li>
+            <li>최대 할인 가능 : 플라스틱 카드 이용 시 일 최대 10,000원 할인</li>
+            <li>최대 할인 가능 : 모바일 카드 이용 시 일 최대 VIP/GOLD 20,000원, SILVER 10,000원 할인</li>
+            <li>제외 매장 : 일부 점포(휴게소, 역사, 인샵, 특수매장 등) 제외 됩니다.</li>
+        </ul>`;
+
+        const [vipGold, silver] = parseSktMembershipHtml(html, 'https://example.com/list.do', { '300': detail });
+
+        expect(vipGold.offer.action).toMatchObject({ type: 'PERCENT', value: 10, maxBenefit: 20_000 });
+        expect(vipGold.offer.action.valueSemantics).not.toBe('UP_TO');
+        expect(vipGold.offer.condition).toMatchObject({ applicabilityScope: 'STORE_WIDE', calculationMode: 'CALCULABLE' });
+        expect(vipGold.offer.condition.requiredInputs ?? []).toEqual([]);
+        expect(vipGold.offer.limitConfig).toMatchObject({ dailyCount: 1, dailyAmount: 20_000 });
+        expect(vipGold.offer.condition.requiredNote).toContain('T 멤버십 앱 바코드(모바일카드) 기준');
+        expect(vipGold.offer.condition.requiredNote).toContain('천원당 50원 할인(플라스틱카드)');
+        expect(vipGold.offer.condition.requiredNote).toContain('일부 점포(휴게소, 역사, 인샵, 특수매장 등) 제외');
+
+        expect(silver.offer.action).toMatchObject({ type: 'PERCENT', value: 5, maxBenefit: 10_000 });
+        expect(silver.offer.condition).toMatchObject({ calculationMode: 'CALCULABLE' });
+        expect(silver.offer.condition.requiredInputs ?? []).toEqual([]);
+        expect(silver.offer.condition.requiredNote ?? '').not.toContain('플라스틱카드는');
+    });
+
     it('keeps SKT benefits on named items item-specific even when they also list exclusions', () => {
         const html = `
             <a class="benefit-box" data-id="20">
@@ -708,6 +743,46 @@ describe('promotion source parsers', () => {
             acmRate: 5,
         }], 'DOMESTIC_INSTORE', 'https://pay.naver.com/benefit/payment/list');
         expect(classifyPromotionWithRules(storeWide).scope).not.toBe('PRODUCT_SET');
+    });
+
+    it('marks Npay offers that cannot stack with other discounts, and asks for a partner membership scan', () => {
+        const [cu, jamba, vips] = parseNaverPayPromotions([{
+            promotionSeq: 24278798653445,
+            promotionName: 'CU',
+            promotionDescription: '도시락 전 상품 결제 시',
+            exposeTitle: '40% 할인',
+            acmRate: 40,
+            cautionText: [
+                '포켓CU 멤버십 QR 스캔 후 도시락 전 상품 구매 시 40% 할인',
+                '카드·삼성페이 결제 시 혜택 적용 불가',
+                '제휴할인·쿠폰 등 타 혜택과 중복 적용 불가',
+            ].join('\n'),
+        }, {
+            promotionSeq: 3,
+            promotionName: '잠바주스',
+            promotionDescription: 'Npay QR 1.2만원 이상 결제 시',
+            exposeTitle: '50% 할인',
+            acmRate: 50,
+            cautionText: '타혜택과 중복적용 불가',
+        }, {
+            promotionSeq: 4,
+            promotionName: 'VIPS',
+            promotionDescription: '포인트·머니로 10만원 이상 전액 결제 시',
+            exposeTitle: '5만원 적립',
+            cautionText: '통신사 멤버십 혜택 중복 적용 가능\n통신사 혜택 적용 후, 포인트·머니 QR로 최종 결제 10만원 이상 시 혜택 적용',
+        }], 'DOMESTIC_INSTORE', 'https://pay.naver.com/benefit/payment/list');
+
+        expect(cu.offer.compatibility.exclusiveWithOtherProviders).toBe(true);
+        expect(jamba.offer.compatibility.exclusiveWithOtherProviders).toBe(true);
+        expect(vips.offer.compatibility.exclusiveWithOtherProviders).toBeFalsy();
+
+        expect(cu.offer.condition).toMatchObject({
+            calculationMode: 'CONDITIONAL',
+            confirmationRequired: true,
+            requiredNote: '포켓CU 멤버십 QR을 먼저 스캔해야 받을 수 있습니다.',
+        });
+        expect(cu.offer.condition.requiredInputs).toContain('TARGET_ELIGIBILITY');
+        expect(vips.offer.condition.requiredNote ?? '').not.toContain('멤버십 QR');
     });
 
     it('separates Npay funding inclusion, exclusion, and actual enrollment actions', () => {

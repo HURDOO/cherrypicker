@@ -355,6 +355,14 @@ const canApplyOffer = (
         return false;
     }
 
+    const otherProviderOffers = [...state.appliedPromotionIds]
+        .map(id => allOffers.find(item => item.id === id))
+        .filter((item): item is PromotionOffer => Boolean(item) && item?.providerId !== offer.providerId);
+    if (otherProviderOffers.length > 0 && (
+        offer.compatibility.exclusiveWithOtherProviders ||
+        otherProviderOffers.some(item => item.compatibility.exclusiveWithOtherProviders)
+    )) return false;
+
     const excludedIds = new Set(offer.compatibility.excludedPromotionIds ?? []);
     if ([...state.appliedPromotionIds].some(id => excludedIds.has(id))) return false;
     if ([...state.appliedPromotionIds].some(id =>

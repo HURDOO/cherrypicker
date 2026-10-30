@@ -117,6 +117,34 @@ const input = (
 });
 
 describe('calculateBestCombinations', () => {
+    it('keeps an offer that cannot stack with other discounts out of other providers\' combinations', () => {
+        const npay = offer('npay-cu', {
+            providerId: 'naverpay',
+            layer: 'PAY',
+            action: { type: 'PERCENT', value: 40 },
+            condition: { amountBasis: 'REMAINING_AMOUNT' },
+            compatibility: {
+                requiredPayProviderIds: ['naverpay'],
+                allowedFundingTypes: ['MONEY', 'POINTS'],
+                exclusiveWithOtherProviders: true,
+            },
+        });
+        const universe = offer('universe-cu', {
+            providerId: 't-universe',
+            action: { type: 'PERCENT', value: 20 },
+            condition: { amountBasis: 'REMAINING_AMOUNT', requiredSubscriptionProducts: ['우주패스 쇼핑'] },
+        });
+
+        const result = calculateBestCombinations(input([npay, universe], { amount: 10_000, rules: [] }));
+
+        expect(result.combinations.some(combination => {
+            const ids = combination.steps.map(step => step.promotionId);
+            return ids.includes('npay-cu') && ids.includes('universe-cu');
+        })).toBe(false);
+        expect(result.combinations[0].steps.map(step => step.promotionId)).toEqual(['npay-cu']);
+        expect(result.combinations[0].confirmedValue).toBe(4_000);
+    });
+
 
     it('ranks a plain card payment above an equal pay app payment that adds nothing', () => {
         const result = calculateBestCombinations(input([], { rules: [] }));

@@ -956,14 +956,42 @@ export function parseSktMembershipHtml(
                 const info = infoMatch[1];
                 const description = htmlToText(info);
                 if (/포인트\s*사용/.test(description)) continue;
-                const parsed = parseAction(description);
+                // "천원당 100원 할인(모바일카드) / 천원당 50원 할인(플라스틱카드)": count the T 멤버십 app
+                // barcode (mobile card) rate, since that is what the app opens, and note the plastic rate.
+                const mobileRate = description.match(/[^\n/]*?[\d,]+\s*(?:원|P)\s*(?:할인|적립)\s*\(\s*모바일\s*카드\s*\)/);
+                const plasticRate = description.match(/[^\n/]*?[\d,]+\s*(?:원|P)\s*(?:할인|적립)\s*\(\s*플라스틱\s*카드\s*\)/);
+                const instrumentSplit = Boolean(mobileRate && plasticRate);
+                const sameRateForBothCards = /모바일\s*카드\s*\/\s*플라스틱\s*카드/.test(description);
+                const mobileCardDefault = instrumentSplit || sameRateForBothCards;
+                const instrumentInput = paymentInstrumentRequired && !mobileCardDefault;
+                const parsed = parseAction(instrumentSplit && mobileRate
+                    ? mobileRate[0].replace(/\(\s*모바일\s*카드\s*\)/, '').trim()
+                    : description);
                 if (!parsed) continue;
                 if (membershipMode === 'DISCOUNT' && parsed.reward) continue;
                 const tiers = tierClasses(info);
                 const tierKey = tiers.slice().sort().join('-') || 'ALL';
                 const variant = seenTierGroups.get(tierKey) ?? 0;
                 seenTierGroups.set(tierKey, variant + 1);
-                const combinedBenefitText = `${description}\n${detailText}`;
+                const combinedBenefitText = mobileCardDefault
+                    ? `${description}\n${detailLines(detailText)
+                        .filter(line => !/플라스틱\s*카드\s*이용\s*시/.test(line))
+                        .join('\n')}`
+                    : `${description}\n${detailText}`;
+                const plasticCapLine = instrumentSplit
+                    ? detailLines(detailText).find(line => (
+                        /플라스틱\s*카드\s*이용\s*시/.test(line) &&
+                        (membershipMode === 'POINTS' ? /적립/ : /할인/).test(line)
+                    ))
+                    : undefined;
+                const instrumentNote = instrumentSplit && plasticRate
+                    ? [
+                        'T 멤버십 앱 바코드(모바일카드) 기준입니다.',
+                        `${plasticRate[0].trim()}${plasticCapLine
+                            ? `, ${stripListMarker(plasticCapLine).replace(/^최대\s*(?:할인|적립)\s*가능\s*:\s*/, '')}`
+                            : ''}.`,
+                    ].join(' ')
+                    : undefined;
                 const dailyCap = benefitCapEvidence(
                     combinedBenefitText,
                     membershipMode,
@@ -996,7 +1024,7 @@ export function parseSktMembershipHtml(
                     ...(itemScope.scope === 'PRODUCT_SET'
                         ? ['ELIGIBLE_ITEM_AMOUNT' as const]
                         : []),
-                    ...(paymentInstrumentRequired
+                    ...(instrumentInput
                         ? ['PAYMENT_INSTRUMENT' as const]
                         : []),
                     ...(storeEligibilityRequired
@@ -1034,7 +1062,7 @@ export function parseSktMembershipHtml(
                 const scopeLine = itemScope.evidence;
                 const requiredInputLines = [
                     ...(itemScope.scope === 'PRODUCT_SET' ? [itemScope.evidence] : []),
-                    ...(paymentInstrumentLine ? [paymentInstrumentLine] : []),
+                    ...(instrumentInput && paymentInstrumentLine ? [paymentInstrumentLine] : []),
                     ...(storeEligibilityRequired && storeEligibilityLine ? [storeEligibilityLine] : []),
                 ];
                 const maxBenefitLines = [
@@ -1072,9 +1100,9 @@ export function parseSktMembershipHtml(
                             ? ['혜택 대상 상품 금액을 확인해야 합니다.', exclusionNote].filter(Boolean).join(' ')
                             : storeEligibilityRequired
                                 ? '이용 매장이 공식 혜택 대상인지 확인해야 합니다.'
-                                : paymentInstrumentRequired
+                                : instrumentInput
                                     ? '모바일카드·플라스틱카드 종류를 확인해야 합니다.'
-                                    : exclusionNote || undefined;
+                                    : [instrumentNote, exclusionNote].filter(Boolean).join(' ') || undefined;
                 const result = buildTelecomOffer({
                     providerId: 'skt',
                     brandId,
@@ -1538,6 +1566,17 @@ const parseNaverPayFundingTypes = (row: NaverPayPromotion, text: string) => {
     };
 };
 
+// "제휴할인·쿠폰 등 타 혜택과 중복 적용 불가", "타 할인과 중복 사용 불가합니다"
+const naverPayExclusiveWithOthers = (text: string) =>
+    /(?:타|다른)\s*(?:혜택|할인)[^\n]{0,20}중복\s*(?:적용|사용)?\s*(?:불가|안\s*됨|되지\s*않|할\s*수\s*없)/.test(text);
+
+// "포켓CU 멤버십 QR 스캔 후": the Npay discount also needs the store's own membership scan.
+const naverPayPartnerMembership = (text: string) => {
+    const match = text.match(/([가-힣A-Za-z0-9]+)\s*멤버십\s*(?:QR|바코드)\s*(?:스캔|제시|인증)/);
+    if (!match || /^(?:통신사|네이버|Npay)$/i.test(match[1])) return undefined;
+    return match[1];
+};
+
 const requiresNaverPayEnrollment = (text: string) =>
     /쿠폰\s*(?:다운로드|받기)|(?:사전|별도)\s*(?:신청|응모)|(?:이벤트\s*)?(?:신청|응모)\s*(?:하기|필수|후|완료)|이벤트\s*참여\s*(?:하기|필수|후)|(?:앱|계정|서비스)\s*연동|자동납부\s*(?:신청|변경)/.test(text);
 
@@ -1653,7 +1692,10 @@ export function parseNaverPayPromotions(
             ? promotionMinSpend ?? cautionMinSpends[0] ?? textMinSpend
             : row.applyBasisAmount ?? textMinSpend;
         const firstPaymentOnly = /첫\s*(?:충전|결제|구매)/.test(classificationText);
+        const partnerMembership = naverPayPartnerMembership(text);
+        const exclusiveWithOtherProviders = naverPayExclusiveWithOthers(text);
         const userConfirmationRequired = !informationOnly && (
+            Boolean(partnerMembership) ||
             availabilityLimited || cumulative || fulfillmentRequired ||
             accountOrCardSpecific || requiresEnrollment || firstPaymentOnly ||
             usageLimitUnmodeled
@@ -1687,6 +1729,8 @@ export function parseNaverPayPromotions(
                 : []),
             ...(availabilityLimited ? ['선착순·예산 소진 여부를 결제 전에 확인'] : []),
             ...(accountOrCardSpecific ? ['특정 통장·카드 보유 여부를 사용자가 확인'] : []),
+            ...(partnerMembership ? [`${partnerMembership} 멤버십 스캔이 필요해 조건부로 계산`] : []),
+            ...(exclusiveWithOtherProviders ? ['타 혜택과 중복 불가: 다른 제공자 혜택과 조합하지 않음'] : []),
         ]);
 
         return [{
@@ -1732,7 +1776,7 @@ export function parseNaverPayPromotions(
                         ...(compositeInformationScopeLocked
                             ? ['STORE_ELIGIBILITY' as const]
                             : []),
-                        ...(availabilityLimited || cumulative || fulfillmentRequired
+                        ...(partnerMembership || availabilityLimited || cumulative || fulfillmentRequired
                             ? ['TARGET_ELIGIBILITY' as const]
                             : []),
                         ...(firstPaymentOnly || usageLimitUnmodeled
@@ -1746,12 +1790,14 @@ export function parseNaverPayPromotions(
                                 ? '여러 혜택과 별도 조건이 함께 있어 정보로만 제공합니다.'
                             : '최대 혜택 정보이며 정확한 할인 계산에서는 제외됩니다.',
                     } : userConfirmationRequired ? {
-                        requiredNote: accountOrCardSpecific
-                            ? '대상 통장·카드와 행사 조건을 충족하는지 확인해야 합니다.'
-                            : usageLimitUnmodeled && !availabilityLimited && !cumulative &&
-                                !fulfillmentRequired && !requiresEnrollment && !firstPaymentOnly
-                                ? '행사 참여 횟수 한도를 이미 채웠는지 확인해야 합니다.'
-                                : '선착순·누적·지급 조건을 충족하는지 확인해야 합니다.',
+                        requiredNote: partnerMembership
+                            ? `${partnerMembership} 멤버십 QR을 먼저 스캔해야 받을 수 있습니다.`
+                            : accountOrCardSpecific
+                                ? '대상 통장·카드와 행사 조건을 충족하는지 확인해야 합니다.'
+                                : usageLimitUnmodeled && !availabilityLimited && !cumulative &&
+                                    !fulfillmentRequired && !requiresEnrollment && !firstPaymentOnly
+                                    ? '행사 참여 횟수 한도를 이미 채웠는지 확인해야 합니다.'
+                                    : '선착순·누적·지급 조건을 충족하는지 확인해야 합니다.',
                     } : blockingReview ? {
                         requiredNote: '복수 혜택 계산식 또는 원문 값 충돌을 확인해야 합니다.',
                     } : {}),
@@ -1760,6 +1806,7 @@ export function parseNaverPayPromotions(
                     requiredPayProviderIds: ['naverpay'],
                     allowedFundingTypes: funding.types,
                     exclusiveGroup: `naverpay:${row.promotionSeq}`,
+                    ...(exclusiveWithOtherProviders && { exclusiveWithOtherProviders: true }),
                 },
                 limitConfig: {
                     ...(usageLimits.dailyCount && { dailyCount: usageLimits.dailyCount }),

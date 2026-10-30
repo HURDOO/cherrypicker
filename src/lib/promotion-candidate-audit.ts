@@ -51,6 +51,7 @@ const COVERAGE_PATHS = [
     'compatibility.allowStackWithSameLayer',
     'compatibility.blocksCardBenefit',
     'compatibility.allowResidualPayment',
+    'compatibility.exclusiveWithOtherProviders',
     'limitConfig.dailyCount',
     'limitConfig.dailyAmount',
     'limitConfig.monthlyCount',
