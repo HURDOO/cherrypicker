@@ -405,6 +405,18 @@
   - 남은 일: 실기기 Chrome에서 `intent://` 버튼과 앱 없음 이동 확인(사용자). iOS는 주소가 같은지 확인하지 않았다.
 - 진행 기록 (2026-11-09): 사용자 결정으로 굿딜(`kakaopay-gooddeal`) 결제 단계에도 카카오페이 결제 화면 버튼(카카오톡 바코드·삼성페이)을 붙였다. 굿딜 할인은 같은 결제 화면에서 적용된다고 보고, 굿딜 브랜드 페이지 직행은 여전히 제외한다. 굿딜 제외 테스트를 굿딜 버튼 테스트로 바꿨다(`c5c2207`). 실기기에서 굿딜 할인이 그 화면에서 붙는지 확인이 남았다.
 
+## [-] TASK-19 — 첫 설정을 카드 한 장·지난달 사용액과 통신사·페이로 줄이기
+
+- 범위: 2026-11-09 사용자 요청. [결정](./DECISIONS.md)대로 첫 설정을 카드(한 장 + 지난달 사용액) → 통신사·페이 → 첫 추천으로 줄인다. 저장 형식과 API는 바꾸지 않는다.
+- 완료 조건:
+  - 기본값·굿딜 연동·옛 단계 주소의 회귀 테스트와 `npm run lint`, `npm test`, `npm run build`가 통과한다.
+  - 데스크톱·모바일 폭 브라우저에서 새 사용자가 소개부터 첫 추천까지 진행하고 저장값을 확인한다.
+  - 실기기에서 첫 설정을 2~3분 안에 마치는지 확인한다(사용자 확인).
+- 진행 기록 (2026-11-09):
+  - 구현: `src/components/onboarding/FirstSetupFlow.tsx`(카드 한 장·사용액 질문, 통신사·페이 아이콘 버튼, 기본값 요약과 바꾸기), `src/utils/firstSetupDefaults.ts`(통신사 기본값, 카카오페이·굿딜 연동), `src/utils/firstSetupRoutes.ts`와 `src/app/setup/{performance,favorites}/page.tsx`(옛 주소 이동), `FirstSetupRoutePage.tsx`(즐겨찾기 단계 제거), 아이콘 `public/brand-logos/providers/`.
+  - 검증: 회귀 테스트를 더해 `npm test`(848개), `npm run lint`, `npm run build` 통과. 로컬 catalog 사본 DB 개발 서버와 새 프로필 headless Chrome(Android UA 390px, 1280px)에서 소개 → 카드 선택(목록 접힘·사용액 질문) → 10만 원 입력 → 통신사·페이(아이콘) → SKT 선택 시 "할인형 · GOLD" 요약과 바꾸기 → 카카오페이 선택 → 첫 추천(혜택 브랜드 43곳)까지 진행했다. IndexedDB에 카드 1장, 사용액 100000, SKT GOLD·할인형, `kakaopay`·`kakaopay-gooddeal`이 저장됐고, `/setup/performance`·`/setup/favorites`는 `/setup/benefits`로 이동했다. 가로 넘침은 없었다.
+  - 남은 일: 실기기 확인(사용자).
+
 ## [-] TASK-18 — 홈 브랜드 목록에서 지금 혜택 있는 브랜드를 앞에 보이기
 
 - 범위: 2026-11-09 사용자 요청. 평소 홈의 '자주 찾는 브랜드'와 카테고리 목록을 즐겨찾기 > 결제한 브랜드 > 지금 혜택 있는 브랜드 > 일반 순으로 바꾼다([결정](./DECISIONS.md)). 데이터·API·catalog 계약은 바꾸지 않는다.

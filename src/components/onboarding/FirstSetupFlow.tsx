@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
-import { FavoriteBrandSelector } from '@/components/brand/FavoriteBrandSelector';
 import { LocalDataPrivacyNotice } from '@/components/settings/LocalDataPrivacyNotice';
 import { SystemCardSelector } from '@/components/settings/SystemCardSelector';
 import { getErrorMessage } from '@/lib/api-client';
@@ -21,27 +20,95 @@ import { formatPerformanceMonthLabel, getPreviousMonthInKst } from '@/lib/monthl
 import { useAppStore } from '@/store/useAppStore';
 import type {
     BenefitCatalogSnapshot,
-    Brand,
     Card,
     FirstSetupStep,
+    PromotionProvider,
     UserBenefitProfile,
     WorkspacePreferences,
 } from '@/types';
+import {
+    defaultTelecomMembership,
+    KAKAOPAY_PROVIDER_ID,
+    togglePayProvider,
+} from '@/utils/firstSetupDefaults';
 import { getTelecomTierOptions, matchTelecomTierOption } from '@/utils/telecomTiers';
 
 const STEPS: Array<{ id: FirstSetupStep; label: string }> = [
     { id: 'CARDS', label: '카드' },
     { id: 'BENEFITS', label: '혜택' },
-    { id: 'PERFORMANCE', label: '실적' },
-    { id: 'FAVORITES', label: '즐겨찾기' },
 ];
 
 const previousStep: Partial<Record<FirstSetupStep, FirstSetupStep>> = {
     CARDS: 'WELCOME',
     BENEFITS: 'CARDS',
-    PERFORMANCE: 'BENEFITS',
-    FAVORITES: 'PERFORMANCE',
 };
+
+const PROVIDER_LOGO_URLS: Record<string, string> = {
+    skt: '/brand-logos/providers/skt.png',
+    kt: '/brand-logos/providers/kt.png',
+    lguplus: '/brand-logos/providers/lguplus.png',
+    kakaopay: '/brand-logos/providers/kakaopay.png',
+    naverpay: '/brand-logos/providers/naverpay.png',
+};
+
+const formatWonInput = (digits: string) => (
+    digits === '' ? '' : Number(digits).toLocaleString('ko-KR')
+);
+
+function ProviderButton({
+    provider,
+    selected,
+    disabled,
+    note,
+    onClick,
+}: {
+    provider: Pick<PromotionProvider, 'id' | 'name'>;
+    selected: boolean;
+    disabled: boolean;
+    note?: string;
+    onClick: () => void;
+}) {
+    const logoUrl = PROVIDER_LOGO_URLS[provider.id];
+    return (
+        <button
+            type="button"
+            aria-pressed={selected}
+            disabled={disabled}
+            onClick={onClick}
+            className={clsx(
+                'flex min-h-16 items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 disabled:cursor-wait disabled:opacity-60',
+                selected
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 bg-white hover:border-blue-200'
+            )}
+        >
+            {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                    src={logoUrl}
+                    alt=""
+                    width={40}
+                    height={40}
+                    className="h-10 w-10 shrink-0 rounded-xl ring-1 ring-inset ring-gray-100"
+                />
+            ) : (
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-xs font-black text-gray-500">
+                    {provider.name.slice(0, 1)}
+                </span>
+            )}
+            <span className="min-w-0 flex-1">
+                <span className={clsx(
+                    'block break-keep text-sm font-black',
+                    selected ? 'text-blue-800' : 'text-gray-800'
+                )}>{provider.name}</span>
+                {note && (
+                    <span className="mt-0.5 block text-[10px] font-bold leading-snug text-gray-500">{note}</span>
+                )}
+            </span>
+            {selected && <Check className="h-4 w-4 shrink-0 text-blue-700" aria-hidden="true" />}
+        </button>
+    );
+}
 
 function SelectionButton({
     selected,
@@ -76,20 +143,14 @@ function SelectionButton({
 export function FirstSetupFlow({
     step,
     systemCards,
-    brands,
     catalog,
-    favoriteBrandIds,
     preferenceStorageError,
-    onToggleFavorite,
     onNavigate,
 }: {
     step: FirstSetupStep;
     systemCards: Card[];
-    brands: Brand[];
     catalog: BenefitCatalogSnapshot | null;
-    favoriteBrandIds: string[];
     preferenceStorageError?: string;
-    onToggleFavorite: (brandId: string) => void;
     onNavigate: (step: FirstSetupStep) => void;
 }) {
     const {
@@ -104,6 +165,8 @@ export function FirstSetupFlow({
     const [isSaving, setIsSaving] = useState(false);
     const [storageError, setStorageError] = useState<string>();
     const [performanceDrafts, setPerformanceDrafts] = useState<Record<string, string>>({});
+    const [isChangingCard, setIsChangingCard] = useState(false);
+    const [isEditingTelecom, setIsEditingTelecom] = useState(false);
     const headingRef = useRef<HTMLHeadingElement>(null);
     const selectedCardIds = useMemo(
         () => workspacePreferences.selectedSystemCardIds ?? [],
@@ -121,10 +184,9 @@ export function FirstSetupFlow({
         rules.some(rule => rule.cardId === card.id && (rule.condition.minPerformance ?? 0) > 0)
     )), [rules, selectedCards]);
     const telecomProviders = catalog?.providers.filter(provider => provider.kind === 'TELECOM') ?? [];
-    const payProviders = catalog?.providers.filter(provider => (
-        provider.kind === 'PAY' || provider.kind === 'GOODDEAL'
-    )) ?? [];
-    const subscriptionProducts = catalog?.subscriptionProducts.slice(0, 16) ?? [];
+    const payProviders = catalog?.providers.filter(provider => provider.kind === 'PAY') ?? [];
+    const selectedCard = selectedCards[0];
+    const showCardList = !selectedCard || isChangingCard;
 
     useEffect(() => {
         headingRef.current?.focus();
@@ -191,10 +253,10 @@ export function FirstSetupFlow({
         }, () => onNavigate(nextStep));
     };
 
-    const toggleCard = async (cardId: string) => {
-        const nextIds = selectedCardIds.includes(cardId)
-            ? selectedCardIds.filter(id => id !== cardId)
-            : [...selectedCardIds, cardId];
+    // First setup takes one card. More cards can be added in settings.
+    const chooseCard = async (cardId: string) => {
+        const nextIds = selectedCardIds.length === 1 && selectedCardIds[0] === cardId ? [] : [cardId];
+        setIsChangingCard(false);
         await persistPreferences({
             ...workspacePreferences,
             selectedSystemCardIds: nextIds,
@@ -226,11 +288,11 @@ export function FirstSetupFlow({
         }
     };
 
-    const continueFromPerformance = async () => {
+    const continueFromCards = async () => {
         for (const card of performanceCards) {
             if (!(await savePerformance(card.id))) return;
         }
-        await goToStep('FAVORITES');
+        await goToStep('BENEFITS');
     };
 
     const startRecommendation = async () => {
@@ -269,12 +331,12 @@ export function FirstSetupFlow({
                     </div>
                     {step !== 'WELCOME' && (
                         <span className="text-xs font-black text-gray-400">
-                            {Math.max(1, STEPS.findIndex(item => item.id === step) + 1)}/4
+                            {Math.max(1, STEPS.findIndex(item => item.id === step) + 1)}/{STEPS.length}
                         </span>
                     )}
                 </div>
                 {step !== 'WELCOME' && (
-                    <div className="mt-4 grid grid-cols-4 gap-1" aria-label="첫 설정 진행률">
+                    <div className="mt-4 grid grid-cols-2 gap-1" aria-label="첫 설정 진행률">
                         {STEPS.map((item, index) => {
                             const currentIndex = STEPS.findIndex(candidate => candidate.id === step);
                             return (
@@ -362,17 +424,86 @@ export function FirstSetupFlow({
                                 어떤 카드를 가지고 있나요?
                             </h1>
                             <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                                한 장만 골라도 바로 시작할 수 있어요. 선택한 카드만 추천에 사용합니다.
+                                가장 자주 쓰는 카드 한 장으로 시작해요. 다른 카드는 나중에 설정에서 더할 수 있어요.
                             </p>
-                            <div className="mt-4"><LocalDataPrivacyNotice /></div>
-                            <div className="mt-5">
-                                <SystemCardSelector
-                                    cards={systemCards}
-                                    selectedCardIds={selectedCardIds}
-                                    disabled={isSaving}
-                                    onToggle={cardId => void toggleCard(cardId)}
-                                />
-                            </div>
+                            {selectedCard && !isChangingCard && (
+                                <div className="mt-5 flex items-center gap-3 rounded-2xl border border-blue-500 bg-blue-50 p-3">
+                                    <span className={clsx(
+                                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white',
+                                        selectedCard.color || 'bg-gray-500'
+                                    )}>
+                                        <CreditCard className="h-5 w-5" aria-hidden="true" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block break-words text-sm font-black text-gray-900">
+                                            {selectedCard.name}
+                                        </span>
+                                        <span className="mt-0.5 block text-[11px] font-bold text-gray-500">
+                                            {selectedCard.company}
+                                        </span>
+                                    </span>
+                                    <button
+                                        type="button"
+                                        disabled={isSaving}
+                                        onClick={() => setIsChangingCard(true)}
+                                        className="min-h-11 shrink-0 rounded-xl border border-blue-200 bg-white px-3 text-xs font-black text-blue-700 disabled:opacity-50"
+                                    >다른 카드</button>
+                                </div>
+                            )}
+                            {selectedCard && !isChangingCard && performanceCards.some(card => card.id === selectedCard.id) && (
+                                <div className="mt-6">
+                                    <label
+                                        htmlFor={`setup-performance-${selectedCard.id}`}
+                                        className="text-lg font-black tracking-tight text-gray-950"
+                                    >
+                                        지난달 이 카드 얼마나 썼나요?
+                                    </label>
+                                    <p className="mt-1.5 text-xs font-bold leading-relaxed text-gray-500">
+                                        카드사 앱에서 볼 수 있어요. 10만 원처럼 대략 적어도 돼요.
+                                        모르면 넘어가도 돼요.
+                                    </p>
+                                    <div className="mt-3 flex min-h-12 items-center rounded-2xl border border-gray-200 px-4 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100">
+                                        <input
+                                            id={`setup-performance-${selectedCard.id}`}
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={formatWonInput(performanceDrafts[selectedCard.id] ?? '')}
+                                            disabled={isSaving}
+                                            placeholder="예: 100,000"
+                                            onChange={event => setPerformanceDrafts(current => ({
+                                                ...current,
+                                                [selectedCard.id]: event.target.value.replace(/[^0-9]/g, '').slice(0, 12),
+                                            }))}
+                                            onBlur={event => {
+                                                const nextTarget = event.relatedTarget;
+                                                if (
+                                                    nextTarget instanceof HTMLElement &&
+                                                    nextTarget.closest('[data-onboarding-navigation]')
+                                                ) return;
+                                                void savePerformance(selectedCard.id);
+                                            }}
+                                            className="min-h-12 min-w-0 flex-1 bg-transparent text-right text-lg font-black text-blue-700 outline-none placeholder:text-gray-300 disabled:opacity-60"
+                                        />
+                                        <span className="ml-1 text-sm font-bold text-gray-400">원</span>
+                                    </div>
+                                    <p className="mt-1.5 text-[10px] font-bold text-gray-400">
+                                        {performanceMonthLabel} 사용액으로 이번 달 혜택 조건을 계산해요.
+                                    </p>
+                                </div>
+                            )}
+                            {showCardList && (
+                                <>
+                                    <div className="mt-4"><LocalDataPrivacyNotice /></div>
+                                    <div className="mt-5">
+                                        <SystemCardSelector
+                                            cards={systemCards}
+                                            selectedCardIds={selectedCard ? [selectedCard.id] : []}
+                                            disabled={isSaving}
+                                            onToggle={cardId => void chooseCard(cardId)}
+                                        />
+                                    </div>
+                                </>
+                            )}
                         </>
                     )}
 
@@ -384,46 +515,54 @@ export function FirstSetupFlow({
                                 tabIndex={-1}
                                 className="text-2xl font-black tracking-tight text-gray-950 outline-none"
                             >
-                                함께 쓰는 혜택이 있나요?
+                                통신사와 페이를 알려주세요
                             </h1>
                             <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                                지금 모르면 건너뛰어도 괜찮아요. 설정에서 언제든 보완할 수 있습니다.
+                                쓰는 것만 고르면 돼요. 없으면 그냥 넘어가도 괜찮아요.
                             </p>
-                            <div className="mt-4"><LocalDataPrivacyNotice /></div>
                             <div className="mt-5 space-y-6">
                                 <fieldset>
                                     <legend className="text-xs font-black text-gray-700">통신사 멤버십</legend>
-                                    <div className="mt-2 grid grid-cols-2 gap-2">
-                                        <SelectionButton
-                                            selected={!selectedTelecomId}
-                                            disabled={isSaving}
-                                            onClick={() => void persistProfile({
-                                                ...benefitProfile,
-                                                telecomMemberships: [],
-                                            })}
-                                        >사용 안 함</SelectionButton>
+                                    <div className="mt-2 grid grid-cols-1 gap-2">
                                         {telecomProviders.map(provider => (
-                                            <SelectionButton
+                                            <ProviderButton
                                                 key={provider.id}
+                                                provider={provider}
                                                 selected={selectedTelecomId === provider.id}
                                                 disabled={isSaving}
-                                                onClick={() => void persistProfile({
-                                                    ...benefitProfile,
-                                                    telecomMemberships: [{
-                                                        providerId: provider.id,
-                                                        ...(selectedTelecomId === provider.id && selectedTelecom?.tier
-                                                            ? { tier: selectedTelecom.tier }
-                                                            : {}),
-                                                        ...(selectedTelecomId === provider.id && selectedTelecom?.mode
-                                                            ? { mode: selectedTelecom.mode }
-                                                            : {}),
-                                                    }],
-                                                })}
-                                            >{provider.name}</SelectionButton>
+                                                onClick={() => {
+                                                    setIsEditingTelecom(false);
+                                                    void persistProfile({
+                                                        ...benefitProfile,
+                                                        telecomMemberships: selectedTelecomId === provider.id
+                                                            ? []
+                                                            : [defaultTelecomMembership(
+                                                                provider.id,
+                                                                getTelecomTierOptions(provider.id, catalog?.promotions ?? []),
+                                                            )],
+                                                    });
+                                                }}
+                                            />
                                         ))}
                                     </div>
+                                    {selectedTelecomId && !isEditingTelecom && (
+                                        <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-gray-50 px-3 py-2">
+                                            <span className="text-[11px] font-bold text-gray-600">
+                                                {[
+                                                    selectedTelecom?.mode === 'DISCOUNT' && '할인형',
+                                                    selectedTelecom?.mode === 'POINTS' && '적립형',
+                                                    selectedTelecomTier,
+                                                ].filter(Boolean).join(' · ') || '등급 미선택'}으로 계산해요
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsEditingTelecom(true)}
+                                                className="min-h-9 shrink-0 rounded-lg px-2 text-[11px] font-black text-blue-700 underline underline-offset-2"
+                                            >바꾸기</button>
+                                        </div>
+                                    )}
                                 </fieldset>
-                                {selectedTelecomId === 'skt' && (
+                                {selectedTelecomId === 'skt' && (isEditingTelecom || isTelecomModeMissing) && (
                                     <fieldset>
                                         <legend className="text-xs font-black text-gray-700">
                                             T멤버십 혜택 유형
@@ -452,7 +591,8 @@ export function FirstSetupFlow({
                                         </div>
                                     </fieldset>
                                 )}
-                                {selectedTelecomId && telecomTierOptions.length > 0 && (
+                                {selectedTelecomId && telecomTierOptions.length > 0 &&
+                                    (isEditingTelecom || isTelecomTierMissing) && (
                                     <fieldset>
                                         <legend className="text-xs font-black text-gray-700">
                                             멤버십 등급
@@ -483,162 +623,26 @@ export function FirstSetupFlow({
                                 )}
                                 <fieldset>
                                     <legend className="text-xs font-black text-gray-700">페이</legend>
-                                    <div className="mt-2 grid grid-cols-2 gap-2">
+                                    <div className="mt-2 grid grid-cols-1 gap-2">
                                         {payProviders.map(provider => (
-                                            <SelectionButton
+                                            <ProviderButton
                                                 key={provider.id}
+                                                provider={provider}
                                                 selected={benefitProfile.enabledPayProviderIds.includes(provider.id)}
                                                 disabled={isSaving}
+                                                note={provider.id === KAKAOPAY_PROVIDER_ID ? '굿딜 할인도 함께 계산해요' : undefined}
                                                 onClick={() => void persistProfile({
                                                     ...benefitProfile,
-                                                    enabledPayProviderIds: benefitProfile.enabledPayProviderIds.includes(provider.id)
-                                                        ? benefitProfile.enabledPayProviderIds.filter(id => id !== provider.id)
-                                                        : [...benefitProfile.enabledPayProviderIds, provider.id],
+                                                    enabledPayProviderIds: togglePayProvider(
+                                                        benefitProfile.enabledPayProviderIds,
+                                                        provider.id,
+                                                    ),
                                                 })}
-                                            >{provider.name}</SelectionButton>
+                                            />
                                         ))}
                                     </div>
                                 </fieldset>
-                                {subscriptionProducts.length > 0 && (
-                                    <fieldset>
-                                        <legend className="text-xs font-black text-gray-700">구독 상품</legend>
-                                        <div className="mt-2 grid grid-cols-1 gap-2">
-                                            {subscriptionProducts.map(product => {
-                                                const isSelected = benefitProfile.subscriptions.some(item => (
-                                                    item.providerId === product.providerId && item.productName === product.name
-                                                ));
-                                                return (
-                                                    <SelectionButton
-                                                        key={product.id}
-                                                        selected={isSelected}
-                                                        disabled={isSaving}
-                                                        onClick={() => void persistProfile({
-                                                            ...benefitProfile,
-                                                            subscriptions: isSelected
-                                                                ? benefitProfile.subscriptions.filter(item => !(
-                                                                    item.providerId === product.providerId &&
-                                                                    item.productName === product.name
-                                                                ))
-                                                                : [...benefitProfile.subscriptions, {
-                                                                    providerId: product.providerId,
-                                                                    productName: product.name,
-                                                                }],
-                                                        })}
-                                                    >{product.name}</SelectionButton>
-                                                );
-                                            })}
-                                        </div>
-                                    </fieldset>
-                                )}
-                                <fieldset>
-                                    <legend className="text-xs font-black text-gray-700">기타 결제수단</legend>
-                                    <div className="mt-2 grid grid-cols-2 gap-2">
-                                        <SelectionButton
-                                            selected={benefitProfile.moneyEnabled}
-                                            disabled={isSaving}
-                                            onClick={() => void persistProfile({
-                                                ...benefitProfile,
-                                                moneyEnabled: !benefitProfile.moneyEnabled,
-                                            })}
-                                        >머니</SelectionButton>
-                                        <SelectionButton
-                                            selected={benefitProfile.pointsEnabled}
-                                            disabled={isSaving}
-                                            onClick={() => void persistProfile({
-                                                ...benefitProfile,
-                                                pointsEnabled: !benefitProfile.pointsEnabled,
-                                            })}
-                                        >포인트</SelectionButton>
-                                    </div>
-                                </fieldset>
-                            </div>
-                        </>
-                    )}
-
-                    {step === 'PERFORMANCE' && (
-                        <>
-                            <h1
-                                id="first-setup-title"
-                                ref={headingRef}
-                                tabIndex={-1}
-                                className="text-2xl font-black tracking-tight text-gray-950 outline-none"
-                            >
-                                {performanceMonthLabel} 실적을 입력할까요?
-                            </h1>
-                            <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                                은행 앱을 확인하고 돌아와도 이 단계에서 이어갈 수 있어요. 모르면 모두 건너뛰세요.
-                            </p>
-                            <div className="mt-4"><LocalDataPrivacyNotice /></div>
-                            <div className="mt-5 space-y-3">
-                                {performanceCards.map(card => (
-                                    <div key={card.id} className="rounded-2xl border border-gray-200 p-4">
-                                        <label className="text-sm font-black text-gray-900" htmlFor={`setup-performance-${card.id}`}>
-                                            {card.name}
-                                        </label>
-                                        <div className="mt-2 flex items-center gap-2">
-                                            <div className="flex min-h-11 min-w-0 flex-1 items-center rounded-xl border border-gray-200 px-3 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100">
-                                                <input
-                                                    id={`setup-performance-${card.id}`}
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    value={performanceDrafts[card.id] ?? ''}
-                                                    disabled={isSaving}
-                                                    placeholder="모르면 비워두기"
-                                                    onChange={event => setPerformanceDrafts(current => ({
-                                                        ...current,
-                                                        [card.id]: event.target.value.replace(/[^0-9]/g, '').slice(0, 12),
-                                                    }))}
-                                                    onBlur={event => {
-                                                        const nextTarget = event.relatedTarget;
-                                                        if (
-                                                            nextTarget instanceof HTMLElement &&
-                                                            nextTarget.closest('[data-onboarding-navigation]')
-                                                        ) return;
-                                                        void savePerformance(card.id);
-                                                    }}
-                                                    className="min-h-11 min-w-0 flex-1 bg-transparent text-right text-base font-black text-blue-700 outline-none disabled:opacity-60"
-                                                />
-                                                <span className="ml-1 text-xs font-bold text-gray-400">원</span>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                disabled={isSaving || (performanceDrafts[card.id] ?? '') === ''}
-                                                onClick={() => void savePerformance(card.id)}
-                                                className="min-h-11 rounded-xl bg-blue-600 px-4 text-xs font-black text-white disabled:bg-gray-200 disabled:text-gray-400"
-                                            >저장</button>
-                                        </div>
-                                    </div>
-                                ))}
-                                {performanceCards.length === 0 && (
-                                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm font-bold text-gray-500">
-                                        지금 입력할 실적 조건이 없어요.
-                                    </div>
-                                )}
-                            </div>
-                        </>
-                    )}
-
-                    {step === 'FAVORITES' && (
-                        <>
-                            <h1
-                                id="first-setup-title"
-                                ref={headingRef}
-                                tabIndex={-1}
-                                className="text-2xl font-black tracking-tight text-gray-950 outline-none"
-                            >
-                                자주 가는 곳을 골라볼까요?
-                            </h1>
-                            <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                                홈에서 먼저 보여드려요. 기본 선택을 그대로 쓰거나 원하는 곳만 남겨도 됩니다.
-                            </p>
-                            <div className="mt-5">
-                                <FavoriteBrandSelector
-                                    brands={brands}
-                                    selectedBrandIds={favoriteBrandIds}
-                                    disabled={isSaving}
-                                    showDefaultHint
-                                    onToggle={onToggleFavorite}
-                                />
+                                <LocalDataPrivacyNotice />
                             </div>
                         </>
                     )}
@@ -675,23 +679,21 @@ export function FirstSetupFlow({
                             (step === 'BENEFITS' && isTelecomSetupIncomplete)}
                         onClick={() => {
                             if (step === 'WELCOME') void goToStep('CARDS');
-                            if (step === 'CARDS') void goToStep('BENEFITS');
-                            if (step === 'BENEFITS') void goToStep('PERFORMANCE');
-                            if (step === 'PERFORMANCE') void continueFromPerformance();
-                            if (step === 'FAVORITES') void startRecommendation();
+                            if (step === 'CARDS') void continueFromCards();
+                            if (step === 'BENEFITS') void startRecommendation();
                         }}
                         className="ml-auto flex min-h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
                     >
                         {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
                         {step === 'WELCOME'
                             ? '내 카드로 시작하기'
-                            : step === 'FAVORITES'
+                            : step === 'BENEFITS'
                                 ? '첫 추천 받아보기'
-                                : '저장하고 계속'}
+                                : '다음'}
                         {!isSaving && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
                     </button>
                 </div>
-                {step !== 'WELCOME' && step !== 'CARDS' && step !== 'FAVORITES' && (
+                {step === 'BENEFITS' && (
                     <p className="mt-2 text-center text-[10px] font-bold text-gray-400">
                         {step === 'BENEFITS' && isTelecomSetupIncomplete
                             ? '멤버십 혜택 유형과 등급을 모두 고르면 제휴 혜택을 정확히 계산할 수 있어요.'

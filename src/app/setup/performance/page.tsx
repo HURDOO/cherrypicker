@@ -1,5 +1,6 @@
-import { FirstSetupRoutePage } from '@/components/onboarding/FirstSetupRoutePage';
+import { redirect } from 'next/navigation';
 
+// The performance question moved into the card step. Old links continue at benefits.
 export default function SetupPerformancePage() {
-    return <FirstSetupRoutePage step="PERFORMANCE" />;
+    redirect('/setup/benefits');
 }

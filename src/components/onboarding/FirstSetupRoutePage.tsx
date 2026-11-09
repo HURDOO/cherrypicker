@@ -5,21 +5,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FirstSetupFlow } from '@/components/onboarding/FirstSetupFlow';
 import { useBenefitCatalog } from '@/hooks/useBenefitCatalog';
-import { useBrandDiscoveryPreferences } from '@/hooks/useBrandDiscoveryPreferences';
 import { getErrorMessage } from '@/lib/api-client';
 import { localWorkspaceClient } from '@/lib/local-workspace';
 import { useAppStore } from '@/store/useAppStore';
 import type { FirstSetupStep, WorkspacePreferences } from '@/types';
 import { FIRST_SETUP_ROUTES } from '@/utils/firstSetupRoutes';
 
-type SetupFormStep = Exclude<FirstSetupStep, 'RECOMMENDATION'>;
+type SetupFormStep = Extract<FirstSetupStep, 'WELCOME' | 'CARDS' | 'BENEFITS'>;
 
 const nextStep: Record<SetupFormStep, FirstSetupStep> = {
     WELCOME: 'CARDS',
     CARDS: 'BENEFITS',
-    BENEFITS: 'PERFORMANCE',
-    PERFORMANCE: 'FAVORITES',
-    FAVORITES: 'RECOMMENDATION',
+    BENEFITS: 'RECOMMENDATION',
 };
 
 const desiredProgressForStep = (
@@ -44,20 +41,13 @@ function RouteLoading() {
 export function FirstSetupRoutePage({ step }: { step: SetupFormStep }) {
     const router = useRouter();
     const {
-        userId,
         cards,
-        brands,
         workspacePreferences,
         isLoading,
         appDataError,
         setWorkspacePreferences,
     } = useAppStore();
     const { snapshot: catalog } = useBenefitCatalog();
-    const {
-        favoriteBrandIds,
-        preferencesError,
-        toggleFavorite,
-    } = useBrandDiscoveryPreferences(userId);
     const [routeStorageError, setRouteStorageError] = useState<string>();
     const [navigationTarget, setNavigationTarget] = useState<FirstSetupStep>();
     const selectedCardIds = workspacePreferences.selectedSystemCardIds ?? [];
@@ -160,11 +150,8 @@ export function FirstSetupRoutePage({ step }: { step: SetupFormStep }) {
             key={step}
             step={step}
             systemCards={cards.filter(card => !card.userId)}
-            brands={brands}
             catalog={catalog}
-            favoriteBrandIds={favoriteBrandIds}
-            preferenceStorageError={routeStorageError ?? preferencesError}
-            onToggleFavorite={toggleFavorite}
+            preferenceStorageError={routeStorageError}
             onNavigate={nextStep => {
                 setNavigationTarget(nextStep);
                 router.push(FIRST_SETUP_ROUTES[nextStep]);

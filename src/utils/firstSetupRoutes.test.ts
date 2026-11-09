@@ -11,13 +11,13 @@ const preferences = (
 });
 
 describe('first setup routes', () => {
-    it('maps every setup step to a stable address', () => {
+    it('maps every setup step to an address', () => {
         expect(FIRST_SETUP_ROUTES).toEqual({
             WELCOME: '/setup',
             CARDS: '/setup/cards',
             BENEFITS: '/setup/benefits',
-            PERFORMANCE: '/setup/performance',
-            FAVORITES: '/setup/favorites',
+            PERFORMANCE: '/setup/benefits',
+            FAVORITES: '/setup/benefits',
             RECOMMENDATION: '/setup/recommendation',
         });
     });
@@ -28,9 +28,14 @@ describe('first setup routes', () => {
     });
 
     it('resumes an in-progress or awaiting workspace at its saved route', () => {
-        expect(getFirstSetupRoute(preferences('IN_PROGRESS', 'PERFORMANCE')))
-            .toBe('/setup/performance');
+        expect(getFirstSetupRoute(preferences('IN_PROGRESS', 'CARDS')))
+            .toBe('/setup/cards');
         expect(getFirstSetupRoute(preferences('AWAITING_RECOMMENDATION', 'RECOMMENDATION')))
             .toBe('/setup/recommendation');
+    });
+
+    it('resumes the removed performance and favorites steps at benefits', () => {
+        expect(getFirstSetupRoute(preferences('IN_PROGRESS', 'PERFORMANCE'))).toBe('/setup/benefits');
+        expect(getFirstSetupRoute(preferences('IN_PROGRESS', 'FAVORITES'))).toBe('/setup/benefits');
     });
 });
