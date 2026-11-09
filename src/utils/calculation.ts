@@ -55,6 +55,10 @@ type RuleEvaluation = {
 
 interface CardCalculationOptions {
     confirmedConditionIds?: Iterable<string>;
+    /**
+     * Treat a card below its spend tier as possibly in its new-card month. Off by default:
+     * a new-card month is rare, so missing spend is asked for instead of shown as a check.
+     */
     allowPerformanceWaiver?: boolean;
     eligibleItemAmount?: number;
     now?: Date;
@@ -663,7 +667,7 @@ const createBenefitDslContext = ({
         }),
         channel: isOnline ? 'ONLINE' : 'OFFLINE',
         now,
-        newCardWindowAvailable: options.allowPerformanceWaiver ?? true,
+        newCardWindowAvailable: options.allowPerformanceWaiver ?? false,
         usage: {
             dailyCount: usage.dailyCount,
             dailyBenefitAmount: usage.dailyAmount,
@@ -1035,7 +1039,7 @@ export function calculateBestCards(
     const now = options.now ?? new Date();
     const context = buildCalculationContext(rules, history, now);
     const confirmedConditionIds = new Set(options.confirmedConditionIds ?? []);
-    const allowPerformanceWaiver = options.allowPerformanceWaiver ?? true;
+    const allowPerformanceWaiver = options.allowPerformanceWaiver ?? false;
     const eligibleItemAmount = options.eligibleItemAmount === undefined
         ? 'kind' in target && target.kind === 'SCENARIO' ? amount : undefined
         : Math.max(0, Math.min(amount, Math.floor(options.eligibleItemAmount)));

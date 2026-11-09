@@ -3615,6 +3615,7 @@ describe('card benefit extraction', () => {
             [],
             [{ cardId: card.id, performanceMonth: '2026-08', amount: 0 }],
             false,
+            { allowPerformanceWaiver: true },
         )[0];
         const confirmed = calculateBestCards(
             20_000,
@@ -3624,7 +3625,18 @@ describe('card benefit extraction', () => {
             [],
             [{ cardId: card.id, performanceMonth: '2026-08', amount: 0 }],
             false,
-            { confirmedConditionIds: ['card-rule:sol_domestic_convenience'] },
+            {
+                allowPerformanceWaiver: true,
+                confirmedConditionIds: ['card-rule:sol_domestic_convenience'],
+            },
+        )[0];
+        const byDefault = calculateBestCards(
+            20_000,
+            gs25,
+            [card],
+            extraction.rules,
+            [],
+            [{ cardId: card.id, performanceMonth: '2026-08', amount: 0 }],
         )[0];
 
         expect(conditional).toMatchObject({
@@ -3635,6 +3647,11 @@ describe('card benefit extraction', () => {
             .toContain('신규 발급 후 등록월의 다음 달 말 이내인지 확인');
         expect(confirmed).toMatchObject({
             confirmedDiscount: 1_000,
+            conditionalDiscount: 0,
+        });
+        // A new-card month is rare, so recommendations ask for spend instead of this check.
+        expect(byDefault).toMatchObject({
+            confirmedDiscount: 0,
             conditionalDiscount: 0,
         });
     });
@@ -3674,6 +3691,8 @@ describe('card benefit extraction', () => {
             rules,
             [],
             [{ cardId: waiverCard.id, performanceMonth: '2026-08', amount: 0 }],
+            false,
+            { allowPerformanceWaiver: true },
         )[0];
         const withoutWaiver = calculateBestCards(
             10_000,

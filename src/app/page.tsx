@@ -656,20 +656,41 @@ function HomePageContent() {
     const effectiveRecommendationPriority: RecommendationPriority = performanceGoals.length > 0
         ? recommendationPriority
         : 'BENEFIT';
+    // Unknown spend counts as 0 and switches off tiered card benefits, so every owned card
+    // with spend tiers is asked about until last month's spend is saved.
     const missingPerformanceCards = useMemo(() => {
-        const activeCardIds = new Set([
-            ...performances.map(performance => performance.cardId),
-            ...history.map(transaction => transaction.cardId),
-        ]);
         const enteredCardIds = new Set(currentPerformances.map(item => item.cardId));
-        return cards.filter(card => {
+        return recommendationCards.filter(card => {
             const needsPerformance = card.limitTable.some(tier => tier.threshold > 0) ||
                 rules.some(rule =>
                     rule.cardId === card.id && (rule.condition.minPerformance ?? 0) > 0
                 );
-            return needsPerformance && activeCardIds.has(card.id) && !enteredCardIds.has(card.id);
+            return needsPerformance && !enteredCardIds.has(card.id);
         });
-    }, [cards, currentPerformances, history, performances, rules]);
+    }, [currentPerformances, recommendationCards, rules]);
+    const [savingPerformanceCardId, setSavingPerformanceCardId] = useState<string>();
+    const handlePickPerformanceTier = async (cardId: string, value: number) => {
+        if (savingPerformanceCardId) return;
+        setSavingPerformanceCardId(cardId);
+        try {
+            const saved = storageMode === 'guest'
+                ? await localWorkspaceClient.updatePerformance(
+                    cardId,
+                    value,
+                    performancePeriod.performanceMonth,
+                )
+                : await apiClient.updatePerformance(
+                    cardId,
+                    value,
+                    performancePeriod.performanceMonth,
+                );
+            updatePerformance(saved);
+        } catch (error) {
+            addToast(getErrorMessage(error, '지난달 실적을 저장하지 못했습니다.'), 'error');
+        } finally {
+            setSavingPerformanceCardId(undefined);
+        }
+    };
     useEffect(() => {
         if (!catalog && catalogError) {
             addToast(
@@ -1343,9 +1364,12 @@ function HomePageContent() {
                 )}
                 {!guidedFirstRecommendation && (
                     <MonthlyPerformanceReminder
-                        missingCount={missingPerformanceCards.length}
+                        cards={missingPerformanceCards}
+                        rules={rules}
                         performanceMonthLabel={formatPerformanceMonthLabel(performancePeriod.performanceMonth)}
                         benefitMonthLabel={formatPerformanceMonthLabel(performancePeriod.benefitMonth)}
+                        savingCardId={savingPerformanceCardId}
+                        onPickTier={(cardId, value) => void handlePickPerformanceTier(cardId, value)}
                     />
                 )}
 

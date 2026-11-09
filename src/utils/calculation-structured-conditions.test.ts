@@ -36,6 +36,7 @@ const calculate = (
     rules: BenefitRule[],
     performance = 300_000,
     history: TransactionHistory[] = [],
+    options: Parameters<typeof calculateBestCards>[7] = {},
 ) => calculateBestCards(
     amount,
     brand,
@@ -43,6 +44,8 @@ const calculate = (
     rules,
     history,
     [{ cardId: card.id, performanceMonth: '2026-08', amount: performance }],
+    false,
+    options,
 )[0];
 
 describe('structured card benefit conditions', () => {
@@ -249,10 +252,11 @@ describe('structured card benefit conditions', () => {
             action: { type: 'PERCENT', value: 10 },
         });
 
-        expect(calculate(30_000, [waived], 0)).toMatchObject({
+        expect(calculate(30_000, [waived], 0, [], { allowPerformanceWaiver: true })).toMatchObject({
             calculatedDiscount: 2_000,
             isApplicable: true,
         });
+        expect(calculate(30_000, [waived], 0).calculatedDiscount).toBe(0);
     });
 
     it('starts a fallback only after the earlier capped rule was exhausted by a prior purchase', () => {
