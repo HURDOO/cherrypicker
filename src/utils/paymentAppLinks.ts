@@ -81,7 +81,8 @@ export function isTMembershipPartner(
 
 function payAction(combination: BenefitCombination): PaymentAppAction | undefined {
     const card = combination.cardName;
-    if (combination.payProviderId === 'kakaopay') {
+    // GoodDeal is paid on the same KakaoPay screen, and its discount is applied there.
+    if (combination.payProviderId === 'kakaopay' || combination.payProviderId === 'kakaopay-gooddeal') {
         // Through KakaoTalk, which almost everyone has, rather than the separate KakaoPay app.
         // Its payment screen opens on pay money, so card payments need a switch in the app.
         const hint = combination.fundingType === 'CARD'
@@ -139,7 +140,7 @@ function payAction(combination: BenefitCombination): PaymentAppAction | undefine
             };
         }
     }
-    // GoodDeal brand pages and other providers are not verified yet.
+    // Other providers are not verified yet.
     return undefined;
 }
 

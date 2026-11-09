@@ -83,11 +83,19 @@ describe('payment app actions', () => {
         expect(money[0].links.map(link => link.mode)).toEqual(['CODE']);
     });
 
-    it('leaves out GoodDeal, card-only payments and the pay app on other cards', () => {
-        expect(getPaymentAppActions(
-            combination({ payProviderId: 'kakaopay-gooddeal', fundingType: 'MONEY' }),
+    it('opens the same KakaoPay payment screen for GoodDeal', () => {
+        const goodDeal = getPaymentAppActions(
+            combination({ payProviderId: 'kakaopay-gooddeal', fundingType: 'CARD', cardName: '신한 SOL트래블' }),
             'PAY',
-        )).toEqual([]);
+        );
+        expect(goodDeal).toHaveLength(1);
+        expect(goodDeal[0].appId).toBe('kakaotalk');
+        expect(goodDeal[0].title).toBe('카카오페이');
+        expect(goodDeal[0].links[0].path).toBe('kakaopay/offline');
+        expect(goodDeal[0].hint).toContain('신한 SOL트래블로 바꿔서');
+    });
+
+    it('leaves out card-only payments and the pay app on other cards', () => {
         expect(getPaymentAppActions(combination({ cardName: '카드' }), 'PAY')).toEqual([]);
         expect(getPaymentAppActions(
             combination({ payProviderId: 'naverpay', fundingType: 'CARD' }),
