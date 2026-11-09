@@ -209,12 +209,29 @@ export function PaymentAppButtons({ actions }: { actions: PaymentAppAction[] }) 
     );
 }
 
-const ROUTE_STATUS: Record<PayRouteStatus | 'CARD', { label: string; className: string }> = {
-    CARD: { label: '카드 혜택 확정', className: 'text-emerald-700' },
-    APPLIED: { label: '카드 혜택 확인됨', className: 'text-emerald-700' },
-    UNCHECKED: { label: '카드 혜택 확인 필요', className: 'text-amber-700' },
-    NOT_APPLIED: { label: '카드 혜택 빠짐', className: 'text-rose-700' },
+const ROUTE_STATUS: Record<PayRouteStatus | 'CARD', { label: string; mark: string; className: string }> = {
+    CARD: { label: '카드 혜택 확정', mark: '✓', className: 'bg-emerald-500' },
+    APPLIED: { label: '카드 혜택 확인됨', mark: '✓', className: 'bg-emerald-500' },
+    UNCHECKED: { label: '카드 혜택 확인 필요', mark: '?', className: 'bg-amber-400' },
+    NOT_APPLIED: { label: '카드 혜택 빠짐', mark: '!', className: 'bg-rose-500' },
 };
+
+/** A small corner mark for whether the card benefit comes through on this route. */
+function StatusMark({ status }: { status: PayRouteStatus | 'CARD' }) {
+    const item = ROUTE_STATUS[status];
+    return (
+        <span
+            title={item.label}
+            className={clsx(
+                'absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black leading-none text-white',
+                item.className,
+            )}
+        >
+            <span aria-hidden="true">{item.mark}</span>
+            <span className="sr-only">{item.label}</span>
+        </span>
+    );
+}
 
 function RouteCheckPrompt({
     payId,
@@ -306,36 +323,47 @@ export function PaymentMethodPicker({
 
     return (
         <div className="mt-3 space-y-2" data-testid="payment-method-picker">
-            <p className="text-[10px] font-black opacity-70">이 결제는 어디로 내도 혜택이 같아요</p>
-            <div className="flex gap-2 overflow-x-auto pb-1 pt-2">
+            <div className="flex items-center justify-between">
+                <p className="text-[11px] font-black opacity-80">누르면 바로 열려요</p>
+                <Link
+                    href="/settings#payment-methods"
+                    className="text-[10px] font-bold opacity-60 underline underline-offset-2"
+                >
+                    설정
+                </Link>
+            </div>
+            <div
+                className="grid gap-2 pt-2"
+                style={{ gridTemplateColumns: `repeat(${methods.length}, minmax(0, 1fr))` }}
+            >
                 {methods.map(method => {
                     const isDefault = method === methods[0];
-                    const chipClass = clsx(
-                        'relative flex min-h-[4.5rem] min-w-[6.25rem] flex-1 flex-col items-start justify-center gap-0.5 rounded-2xl border bg-white px-3 py-2 text-left',
-                        isDefault ? 'border-gray-900 ring-1 ring-gray-900' : 'border-gray-200',
-                    );
                     const defaultTag = isDefault && (
-                        <span className="absolute -top-2 left-3 rounded-full bg-gray-900 px-1.5 py-0.5 text-[9px] font-black leading-none text-white">기본</span>
+                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gray-900 px-2 py-0.5 text-[9px] font-black leading-none text-white">
+                            기본
+                        </span>
                     );
                     if (method === 'CARD') {
                         return (
-                            <div key="CARD" className={chipClass} data-testid="pay-method-CARD">
+                            <div
+                                key="CARD"
+                                className={clsx(
+                                    'relative flex flex-col items-center justify-center gap-1.5 rounded-3xl border border-dashed bg-white/50 py-3',
+                                    isDefault ? 'border-gray-900' : 'border-gray-300',
+                                )}
+                                data-testid="pay-method-CARD"
+                            >
                                 {defaultTag}
-                                <span className="flex items-center gap-1.5 text-[11px] font-black text-gray-900">
-                                    <CreditCard className="h-4 w-4" aria-hidden="true" />
-                                    카드로 내기
+                                <StatusMark status="CARD" />
+                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-600">
+                                    <CreditCard className="h-6 w-6" aria-hidden="true" />
                                 </span>
-                                <span className="text-[10px] font-bold text-gray-500">실물·삼성페이</span>
-                                <span className={clsx('text-[10px] font-black', ROUTE_STATUS.CARD.className)}>
-                                    {ROUTE_STATUS.CARD.label}
-                                </span>
+                                <span className="text-xs font-black text-gray-700">카드로 내기</span>
                             </div>
                         );
                     }
                     const action = actions[method]!;
-                    const mode = openModeFor(action) ?? 'SAMSUNG_PAY';
-                    const link = pickLink(action.links, mode);
-                    const status = ROUTE_STATUS[statusOf(method, link.mode)];
+                    const link = pickLink(action.links, openModeFor(action) ?? 'SAMSUNG_PAY');
                     return (
                         <a
                             key={method}
@@ -344,27 +372,24 @@ export function PaymentMethodPicker({
                                 setOpenedPayId(method);
                                 watch(action.appId);
                             }}
-                            className={chipClass}
+                            aria-label={`${PAYMENT_PAY_NAMES[method]} ${link.label}로 열기`}
+                            className={clsx(
+                                'relative flex flex-col items-center justify-center gap-1.5 rounded-3xl bg-white py-3 shadow-[0_3px_0_rgba(17,24,39,0.12)] transition-transform active:translate-y-0.5 active:shadow-none',
+                                isDefault ? 'border-2 border-gray-900' : 'border border-gray-200',
+                            )}
                             data-testid={`pay-method-${method}`}
                         >
                             {defaultTag}
-                            <span className="flex items-center gap-1.5 text-[11px] font-black text-gray-900">
-                                {/* eslint-disable-next-line @next/next/no-img-element -- small static app icon */}
-                                <img src={PAY_LOGO_URLS[method]} alt="" className="h-4 w-4 rounded" />
-                                {PAYMENT_PAY_NAMES[method]}
-                            </span>
-                            <span className="text-[10px] font-bold text-gray-500">{link.label}로 열기</span>
-                            <span className={clsx('text-[10px] font-black', status.className)}>
-                                {status.label}
-                            </span>
+                            <StatusMark status={statusOf(method, link.mode)} />
+                            {/* eslint-disable-next-line @next/next/no-img-element -- small static app icon */}
+                            <img src={PAY_LOGO_URLS[method]} alt="" className="h-12 w-12 rounded-2xl" />
+                            <span className="text-xs font-black text-gray-900">{PAYMENT_PAY_NAMES[method]}</span>
                         </a>
                     );
                 })}
             </div>
-            <p className="text-[10px] font-bold leading-relaxed opacity-70">
-                페이로 낼 때는 앱에서 {cardName ?? '추천 카드'}를 골라 주세요. 기본 결제수단과 여는 방식은{' '}
-                <Link href="/settings#payment-methods" className="underline underline-offset-2">설정</Link>
-                에서 바꿀 수 있어요.
+            <p className="text-[10px] font-bold opacity-70">
+                페이 앱에서는 {cardName ?? '추천 카드'}로 결제하세요.
             </p>
             {notOpenedAppId && (
                 <AppMissingNotice
