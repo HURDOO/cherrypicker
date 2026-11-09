@@ -31,3 +31,6 @@ schema.sql
 migration_*.sql
 code from gemini.jsx
 database instruction from gemini.txt
+
+# Local secret notes never go into an image.
+webhook.txt
