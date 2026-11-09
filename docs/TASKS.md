@@ -496,6 +496,15 @@
   - 의미 hash cache·배치 AI 상한이 스케줄 실행에서 적용되고, 추가 credit 구매 없이 예산을 넘지 않는다.
   - 복원 임시 DB에서 quick check·foreign key·migration 호환성·핵심 레코드를 검증하고, 실행 중인 운영 DB를 임의로 덮어쓰지 않는다.
   - 배포 후 `npm run lint`, `npm test`, `npm run build`, `/api/health`, 공개 추천·기록과 관리자 경계 smoke test가 통과한다.
+- 진행 기록 (2026-11-10):
+  - 설계 승인([DECISIONS 2026-10-30 확정 2026-11-10](./DECISIONS.md)). 사용자가 운영 관리자 계정을 만들었다(가입 열기 → 가입 → `ALLOW_SIGN_UP=false`로 재배포, `/admin` 진입 확인, `/signup` 307).
+  - 구현: 토큰 `src/lib/catalog-sync-auth.ts`, 공통 hash·백업·보관 `src/lib/catalog-sync-common.ts`, 카드 릴리스 `src/lib/catalog-release.ts`, 프로모션 이관 `src/lib/promotion-handover.ts`, 관리자 계정 해석 `src/lib/catalog-sync-reviewer.ts`, API `src/app/api/catalog-sync/{status,card-release,promotion-handover}`, 명령 `npm run catalog:sync -- status|release|handover|verify`(`scripts/catalog-sync.ts`), 백업 보관 `--keep=10`(`scripts/backup-db.ts`, `scripts/docker-entrypoint.sh`), 릴리스 revision의 검수 상태 `src/lib/benefit-catalog-server.ts`(`c3d930d`). 운영 수집 스케줄 `src/instrumentation.ts`·`src/lib/promotion-schedule.ts`, Discord `src/lib/ops-alerts.ts`, `deploy.json` 선택 secret 2개(`de36548`). 회귀 테스트(릴리스 5, 이관 4, 토큰·hash·보관 5, 스케줄·알림)를 더해 `npm test`(96개 파일, 948개), `npm run lint`, `npm run build` 통과.
+  - 운영 토큰: Mac `.env.local`에 `CATALOG_SYNC_TOKEN`(64자)을 만들었다(값은 출력하지 않음). Discord 시험 메시지 1건을 사용자 웹훅으로 보내 성공(HTTP 2xx)을 확인했다.
+  - 이미지: `deployctl publish`로 `ghcr.io/hurdoo/cherrypicker:sha-cbf40fbcd5a8`(digest `sha256:eef2c02d…b9561c11`)을 게시했다. 대시보드 적용은 하지 않았다.
+  - 리허설(게시한 이미지, OrbStack, 운영과 같은 768MiB·CPU 1·pids 128): 새 DB에 migration·seed 뒤 2026-11-09 데모 DB의 굿딜(110개·브랜드 201개)과 관리자 행을 넣어 운영 상태를 흉내 냈다. `catalog:sync status`(migration 24·`d5faa838…` 일치, 관리자 준비) → `release`(카드 80 추가·8 갱신, 브랜드 376 추가, 운영 전용 굿딜 브랜드 65개 유지, revision 85, 경고 0, 1초 미만) → 같은 묶음 재전송 `unchanged` → `handover`(17조각·16.4MiB, 후보 3,560·원문 1,083, 검수 기록 694건을 관리자 계정으로, 약 4초, 컨테이너 최대 248MiB) → `verify`에서 같은 이미지로 띄운 로컬 DB 사본과 카테고리 10·카드 83·규칙 677·카드 지원 83·브랜드 512(+65)·제공자 7·구독 상품 8·굿딜 밖 프로모션 739가 모두 같았다. 두 번째 이관은 409, 토큰 없음·틀림 401, 관리자 화면 307→로그인, 관리자 API 401, 가입 307, 공개 catalog에 검수자·원문·후보·계정 필드 없음.
+  - 이관 뒤 첫 수집(리허설 컨테이너 안, 메모리 상한 320MB): 716건 변화 없음·검수 대기 3건으로, 승인 기록이 검수 대기로 돌아오지 않았다. 예약 시각을 바꾼 실제 스케줄 실행은 잠금 → 수집 프로세스(`oom_score_adj` 1000) → 41초 `SUCCEEDED` → 잠금 해제 → 다음 날 재예약까지 정상이었고 컨테이너 최대 374MiB였다. 앞서 본 683MiB·`database is locked`는 끊긴 `docker exec`의 수집이 컨테이너 안에서 계속 돌아 두 수집이 겹친 탓이었다(스케줄 잠금이 막는 경우).
+  - 내부망 확인: `http://192.168.10.13:3187`(리허설 컨테이너, 최종 데이터)에서 Chrome으로 첫 설정 → 네이버페이 머니 하나 체크카드(25만 원 이상) → KT(GOLD)·Npay → GS25 1만 원이 `KT멤버십 + 네이버페이 머니 하나 체크카드` 확정 557원으로 나오고, `/install`·manifest(체리피커, standalone, 아이콘 3)와 가로 넘침 없음을 확인했다.
+  - 남은 일: 사용자가 대시보드에 배포·secret(`CATALOG_SYNC_TOKEN`, `DISCORD_WEBHOOK_URL`) 입력 → 운영 `catalog:sync status`·`release`·`handover`·`verify`와 smoke → 운영 첫 정기 수집(다음 05:15) 결과 확인. Mac launchd 주 1회 카드 확인·health 알림과 백업 복구 실증은 데모 뒤로 미뤘다.
 
 ## [ ] TASK-05 — 실제 모바일 브라우저에서 실사용 흐름 검증
 
