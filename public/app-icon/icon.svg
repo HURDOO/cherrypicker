@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Temporary demo icon. Edit this file, then run `npm run icons:generate` to rebuild the PNGs. -->
+  <!-- Keep the artwork inside the central circle (radius 200) so the maskable icon is not clipped. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff1f2"/>
+      <stop offset="1" stop-color="#ffe4e6"/>
+    </linearGradient>
+    <radialGradient id="cherry" cx="0.38" cy="0.34" r="0.75">
+      <stop offset="0" stop-color="#fb7185"/>
+      <stop offset="0.55" stop-color="#e11d48"/>
+      <stop offset="1" stop-color="#9f1239"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <path d="M206 266 C 218 214, 252 172, 292 150" fill="none" stroke="#3f6212" stroke-width="13" stroke-linecap="round"/>
+  <path d="M316 280 C 312 232, 302 188, 292 150" fill="none" stroke="#3f6212" stroke-width="13" stroke-linecap="round"/>
+  <path d="M292 150 C 310 112, 350 104, 372 120 C 352 150, 318 160, 292 150 Z" fill="#22c55e"/>
+  <path d="M296 148 C 318 134, 340 126, 364 122" fill="none" stroke="#15803d" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="200" cy="330" r="72" fill="url(#cherry)"/>
+  <circle cx="320" cy="344" r="68" fill="url(#cherry)"/>
+  <ellipse cx="176" cy="302" rx="18" ry="12" fill="#ffffff" opacity="0.55" transform="rotate(-30 176 302)"/>
+  <ellipse cx="298" cy="318" rx="17" ry="11" fill="#ffffff" opacity="0.55" transform="rotate(-30 298 318)"/>
+</svg>

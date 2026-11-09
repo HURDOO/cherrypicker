@@ -7,6 +7,8 @@ import React from 'react';
 import BottomNav from './BottomNav';
 import { ToastContainer } from '@/components/ui/Toast';
 import KakaoTalkHandoff from './KakaoTalkHandoff';
+// Registers the install-prompt listener on every page, before any install button mounts.
+import '@/hooks/useAppInstall';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     useAppData();

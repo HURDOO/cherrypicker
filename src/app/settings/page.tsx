@@ -33,6 +33,7 @@ import {
 } from '@/components/settings/AccountLifecycleDialog';
 import { disconnectLocalWorkspaceSync } from '@/lib/local-workspace-sync';
 import { LocalDataPrivacyNotice } from '@/components/settings/LocalDataPrivacyNotice';
+import InstallAppSettingsLink from '@/components/install/InstallAppSettingsLink';
 import { SystemCardSelector } from '@/components/settings/SystemCardSelector';
 import { CatalogFreshnessCard } from '@/components/catalog/CatalogFreshnessCard';
 import { useBenefitCatalog } from '@/hooks/useBenefitCatalog';
@@ -564,6 +565,8 @@ export default function SettingsPage() {
                     benefitMonthLabel={nextBenefitMonthLabel}
                     onSave={handleUpdatePerformanceGoal}
                 />
+
+                <InstallAppSettingsLink />
 
                 {/* 2. Data Management (Added Master Data Button) */}
                 <section>

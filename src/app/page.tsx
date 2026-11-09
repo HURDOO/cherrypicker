@@ -65,6 +65,7 @@ import {
     type PaymentAppAction,
 } from '@/utils/paymentAppLinks';
 import { PaymentAppButtons, PaymentMethodPicker } from '@/components/payment/PaymentAppButtons';
+import InstallAppCard from '@/components/install/InstallAppCard';
 import { getEffectiveDefaultMethod, getOpenablePayIds } from '@/utils/paymentPreferences';
 import { buildPromotionUsage } from '@/utils/promotionUsage';
 import {
@@ -1362,6 +1363,7 @@ function HomePageContent() {
                         )}
                     </section>
                 )}
+                {!guidedFirstRecommendation && !currentPaymentTarget && <InstallAppCard />}
                 {!guidedFirstRecommendation && (
                     <MonthlyPerformanceReminder
                         cards={missingPerformanceCards}
