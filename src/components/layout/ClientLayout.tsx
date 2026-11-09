@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import React from 'react';
 import BottomNav from './BottomNav';
 import { ToastContainer } from '@/components/ui/Toast';
+import KakaoTalkHandoff from './KakaoTalkHandoff';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     useAppData();
@@ -26,6 +27,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 {children}
                 <BottomNav />
                 <ToastContainer />
+                <KakaoTalkHandoff />
             </div>
         </div>
     );
