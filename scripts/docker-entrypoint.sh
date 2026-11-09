@@ -12,7 +12,7 @@ export BETTER_AUTH_URL
 
 if [ -f "${DATABASE_PATH}" ]; then
     backup_timestamp="$(date -u +%Y%m%dT%H%M%S%NZ)"
-    npm run db:backup -- "/data/backups/pre-start-${backup_timestamp}.db"
+    npm run db:backup -- "/data/backups/pre-start-${backup_timestamp}.db" --keep=10
 fi
 
 npm run db:setup

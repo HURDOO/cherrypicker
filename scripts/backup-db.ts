@@ -11,6 +11,7 @@ import {
 import { basename, dirname, join, resolve } from 'node:path';
 
 import Database from 'better-sqlite3';
+import { pruneDatabaseBackups } from '../src/lib/catalog-sync-common';
 
 const DEFAULT_DATABASE_PATH = 'data/cherrypicker.db';
 
@@ -32,7 +33,13 @@ async function main(): Promise<void> {
         'backups',
         `cherrypicker-${createTimestamp()}.db`,
     );
-    const destinationPath = resolve(process.argv[2] ?? defaultDestination);
+    const destinationArgument = process.argv.slice(2).find(item => !item.startsWith('--'));
+    const keepArgument = process.argv.find(item => item.startsWith('--keep='))?.slice('--keep='.length);
+    const keep = keepArgument === undefined ? undefined : Number(keepArgument);
+    if (keep !== undefined && (!Number.isSafeInteger(keep) || keep < 1)) {
+        throw new Error('--keep은 1 이상의 정수여야 합니다.');
+    }
+    const destinationPath = resolve(destinationArgument ?? defaultDestination);
 
     if (!existsSync(databasePath)) {
         throw new Error(`Database does not exist: ${databasePath}`);
@@ -86,6 +93,12 @@ async function main(): Promise<void> {
 
         const size = statSync(destinationPath).size;
         console.log(`Backup complete: ${destinationPath} (${size} bytes)`);
+
+        // Only the app's own pre-start/pre-sync backups count toward --keep; others stay.
+        if (keep !== undefined) {
+            const removed = pruneDatabaseBackups(dirname(destinationPath), keep);
+            if (removed.length > 0) console.log(`Removed ${removed.length} older backups.`);
+        }
     } catch (error) {
         removePartialBackup(partialPath);
         throw error;

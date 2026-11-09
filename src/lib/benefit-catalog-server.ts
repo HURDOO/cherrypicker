@@ -86,6 +86,9 @@ export function getBenefitCatalogSnapshot(): BenefitCatalogSnapshot {
                 .all()
                 .map(({ snapshot, ...revision }) => ({
                     ...revision,
+                    // A release copies the reviewed revision without its local candidate row.
+                    candidateId: revision.candidateId ??
+                        (snapshot.release?.reviewed ? `release:${snapshot.release.releaseId}` : null),
                     coverageCaveats: cardBenefitCoverageCaveats(snapshot.coverage),
                 }));
             const brandRows = tx.select().from(brands)

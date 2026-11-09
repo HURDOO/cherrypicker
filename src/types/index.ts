@@ -367,6 +367,12 @@ export interface CardBenefitRevisionSnapshot {
     rules: BenefitRule[];
     /** Rule-level coverage applied at approval: card caveats and rules kept out of the catalog. */
     coverage?: CardBenefitCoverageSummary;
+    /** Set when a catalog release brought this revision from the reviewed local catalog. */
+    release?: {
+        releaseId: string;
+        sourceRevision: number;
+        reviewed: boolean;
+    };
 }
 
 // User Data
