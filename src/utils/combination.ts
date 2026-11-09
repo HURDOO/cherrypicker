@@ -336,6 +336,15 @@ const getConfirmationLabel = (offer: PromotionOffer) => {
     return labels.length > 0 ? `${labels.join('·')} 확인` : '혜택 적용 조건 확인';
 };
 
+/**
+ * Pay money and pay points are one funding choice: points are spent as part of a money
+ * payment, so an offer that allows points also allows money.
+ */
+const allowsFundingType = (allowed: FundingType[], fundingType: FundingType) =>
+    allowed.length === 0 ||
+    allowed.includes(fundingType) ||
+    (fundingType === 'MONEY' && allowed.includes('POINTS'));
+
 const canApplyOffer = (
     offer: PromotionOffer,
     state: WorkingCombination,
@@ -351,9 +360,7 @@ const canApplyOffer = (
     }
 
     const allowedFundingTypes = offer.compatibility.allowedFundingTypes ?? [];
-    if (fundingType && allowedFundingTypes.length > 0 && !allowedFundingTypes.includes(fundingType)) {
-        return false;
-    }
+    if (fundingType && !allowsFundingType(allowedFundingTypes, fundingType)) return false;
 
     const otherProviderOffers = [...state.appliedPromotionIds]
         .map(id => allOffers.find(item => item.id === id))
@@ -1113,7 +1120,6 @@ export function calculateBestCombinations(
                 ? [
                     'CARD',
                     ...(input.profile.moneyEnabled ? ['MONEY' as const] : []),
-                    ...(input.profile.pointsEnabled ? ['POINTS' as const] : []),
                     ...(state.steps.some(step =>
                         step.promotionId &&
                         input.promotions.find(offer => offer.id === step.promotionId)
@@ -1126,8 +1132,7 @@ export function calculateBestCombinations(
                 const incompatibleFunding = state.steps.some(step => {
                     if (!step.promotionId) return false;
                     const offer = input.promotions.find(item => item.id === step.promotionId);
-                    const allowed = offer?.compatibility.allowedFundingTypes ?? [];
-                    return allowed.length > 0 && !allowed.includes(fundingType);
+                    return !allowsFundingType(offer?.compatibility.allowedFundingTypes ?? [], fundingType);
                 });
                 if (incompatibleFunding) return;
 
@@ -1212,7 +1217,28 @@ export function calculateBestCombinations(
         });
     });
 
-    const deduplicated = [...new Map(results.map(item => [item.id, item])).values()]
+    const unique = [...new Map(results.map(item => [item.id, item])).values()];
+    const offerById = new Map(input.promotions.map(offer => [offer.id, offer]));
+    // Going through a pay with nothing from that pay is only an extra step, and paying
+    // with its money also misses card spend. Drop such routes when paying directly gives
+    // at least as much; keep them when there is no card to pay with directly.
+    const plainRoutes = unique.filter(item => !item.payProviderId);
+    const addsNothing = (item: BenefitCombination) =>
+        Boolean(item.payProviderId) &&
+        !item.steps.some(step =>
+            step.providerId === item.payProviderId ||
+            (step.promotionId !== undefined &&
+                (offerById.get(step.promotionId)?.compatibility.requiredPayProviderIds ?? [])
+                    .includes(item.payProviderId!))
+        ) &&
+        plainRoutes.some(plain =>
+            plain.confirmedValue >= item.confirmedValue &&
+            plain.conditionalValue >= item.conditionalValue &&
+            plain.estimatedValue >= item.estimatedValue &&
+            plain.payableAmount <= item.payableAmount
+        );
+    const deduplicated = unique
+        .filter(item => !addsNothing(item))
         .sort(compareResults)
         .slice(0, 30)
         .map(combination => metrics.searchSpaceLimited

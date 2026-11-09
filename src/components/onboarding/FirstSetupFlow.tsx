@@ -28,6 +28,8 @@ import type {
 } from '@/types';
 import {
     defaultTelecomMembership,
+    findPerformanceTierOption,
+    getPerformanceTierOptions,
     KAKAOPAY_PROVIDER_ID,
     togglePayProvider,
 } from '@/utils/firstSetupDefaults';
@@ -50,10 +52,6 @@ const PROVIDER_LOGO_URLS: Record<string, string> = {
     kakaopay: '/brand-logos/providers/kakaopay.png',
     naverpay: '/brand-logos/providers/naverpay.png',
 };
-
-const formatWonInput = (digits: string) => (
-    digits === '' ? '' : Number(digits).toLocaleString('ko-KR')
-);
 
 function ProviderButton({
     provider,
@@ -186,6 +184,18 @@ export function FirstSetupFlow({
     const telecomProviders = catalog?.providers.filter(provider => provider.kind === 'TELECOM') ?? [];
     const payProviders = catalog?.providers.filter(provider => provider.kind === 'PAY') ?? [];
     const selectedCard = selectedCards[0];
+    const selectedCardTiers = useMemo(
+        () => selectedCard ? getPerformanceTierOptions(selectedCard, rules) : [],
+        [rules, selectedCard]
+    );
+    const selectedCardDraft = selectedCard ? performanceDrafts[selectedCard.id] ?? '' : '';
+    const selectedCardTier = findPerformanceTierOption(
+        selectedCardTiers,
+        selectedCardDraft === '' ? undefined : Number(selectedCardDraft),
+    );
+    // Unknown spend would count as 0 and switch off every tiered card benefit.
+    const isSpendTierMissing = Boolean(selectedCard) && !isChangingCard &&
+        selectedCardTiers.length > 0 && !selectedCardTier;
     const showCardList = !selectedCard || isChangingCard;
 
     useEffect(() => {
@@ -452,39 +462,54 @@ export function FirstSetupFlow({
                             )}
                             {selectedCard && !isChangingCard && performanceCards.some(card => card.id === selectedCard.id) && (
                                 <div className="mt-6">
-                                    <label
-                                        htmlFor={`setup-performance-${selectedCard.id}`}
+                                    <h2
+                                        id={`setup-performance-${selectedCard.id}`}
                                         className="text-lg font-black tracking-tight text-gray-950"
                                     >
                                         지난달 이 카드 얼마나 썼나요?
-                                    </label>
+                                    </h2>
                                     <p className="mt-1.5 text-xs font-bold leading-relaxed text-gray-500">
-                                        카드사 앱에서 볼 수 있어요. 10만 원처럼 대략 적어도 돼요.
-                                        모르면 넘어가도 돼요.
+                                        카드사 앱에서 볼 수 있어요. 대략 어디쯤인지 골라 주세요.
                                     </p>
-                                    <div className="mt-3 flex min-h-12 items-center rounded-2xl border border-gray-200 px-4 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100">
-                                        <input
-                                            id={`setup-performance-${selectedCard.id}`}
-                                            type="text"
-                                            inputMode="numeric"
-                                            value={formatWonInput(performanceDrafts[selectedCard.id] ?? '')}
-                                            disabled={isSaving}
-                                            placeholder="예: 100,000"
-                                            onChange={event => setPerformanceDrafts(current => ({
-                                                ...current,
-                                                [selectedCard.id]: event.target.value.replace(/[^0-9]/g, '').slice(0, 12),
-                                            }))}
-                                            onBlur={event => {
-                                                const nextTarget = event.relatedTarget;
-                                                if (
-                                                    nextTarget instanceof HTMLElement &&
-                                                    nextTarget.closest('[data-onboarding-navigation]')
-                                                ) return;
-                                                void savePerformance(selectedCard.id);
-                                            }}
-                                            className="min-h-12 min-w-0 flex-1 bg-transparent text-right text-lg font-black text-blue-700 outline-none placeholder:text-gray-300 disabled:opacity-60"
-                                        />
-                                        <span className="ml-1 text-sm font-bold text-gray-400">원</span>
+                                    <div
+                                        role="radiogroup"
+                                        aria-labelledby={`setup-performance-${selectedCard.id}`}
+                                        className="mt-3 grid grid-cols-2 gap-2"
+                                    >
+                                        {selectedCardTiers.map(option => {
+                                            const selected = selectedCardTier?.amount === option.amount;
+                                            return (
+                                                <button
+                                                    key={option.amount}
+                                                    type="button"
+                                                    role="radio"
+                                                    aria-checked={selected}
+                                                    disabled={isSaving}
+                                                    onClick={() => setPerformanceDrafts(current => ({
+                                                        ...current,
+                                                        [selectedCard.id]: String(option.amount),
+                                                    }))}
+                                                    className={clsx(
+                                                        'min-h-14 rounded-2xl border px-3 py-2 text-left disabled:opacity-60',
+                                                        selected
+                                                            ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-100'
+                                                            : 'border-gray-200 bg-white'
+                                                    )}
+                                                >
+                                                    <span className={clsx(
+                                                        'block text-sm font-black',
+                                                        selected ? 'text-blue-700' : 'text-gray-900'
+                                                    )}>
+                                                        {option.label}
+                                                    </span>
+                                                    {option.detail && (
+                                                        <span className="mt-0.5 block text-[11px] font-bold text-gray-500">
+                                                            {option.detail}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                     <p className="mt-1.5 text-[10px] font-bold text-gray-400">
                                         {performanceMonthLabel} 사용액으로 이번 달 혜택 조건을 계산해요.
@@ -675,7 +700,7 @@ export function FirstSetupFlow({
                         type="button"
                         data-onboarding-navigation
                         disabled={isSaving ||
-                            (step === 'CARDS' && selectedCardIds.length === 0) ||
+                            (step === 'CARDS' && (selectedCardIds.length === 0 || isSpendTierMissing)) ||
                             (step === 'BENEFITS' && isTelecomSetupIncomplete)}
                         onClick={() => {
                             if (step === 'WELCOME') void goToStep('CARDS');

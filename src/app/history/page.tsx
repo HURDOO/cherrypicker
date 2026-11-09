@@ -31,6 +31,7 @@ import {
 import {
     BENEFIT_STATUS_LABELS,
     FUNDING_TYPE_LABELS,
+    getFundingLabel,
 } from '@/utils/combinationPresentation';
 import {
     formatPerformanceMonthLabel,
@@ -472,13 +473,21 @@ export default function HistoryPage() {
                                             const snapshot = getTransactionCombinationSummary(tx);
                                             const fundingType = snapshot.fundingType ??
                                                 tx.fundingType ?? 'CARD';
+                                            const fundingLabel = fundingType === 'CARD'
+                                                ? snapshot.cardName ?? txCard?.name ??
+                                                    FUNDING_TYPE_LABELS.CARD
+                                                : getFundingLabel({
+                                                    fundingType,
+                                                    payProviderName: snapshot.payProviderName,
+                                                });
                                             const methodParts = [
                                                 ...snapshot.steps
                                                     .filter(step => step.layer === 'DISCOUNT')
                                                     .map(step => step.providerName),
-                                                snapshot.payProviderName,
-                                                snapshot.cardName ?? txCard?.name ??
-                                                    FUNDING_TYPE_LABELS[fundingType],
+                                                fundingLabel.startsWith(`${snapshot.payProviderName} `)
+                                                    ? undefined
+                                                    : snapshot.payProviderName,
+                                                fundingLabel,
                                             ].filter((value): value is string => Boolean(value));
                                             const methodSummary = [...new Set(methodParts)].join(' + ');
                                             const transactionKey = String(tx.id);

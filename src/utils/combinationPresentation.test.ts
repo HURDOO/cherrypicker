@@ -69,7 +69,18 @@ describe('combination method summary', () => {
             cardId: undefined,
             cardName: undefined,
             steps: [],
-        }))).toBe('Npay + 페이머니');
+        }))).toBe('Npay 머니');
+    });
+
+    it('names whose money pays for a KakaoPay GoodDeal voucher', () => {
+        expect(getCombinationMethodSummary(combination({
+            payProviderId: 'kakaopay-gooddeal',
+            payProviderName: '카카오페이 굿딜',
+            fundingType: 'MONEY',
+            cardId: undefined,
+            cardName: undefined,
+            steps: [step({ id: 'gooddeal', layer: 'PAY', providerName: '카카오페이 굿딜' })],
+        }))).toBe('카카오페이 굿딜 + 카카오페이 머니');
     });
 
     it('uses the three user-facing benefit states consistently', () => {

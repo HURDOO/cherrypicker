@@ -52,8 +52,8 @@ import {
 } from '@/lib/monthly-performance';
 import {
     BENEFIT_STATUS_LABELS,
-    FUNDING_TYPE_LABELS,
     getCombinationMethodSummary,
+    getFundingLabel,
     getCombinationRecommendationReason,
     getUnresolvedConditionSteps,
 } from '@/utils/combinationPresentation';
@@ -539,6 +539,8 @@ function HomePageContent() {
                 promotionUsage,
                 performanceBenefitMonth: performancePeriod.nextBenefitMonth,
                 isOnline: isOnlinePurchase,
+                // Every brand with a benefit leads, so no brand without one fills the first rows.
+                limit: Number.POSITIVE_INFINITY,
             })
             : { suggestions: [], opportunityCount: 0 },
         [
@@ -1803,7 +1805,7 @@ function HomePageContent() {
                                                                 ? '별도 선할인 없이 진행'
                                                                 : layer === 'PAY'
                                                                     ? selectedCombination.payProviderName || (payChoices ? '페이 혜택은 없어요' : '페이 미사용')
-                                                                    : selectedCombination.cardName || FUNDING_TYPE_LABELS[selectedCombination.fundingType]
+                                                                    : getFundingLabel(selectedCombination)
                                                         }
                                                         confirmedConditionIds={confirmedConditionIds}
                                                         onConfirm={handleConfirmCondition}

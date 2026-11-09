@@ -594,28 +594,25 @@ export function BenefitProfileSettings() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                    {([
-                        ['moneyEnabled', '페이머니'],
-                        ['pointsEnabled', '포인트'],
-                    ] as const).map(([key, label]) => (
-                        <label
-                            key={key}
-                            className="flex cursor-pointer items-center justify-between rounded-xl border border-gray-200 px-3 py-3 text-xs font-black text-gray-700"
-                        >
-                            {label}
-                            <input
-                                type="checkbox"
-                                checked={profile[key]}
-                                onChange={event => setProfile(current => ({
-                                    ...current,
-                                    [key]: event.target.checked,
-                                }))}
-                                className="h-4 w-4 accent-blue-600"
-                            />
-                        </label>
-                    ))}
-                </div>
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-gray-200 px-3 py-3 text-xs font-black text-gray-700">
+                    <span>
+                        페이 머니로도 결제
+                        <span className="mt-0.5 block text-[10px] font-bold text-gray-400">
+                            포인트는 머니로 낼 때 함께 쓸 수 있어요.
+                        </span>
+                    </span>
+                    {/* Points are spent inside a money payment, so one switch covers both. */}
+                    <input
+                        type="checkbox"
+                        checked={profile.moneyEnabled}
+                        onChange={event => setProfile(current => ({
+                            ...current,
+                            moneyEnabled: event.target.checked,
+                            pointsEnabled: event.target.checked,
+                        }))}
+                        className="h-4 w-4 shrink-0 accent-blue-600"
+                    />
+                </label>
 
                 <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
                     <div className="flex items-center gap-2">

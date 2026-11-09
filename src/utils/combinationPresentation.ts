@@ -9,10 +9,23 @@ import { getCombinationIntent } from './recommendationPreferences';
 
 export const FUNDING_TYPE_LABELS: Record<FundingType, string> = {
     CARD: '등록 카드',
-    MONEY: '페이머니',
+    MONEY: '페이 머니',
     POINTS: '포인트',
     GIFT_CERTIFICATE: '상품권',
 };
+
+/** What pays the bill: the card's name, or whose money it is, e.g. "Npay 머니". */
+export function getFundingLabel(
+    combination: Pick<BenefitCombination, 'fundingType' | 'cardName' | 'payProviderName'>
+): string {
+    if (combination.fundingType === 'CARD') return combination.cardName || FUNDING_TYPE_LABELS.CARD;
+    // GoodDeal vouchers are bought with the money behind KakaoPay.
+    const owner = combination.payProviderName?.trim().replace(/\s*굿딜$/, '');
+    if (owner && (combination.fundingType === 'MONEY' || combination.fundingType === 'POINTS')) {
+        return `${owner} ${combination.fundingType === 'MONEY' ? '머니' : '포인트'}`;
+    }
+    return FUNDING_TYPE_LABELS[combination.fundingType];
+}
 
 export const BENEFIT_STATUS_LABELS: Record<BenefitCertainty, string> = {
     CONFIRMED: '확정',
@@ -32,12 +45,15 @@ export function getCombinationMethodNames(
     const discountMethods = combination.steps
         .filter(step => step.layer === 'DISCOUNT' && step.benefitAmount > 0)
         .map(step => step.providerName);
-    const fundingMethod = combination.fundingType === 'CARD'
-        ? combination.cardName || FUNDING_TYPE_LABELS.CARD
-        : FUNDING_TYPE_LABELS[combination.fundingType];
+    const fundingMethod = getFundingLabel(combination);
+    // "Npay 머니" already names the pay, so "Npay + Npay 머니" drops the first.
+    const payMethod = combination.payProviderName &&
+        fundingMethod.startsWith(`${combination.payProviderName.trim()} `)
+        ? undefined
+        : combination.payProviderName;
     const methods = [
         ...discountMethods,
-        combination.payProviderName,
+        payMethod,
         fundingMethod,
     ]
         .map(method => method?.trim())

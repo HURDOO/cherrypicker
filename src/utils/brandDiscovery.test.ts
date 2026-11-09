@@ -3,7 +3,7 @@ import type { Brand, TransactionHistory } from '@/types';
 import { INITIAL_BRANDS } from './seedData';
 import {
     BRAND_BROWSE_GROUPS,
-    DEFAULT_FAVORITE_BRAND_IDS,
+    LEGACY_DEFAULT_FAVORITE_BRAND_IDS,
     getBrandBrowseGroupId,
     getBrandIndexKeys,
     getKoreanInitials,
@@ -240,18 +240,22 @@ describe('nearby brand history', () => {
 });
 
 describe('brand discovery preferences', () => {
-    it('starts a new browser with a small cross-category favorite set', () => {
-        expect(parseBrandDiscoveryPreferences(null).favoriteBrandIds).toEqual(
-            DEFAULT_FAVORITE_BRAND_IDS
-        );
-        expect(DEFAULT_FAVORITE_BRAND_IDS).toEqual([
-            'cu',
-            'gs25',
-            'daiso',
-            'oliveyoung',
-            'starbucks',
-            'mcdonalds',
-        ]);
+    it('starts a new browser without favorites the user did not choose', () => {
+        expect(parseBrandDiscoveryPreferences(null).favoriteBrandIds).toEqual([]);
+        expect(parseBrandDiscoveryPreferences(JSON.stringify({
+            locationVisits: [],
+        })).favoriteBrandIds).toEqual([]);
+    });
+
+    it('drops the old automatic favorite set but keeps a list the user changed', () => {
+        expect(parseBrandDiscoveryPreferences(JSON.stringify({
+            favoriteBrandIds: [...LEGACY_DEFAULT_FAVORITE_BRAND_IDS],
+            locationVisits: [],
+        })).favoriteBrandIds).toEqual([]);
+        expect(parseBrandDiscoveryPreferences(JSON.stringify({
+            favoriteBrandIds: ['emart24', ...LEGACY_DEFAULT_FAVORITE_BRAND_IDS],
+            locationVisits: [],
+        })).favoriteBrandIds).toEqual(['emart24', ...LEGACY_DEFAULT_FAVORITE_BRAND_IDS]);
     });
 
     it('preserves an explicitly saved empty favorite set', () => {

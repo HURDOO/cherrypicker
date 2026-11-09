@@ -152,6 +152,44 @@ describe('calculateBestCombinations', () => {
         expect(result.combinations[0]).toEqual(expect.objectContaining({ confirmedValue: 0 }));
         expect(result.combinations[0].payProviderId).toBeUndefined();
     });
+
+    it('drops pay routes that add nothing over paying directly', () => {
+        const result = calculateBestCombinations(input([], { rules: [] }));
+
+        expect(result.combinations.map(item => [item.payProviderId, item.fundingType])).toEqual([
+            [undefined, 'CARD'],
+        ]);
+    });
+
+    it('keeps money through a pay when there is no card to pay with directly', () => {
+        const result = calculateBestCombinations(input([], { cards: [], rules: [] }));
+
+        expect(result.combinations.map(item => [item.payProviderId, item.fundingType])).toEqual([
+            ['naverpay', 'MONEY'],
+        ]);
+    });
+
+    it('treats pay points as part of a money payment', () => {
+        const result = calculateBestCombinations(input([
+            offer('npay-points', {
+                providerId: 'naverpay',
+                layer: 'PAY',
+                action: { type: 'FLAT', value: 1_000 },
+                condition: { amountBasis: 'REMAINING_AMOUNT' },
+                compatibility: {
+                    requiredPayProviderIds: ['naverpay'],
+                    allowedFundingTypes: ['POINTS'],
+                },
+            }),
+        ], { rules: [] }));
+
+        expect(result.combinations.some(item => item.fundingType === 'POINTS')).toBe(false);
+        expect(result.combinations[0]).toEqual(expect.objectContaining({
+            payProviderId: 'naverpay',
+            fundingType: 'MONEY',
+            confirmedValue: 1_000,
+        }));
+    });
     it('shows scenario-only card benefits as conditional until the user checks the facts', () => {
         const scenarioRule: BenefitRule = {
             ...cardRule,

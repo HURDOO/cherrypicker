@@ -71,7 +71,11 @@ export const POPULAR_BRAND_IDS = [
     'cgv',
 ] as const;
 
-export const DEFAULT_FAVORITE_BRAND_IDS = [
+/**
+ * Favorites every browser used to start with. A saved list that still equals it was never
+ * chosen by the user, so it reads as empty and benefit brands lead the home list instead.
+ */
+export const LEGACY_DEFAULT_FAVORITE_BRAND_IDS = [
     'cu',
     'gs25',
     'daiso',
@@ -274,7 +278,7 @@ export interface BrandDiscoveryPreferences {
 }
 
 export const EMPTY_BRAND_DISCOVERY_PREFERENCES: BrandDiscoveryPreferences = {
-    favoriteBrandIds: [...DEFAULT_FAVORITE_BRAND_IDS],
+    favoriteBrandIds: [],
     locationVisits: [],
     defaultViewMode: 'default',
 };
@@ -530,9 +534,12 @@ export function parseBrandDiscoveryPreferences(value: string | null): BrandDisco
 
     try {
         const parsed = JSON.parse(value) as Partial<BrandDiscoveryPreferences>;
-        const favoriteBrandIds = Array.isArray(parsed.favoriteBrandIds)
+        const savedFavorites = Array.isArray(parsed.favoriteBrandIds)
             ? parsed.favoriteBrandIds.filter(item => typeof item === 'string')
-            : [...DEFAULT_FAVORITE_BRAND_IDS];
+            : [];
+        const isLegacyDefault = savedFavorites.length === LEGACY_DEFAULT_FAVORITE_BRAND_IDS.length &&
+            savedFavorites.every((id, index) => id === LEGACY_DEFAULT_FAVORITE_BRAND_IDS[index]);
+        const favoriteBrandIds = isLegacyDefault ? [] : savedFavorites;
         const locationVisits = Array.isArray(parsed.locationVisits)
             ? parsed.locationVisits.filter((item): item is BrandLocationVisit => (
                 typeof item === 'object' && item !== null &&
