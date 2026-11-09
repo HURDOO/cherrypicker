@@ -422,6 +422,40 @@ export function rankBrands(
     );
 }
 
+export function comparePersonalPopularity(left: RankedBrand, right: RankedBrand): number {
+    return right.meta.usageCount - left.meta.usageCount ||
+        (right.meta.lastUsedAt || '').localeCompare(left.meta.lastUsedAt || '') ||
+        right.meta.score - left.meta.score ||
+        left.meta.popularityRank - right.meta.popularityRank ||
+        left.brand.name.localeCompare(right.brand.name, 'ko-KR');
+}
+
+/**
+ * Home brand order: favorites, then brands this user paid at, then brands where their
+ * cards and benefits give a discount now (in `benefitBrandIds` order), then the rest.
+ */
+export function orderPersonalBrands(
+    items: RankedBrand[],
+    benefitBrandIds: readonly string[] = [],
+): RankedBrand[] {
+    const benefitRanks = new Map(benefitBrandIds.map((id, index) => [id, index]));
+    const group = (item: RankedBrand) => (
+        item.meta.isFavorite ? 0
+            : item.meta.usageCount > 0 ? 1
+                : benefitRanks.has(item.brand.id) ? 2
+                    : 3
+    );
+    return [...items].sort((left, right) => {
+        const leftGroup = group(left);
+        const groupOrder = leftGroup - group(right);
+        if (groupOrder !== 0) return groupOrder;
+        if (leftGroup === 2) {
+            return benefitRanks.get(left.brand.id)! - benefitRanks.get(right.brand.id)!;
+        }
+        return comparePersonalPopularity(left, right);
+    });
+}
+
 /**
  * Search-only brands stay out of browse lists until this user favorites or uses them,
  * or a personal suggestion points at them. Search always finds them.

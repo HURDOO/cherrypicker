@@ -12,7 +12,9 @@ import {
     type PurchaseScenario,
 } from '@/utils/purchaseScenario';
 import {
+    comparePersonalPopularity,
     isBrowsableBrand,
+    orderPersonalBrands,
     rankBrands,
     searchAndRankBrands,
     type BrandDiscoveryViewMode,
@@ -29,6 +31,8 @@ interface BrandDiscoveryProps {
     hasCurrentLocation: boolean;
     isLocating: boolean;
     benefitSuggestions?: BenefitBrandSuggestion[];
+    /** Brands with a discount for this user now, best first. Orders the home list. */
+    benefitBrandIds?: string[];
     benefitOpportunityCount?: number;
     purchaseScenarios?: PurchaseScenario[];
     onSelectBrand: (brand: Brand) => void;
@@ -43,14 +47,6 @@ const POPULAR_SCOPE = 'popular';
 const ALL_SCOPE = 'all';
 const INITIAL_VISIBLE_COUNT = 12;
 const MORE_VISIBLE_COUNT = 24;
-
-function comparePersonalPopularity(left: RankedBrand, right: RankedBrand): number {
-    return right.meta.usageCount - left.meta.usageCount ||
-        (right.meta.lastUsedAt || '').localeCompare(left.meta.lastUsedAt || '') ||
-        right.meta.score - left.meta.score ||
-        left.meta.popularityRank - right.meta.popularityRank ||
-        left.brand.name.localeCompare(right.brand.name, 'ko-KR');
-}
 
 function MainBrandCard({
     item,
@@ -93,6 +89,7 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
         history,
         favoriteBrandIds,
         benefitSuggestions = [],
+        benefitBrandIds,
         purchaseScenarios = [],
         onSelectBrand,
         onSelectPurchaseScenario,
@@ -117,8 +114,9 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
         return rankedBrands.filter(item => isBrowsableBrand(item, suggestedBrandIds));
     }, [benefitSuggestions, rankedBrands]);
     const personalPopularBrands = useMemo(() => {
+        if (benefitSuggestions.length === 0) return orderPersonalBrands(browsableBrands, benefitBrandIds);
+
         const sortedBrands = [...browsableBrands].sort(comparePersonalPopularity);
-        if (benefitSuggestions.length === 0) return sortedBrands;
 
         const suggestedBrandIds = new Set(benefitSuggestions.map(item => item.brand.id));
         const suggestedBrands = benefitSuggestions
@@ -129,7 +127,7 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
             ...suggestedBrands,
             ...sortedBrands.filter(item => !suggestedBrandIds.has(item.brand.id)),
         ];
-    }, [benefitSuggestions, browsableBrands, rankedById]);
+    }, [benefitBrandIds, benefitSuggestions, browsableBrands, rankedById]);
     const nameSortedBrands = useMemo(
         () => [...browsableBrands].sort((left, right) => (
             left.brand.name.localeCompare(right.brand.name, 'ko-KR')

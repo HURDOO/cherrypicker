@@ -552,6 +552,58 @@ function HomePageContent() {
         ]
     );
     const benefitBrandSuggestions = benefitBrandSuggestionResult.suggestions;
+    // Brands with a discount now, for the home brand order. Checking every brand takes
+    // a few hundred ms, so it runs after the first paint while the browser is idle.
+    const [benefitBrandIds, setBenefitBrandIds] = useState<string[]>([]);
+    useEffect(() => {
+        if (guidedFirstRecommendation || !catalog) return;
+        let cancelled = false;
+        const run = () => {
+            if (cancelled) return;
+            const ids = rankBenefitBrandSuggestions({
+                brands,
+                cards: recommendationCards,
+                rules,
+                history,
+                performances: currentPerformances,
+                promotions: catalog.promotions,
+                providers: catalog.providers,
+                profile: benefitProfile,
+                routeVerifications: catalog.routeVerifications,
+                promotionUsage,
+                performanceBenefitMonth: performancePeriod.nextBenefitMonth,
+                isOnline: isOnlinePurchase,
+                limit: Number.POSITIVE_INFINITY,
+            }).suggestions.map(item => item.brand.id);
+            setBenefitBrandIds(current => (
+                current.join('\n') === ids.join('\n') ? current : ids
+            ));
+        };
+        if (typeof window.requestIdleCallback === 'function') {
+            const handle = window.requestIdleCallback(run, { timeout: 2000 });
+            return () => {
+                cancelled = true;
+                window.cancelIdleCallback(handle);
+            };
+        }
+        const handle = window.setTimeout(run, 300);
+        return () => {
+            cancelled = true;
+            window.clearTimeout(handle);
+        };
+    }, [
+        benefitProfile,
+        brands,
+        catalog,
+        currentPerformances,
+        guidedFirstRecommendation,
+        history,
+        isOnlinePurchase,
+        performancePeriod.nextBenefitMonth,
+        promotionUsage,
+        recommendationCards,
+        rules,
+    ]);
     const tMembershipPartner = useMemo(() => isTMembershipPartner(
         catalog?.promotions ?? [],
         currentPaymentTarget?.kind === 'BRAND' ? currentPaymentTarget.brand.id : undefined,
@@ -1283,6 +1335,7 @@ function HomePageContent() {
                         hasCurrentLocation={hasCurrentLocation}
                         isLocating={isLocating}
                         benefitSuggestions={benefitBrandSuggestions}
+                        benefitBrandIds={benefitBrandIds}
                         purchaseScenarios={storageMode === 'guest' ? purchaseScenarios : []}
                         benefitOpportunityCount={benefitBrandSuggestionResult.opportunityCount}
                         onSelectBrand={brand => handleSelectBrand(brand.id)}

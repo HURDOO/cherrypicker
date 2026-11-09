@@ -403,6 +403,19 @@
   - 구현: 주소·버튼 선택 `src/utils/paymentAppLinks.ts`, 버튼 `src/components/payment/PaymentAppButtons.tsx`, 선택 기억 `src/hooks/usePaymentAppPreferences.ts`(localStorage), 앱 없음 안내 `/app-missing`. T멤버십 버튼은 SKT 혜택(할인·적립)이 보이는 단계 카드에 붙는다.
   - 검증: 회귀 테스트 9개를 더해 `npm test`(828개), `npm run lint`, `npm run build` 통과. 임시 DB 개발 서버에 시험용 혜택을 넣고 headless Chrome(Android UA 390px)에서 Npay QR·삼성페이, 카카오페이(카카오톡) 바코드·삼성페이, T멤버십 바코드 버튼과 주소, 삼성페이 선택 후 순서 바뀜, 앱이 안 열렸을 때 안내, 숨기기·다시 보이기, `/app-missing` 설치·숨기고 돌아가기, 가로 넘침 없음을 확인했다. 데스크톱 UA 1280px에서는 버튼이 보이지 않는다.
   - 남은 일: 실기기 Chrome에서 `intent://` 버튼과 앱 없음 이동 확인(사용자). iOS는 주소가 같은지 확인하지 않았다.
+- 진행 기록 (2026-11-09): 사용자 결정으로 굿딜(`kakaopay-gooddeal`) 결제 단계에도 카카오페이 결제 화면 버튼(카카오톡 바코드·삼성페이)을 붙였다. 굿딜 할인은 같은 결제 화면에서 적용된다고 보고, 굿딜 브랜드 페이지 직행은 여전히 제외한다. 굿딜 제외 테스트를 굿딜 버튼 테스트로 바꿨다(`c5c2207`). 실기기에서 굿딜 할인이 그 화면에서 붙는지 확인이 남았다.
+
+## [-] TASK-18 — 홈 브랜드 목록에서 지금 혜택 있는 브랜드를 앞에 보이기
+
+- 범위: 2026-11-09 사용자 요청. 평소 홈의 '자주 찾는 브랜드'와 카테고리 목록을 즐겨찾기 > 결제한 브랜드 > 지금 혜택 있는 브랜드 > 일반 순으로 바꾼다([결정](./DECISIONS.md)). 데이터·API·catalog 계약은 바꾸지 않는다.
+- 완료 조건:
+  - 정렬 회귀 테스트와 `npm run lint`, `npm test`, `npm run build`가 통과한다.
+  - 데스크톱·모바일 폭 브라우저에서 순서와 레이아웃을 확인한다.
+  - 실기기에서 홈을 열 때 멈춤이 느껴지지 않는지 확인한다(사용자 확인).
+- 진행 기록 (2026-11-09):
+  - 구현: 정렬 `orderPersonalBrands`(`src/utils/brandDiscovery.ts`), 홈에서 첫 화면 뒤 idle 시점에 혜택 브랜드 계산(`src/app/page.tsx`), 목록 연결 `src/components/brand/BrandDiscovery.tsx`. 첫 추천 튜토리얼은 그대로다.
+  - 검증: 회귀 테스트 2개를 더해 `npm test`(844개), `npm run lint`, `npm run build` 통과. 로컬 catalog 사본 DB 개발 서버와 headless Chrome(Android UA 390px, 1280px)에서 게스트로 카드 2장·굿딜·즐겨찾기를 설정하고 CU를 기록한 뒤, 즐겨찾기 7곳(결제한 CU가 맨 앞) > 혜택 브랜드(세븐일레븐…CGV, VIPS, 아웃백 등) > 일반 브랜드(이름순) 순서와 가로 넘침 없음을 확인했다.
+  - 남은 일: 실기기 멈춤 확인(사용자).
 
 ## [-] TASK-06 — 로컬에서 검수한 카탈로그를 운영에 반영하고 안전하게 운영·복구
 

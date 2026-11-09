@@ -100,7 +100,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 | `src/lib/card-brand-proposals.ts` | AI 카드 후보가 제안한 새 결제처를 기존 브랜드와 이름·별칭으로 맞추고, 새 매장에는 프로모션과 같은 `official_<hash>` ID를 부여한다. 승인 시 게시 규칙이 참조하는 제안만 자동 노출 브랜드로 등록한다 |
 | `src/utils/paymentTarget.ts`, `purchaseScenario.ts` | 실제 브랜드·일반 결제·구매 상황의 snapshot·URL·검색·레거시 기록 호환 계약 |
 | `src/utils/performanceGoals.ts` | 카드 규칙·사용자 덮어쓰기에서 실적 추천 목표 파생 |
-| `src/utils/benefitBrandSuggestions.ts` | 멤버십·구독·페이·카드 실적·한도와 시점 조건을 금액별로 조합해 첫 추천용 확정 혜택 브랜드 선정 |
+| `src/utils/benefitBrandSuggestions.ts` | 멤버십·구독·페이·카드 실적·한도와 시점 조건을 금액별로 조합해 첫 추천과 홈 브랜드 순서에 쓰는 확정 혜택 브랜드 선정 |
 | `src/utils/firstSetupRoutes.ts` | 저장된 첫 설정 단계와 App Router URL의 고정 매핑 |
 | `src/lib/benefit-catalog-*` | 공용 snapshot 생성, ETag HTTP 계약, IndexedDB 캐시와 freshness |
 | `src/lib/local-workspace*` | 로컬 workspace schema·검증·mutation·IndexedDB 저장·outbox |

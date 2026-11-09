@@ -11,6 +11,7 @@ import {
     isBrowsableBrand,
     LATIN_BRAND_INDEX_KEYS,
     normalizeBrandSearch,
+    orderPersonalBrands,
     parseBrandDiscoveryPreferences,
     rankBrands,
     searchAndRankBrands,
@@ -153,6 +154,44 @@ describe('brand discovery ranking', () => {
         expect(ranked[0].meta.score).toBe(110);
         expect(ranked[1].meta.score).toBe(70);
         expect(ranked[2].meta.score).toBe(15);
+    });
+});
+
+describe('home brand order', () => {
+    const homeBrands: Brand[] = [
+        { id: 'plain', name: '일반', categoryId: 'life' },
+        { id: 'benefit_b', name: '혜택B', categoryId: 'cafe' },
+        { id: 'used', name: '자주', categoryId: 'food' },
+        { id: 'benefit_a', name: '혜택A', categoryId: 'cafe' },
+        { id: 'favorite', name: '즐겨찾기', categoryId: 'life' },
+        { id: 'used_benefit', name: '자주혜택', categoryId: 'cafe' },
+    ];
+    const history = [
+        transaction('used', '2026-08-06T00:00:00.000Z', 1),
+        transaction('used', '2026-08-05T00:00:00.000Z', 2),
+        transaction('used_benefit', '2026-08-04T00:00:00.000Z', 3),
+        transaction('favorite', '2026-08-03T00:00:00.000Z', 4),
+    ];
+    const ranked = rankBrands(homeBrands, history, ['favorite'], new Date('2026-08-08T00:00:00.000Z'));
+
+    it('puts favorites, then used brands, then benefit brands in their order, then the rest', () => {
+        expect(orderPersonalBrands(ranked, ['benefit_a', 'used_benefit', 'benefit_b', 'favorite'])
+            .map(item => item.brand.id)).toEqual([
+            'favorite',
+            'used',
+            'used_benefit',
+            'benefit_a',
+            'benefit_b',
+            'plain',
+        ]);
+    });
+
+    it('keeps the personal order when no benefit brand is known yet', () => {
+        expect(orderPersonalBrands(ranked).map(item => item.brand.id).slice(0, 3)).toEqual([
+            'favorite',
+            'used',
+            'used_benefit',
+        ]);
     });
 });
 
