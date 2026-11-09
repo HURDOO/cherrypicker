@@ -305,6 +305,11 @@
   - 우리카드 7장을 게시했다. 카드의정석 EVERY CHECK는 현재 목록에 없어 보류, DON CHECK는 청소년 전용이라 제외, 네이버페이 머니카드는 공개 공식 안내가 없어 보류했다. 모든 신규 카드는 `[세션 임시 승인]`이며 golden fixture 148건이 통과한다.
   - 검증: 전체 83개 파일·809개 테스트, lint, production build 통과. 공개 catalog는 게시 카드 82장이고 `DRAFT` 카드·미승인 후보·검수자·원문이 없다. 사용자 Chrome(폭 500px)에서 별칭 검색·신규 카드 검색·B팩 선택→올리브영 1만원 확정 2,000원 추천을 확인하고 테스트 변경을 되돌렸다. 데스크톱(1280×800)과 390×844는 headless Chrome으로 카드 선택 화면 검색과 가로 넘침 없음을 확인했다. 데스크톱 폭의 추천 결과 화면은 확인하지 못했다(사용자 Chrome 창 폭이 500px로 고정).
   - 남은 일: D6 결정, 임시 승인 카드의 사용자 확인([임시 승인 카드 확인 목록](./check-card-provisional-review.md), 70장).
+- 진행 기록 (2026-11-10, D6):
+  - 사용자 결정([DECISIONS 2026-11-10](./DECISIONS.md)): 네이버페이 포인트는 1포인트를 1원으로 본다. 검증기는 근거가 네이버페이 포인트만 말할 때(네이버페이·Npay·N pay·N페이 포인트) 환산 문구 없이 포인트 금액을 원으로 읽는다. 하나머니·M포인트 등이 섞이거나 이름 없는 포인트는 예전처럼 환산 문구가 필요하다(`src/lib/card-benefit-extraction.ts`, 단위 테스트 추가).
+  - 네이버페이 머니 하나 체크카드(`hana_npay_money_check`)를 수정안 `docs/card-benefit-revisions/2026-11-10-d6-hana-npay-money.json`으로 검증 오류 0건 확인 뒤 revision 2로 `[세션 임시 승인]`했다(검증된 백업 `backups/cherrypicker-2026-11-09T17-04-16Z-d6.db`). 규칙은 기본 0.6%와 하나은행 계좌 확인 시 추가 0.6%, 월 1만 원 공유 한도와 전월 25만 원 조건이다. golden 5건(일반 1만 원 60원, 계좌 확인 120원, 실적 249,999원 0원, 월 한도 1만 원, 두 규칙 80만 원 9,600원)이 통과한다. 로컬 게시 카드는 83장이다.
+  - 발견한 문제(고치지 않음): 겹침을 허용하는 두 규칙이 한 결제에 함께 적용되면 공유 월 한도를 서로 더하지 않고 각자 과거 사용분만 본다(`src/utils/calculation.ts` `evaluateSet`). 이 카드는 계좌 확인 상태로 한 번에 약 83만 원 넘게 결제하면 2만 원으로 계산된다. 같은 구조의 게시 규칙이 로컬에 21개 있다.
+  - 남은 일: 임시 승인 카드 사용자 확인(71장).
 
 ## [-] TASK-15 — 통신 3사 멤버십을 완성하고 네이버페이 수집을 재검증
 
@@ -453,6 +458,18 @@
   - 구현: 즐겨찾기 `src/utils/brandDiscovery.ts`(`LEGACY_DEFAULT_FAVORITE_BRAND_IDS`), 실적 구간 `getPerformanceTierOptions`·`findPerformanceTierOption`·`formatRoundWon`(`src/utils/firstSetupDefaults.ts`)과 `src/components/onboarding/FirstSetupFlow.tsx`, 머니 통합·0원 페이 조합 제외 `src/utils/combination.ts`, 머니 이름 `getFundingLabel`(`src/utils/combinationPresentation.ts`, `src/app/page.tsx`, `src/app/history/page.tsx`), 설정 스위치 `src/components/settings/BenefitProfileSettings.tsx`, 튜토리얼 혜택 브랜드 전체 우선(`src/app/page.tsx`). 대표 추천 스냅샷 3개 갱신(다이소: 0원 'Npay + 카드'·'Npay 포인트'·'Npay 머니' 제외, 투썸: 포인트 조합이 머니로 합쳐짐).
   - 검증: 회귀 테스트를 더해 `npm test`(88개 파일, 867개), `npm run lint`, `npm run build` 통과. 로컬 catalog 사본 DB로 띄운 production 서버(3110)와 새 프로필 headless Chrome(Android UA 390px, 1280px)에서 하나 나라사랑카드 선택 → 구간 6개(10만 원 미만~100만 원 이상, 월 한도 표시), 고르기 전 '다음' 비활성 → 30만 원 이상 선택 → T멤버십·Npay·카카오페이 → IndexedDB에 사용액 300000 저장, 튜토리얼 목록(CU, 세븐일레븐, 스타벅스… 다이소 없음), 다이소 1만 원 추천이 '하나 나라사랑카드(체크)' 하나와 결제수단 줄만 나오고 '다른 조합 비교' 없음, 홈 즐겨찾기 `[]`, 설정의 '페이 머니로도 결제' 스위치, 가로 넘침 없음을 확인했다. 머니 이름은 이 catalog에 머니 조합이 남는 브랜드가 없어 단위 테스트로만 확인했다.
   - 추가 (2026-11-10, 사용자 요청): 신규 발급 실적 예외를 추천 기본값에서 끄고(`src/utils/calculation.ts` `allowPerformanceWaiver` 기본 false), 홈 실적 알림을 보유 카드 전체 대상의 실적 구간 버튼으로 바꿨다(`src/components/performance/MonthlyPerformanceReminder.tsx`, `src/app/page.tsx`). 예외 테스트는 예외를 명시적으로 켜고, 기본값에서 예외가 붙지 않는 검사를 더했다. `npm test`(867개), `npm run lint`, `npm run build` 통과. production 서버(3110)와 headless Chrome(390px, 1280px)에서 하나 나라사랑카드(30만 원 구간)로 첫 설정 후 설정에서 신한 나라사랑카드를 실적 없이 추가 → 홈에 '2026년 10월에 신한카드 나라사랑카드 체크 얼마나 썼나요?'와 구간 7개(70만 원 구간 포함) → CU 1만 원 추천에 '신규' 문구 없음 → '50만 원 이상'을 고르면 IndexedDB에 500000 저장·알림 사라짐, 가로 넘침 없음을 확인했다.
+  - 남은 일: 실기기 확인(사용자).
+
+## [-] TASK-22 — 카카오톡에서 연 링크를 기본 브라우저로 넘기고, 앱으로 설치(PWA)하게 하기
+
+- 범위: 2026-11-10 사용자 요청. [결정](./DECISIONS.md)대로 카톡 내 브라우저에서 기본 브라우저로 넘기고, manifest·임시 아이콘·브라우저별 설치 안내(`/install`)·설정 항목·두 번째 방문일 홈 설치 카드를 만든다. 이름과 아이콘은 데모 동안 임시다. catalog·API·서버 DB·workspace 형식은 바꾸지 않는다.
+- 완료 조건:
+  - 카톡 감지·주소 만들기, 설치 카드 노출 조건의 회귀 테스트와 `npm run lint`, `npm test`, `npm run build`가 통과한다.
+  - 데스크톱·모바일 폭 브라우저에서 manifest·설치 가능 검사, `/install`, 홈 카드 노출·닫기, 카톡 User-Agent 넘기기와 안내를 확인한다.
+  - 실기기에서 카톡 링크가 기본 브라우저로 넘어가고, Android Chrome·iPhone Safari에서 설치한 앱이 열리는지 확인한다(사용자 확인).
+- 진행 기록 (2026-11-10):
+  - 구현: 카톡 넘기기 `src/utils/inAppBrowser.ts`·`src/components/layout/KakaoTalkHandoff.tsx`(`ClientLayout`), manifest `src/app/manifest.ts`·`src/app/layout.tsx`, 아이콘 `public/app-icon/`(원본 `icon.svg`, `npm run icons:generate`), 설치 안내 `src/app/install/page.tsx`·`src/components/install/InstallGuide.tsx`, 홈 카드 `InstallAppCard.tsx`, 설정 링크 `InstallAppSettingsLink.tsx`, 설치 상태 `src/hooks/useAppInstall.ts`·`src/utils/appInstall.ts`(`cb917c7`, `7cf88c5`).
+  - 검증: 회귀 테스트를 더해 `npm test`(876개), `npm run lint`, `npm run build` 통과. 임시 DB 개발 서버와 headless Chrome에서 manifest 오류 없음, 설치 가능 검사 오류 0건(데스크톱·Android 390px, 서비스 워커 없음), `/install` 390px Android·1280px 가로 넘침 없음과 브라우저별 첫 안내, 홈 카드 첫날 숨김·둘째 날 노출·닫기 유지, 설정 링크, 카톡 User-Agent에서 `kakaotalk://web/openExternal` 1회 시도와 1.5초 뒤 안내를 확인했다. 홈 카드는 첫 설정 완료 상태를 IndexedDB에 직접 넣어 확인했다.
   - 남은 일: 실기기 확인(사용자).
 
 ## [-] TASK-06 — 로컬에서 검수한 카탈로그를 운영에 반영하고 안전하게 운영·복구
