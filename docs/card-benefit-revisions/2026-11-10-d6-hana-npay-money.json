@@ -1,0 +1,12 @@
+{
+  "note": "[세션 임시 승인] 2026-11-10 TASK-14 D6: 사용자가 네이버페이 포인트 1포인트=1원을 확인해, 하나카드 원문의 월 적립 한도 1만 포인트를 1만원 한도로 계산한다(AI API 미사용).",
+  "cards": {
+    "hana_npay_money_check": {
+      "sourceBundleHash": "feb382e711c09345b2397bc6bd717ab3bf468a1b27355cf9a1c13b7627e4b84e",
+      "base": {
+        "path": "base/hana_npay_money_check.json",
+        "sha256": "fbf21aba841080b77b005370b0f2e2c853cb32fbd6ed3a9d97c8ba6b7e9aafa3"
+      }
+    }
+  }
+}

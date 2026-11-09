@@ -421,6 +421,40 @@ export const statesPointEqualsWon = (evidence: CardBenefitEvidence[]) => evidenc
         .test(item.quote.normalize('NFKC'))
 ));
 
+// Naver Pay points are spent one for one as won inside Naver Pay, but card pages name them
+// without a "1포인트=1원" line. By the owner's 2026-11-10 decision (TASK-14 D6), evidence that
+// names Naver Pay points and no other point currency reads its point amounts as won.
+const naverPayPointName = /(?:네이버\s*페이|N\s*pay|N\s*페이)\s*포인트/gi;
+const otherPointCurrency = new RegExp([
+    '하나머니', 'M\\s*포인트', '모아\\s*포인트', '마이\\s*신한\\s*포인트', '포인트리', '채움\\s*포인트',
+    'NH\\s*포인트', '올원\\s*포인트', '카카오\\s*페이\\s*포인트', '토스\\s*포인트', 'OK\\s*캐쉬백',
+    'L\\.?\\s*POINT', 'CJ\\s*ONE', '해피\\s*포인트', 'H\\.?\\s*Point',
+].join('|'), 'i');
+
+export const namesOnlyNaverPayPoints = (item: Pick<CardBenefitEvidence, 'quote' | 'location'>) => {
+    const text = `${item.location ?? ''}\n${item.quote}`.normalize('NFKC');
+    return new RegExp(naverPayPointName.source, 'i').test(text) &&
+        !otherPointCurrency.test(text.replace(naverPayPointName, ''));
+};
+
+/** Rule evidence with point amounts read as won where a quote or the Naver Pay decision allows it. */
+const evidenceTextWithPointsAsWon = (
+    ruleId: string,
+    evidence: CardBenefitEvidence[],
+    field?: CardBenefitEvidence['fields'][number],
+) => {
+    if (statesPointEqualsWon(evidence)) {
+        return pointAmountsAsWon(evidenceTextForRule(ruleId, evidence, field));
+    }
+    return evidence
+        .filter(item => item.ruleIds.includes(ruleId) && (!field || item.fields.includes(field)))
+        .map(item => {
+            const text = `${item.location ?? ''}\n${item.quote}`;
+            return namesOnlyNaverPayPoints(item) ? pointAmountsAsWon(text) : text;
+        })
+        .join('\n');
+};
+
 const percentageValuesIn = (value: string) => unique(
     [...value.normalize('NFKC').matchAll(/([0-9]+(?:\.[0-9]+)?)\s*%/g)]
         .map(match => Number(match[1]))
@@ -511,7 +545,7 @@ const validateRuleSemanticEvidence = (
         }
         const limitEvidence = evidenceTextForRule(ruleRow.id, evidence, 'limitConfig');
         const limitMoneyValues = koreanMoneyValuesIn(
-            statesPointEqualsWon(evidence) ? pointAmountsAsWon(limitEvidence) : limitEvidence,
+            evidenceTextWithPointsAsWon(ruleRow.id, evidence, 'limitConfig'),
         );
         ([
             ['dailyAmount', '일 금액 한도'],
@@ -552,10 +586,7 @@ const validateRuleSemanticEvidence = (
         if (ruleRow.limitConfig.sharedFields?.length && !ruleRow.sharedGroupId) {
             errors.push(`공유 필드가 있지만 공유 한도 그룹이 없습니다: ${label}`);
         }
-        const pointsAreWon = statesPointEqualsWon(evidence);
-        const actionEvidence = pointsAreWon
-            ? pointAmountsAsWon(evidenceTextForRule(ruleRow.id, evidence))
-            : evidenceTextForRule(ruleRow.id, evidence);
+        const actionEvidence = evidenceTextWithPointsAsWon(ruleRow.id, evidence);
         const actionFieldEvidence = evidenceTextForRule(ruleRow.id, evidence, 'action');
         const actionPercentages = percentageValuesIn(actionFieldEvidence);
         if (ruleRow.action.type === 'PERCENT' && ruleRow.action.value > 0 &&

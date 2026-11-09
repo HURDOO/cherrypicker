@@ -21,6 +21,7 @@ import {
     normalizeEvidenceBackedRuleMechanics,
     normalizeEvidenceBackedCardBenefitExtraction,
     normalizeInventoryReferences,
+    namesOnlyNaverPayPoints,
     OpenAICardBenefitExtractionProvider,
     pointAmountsAsWon,
     repairInventoryQuotes,
@@ -1687,6 +1688,57 @@ describe('card benefit extraction', () => {
             id: 'woori-other-rate', ruleIds: [], fields: ['action'], sourceUrl: 'https://example.com',
             quote: '1모아포인트 = 1꿀 = 0.7원',
         }])).toBe(false);
+    });
+
+    it('reads Naver Pay point limits as won without a conversion quote, and no other points', () => {
+        const genericCard: Card = {
+            id: 'npay-card',
+            name: '테스트 네이버페이 카드',
+            company: '테스트',
+            color: 'bg-blue-500',
+            limitTable: [],
+        };
+        const validate = (location: string, quote: string) => validateCardBenefitExtraction({
+            schemaVersion: 2 as const,
+            completeness: 'FULL' as const,
+            card: { id: genericCard.id, name: genericCard.name, company: genericCard.company, limitTable: [] },
+            rules: [{
+                id: 'npay-base',
+                cardId: genericCard.id,
+                includedBrands: [],
+                excludedBrands: [],
+                platformType: 'ALL' as const,
+                usesCardLimit: false,
+                description: '국내외 1.2% 적립',
+                detail: '',
+                condition: {},
+                action: { type: 'PERCENT' as const, value: 1.2 },
+                limitConfig: { monthlyAmount: 10_000 },
+            }],
+            evidence: [{
+                id: 'rate',
+                ruleIds: ['npay-base'],
+                fields: ['description', 'action', 'limitConfig'] as const,
+                quote,
+                sourceUrl: 'https://example.com/card',
+                location,
+            }],
+            notes: [],
+        }, {
+            card: genericCard,
+            sourceUrl: 'https://example.com/card',
+            sourceText: `${location}\n${quote}`,
+        }).errors.filter(error => error.includes('월 금액 한도'));
+        const quote = '국내/외 모든 가맹점 이용금액의 1.2% 적립\n* 월 적립 한도 1만 포인트';
+
+        expect(validate('네이버페이 포인트 적립 서비스', quote)).toEqual([]);
+        expect(validate('Npay 포인트 적립', quote)).toEqual([]);
+        expect(validate('포인트 적립 서비스', quote))
+            .toEqual([expect.stringContaining('월 금액 한도 10,000원의 공식 숫자 근거가 없습니다')]);
+        expect(validate('네이버페이 포인트 또는 하나머니 적립', quote))
+            .toEqual([expect.stringContaining('월 금액 한도 10,000원의 공식 숫자 근거가 없습니다')]);
+        expect(namesOnlyNaverPayPoints({ location: '카카오페이 포인트 적립', quote })).toBe(false);
+        expect(namesOnlyNaverPayPoints({ location: 'N pay 포인트', quote: '월 1만 포인트' })).toBe(true);
     });
 
     it('reads a point-denominated per-purchase cap as won only with the one-point-one-won quote', () => {
