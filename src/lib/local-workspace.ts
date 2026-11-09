@@ -20,6 +20,7 @@ import type {
 import {
     accountWorkspaceContentEquals,
     createEmptyWorkspacePreferences,
+    hasMeaningfulWorkspacePreferences,
     parseWorkspacePreferences,
     parseAccountWorkspaceExport,
     summarizeAccountWorkspace,
@@ -543,8 +544,7 @@ export const hasMeaningfulLocalWorkspaceData = (workspace: LocalWorkspaceSnapsho
     !workspace.benefitProfile.pointsEnabled ||
     workspace.benefitProfile.pointValue !== 1 ||
     workspace.benefitProfile.smallBenefitThreshold !== DEFAULT_SMALL_BENEFIT_THRESHOLD ||
-    Boolean(workspace.workspacePreferences.selectedSystemCardIds?.length) ||
-    workspace.workspacePreferences.firstSetup.status !== 'NOT_STARTED'
+    hasMeaningfulWorkspacePreferences(workspace.workspacePreferences)
 );
 
 const withoutLocalOwner = <T extends { userId?: string }>(row: T) => {

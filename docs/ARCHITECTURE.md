@@ -102,6 +102,7 @@ Node.js 22 이상과 npm lockfile이 로컬 기준이며, 현재 운영 이미�
 | `src/utils/performanceGoals.ts` | 카드 규칙·사용자 덮어쓰기에서 실적 추천 목표 파생 |
 | `src/utils/benefitBrandSuggestions.ts` | 멤버십·구독·페이·카드 실적·한도와 시점 조건을 금액별로 조합해 첫 추천과 홈 브랜드 순서에 쓰는 확정 혜택 브랜드 선정 |
 | `src/utils/firstSetupRoutes.ts` | 저장된 첫 설정 단계와 App Router URL의 고정 매핑 |
+| `src/utils/paymentPreferences.ts`, `paymentAppLinks.ts` | workspace 결제수단 설정(기본 결제수단·여는 방식·카드 혜택 확인 기록) 파싱과 계산, 페이 앱 딥링크와 페이 혜택 없는 카드 결제의 선택지. 앱 버튼 숨기기만 브라우저 localStorage에 둔다 |
 | `src/lib/benefit-catalog-*` | 공용 snapshot 생성, ETag HTTP 계약, IndexedDB 캐시와 freshness |
 | `src/lib/local-workspace*` | 로컬 workspace schema·검증·mutation·IndexedDB 저장·outbox |
 | `src/lib/account-workspace-*` | snapshot 백업·복원·병합, operation 동기화와 revision 계약 |

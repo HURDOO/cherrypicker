@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { BenefitCombination, CombinationStep } from '@/types';
 import {
+    pickLink,
     appStoreUrl,
     buildPaymentAppHref,
     detectPaymentAppPlatform,
+    getPayChoiceActions,
     getPaymentAppActions,
     isTMembershipPartner,
-    orderLinks,
     parsePaymentAppPreferences,
 } from './paymentAppLinks';
 
@@ -136,6 +137,32 @@ describe('payment app actions', () => {
     });
 });
 
+describe('pay choices for a plain card payment', () => {
+    it('offers every registered pay app when no pay adds a benefit', () => {
+        const choices = getPayChoiceActions(
+            combination({ cardId: 'shinhan', cardName: '신한 Deep Dream' }),
+            ['kakaopay', 'naverpay'],
+        );
+        expect(Object.keys(choices ?? {})).toEqual(['kakaopay', 'naverpay']);
+        expect(choices?.kakaopay?.payId).toBe('kakaopay');
+        expect(choices?.kakaopay?.hint).toContain('신한 Deep Dream로 바꿔서');
+        expect(choices?.naverpay?.links.map(link => link.mode)).toEqual(['CODE', 'SAMSUNG_PAY']);
+        expect(getPayChoiceActions(combination({ cardId: 'shinhan' }), [])).toEqual({});
+    });
+
+    it('keeps the recommended pay when a pay is part of the route', () => {
+        expect(getPayChoiceActions(
+            combination({ cardId: 'shinhan', payProviderId: 'naverpay' }),
+            ['kakaopay', 'naverpay'],
+        )).toBeUndefined();
+        expect(getPayChoiceActions(
+            combination({ fundingType: 'MONEY', payProviderId: 'kakaopay' }),
+            ['kakaopay'],
+        )).toBeUndefined();
+        expect(getPayChoiceActions(combination({}), ['kakaopay'])).toBeUndefined();
+    });
+});
+
 describe('payment app links', () => {
     const qr = {
         mode: 'CODE' as const,
@@ -159,11 +186,11 @@ describe('payment app links', () => {
         expect(appStoreUrl('kakaotalk', 'ios')).toBe('https://apps.apple.com/kr/app/id362057947');
     });
 
-    it('puts the last chosen mode first', () => {
+    it('opens the one link in the saved mode, or the first link the app has', () => {
         const spay = { ...qr, mode: 'SAMSUNG_PAY' as const, label: '삼성페이' };
-        expect(orderLinks([qr, spay], 'SAMSUNG_PAY').map(link => link.mode)).toEqual(['SAMSUNG_PAY', 'CODE']);
-        expect(orderLinks([qr, spay]).map(link => link.mode)).toEqual(['CODE', 'SAMSUNG_PAY']);
-        expect(orderLinks([qr], 'SAMSUNG_PAY').map(link => link.mode)).toEqual(['CODE']);
+        expect(pickLink([qr, spay], 'SAMSUNG_PAY').mode).toBe('SAMSUNG_PAY');
+        expect(pickLink([qr, spay]).mode).toBe('CODE');
+        expect(pickLink([qr], 'SAMSUNG_PAY').mode).toBe('CODE');
     });
 
     it('detects phones and hides buttons on desktop', () => {

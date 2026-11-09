@@ -116,7 +116,7 @@ const recordKindFromKey = (key: string): AccountWorkspaceMergeRecordKind => {
 
 const recordLabel = (kind: AccountWorkspaceMergeRecordKind, value: unknown, key: string) => {
     if (kind === 'profile') return '보유 혜택 프로필';
-    if (kind === 'workspacePreferences') return '내 카드·첫 설정 상태';
+    if (kind === 'workspacePreferences') return '내 카드·첫 설정·결제수단 설정';
     if (value && typeof value === 'object') {
         if ('name' in value && typeof value.name === 'string') return value.name;
         if (kind === 'rule' && 'description' in value && typeof value.description === 'string') {

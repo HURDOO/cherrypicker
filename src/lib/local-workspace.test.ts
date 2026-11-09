@@ -20,6 +20,7 @@ import {
 } from './local-workspace';
 import { buildPromotionUsage } from '@/utils/promotionUsage';
 import { calculateBestCombinations } from '@/utils/combination';
+import { createDefaultPaymentPreferences } from '@/utils/paymentPreferences';
 
 const createMemoryStorage = (initial: LocalWorkspaceSnapshot | null = null) => {
     let current = initial ? structuredClone(initial) : null;
@@ -192,6 +193,7 @@ describe('local workspace', () => {
                 status: 'NOT_STARTED',
                 step: 'WELCOME',
             },
+            payment: createDefaultPaymentPreferences(),
         });
     });
 
@@ -210,6 +212,7 @@ describe('local workspace', () => {
         const client = createLocalWorkspaceClient(memory.storage);
 
         await client.updateWorkspacePreferences({
+            payment: createDefaultPaymentPreferences(),
             selectedSystemCardIds: ['system-card'],
             firstSetup: {
                 status: 'IN_PROGRESS',
@@ -243,6 +246,7 @@ describe('local workspace', () => {
         const client = createLocalWorkspaceClient(memory.storage);
 
         await client.updateWorkspacePreferences({
+            payment: createDefaultPaymentPreferences(),
             selectedSystemCardIds: ['system-card'],
             firstSetup: {
                 status: 'IN_PROGRESS',
@@ -260,6 +264,7 @@ describe('local workspace', () => {
         });
 
         await resumedClient.updateWorkspacePreferences({
+            payment: createDefaultPaymentPreferences(),
             selectedSystemCardIds: ['system-card'],
             firstSetup: {
                 status: 'AWAITING_RECOMMENDATION',
@@ -267,6 +272,7 @@ describe('local workspace', () => {
             },
         });
         await resumedClient.updateWorkspacePreferences({
+            payment: createDefaultPaymentPreferences(),
             selectedSystemCardIds: ['system-card'],
             firstSetup: {
                 status: 'COMPLETED',

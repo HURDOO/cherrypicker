@@ -1,11 +1,18 @@
-import type { BenefitCombination, BenefitLayer, PromotionOffer, TelecomMembership } from '@/types';
+import type {
+    BenefitCombination,
+    BenefitLayer,
+    PaymentOpenMode,
+    PaymentPayId,
+    PromotionOffer,
+    TelecomMembership,
+} from '@/types';
 
 // Deep links checked on the owner's Android phone on 2026-10-28.
 // None of them is officially documented, so an app update can change them.
 // See docs/payment-app-deeplinks-2026-10.md.
 
 export type PaymentAppId = 'kakaotalk' | 'naverpay' | 'tmembership';
-export type PaymentAppMode = 'CODE' | 'SAMSUNG_PAY';
+export type PaymentAppMode = PaymentOpenMode;
 export type PaymentAppPlatform = 'android' | 'ios' | 'other';
 
 interface PaymentApp {
@@ -30,6 +37,8 @@ export interface PaymentAppLink {
 
 export interface PaymentAppAction {
     appId: PaymentAppId;
+    /** The pay this app pays with, whose saved open mode picks the link. */
+    payId?: PaymentPayId;
     /** What the button calls it, when that differs from the app, e.g. KakaoPay inside KakaoTalk. */
     title?: string;
     links: PaymentAppLink[];
@@ -95,6 +104,7 @@ function payAction(combination: BenefitCombination): PaymentAppAction | undefine
         if (!hint) return undefined;
         return {
             appId: 'kakaotalk',
+            payId: 'kakaopay',
             title: '카카오페이',
             links: [
                 { mode: 'CODE', label: '바코드', scheme: 'kakaotalk', path: 'kakaopay/offline' },
@@ -118,6 +128,7 @@ function payAction(combination: BenefitCombination): PaymentAppAction | undefine
         if (combination.fundingType === 'CARD') {
             return {
                 appId: 'naverpay',
+                payId: 'naverpay',
                 links: [
                     qr,
                     {
@@ -135,6 +146,7 @@ function payAction(combination: BenefitCombination): PaymentAppAction | undefine
         if (combination.fundingType === 'MONEY') {
             return {
                 appId: 'naverpay',
+                payId: 'naverpay',
                 links: [qr],
                 hint: '마지막에 쓴 결제수단이 선택돼요. Npay 머니인지 확인하세요.',
             };
@@ -164,9 +176,29 @@ export function getPaymentAppActions(
     return [];
 }
 
-export function orderLinks(links: PaymentAppLink[], preferred?: PaymentAppMode): PaymentAppLink[] {
-    if (!preferred) return links;
-    return [...links].sort((a, b) => Number(b.mode === preferred) - Number(a.mode === preferred));
+/**
+ * When the recommendation is a plain card payment, no pay adds a benefit, so the user can pay
+ * with the card itself or through any pay they registered. Returns the pay app for each such pay,
+ * or nothing when a pay is part of the recommendation and must be used.
+ */
+export function getPayChoiceActions(
+    combination: BenefitCombination,
+    payIds: readonly PaymentPayId[],
+): Partial<Record<PaymentPayId, PaymentAppAction>> | undefined {
+    if (combination.payProviderId || combination.fundingType !== 'CARD' || !combination.cardId) {
+        return undefined;
+    }
+    const actions: Partial<Record<PaymentPayId, PaymentAppAction>> = {};
+    payIds.forEach(payId => {
+        const action = payAction({ ...combination, payProviderId: payId });
+        if (action) actions[payId] = action;
+    });
+    return actions;
+}
+
+/** The one link a button opens: the saved mode when the app has it, otherwise its first link. */
+export function pickLink(links: PaymentAppLink[], mode?: PaymentAppMode): PaymentAppLink {
+    return links.find(link => link.mode === mode) ?? links[0];
 }
 
 export function appStoreUrl(appId: PaymentAppId, platform: PaymentAppPlatform): string {

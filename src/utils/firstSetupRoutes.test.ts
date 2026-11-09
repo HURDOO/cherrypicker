@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkspacePreferences } from '@/types';
 import { FIRST_SETUP_ROUTES, getFirstSetupRoute } from '@/utils/firstSetupRoutes';
+import { createDefaultPaymentPreferences } from '@/utils/paymentPreferences';
 
 const preferences = (
     status: WorkspacePreferences['firstSetup']['status'],
@@ -8,6 +9,7 @@ const preferences = (
 ): WorkspacePreferences => ({
     selectedSystemCardIds: [],
     firstSetup: { status, step },
+    payment: createDefaultPaymentPreferences(),
 });
 
 describe('first setup routes', () => {

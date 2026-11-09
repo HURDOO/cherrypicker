@@ -17,6 +17,11 @@ import {
     MAX_SMALL_BENEFIT_THRESHOLD,
 } from '@/utils/recommendationPreferences';
 import { validateCardPerformancePolicy } from '@/utils/performance-policy';
+import {
+    createDefaultPaymentPreferences,
+    hasMeaningfulPaymentPreferences,
+    parsePaymentPreferences,
+} from '@/utils/paymentPreferences';
 
 export const ACCOUNT_WORKSPACE_EXPORT_SCHEMA_VERSION = 1 as const;
 const LEGACY_FIRST_SETUP_COMPLETED_AT = '1970-01-01T00:00:00.000Z';
@@ -186,11 +191,13 @@ export const createEmptyWorkspacePreferences = (): WorkspacePreferences => ({
         status: 'NOT_STARTED',
         step: 'WELCOME',
     },
+    payment: createDefaultPaymentPreferences(),
 });
 
 export const hasMeaningfulWorkspacePreferences = (value: WorkspacePreferences) => (
     Boolean(value.selectedSystemCardIds?.length) ||
-    value.firstSetup.status !== 'NOT_STARTED'
+    value.firstSetup.status !== 'NOT_STARTED' ||
+    hasMeaningfulPaymentPreferences(value.payment)
 );
 
 export function parseWorkspacePreferences(
@@ -213,6 +220,7 @@ export function parseWorkspacePreferences(
                     status: 'NOT_STARTED',
                     step: 'WELCOME',
                 },
+            payment: createDefaultPaymentPreferences(),
         };
     }
     if (!isRecord(value)) {
@@ -273,6 +281,7 @@ export function parseWorkspacePreferences(
                 completedAt: toIsoString(String(completedAt), '첫 설정 완료'),
             }),
         },
+        payment: parsePaymentPreferences(value.payment, options.label),
     };
 }
 

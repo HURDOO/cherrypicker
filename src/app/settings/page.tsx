@@ -23,6 +23,7 @@ import {
 } from '@/lib/monthly-performance';
 import { PerformanceGoalSettings } from '@/components/performance/PerformanceGoalSettings';
 import { BenefitProfileSettings } from '@/components/settings/BenefitProfileSettings';
+import { PaymentMethodSettings } from '@/components/settings/PaymentMethodSettings';
 import { BrandDiscoverySettings } from '@/components/settings/BrandDiscoverySettings';
 import { AccountWorkspaceSync } from '@/components/settings/AccountWorkspaceSync';
 import {
@@ -422,6 +423,8 @@ export default function SettingsPage() {
                 </section>
 
                 <BenefitProfileSettings />
+
+                <PaymentMethodSettings cards={managedCards} />
 
                 <BrandDiscoverySettings userId={userId} brands={brands} />
 

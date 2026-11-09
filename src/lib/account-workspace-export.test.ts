@@ -4,6 +4,7 @@ import {
     parseAccountWorkspaceExport,
     summarizeAccountWorkspace,
 } from './account-workspace-export';
+import { createDefaultPaymentPreferences } from '@/utils/paymentPreferences';
 
 const createExport = () => createAccountWorkspaceExport({
     sourceWorkspaceId: 'account-1',
@@ -197,6 +198,7 @@ describe('account workspace export', () => {
     it('preserves selected cards and completed onboarding in account backups', () => {
         const workspace = createExport();
         workspace.workspacePreferences = {
+            payment: createDefaultPaymentPreferences(),
             selectedSystemCardIds: ['system-a', 'system-b'],
             firstSetup: {
                 status: 'COMPLETED',
@@ -208,6 +210,35 @@ describe('account workspace export', () => {
         expect(parseAccountWorkspaceExport(workspace).workspacePreferences).toEqual(
             workspace.workspacePreferences
         );
+    });
+
+    it('keeps payment settings in account backups and opens older ones with defaults', () => {
+        const workspace = createExport();
+        workspace.workspacePreferences = {
+            ...workspace.workspacePreferences,
+            payment: {
+                defaultMethod: 'kakaopay',
+                openModes: { kakaopay: 'SAMSUNG_PAY', naverpay: 'CODE' },
+                routeChecks: [{
+                    payId: 'kakaopay',
+                    mode: 'SAMSUNG_PAY',
+                    cardCompany: '신한카드',
+                    cardBenefitApplied: true,
+                    checkedAt: '2026-11-10T01:00:00.000Z',
+                }],
+            },
+        };
+
+        const parsed = parseAccountWorkspaceExport(workspace);
+        expect(parsed.workspacePreferences.payment).toEqual(workspace.workspacePreferences.payment);
+        expect(summarizeAccountWorkspace(parsed).hasWorkspacePreferences).toBe(true);
+
+        const older = structuredClone(workspace) as unknown as {
+            workspacePreferences: Record<string, unknown>;
+        };
+        delete older.workspacePreferences.payment;
+        expect(parseAccountWorkspaceExport(older).workspacePreferences.payment)
+            .toEqual(createDefaultPaymentPreferences());
     });
 
     it('rejects unsupported versions and server ownership leakage', () => {

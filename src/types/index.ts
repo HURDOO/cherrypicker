@@ -119,6 +119,28 @@ export interface WorkspacePreferences {
         step: FirstSetupStep;
         completedAt?: string;
     };
+    payment: PaymentPreferences;
+}
+
+/** Pays whose app the payment step can open. */
+export type PaymentPayId = 'kakaopay' | 'naverpay';
+/** How a pay app opens: its QR/barcode screen or its Samsung Pay (MST) screen. */
+export type PaymentOpenMode = 'CODE' | 'SAMSUNG_PAY';
+
+/** The user's own finding of whether a card's benefit came through when paid via a pay app. */
+export interface PayRouteCheck {
+    payId: PaymentPayId;
+    mode: PaymentOpenMode;
+    cardCompany: string;
+    cardBenefitApplied: boolean;
+    checkedAt: string;
+}
+
+export interface PaymentPreferences {
+    /** The method shown first when the pay does not matter. */
+    defaultMethod: 'CARD' | PaymentPayId;
+    openModes: Partial<Record<PaymentPayId, PaymentOpenMode>>;
+    routeChecks: PayRouteCheck[];
 }
 
 export type PlatformType = 'ALL' | 'ONLINE' | 'OFFLINE' | 'OFFICIAL_SITE';

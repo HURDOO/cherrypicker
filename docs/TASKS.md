@@ -404,6 +404,7 @@
   - 검증: 회귀 테스트 9개를 더해 `npm test`(828개), `npm run lint`, `npm run build` 통과. 임시 DB 개발 서버에 시험용 혜택을 넣고 headless Chrome(Android UA 390px)에서 Npay QR·삼성페이, 카카오페이(카카오톡) 바코드·삼성페이, T멤버십 바코드 버튼과 주소, 삼성페이 선택 후 순서 바뀜, 앱이 안 열렸을 때 안내, 숨기기·다시 보이기, `/app-missing` 설치·숨기고 돌아가기, 가로 넘침 없음을 확인했다. 데스크톱 UA 1280px에서는 버튼이 보이지 않는다.
   - 남은 일: 실기기 Chrome에서 `intent://` 버튼과 앱 없음 이동 확인(사용자). iOS는 주소가 같은지 확인하지 않았다.
 - 진행 기록 (2026-11-09): 사용자 결정으로 굿딜(`kakaopay-gooddeal`) 결제 단계에도 카카오페이 결제 화면 버튼(카카오톡 바코드·삼성페이)을 붙였다. 굿딜 할인은 같은 결제 화면에서 적용된다고 보고, 굿딜 브랜드 페이지 직행은 여전히 제외한다. 굿딜 제외 테스트를 굿딜 버튼 테스트로 바꿨다(`c5c2207`). 실기기에서 굿딜 할인이 그 화면에서 붙는지 확인이 남았다.
+- 진행 기록 (2026-11-10): TASK-20에서 바코드·QR과 삼성페이 두 버튼을 저장한 방식 하나로 여는 버튼으로 바꿨다. 마지막 선택 기억(localStorage)은 workspace 설정이 없을 때의 대체값으로만 읽는다.
 
 ## [-] TASK-19 — 첫 설정을 카드 한 장·지난달 사용액과 통신사·페이로 줄이기
 
@@ -428,6 +429,18 @@
   - 구현: 정렬 `orderPersonalBrands`(`src/utils/brandDiscovery.ts`), 홈에서 첫 화면 뒤 idle 시점에 혜택 브랜드 계산(`src/app/page.tsx`), 목록 연결 `src/components/brand/BrandDiscovery.tsx`. 첫 추천 튜토리얼은 그대로다.
   - 검증: 회귀 테스트 2개를 더해 `npm test`(844개), `npm run lint`, `npm run build` 통과. 로컬 catalog 사본 DB 개발 서버와 headless Chrome(Android UA 390px, 1280px)에서 게스트로 카드 2장·굿딜·즐겨찾기를 설정하고 CU를 기록한 뒤, 즐겨찾기 7곳(결제한 CU가 맨 앞) > 혜택 브랜드(세븐일레븐…CGV, VIPS, 아웃백 등) > 일반 브랜드(이름순) 순서와 가로 넘침 없음을 확인했다.
   - 남은 일: 실기기 멈춤 확인(사용자).
+
+## [-] TASK-20 — 페이 혜택이 없는 결제에서 결제수단을 가로로 고르고 한 번에 앱 열기
+
+- 범위: 2026-11-10 사용자 요청. [결정](./DECISIONS.md)대로 카드 단독 추천의 결제 단계에 카드로 내기·등록한 페이를 가로로 보여 주고, 기본 결제수단·여는 방식·카드 혜택 확인 기록을 workspace에 저장한다. catalog·API·서버 DB·추천 순위는 바꾸지 않는다. 삼성월렛 링크는 보류.
+- 완료 조건:
+  - 결제수단 설정 파싱·예전 workspace 호환·백업 왕복, 선택지·순서·기본값 대체, 확인 기록의 회귀 테스트와 `npm run lint`, `npm test`, `npm run build`가 통과한다.
+  - 데스크톱·모바일 폭 브라우저에서 결제수단 줄, 확인 질문, 설정 저장과 반영, 가로 넘침을 확인한다.
+  - 실기기에서 카카오페이 삼성페이·네이버페이 QR 버튼이 한 번에 열리고, 확인한 경로의 카드 혜택이 실제로 들어오는지 확인한다(사용자 확인).
+- 진행 기록 (2026-11-10):
+  - 구현: 계약 `src/types/index.ts`(`WorkspacePreferences.payment`)와 `src/utils/paymentPreferences.ts`, workspace 파싱·병합 `src/lib/account-workspace-export.ts`·`local-workspace.ts`·`account-workspace-merge.ts`, 선택지 `getPayChoiceActions`·`pickLink`(`src/utils/paymentAppLinks.ts`), 버튼 줄·한 번에 열기·확인 질문 `src/components/payment/PaymentAppButtons.tsx`, 저장 hook `src/hooks/useWorkspacePaymentPreferences.ts`, 설정 `src/components/settings/PaymentMethodSettings.tsx`(설정 > 결제수단). 페이 행사 추천의 단일 버튼도 저장한 방식 하나로만 연다.
+  - 검증: 회귀 테스트를 더해 `npm test`(858개), `npm run lint`, `npm run build` 통과. 로컬 catalog 사본 DB 개발 서버와 새 프로필 headless Chrome(Android UA 390px, 1280px)에서 신한 Deep Dream·카카오페이로 첫 설정 → 다이소 1만 원 추천에 `[카드로 내기(기본, 확정)] [카카오페이(삼성페이로 열기, 확인 필요)]`, 카카오페이 버튼이 `kakaotalk` 삼성페이 intent 주소로 바로 열림, 확인 질문에 "들어왔어요" → "확인됨"으로 바뀌고 IndexedDB `workspacePreferences.payment`에 저장, 설정에서 Npay 등록·기본 네이버페이·QR로 바꾸면 추천이 `[네이버페이(기본, QR로 열기)] [카드로 내기] [카카오페이(확인됨)]` 순으로 바뀌는 것, 가로 넘침 없음을 확인했다. 데스크톱 UA에서는 버튼 줄이 보이지 않는다.
+  - 남은 일: 실기기 확인(사용자). 개인 확인 기록을 추천 순위에 반영하는 일과 공용 승인 경로 데이터로 올리는 일은 후속 제안으로 남긴다.
 
 ## [-] TASK-06 — 로컬에서 검수한 카탈로그를 운영에 반영하고 안전하게 운영·복구
 

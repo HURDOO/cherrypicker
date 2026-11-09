@@ -4,11 +4,12 @@ import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import {
     parsePaymentAppPreferences,
     type PaymentAppId,
-    type PaymentAppMode,
     type PaymentAppPreferences,
 } from '@/utils/paymentAppLinks';
 
-// A per-browser convenience: which app buttons are hidden and which mode was used last.
+// A per-browser convenience: which app buttons are hidden on this phone.
+// `preferredModes` is the mode older versions remembered; it is only read now, as a fallback
+// until the user saves an open mode in the workspace.
 const STORAGE_KEY = 'cherrypicker:payment-apps';
 const CHANGE_EVENT = 'cherrypicker:payment-apps-change';
 
@@ -52,12 +53,5 @@ export function usePaymentAppPreferences() {
         }));
     }, []);
 
-    const setPreferredMode = useCallback((appId: PaymentAppId, mode: PaymentAppMode) => {
-        write(current => ({
-            ...current,
-            preferredModes: { ...current.preferredModes, [appId]: mode },
-        }));
-    }, []);
-
-    return { preferences, setHidden, setPreferredMode };
+    return { preferences, setHidden };
 }

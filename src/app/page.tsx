@@ -59,11 +59,13 @@ import {
 } from '@/utils/combinationPresentation';
 import { calculateBestCombinations } from '@/utils/combination';
 import {
+    getPayChoiceActions,
     getPaymentAppActions,
     isTMembershipPartner,
     type PaymentAppAction,
 } from '@/utils/paymentAppLinks';
-import { PaymentAppButtons } from '@/components/payment/PaymentAppButtons';
+import { PaymentAppButtons, PaymentMethodPicker } from '@/components/payment/PaymentAppButtons';
+import { getEffectiveDefaultMethod, getOpenablePayIds } from '@/utils/paymentPreferences';
 import { buildPromotionUsage } from '@/utils/promotionUsage';
 import {
     getCombinationIntent,
@@ -205,6 +207,7 @@ function LayerCard({
     confirmedConditionIds,
     onConfirm,
     appActions,
+    payChoices,
 }: {
     layer: BenefitLayer;
     steps: CombinationStep[];
@@ -212,6 +215,7 @@ function LayerCard({
     confirmedConditionIds: Set<string>;
     onConfirm: (promotionId: string) => void;
     appActions: PaymentAppAction[];
+    payChoices?: React.ComponentProps<typeof PaymentMethodPicker>;
 }) {
     const meta = layerMeta[layer];
     const Icon = meta.icon;
@@ -247,7 +251,9 @@ function LayerCard({
                     {fallback}
                 </p>
             )}
-            <PaymentAppButtons actions={appActions} />
+            {payChoices
+                ? <PaymentMethodPicker {...payChoices} />
+                : <PaymentAppButtons actions={appActions} />}
         </div>
     );
 }
@@ -815,6 +821,23 @@ function HomePageContent() {
         : [];
     const selectedCard = selectedCombination?.cardId
         ? cards.find(card => card.id === selectedCombination.cardId)
+        : undefined;
+    const payChoiceActions = selectedCombination
+        ? getPayChoiceActions(
+            selectedCombination,
+            getOpenablePayIds(benefitProfile.enabledPayProviderIds),
+        )
+        : undefined;
+    const payChoices = payChoiceActions && Object.keys(payChoiceActions).length > 0
+        ? {
+            actions: payChoiceActions,
+            cardName: selectedCombination?.cardName,
+            cardCompany: selectedCard?.company,
+            defaultMethod: getEffectiveDefaultMethod(
+                workspacePreferences.payment,
+                benefitProfile.enabledPayProviderIds,
+            ),
+        }
         : undefined;
     const selectedCardSupport = selectedCombination?.cardId
         ? catalog?.cardBenefitSupports.find(
@@ -1774,11 +1797,12 @@ function HomePageContent() {
                                                             layer,
                                                             { tMembershipPartner },
                                                         )}
+                                                        payChoices={layer === 'PAY' ? payChoices : undefined}
                                                         fallback={
                                                             layer === 'DISCOUNT'
                                                                 ? '별도 선할인 없이 진행'
                                                                 : layer === 'PAY'
-                                                                    ? selectedCombination.payProviderName || '페이 미사용'
+                                                                    ? selectedCombination.payProviderName || (payChoices ? '페이 혜택은 없어요' : '페이 미사용')
                                                                     : selectedCombination.cardName || FUNDING_TYPE_LABELS[selectedCombination.fundingType]
                                                         }
                                                         confirmedConditionIds={confirmedConditionIds}
