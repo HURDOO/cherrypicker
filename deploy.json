@@ -17,7 +17,9 @@
   ],
   "optionalSecrets": [
     "OPENAI_API_KEY",
-    "KAKAOPAY_GOODDEAL_UPLOAD_TOKEN"
+    "KAKAOPAY_GOODDEAL_UPLOAD_TOKEN",
+    "CATALOG_SYNC_TOKEN",
+    "DISCORD_WEBHOOK_URL"
   ],
   "resources": {
     "memoryMiB": 768,
