@@ -6,6 +6,12 @@ import path from 'node:path';
 import { sqlite } from '../src/db';
 import { buildCatalogReleaseBundle, parseCatalogReleaseBundle } from '../src/lib/catalog-release';
 import { stableStringify } from '../src/lib/catalog-sync-common';
+import {
+    buildManualPromotionRelease,
+    MANUAL_PROMOTION_PROVIDERS,
+    parseManualPromotionRelease,
+    type ManualPromotionProviderId,
+} from '../src/lib/manual-promotion-release';
 import { exportPromotionHandover, GOODDEAL_PROVIDER_ID } from '../src/lib/promotion-handover';
 
 /**
@@ -14,6 +20,7 @@ import { exportPromotionHandover, GOODDEAL_PROVIDER_ID } from '../src/lib/promot
  *   npm run catalog:sync -- status --target=https://cherrypicker.app.hurdoo.kr
  *   npm run catalog:sync -- release --target=<url> [--dry-run] [--allow-shrink] [--bundle=<saved bundle>]
  *   npm run catalog:sync -- handover --target=<url>
+ *   npm run catalog:sync -- manual-promotions --provider=kt --target=<url> [--dry-run] [--bundle=<saved bundle>]
  *   npm run catalog:sync -- verify --reference=<local server url> --target=<url>
  */
 
@@ -106,6 +113,35 @@ async function release() {
     console.log(JSON.stringify(result, null, 2));
 }
 
+async function manualPromotions() {
+    const target = targetUrl();
+    const saved = argument('bundle');
+    const provider = argument('provider');
+    if (!saved && !MANUAL_PROMOTION_PROVIDERS.includes(provider as ManualPromotionProviderId)) {
+        throw new Error(`--provider=${MANUAL_PROMOTION_PROVIDERS.join('|')}가 필요합니다.`);
+    }
+    const bundle = saved
+        ? parseManualPromotionRelease(JSON.parse(readFileSync(saved, 'utf8')))
+        : buildManualPromotionRelease(provider as ManualPromotionProviderId, { sourceCommit: sourceCommit() });
+    console.log(
+        `Manual promotions ${bundle.releaseId}: ${bundle.providerId} ${bundle.items.length} benefits, ` +
+        `hash ${bundle.contentHash.slice(0, 12)}`,
+    );
+    if (!saved) {
+        console.log(`Saved bundle: ${save(
+            'manual-promotion-releases',
+            `${bundle.createdAt.replace(/[:.]/g, '-')}-${bundle.providerId}-${bundle.releaseId}.json`,
+            JSON.stringify(bundle),
+        )}`);
+    }
+    const result = await call(target, `/api/catalog-sync/manual-promotions${flag('dry-run') ? '?dryRun=1' : ''}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bundle),
+    });
+    console.log(JSON.stringify(result, null, 2));
+}
+
 async function handover() {
     const target = targetUrl();
     const { manifest, chunks } = exportPromotionHandover(sqlite, { sourceCommit: sourceCommit() });
@@ -191,7 +227,13 @@ async function verify() {
     if (results.includes(false)) process.exitCode = 1;
 }
 
-const commands: Record<string, () => Promise<void>> = { status, release, handover, verify };
+const commands: Record<string, () => Promise<void>> = {
+    status,
+    release,
+    handover,
+    'manual-promotions': manualPromotions,
+    verify,
+};
 
 void (async () => {
     const run = command ? commands[command] : undefined;

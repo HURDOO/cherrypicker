@@ -40,9 +40,10 @@ describe('backup retention', () => {
     it('keeps the newest app backups and never touches other files', () => {
         const directory = mkdtempSync(join(tmpdir(), 'cherrypicker-backups-'));
         const names = [
-            ...Array.from({ length: 8 }, (_, index) => `pre-start-2026110${index}.db`),
+            ...Array.from({ length: 7 }, (_, index) => `pre-start-2026110${index}.db`),
             'pre-catalog-release-a.db',
             'pre-promotion-handover-b.db',
+            'pre-manual-promotion-release-c.db',
             'pre-start-old.db',
             'manual-before-migration.db',
             'notes.txt',

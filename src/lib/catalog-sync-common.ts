@@ -14,7 +14,7 @@ import type Database from 'better-sqlite3';
 export const CATALOG_ID_PATTERN = /^[A-Za-z0-9_.:-]{1,200}$/;
 
 // Backups the app writes into the data directory. Anything else there is left alone.
-const MANAGED_BACKUP_NAME = /^(pre-start|pre-catalog-release|pre-promotion-handover)-.+\.db$/;
+const MANAGED_BACKUP_NAME = /^(pre-start|pre-catalog-release|pre-promotion-handover|pre-manual-promotion-release)-.+\.db$/;
 export const DEFAULT_BACKUP_KEEP_COUNT = 10;
 
 /** JSON with object keys sorted, so the same data always gives the same text and hash. */
@@ -90,7 +90,7 @@ export const backupTimestamp = (now = new Date()) =>
 export async function backupLiveDatabase(
     client: Database.Database,
     databasePath: string,
-    label: 'pre-catalog-release' | 'pre-promotion-handover',
+    label: 'pre-catalog-release' | 'pre-promotion-handover' | 'pre-manual-promotion-release',
     now = new Date(),
 ) {
     const directory = path.join(syncDataDirectory(databasePath), 'backups');

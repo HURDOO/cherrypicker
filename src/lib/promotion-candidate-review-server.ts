@@ -38,6 +38,8 @@ export function reviewPromotionCandidate(
     parsedOfferOverride?: unknown,
     acknowledgeHighRiskChanges = false,
     sessionApprovalNote?: string,
+    /** The offer id to publish under when the candidate has none yet (manual promotion release). */
+    promotionIdForNewOffer?: string,
 ) {
     const candidate = db.select().from(promotionCandidates)
         .where(eq(promotionCandidates.id, candidateId))
@@ -101,7 +103,7 @@ export function reviewPromotionCandidate(
         );
     }
     const sourceKey = candidate.diff.sourceKey;
-    const promotionId = candidate.linkedPromotionId || (
+    const promotionId = candidate.linkedPromotionId || promotionIdForNewOffer || (
         candidate.diff.structured === true && typeof sourceKey === 'string'
             ? autoPromotionId(candidate.providerId, sourceKey)
             : `promotion-${randomUUID()}`
