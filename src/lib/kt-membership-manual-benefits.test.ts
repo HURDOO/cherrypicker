@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
     buildKtManualOfferDraft,
     KT_MANUAL_BENEFITS,
+    KT_NEW_BRANDS,
     KT_TIERS_ALL,
     ktManualSourceKey,
     ktPartnerDetailUrl,
 } from './kt-membership-manual-benefits';
 import { normalizePromotionDraft } from './promotion-input';
+import { brandCategoryIcon, officialBrandIdFor } from './promotion-parsers';
 import { getTelecomTierOptions } from '@/utils/telecomTiers';
 
 describe('KT membership manual benefits', () => {
@@ -46,8 +48,8 @@ describe('KT membership manual benefits', () => {
             benefit.action.type === 'PERCENT' &&
             benefit.action.maxBenefit === undefined
         ).map(benefit => benefit.pageCode);
-        // Papa John's page states no payment cap for the standing discount.
-        expect([...new Set(uncapped)]).toEqual(['C21/75']);
+        // Papa John's, the tteokbokki online shop and Mr. Healing state no cap.
+        expect([...new Set(uncapped)].sort()).toEqual(['C21/172', 'C21/189', 'C21/75']);
     });
 
     it('keeps coupon, item and app-booking benefits out of the confirmed total', () => {
@@ -66,5 +68,23 @@ describe('KT membership manual benefits', () => {
         const cu = KT_MANUAL_BENEFITS.find(benefit => benefit.brandId === 'cu');
         expect(cu?.action).toMatchObject({ type: 'PERCENT', value: 20, maxBenefit: 1_000, unitAmount: 1_000 });
         expect(cu?.calculationMode).toBe('CONDITIONAL');
+    });
+
+    it('creates new brands under the shared official ID and only when a benefit uses them', () => {
+        const usedBrandIds = new Set(KT_MANUAL_BENEFITS.map(benefit => benefit.brandId));
+        KT_NEW_BRANDS.forEach(brand => {
+            expect(brand.id).toBe(officialBrandIdFor(brand.name));
+            expect(brand.iconName).toBe(brandCategoryIcon(brand.categoryId));
+            expect(usedBrandIds.has(brand.id)).toBe(true);
+        });
+    });
+
+    it('splits Paris Croissant at GOLD, unlike the usual VVIP/VIP split', () => {
+        const parisCroissant = KT_MANUAL_BENEFITS.filter(benefit => benefit.pageCode === 'C21/73');
+        expect(parisCroissant.map(benefit => [benefit.tiers, benefit.action.value])).toEqual([
+            [['VVIP', 'VIP', 'GOLD'], 10],
+            [['SILVER', 'WHITE', '일반'], 5],
+        ]);
+        expect(parisCroissant.flatMap(benefit => benefit.tiers).sort()).toEqual([...KT_TIERS_ALL].sort());
     });
 });

@@ -8,6 +8,7 @@ import { brands, promotionCandidates } from '../src/db/schema';
 import {
     buildKtManualOfferDraft,
     KT_MANUAL_BENEFITS,
+    KT_NEW_BRANDS,
     KT_PROVIDER_ID,
     ktManualSourceKey,
     ktPartnerDetailUrl,
@@ -44,7 +45,11 @@ function main() {
         .where(inArray(brands.id, brandIds))
         .all()
         .map(row => row.id));
-    const missingBrands = brandIds.filter(id => !knownBrands.has(id));
+    // New brands are created by the approval from the candidate's discoveredBrand.
+    const newBrandById = new Map<string, typeof KT_NEW_BRANDS[number]>(
+        KT_NEW_BRANDS.map(brand => [brand.id, brand]),
+    );
+    const missingBrands = brandIds.filter(id => !knownBrands.has(id) && !newBrandById.has(id));
     if (missingBrands.length > 0) {
         throw new Error(`카탈로그에 없는 브랜드: ${missingBrands.join(', ')}`);
     }
@@ -101,6 +106,9 @@ function main() {
                 diff: {
                     manual: true,
                     sourceKey,
+                    ...(!knownBrands.has(benefit.brandId) && newBrandById.has(benefit.brandId) && {
+                        discoveredBrand: { ...newBrandById.get(benefit.brandId)! },
+                    }),
                     collectionMethod: 'claude-in-chrome-human-pace',
                     observedAt: '2026-11-10',
                 },
