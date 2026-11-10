@@ -50,6 +50,10 @@ RUN chmod 0755 ./scripts/docker-entrypoint.sh \
 # The rootless Pi runtime deliberately runs container UID 0 so the process maps
 # to the unprivileged host deployment user that owns the managed /data bind mount.
 EXPOSE 3000
+# deployd's `compose up --wait` waits for this (start period up to its startup timeout) before
+# its own short health check, so a slow Pi start is not mistaken for a failed release.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=180s --retries=3 \
+    CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 STOPSIGNAL SIGTERM
 
 ENTRYPOINT ["./scripts/docker-entrypoint.sh"]
