@@ -10,11 +10,13 @@ import {
     type InstallCardState,
     kstDay,
     parseInstallCardState,
+    recordFirstRecommendation,
     recordInstallCardVisit,
     shouldShowInstallCard,
 } from '@/utils/appInstall';
 
-// A per-browser convenience: when this browser first opened home, and whether the card was closed.
+// A per-browser convenience: when this browser first opened home, whether the first-recommendation
+// tutorial finished here, and whether the card was closed.
 const CHANGE_EVENT = 'cherrypicker:install-card-change';
 
 function readRaw(): string | null {
@@ -49,7 +51,12 @@ function write(update: (current: InstallCardState) => InstallCardState) {
 
 const subscribeNothing = () => () => undefined;
 
-/** "Install as an app" suggestion on home, from the second day this browser opens it. */
+/** Lets the home card show right after the tutorial's first recommendation. */
+export function markFirstRecommendationForInstallCard() {
+    write(recordFirstRecommendation);
+}
+
+/** "Install as an app" suggestion on home, after the first recommendation or from the second visit day. */
 export default function InstallAppCard() {
     const raw = useSyncExternalStore(subscribe, readRaw, () => null);
     const state = useMemo(() => parseInstallCardState(raw), [raw]);

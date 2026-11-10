@@ -32,6 +32,8 @@ export const INSTALL_CARD_STORAGE_KEY = 'cherrypicker.install-card';
 export interface InstallCardState {
     /** First day (Asia/Seoul) this browser opened the home screen, as YYYY-MM-DD. */
     firstVisitDay?: string;
+    /** The first-recommendation tutorial produced a recommendation in this browser. */
+    firstRecommendationDone?: boolean;
     dismissed?: boolean;
 }
 
@@ -45,6 +47,7 @@ export function parseInstallCardState(value: string | null): InstallCardState {
             ...(typeof parsed.firstVisitDay === 'string' && DAY_PATTERN.test(parsed.firstVisitDay) && {
                 firstVisitDay: parsed.firstVisitDay,
             }),
+            ...(parsed.firstRecommendationDone === true && { firstRecommendationDone: true }),
             ...(parsed.dismissed === true && { dismissed: true }),
         };
     } catch {
@@ -56,16 +59,23 @@ export function recordInstallCardVisit(state: InstallCardState, today: string): 
     return state.firstVisitDay ? state : { ...state, firstVisitDay: today };
 }
 
-/** The card shows from the second visit day on, never inside the installed app or after closing it. */
+export function recordFirstRecommendation(state: InstallCardState): InstallCardState {
+    return state.firstRecommendationDone ? state : { ...state, firstRecommendationDone: true };
+}
+
+/**
+ * The card shows once the first-recommendation tutorial has produced a recommendation, or, for a
+ * browser that skipped it, from the second visit day on. Never inside the installed app or after
+ * closing it.
+ */
 export function shouldShowInstallCard(
     state: InstallCardState,
     today: string,
     { standalone }: { standalone: boolean },
 ): boolean {
-    return !standalone &&
-        !state.dismissed &&
-        Boolean(state.firstVisitDay) &&
-        today > state.firstVisitDay!;
+    if (standalone || state.dismissed) return false;
+    return state.firstRecommendationDone === true ||
+        (Boolean(state.firstVisitDay) && today > state.firstVisitDay!);
 }
 
 export function kstDay(date: Date): string {

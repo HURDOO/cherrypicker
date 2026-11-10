@@ -65,7 +65,7 @@ import {
     type PaymentAppAction,
 } from '@/utils/paymentAppLinks';
 import { PaymentAppButtons, PaymentMethodPicker } from '@/components/payment/PaymentAppButtons';
-import InstallAppCard from '@/components/install/InstallAppCard';
+import InstallAppCard, { markFirstRecommendationForInstallCard } from '@/components/install/InstallAppCard';
 import { getEffectiveDefaultMethod, getOpenablePayIds } from '@/utils/paymentPreferences';
 import { buildPromotionUsage } from '@/utils/promotionUsage';
 import {
@@ -1088,6 +1088,8 @@ function HomePageContent() {
 
     useEffect(() => {
         if (!guidedFirstRecommendation || recommendation === null || isRecommending) return;
+        // The install card on home shows from here on, not only from the second visit day.
+        markFirstRecommendationForInstallCard();
         const timer = window.setTimeout(() => {
             firstRecommendationGuideRef.current?.scrollIntoView({
                 behavior: 'smooth',

@@ -3,6 +3,7 @@ import {
     detectInstallGuidePlatform,
     kstDay,
     parseInstallCardState,
+    recordFirstRecommendation,
     recordInstallCardVisit,
     shouldShowInstallCard,
 } from './appInstall';
@@ -48,6 +49,17 @@ describe('install card', () => {
         expect(shouldShowInstallCard(first, '2026-11-11', { standalone: false })).toBe(true);
     });
 
+    it('shows on the first day once the tutorial produced the first recommendation', () => {
+        const visited = recordInstallCardVisit({}, '2026-11-10');
+        const done = recordFirstRecommendation(visited);
+        expect(done).toEqual({ firstVisitDay: '2026-11-10', firstRecommendationDone: true });
+        expect(recordFirstRecommendation(done)).toBe(done);
+        expect(shouldShowInstallCard(done, '2026-11-10', { standalone: false })).toBe(true);
+        expect(shouldShowInstallCard(recordFirstRecommendation({}), '2026-11-10', { standalone: false })).toBe(true);
+        expect(shouldShowInstallCard({ ...done, dismissed: true }, '2026-11-10', { standalone: false })).toBe(false);
+        expect(shouldShowInstallCard(done, '2026-11-10', { standalone: true })).toBe(false);
+    });
+
     it('stays hidden after closing it or inside the installed app', () => {
         const state = { firstVisitDay: '2026-11-01' };
         expect(shouldShowInstallCard(state, '2026-11-10', { standalone: true })).toBe(false);
@@ -62,6 +74,8 @@ describe('install card', () => {
         expect(parseInstallCardState('{"firstVisitDay":"yesterday","dismissed":"yes"}')).toEqual({});
         expect(parseInstallCardState('{"firstVisitDay":"2026-11-09","dismissed":true}'))
             .toEqual({ firstVisitDay: '2026-11-09', dismissed: true });
+        expect(parseInstallCardState('{"firstRecommendationDone":true}')).toEqual({ firstRecommendationDone: true });
+        expect(parseInstallCardState('{"firstRecommendationDone":"yes"}')).toEqual({});
     });
 
     it('counts days in Korea time', () => {
