@@ -486,6 +486,7 @@
 - 진행 기록 (2026-11-10):
   - 구현: 카톡 넘기기 `src/utils/inAppBrowser.ts`·`src/components/layout/KakaoTalkHandoff.tsx`(`ClientLayout`), manifest `src/app/manifest.ts`·`src/app/layout.tsx`, 아이콘 `public/app-icon/`(원본 `icon.svg`, `npm run icons:generate`), 설치 안내 `src/app/install/page.tsx`·`src/components/install/InstallGuide.tsx`, 홈 카드 `InstallAppCard.tsx`, 설정 링크 `InstallAppSettingsLink.tsx`, 설치 상태 `src/hooks/useAppInstall.ts`·`src/utils/appInstall.ts`(`cb917c7`, `7cf88c5`).
   - 검증: 회귀 테스트를 더해 `npm test`(876개), `npm run lint`, `npm run build` 통과. 임시 DB 개발 서버와 headless Chrome에서 manifest 오류 없음, 설치 가능 검사 오류 0건(데스크톱·Android 390px, 서비스 워커 없음), `/install` 390px Android·1280px 가로 넘침 없음과 브라우저별 첫 안내, 홈 카드 첫날 숨김·둘째 날 노출·닫기 유지, 설정 링크, 카톡 User-Agent에서 `kakaotalk://web/openExternal` 1회 시도와 1.5초 뒤 안내를 확인했다. 홈 카드는 첫 설정 완료 상태를 IndexedDB에 직접 넣어 확인했다.
+  - 설치 카드 시점 변경 (2026-11-10 저녁, 사용자 제안): 첫 추천 튜토리얼에서 추천이 나오면 기록해 두고 홈에 오면 바로 카드를 보인다. 튜토리얼을 거치지 않은 브라우저는 두 번째 방문일부터 그대로다(`a1bd97e`, `src/utils/appInstall.ts`, `InstallAppCard.tsx`, `src/app/page.tsx`). 단위 테스트를 더해 lint·타입 검사 통과. 게시 이미지를 로컬에 띄워 Chrome(606px 폭)에서 첫 설정 → 튜토리얼 GS25 1만 원 추천 → "튜토리얼 마치고 홈으로" 뒤 첫날 홈 맨 위에 카드(앱 설치·설치 방법 보기 `/install`)가 보이고, 닫으면 숨겨지며 가로 넘침이 없음을 확인했다.
   - 남은 일: 실기기 확인(사용자).
 
 ## [-] TASK-06 — 로컬에서 검수한 카탈로그를 운영에 반영하고 안전하게 운영·복구
