@@ -11,7 +11,7 @@ import type {
 // None of them is officially documented, so an app update can change them.
 // See docs/payment-app-deeplinks-2026-10.md.
 
-export type PaymentAppId = 'kakaotalk' | 'naverpay' | 'tmembership';
+export type PaymentAppId = 'kakaotalk' | 'kakaopay' | 'naverpay' | 'tmembership';
 export type PaymentAppMode = PaymentOpenMode;
 export type PaymentAppPlatform = 'android' | 'ios' | 'other';
 
@@ -23,6 +23,7 @@ interface PaymentApp {
 
 export const PAYMENT_APPS: Record<PaymentAppId, PaymentApp> = {
     kakaotalk: { name: '카카오톡', androidPackage: 'com.kakao.talk', appStoreId: '362057947' },
+    kakaopay: { name: '카카오페이', androidPackage: 'com.kakaopay.app', appStoreId: '1464496236' },
     naverpay: { name: '네이버페이', androidPackage: 'com.naverfin.payapp', appStoreId: '1554807824' },
     tmembership: { name: 'T멤버십', androidPackage: 'com.tms', appStoreId: '464205249' },
 };
@@ -88,10 +89,23 @@ export function isTMembershipPartner(
     ));
 }
 
+// The GoodDeal home inside the KakaoPay app, the link the GoodDeal observer app opens.
+const GOODDEAL_HOME_PATH = 'payweb?url=https%3A%2F%2Fgood-deal-web.kakaopay.com%2Fhome%2Fall';
+
 function payAction(combination: BenefitCombination): PaymentAppAction | undefined {
     const card = combination.cardName;
-    // GoodDeal is paid on the same KakaoPay screen, and its discount is applied there.
-    if (combination.payProviderId === 'kakaopay' || combination.payProviderId === 'kakaopay-gooddeal') {
+    // GoodDeal pays on its own page, not the KakaoPay payment screen: picking the brand on the
+    // GoodDeal home shows a brand barcode that the kiosk or POS scans like a voucher.
+    // A direct brand link would be better, but its address and brand ids are not known yet.
+    if (combination.payProviderId === 'kakaopay-gooddeal') {
+        return {
+            appId: 'kakaopay',
+            title: '카카오페이',
+            links: [{ mode: 'CODE', label: '굿딜', scheme: 'kakaopay', path: GOODDEAL_HOME_PATH }],
+            hint: '굿딜에서 이 매장 브랜드를 고르면 바코드가 떠요. 키오스크나 포스기에서 그 바코드를 스캔하세요.',
+        };
+    }
+    if (combination.payProviderId === 'kakaopay') {
         // Through KakaoTalk, which almost everyone has, rather than the separate KakaoPay app.
         // Its payment screen opens on pay money, so card payments need a switch in the app.
         const hint = combination.fundingType === 'CARD'

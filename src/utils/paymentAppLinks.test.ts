@@ -84,16 +84,24 @@ describe('payment app actions', () => {
         expect(money[0].links.map(link => link.mode)).toEqual(['CODE']);
     });
 
-    it('opens the same KakaoPay payment screen for GoodDeal', () => {
+    it('opens the GoodDeal home in the KakaoPay app for GoodDeal, not the payment screen', () => {
         const goodDeal = getPaymentAppActions(
-            combination({ payProviderId: 'kakaopay-gooddeal', fundingType: 'CARD', cardName: '신한 SOL트래블' }),
+            combination({ payProviderId: 'kakaopay-gooddeal', fundingType: 'MONEY' }),
             'PAY',
         );
         expect(goodDeal).toHaveLength(1);
-        expect(goodDeal[0].appId).toBe('kakaotalk');
-        expect(goodDeal[0].title).toBe('카카오페이');
-        expect(goodDeal[0].links[0].path).toBe('kakaopay/offline');
-        expect(goodDeal[0].hint).toContain('신한 SOL트래블로 바꿔서');
+        expect(goodDeal[0]).toMatchObject({ appId: 'kakaopay', title: '카카오페이' });
+        // No saved open mode applies, so a KakaoPay "Samsung Pay" choice cannot reach GoodDeal.
+        expect(goodDeal[0].payId).toBeUndefined();
+        expect(goodDeal[0].links).toEqual([expect.objectContaining({
+            label: '굿딜',
+            scheme: 'kakaopay',
+            path: 'payweb?url=https%3A%2F%2Fgood-deal-web.kakaopay.com%2Fhome%2Fall',
+        })]);
+        expect(goodDeal[0].hint).toContain('브랜드를 고르면 바코드');
+        expect(buildPaymentAppHref('kakaopay', goodDeal[0].links[0], 'android', 'https://example.test'))
+            .toContain('package=com.kakaopay.app');
+        expect(appStoreUrl('kakaopay', 'ios')).toBe('https://apps.apple.com/kr/app/id1464496236');
     });
 
     it('leaves out card-only payments and the pay app on other cards', () => {
