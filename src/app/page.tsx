@@ -28,6 +28,7 @@ import { useToastStore } from '@/store/useToastStore';
 import { IconByName } from '@/components/ui/IconByName';
 import { NumericKeypad } from '@/components/ui/NumericKeypad';
 import { MonthlyPerformanceReminder } from '@/components/performance/MonthlyPerformanceReminder';
+import { AmountPicker } from './quick-pay/AmountPicker';
 import { BrandDiscovery } from '@/components/brand/BrandDiscovery';
 import { CardBenefitSupportCard } from '@/components/catalog/CardBenefitSupportCard';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
@@ -355,6 +356,7 @@ function HomePageContent() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const quickPay = pathname === '/quick-pay';
     const guidedFirstRecommendation = pathname === '/setup/recommendation';
     const {
         userId,
@@ -904,7 +906,7 @@ function HomePageContent() {
         workspacePreferences,
     ]);
 
-    const shouldRedirectHomeToSetup = !guidedFirstRecommendation &&
+    const shouldRedirectHomeToSetup = !quickPay && !guidedFirstRecommendation &&
         workspacePreferences.firstSetup.status !== 'COMPLETED';
     const isGuidedRouteSyncNeeded = guidedFirstRecommendation &&
         workspacePreferences.firstSetup.status === 'IN_PROGRESS' &&
@@ -1365,8 +1367,8 @@ function HomePageContent() {
                         )}
                     </section>
                 )}
-                {!guidedFirstRecommendation && !currentPaymentTarget && <InstallAppCard />}
-                {!guidedFirstRecommendation && (
+                {!quickPay && !guidedFirstRecommendation && !currentPaymentTarget && <InstallAppCard />}
+                {!quickPay && !guidedFirstRecommendation && (
                     <MonthlyPerformanceReminder
                         cards={missingPerformanceCards}
                         rules={rules}
@@ -1457,7 +1459,21 @@ function HomePageContent() {
                     </section>
                 )}
 
-                {currentPaymentTarget && (
+                {quickPay && currentPaymentTarget?.kind === 'BRAND' ? (
+                    catalog ? <AmountPicker
+                        key={currentPaymentTarget.brand.id + String(isOnlinePurchase)}
+                        demo={workspacePreferences.firstSetup.status !== 'COMPLETED' && !workspacePreferences.selectedSystemCardIds?.length}
+                        month={performancePeriod.performanceMonth}
+                        input={{
+                            target: currentPaymentTarget, cards, rules, history, performances: currentPerformances,
+                            isOnline: isOnlinePurchase, promotions: catalog.promotions, providers: catalog.providers,
+                            profile: benefitProfile, routeVerifications: catalog.routeVerifications,
+                            performanceBenefitMonth: performancePeriod.nextBenefitMonth, promotionUsage,
+                            brandCategoryById: new Map(brands.map(brand => [brand.id, brand.categoryId])),
+                        }}
+                        ownedCards={recommendationCards}
+                    /> : <p role="status">{isCatalogLoading ? '혜택을 불러오는 중이에요' : '혜택 정보를 불러오지 못했어요'}</p>
+                ) : currentPaymentTarget && (
                     <>
                         <section
                             ref={amountSectionRef}
