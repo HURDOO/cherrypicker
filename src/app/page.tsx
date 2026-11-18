@@ -358,7 +358,7 @@ function HomePageContent() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const quickPay = pathname === '/quick-pay';
+    const quickPayPreview = pathname === '/quick-pay';
     const guidedFirstRecommendation = pathname === '/setup/recommendation';
     const {
         userId,
@@ -518,6 +518,9 @@ function HomePageContent() {
         }
         return undefined;
     }, [currentBrand, currentPurchaseScenario, generalPaymentLabel, isGeneralPaymentSelected]);
+    const quickPayBrand = !guidedFirstRecommendation && currentPaymentTarget?.kind === 'BRAND'
+        ? currentPaymentTarget : undefined;
+    const showAmountRanges = Boolean(quickPayBrand) && (quickPayPreview || searchParams.get('view') !== 'exact');
     const currentPaymentTargetLabel = currentPaymentTarget?.kind === 'BRAND'
         ? currentPaymentTarget.brand.name
         : currentPaymentTarget?.label;
@@ -908,7 +911,7 @@ function HomePageContent() {
         workspacePreferences,
     ]);
 
-    const shouldRedirectHomeToSetup = !quickPay && !guidedFirstRecommendation &&
+    const shouldRedirectHomeToSetup = !quickPayPreview && !guidedFirstRecommendation &&
         workspacePreferences.firstSetup.status !== 'COMPLETED';
     const isGuidedRouteSyncNeeded = guidedFirstRecommendation &&
         workspacePreferences.firstSetup.status === 'IN_PROGRESS' &&
@@ -1008,7 +1011,7 @@ function HomePageContent() {
     const handleSelectBrand = (brandId: string, simulationAmount?: number) => {
         const brand = brands.find(item => item.id === brandId);
         if (!brand) return;
-        if (quickPay) quickPayBrandFromList.current = brandId;
+        if (!guidedFirstRecommendation) quickPayBrandFromList.current = brandId;
         setIsGeneralPaymentSelected(false);
         setSelectedPurchaseScenarioId('');
         setGeneralPaymentLabel(GENERAL_PAYMENT_LABEL);
@@ -1085,13 +1088,13 @@ function HomePageContent() {
     };
 
     useEffect(() => {
-        if (!currentPaymentTarget) return;
+        if (!currentPaymentTarget || showAmountRanges) return;
         const timer = window.setTimeout(() => {
             amountSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             amountInputRef.current?.focus({ preventScroll: true });
         }, 120);
         return () => window.clearTimeout(timer);
-    }, [currentPaymentTarget]);
+    }, [currentPaymentTarget, showAmountRanges]);
 
     useEffect(() => {
         if (!guidedFirstRecommendation || recommendation === null || isRecommending) return;
@@ -1372,8 +1375,8 @@ function HomePageContent() {
                         )}
                     </section>
                 )}
-                {!quickPay && !guidedFirstRecommendation && !currentPaymentTarget && <InstallAppCard />}
-                {!quickPay && !guidedFirstRecommendation && (
+                {!quickPayPreview && !guidedFirstRecommendation && !currentPaymentTarget && <InstallAppCard />}
+                {!quickPayPreview && !guidedFirstRecommendation && !quickPayBrand && (
                     <MonthlyPerformanceReminder
                         cards={missingPerformanceCards}
                         rules={rules}
@@ -1408,13 +1411,13 @@ function HomePageContent() {
                         onToggleFavorite={toggleFavorite}
                         onRequestLocation={handleRequestLocation}
                     />
-                ) : quickPay && currentPaymentTarget.kind === 'BRAND' ? (
+                ) : quickPayBrand ? (
                     <section aria-label="선택한 브랜드" className="flex items-center justify-between gap-3 rounded-[2rem] border border-gray-100 bg-white px-4 py-3 shadow-sm">
                         <button
                             type="button"
                             aria-label="브랜드 목록으로 뒤로가기"
                             onClick={() => {
-                                if (quickPayBrandFromList.current === currentPaymentTarget.brand.id) {
+                                if (quickPayBrandFromList.current === quickPayBrand.brand.id) {
                                     router.back();
                                 } else {
                                     router.replace(pathname);
@@ -1425,10 +1428,10 @@ function HomePageContent() {
                             <ChevronLeft size={20} aria-hidden="true" />뒤로
                         </button>
                         <div className="flex min-w-0 items-center justify-end gap-2.5 text-right">
-                            <BrandLogo key={currentPaymentTarget.brand.id} brand={currentPaymentTarget.brand} className="size-10 shrink-0 rounded-xl" />
+                            <BrandLogo key={quickPayBrand.brand.id} brand={quickPayBrand.brand} className="size-10 shrink-0 rounded-xl" />
                             <div className="min-w-0">
                                 <p className="text-[10px] font-bold text-slate-500">선택한 브랜드</p>
-                                <h2 className="break-words text-lg font-black leading-tight text-slate-950">{currentPaymentTarget.brand.name}</h2>
+                                <h2 className="break-words text-lg font-black leading-tight text-slate-950">{quickPayBrand.brand.name}</h2>
                             </div>
                         </div>
                     </section>
@@ -1488,13 +1491,13 @@ function HomePageContent() {
                     </section>
                 )}
 
-                {quickPay && currentPaymentTarget?.kind === 'BRAND' ? (
+                {quickPayBrand && showAmountRanges && (
                     catalog ? <AmountPicker
-                        key={currentPaymentTarget.brand.id + String(isOnlinePurchase)}
-                        demo={workspacePreferences.firstSetup.status !== 'COMPLETED' && !workspacePreferences.selectedSystemCardIds?.length}
+                        key={quickPayBrand.brand.id + String(isOnlinePurchase)}
+                        demo={quickPayPreview && workspacePreferences.firstSetup.status !== 'COMPLETED' && !workspacePreferences.selectedSystemCardIds?.length}
                         month={performancePeriod.performanceMonth}
                         input={{
-                            target: currentPaymentTarget, cards, rules, history, performances: currentPerformances,
+                            target: quickPayBrand, cards, rules, history, performances: currentPerformances,
                             isOnline: isOnlinePurchase, promotions: catalog.promotions, providers: catalog.providers,
                             profile: benefitProfile, routeVerifications: catalog.routeVerifications,
                             performanceBenefitMonth: performancePeriod.nextBenefitMonth, promotionUsage,
@@ -1502,7 +1505,23 @@ function HomePageContent() {
                         }}
                         ownedCards={recommendationCards}
                     /> : <p role="status">{isCatalogLoading ? '혜택을 불러오는 중이에요' : '혜택 정보를 불러오지 못했어요'}</p>
-                ) : currentPaymentTarget && (
+                )}
+                {quickPayBrand && !quickPayPreview && (
+                    <Link
+                        href={{
+                            pathname,
+                            query: showAmountRanges
+                                ? { brand: quickPayBrand.brand.id, view: 'exact' }
+                                : { brand: quickPayBrand.brand.id },
+                        }}
+                        replace
+                        scroll={false}
+                        className="inline-flex min-h-11 items-center px-3 text-sm font-semibold text-slate-600 underline underline-offset-4"
+                    >
+                        {showAmountRanges ? '정확한 금액으로 계산' : '금액 구간으로 보기'}
+                    </Link>
+                )}
+                {currentPaymentTarget && !showAmountRanges && (
                     <>
                         <section
                             ref={amountSectionRef}
