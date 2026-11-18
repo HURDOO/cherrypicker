@@ -1,5 +1,5 @@
 import type { Brand } from '@/types';
-import { COLLECTED_BRAND_LOGO_URLS } from './collectedBrandLogos';
+import { COLLECTED_APP_ICON_PATHS, COLLECTED_BRAND_LOGO_URLS } from './collectedBrandLogos';
 
 export interface BrandTone {
     soft: string;
@@ -236,7 +236,6 @@ const NON_RECOGNIZABLE_LOGO_DOMAINS = new Set([
 
 const WIDE_BRAND_LOGO_IDS = new Set([
     'baemin',
-    'emart24',
     'gs25',
     'homeplus',
     'yes24',
@@ -292,8 +291,12 @@ export function usesWideBrandLogo(brand: Pick<Brand, 'id'>): boolean {
     return WIDE_BRAND_LOGO_IDS.has(brand.id);
 }
 
-export function usesCoverBrandLogo(brand: Pick<Brand, 'id'>): boolean {
-    return COVER_BRAND_LOGO_IDS.has(brand.id);
+export function usesCoverBrandLogo(
+    brand: Pick<Brand, 'id'> & Partial<Pick<Brand, 'name'>>
+): boolean {
+    if (COVER_BRAND_LOGO_IDS.has(brand.id)) return true;
+    const logoUrl = getBrandLogoUrl(brand);
+    return logoUrl ? COLLECTED_APP_ICON_PATHS.has(logoUrl) : false;
 }
 
 export function getBrandLogoUrl(

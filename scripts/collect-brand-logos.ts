@@ -52,9 +52,6 @@ const REVIEWED_BRAND_ASSETS: Record<string, string[]> = {
     'baemin.com': [
         'https://www.baemin.com/_next/static/media/baemin_logo.684531d5.png',
     ],
-    'emart24.co.kr': [
-        'https://emart24.co.kr/assets/assets/imgs/logo.png',
-    ],
     'homeplus.co.kr': [
         'https://mfront.homeplus.co.kr/static/images/logos/default_logo.svg',
     ],
@@ -74,6 +71,7 @@ const REVIEWED_BRAND_ASSETS: Record<string, string[]> = {
 
 // Verified against each brand's current Korean App Store listing. These IDs keep
 // core brands collectable when their marketing site blocks automated requests.
+// Full-bleed app icons also read better than thin wordmarks in the home grid.
 const REVIEWED_APP_IDS: Record<string, string[]> = {
     'baskinrobbins.co.kr': ['6742874436'],
     'burgerking.co.kr': ['1017567032'],
@@ -82,6 +80,8 @@ const REVIEWED_APP_IDS: Record<string, string[]> = {
     'dominos.co.kr': ['371008429'],
     'ehyundai.com': ['1031843830'],
     'emart.com': ['397728319'],
+    'emart24.co.kr': ['1636816705'],
+    'gong-cha.co.kr': ['1557809323'],
     'kakaomobility.com': ['981110422'],
     'kfckorea.com': ['1255799839'],
     'korail.com': ['1000558562'],
@@ -91,9 +91,11 @@ const REVIEWED_APP_IDS: Record<string, string[]> = {
     'mcdonalds.co.kr': ['1217507712'],
     'mega-mgccoffee.com': ['1473428031'],
     'nhhanaro.co.kr': ['6458731236'],
+    'paris.co.kr': ['1604719290'],
     'paulbassett.co.kr': ['1017265117'],
     'subway.co.kr': ['1516736468'],
     't-money.co.kr': ['1470361790'],
+    'tlj.co.kr': ['6443870180'],
     'twayair.com': ['564901451'],
     'twosome.co.kr': ['1225957208'],
     'ypbooks.co.kr': ['6447231557'],
@@ -558,6 +560,11 @@ async function collectDomain(domain: string): Promise<CollectedLogo | undefined>
     return saveBestCandidate(domain, candidates);
 }
 
+function isAppStoreArtwork(sourceUrl: string): boolean {
+    const host = new URL(sourceUrl).hostname;
+    return host.endsWith('.mzstatic.com') || host.endsWith('.googleusercontent.com');
+}
+
 async function readExistingCollection(): Promise<Map<string, CollectedLogo>> {
     try {
         const manifestPath = path.join(OUTPUT_DIRECTORY, 'manifest.json');
@@ -639,6 +646,9 @@ async function main() {
     const mappingLines = collected
         .sort((left, right) => left.domain.localeCompare(right.domain))
         .map(item => `    '${item.domain}': '${item.path}',`);
+    const appIconLines = collected
+        .filter(item => isAppStoreArtwork(item.sourceUrl))
+        .map(item => `    '${item.path}',`);
     await writeFile(
         GENERATED_MODULE,
         [
@@ -646,6 +656,11 @@ async function main() {
             'export const COLLECTED_BRAND_LOGO_URLS: Record<string, string> = {',
             ...mappingLines,
             '};',
+            '',
+            '// Full-bleed square app icons. They fill the logo tile instead of sitting inset.',
+            'export const COLLECTED_APP_ICON_PATHS = new Set<string>([',
+            ...appIconLines,
+            ']);',
             '',
         ].join('\n')
     );

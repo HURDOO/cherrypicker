@@ -1,5 +1,6 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, History, Settings } from 'lucide-react';
@@ -7,11 +8,34 @@ import clsx from 'clsx';
 
 import { useAppStore } from '@/store/useAppStore';
 
-export default function BottomNav() {
-    const pathname = usePathname();
-    const { setSelectedBrandId, workspacePreferences } = useAppStore();
+// Inputs marked with this attribute hide the nav while focused, so the keyboard only lifts the input.
+export const HIDE_BOTTOM_NAV_ATTRIBUTE = 'data-hide-bottom-nav';
 
-    if (
+function subscribeToFocus(onChange: () => void) {
+    // activeElement can still point at the blurred input during focusout, so re-read it after.
+    const onFocusOut = () => window.setTimeout(onChange);
+    document.addEventListener('focusin', onChange);
+    document.addEventListener('focusout', onFocusOut);
+    return () => {
+        document.removeEventListener('focusin', onChange);
+        document.removeEventListener('focusout', onFocusOut);
+    };
+}
+
+function isNavHidingInputFocused() {
+    return document.activeElement?.hasAttribute(HIDE_BOTTOM_NAV_ATTRIBUTE) ?? false;
+}
+
+export function useIsBottomNavVisible() {
+    const pathname = usePathname();
+    const { workspacePreferences } = useAppStore();
+    const isNavHidingInputActive = useSyncExternalStore(
+        subscribeToFocus,
+        isNavHidingInputFocused,
+        () => false,
+    );
+
+    return !isNavHidingInputActive && !(
         pathname === '/login' ||
         pathname === '/signup' ||
         pathname.startsWith('/setup') ||
@@ -24,7 +48,15 @@ export default function BottomNav() {
                 workspacePreferences.firstSetup.status === 'IN_PROGRESS'
             )
         )
-    ) {
+    );
+}
+
+export default function BottomNav() {
+    const pathname = usePathname();
+    const { setSelectedBrandId } = useAppStore();
+    const isVisible = useIsBottomNavVisible();
+
+    if (!isVisible) {
         return null;
     }
 

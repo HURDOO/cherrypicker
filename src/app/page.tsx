@@ -1081,7 +1081,10 @@ function HomePageContent() {
         if (!currentPaymentTarget) return;
         const timer = window.setTimeout(() => {
             amountSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            amountInputRef.current?.focus({ preventScroll: true });
+            // Touch keyboards would cover the payment screen, so only desktop gets auto-focus.
+            if (!window.matchMedia('(pointer: coarse)').matches) {
+                amountInputRef.current?.focus({ preventScroll: true });
+            }
         }, 120);
         return () => window.clearTimeout(timer);
     }, [currentPaymentTarget]);
@@ -1271,7 +1274,7 @@ function HomePageContent() {
                 </button>
             </header>
 
-            <div className="mx-auto max-w-lg space-y-5 px-3 pt-4">
+            <div className="mx-auto max-w-lg space-y-5 px-5 pt-4">
                 {guidedFirstRecommendation && (
                     <section
                         ref={firstRecommendationGuideRef}

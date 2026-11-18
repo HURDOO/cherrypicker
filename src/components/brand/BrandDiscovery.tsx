@@ -1,10 +1,10 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import { ChevronRight, CreditCard, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, CreditCard, Search, X } from 'lucide-react';
 import clsx from 'clsx';
 import { BrandLogo } from '@/components/design-lab/BrandLogo';
-import { getBrandLogoUrl } from '@/components/design-lab/brandVisuals';
+import { HIDE_BOTTOM_NAV_ATTRIBUTE, useIsBottomNavVisible } from '@/components/layout/BottomNav';
 import type { Brand, Category, TransactionHistory } from '@/types';
 import type { BenefitBrandSuggestion } from '@/utils/benefitBrandSuggestions';
 import {
@@ -45,8 +45,10 @@ interface BrandDiscoveryProps {
 
 const POPULAR_SCOPE = 'popular';
 const ALL_SCOPE = 'all';
-const INITIAL_VISIBLE_COUNT = 12;
+const INITIAL_VISIBLE_COUNT = 15;
 const MORE_VISIBLE_COUNT = 24;
+// Height of the home page's sticky header plus a small gap.
+const STICKY_HEADER_OFFSET = 64;
 
 function MainBrandCard({
     item,
@@ -57,25 +59,20 @@ function MainBrandCard({
     eager: boolean;
     onSelect: (brand: Brand) => void;
 }) {
-    const hasLogo = Boolean(getBrandLogoUrl(item.brand));
-
     return (
         <button
             type="button"
             title={item.brand.name}
             onClick={() => onSelect(item.brand)}
-            className="group flex min-h-[132px] min-w-0 flex-col items-center justify-center rounded-[1.35rem] border border-slate-200 bg-white px-1.5 pb-3 pt-3.5 text-center shadow-sm shadow-slate-200/70 transition-all hover:border-blue-300 hover:shadow-md active:scale-[0.97]"
+            className="group flex min-w-0 flex-col items-center rounded-2xl px-0.5 py-1 text-center transition active:scale-[0.96] active:bg-slate-100"
         >
             <BrandLogo
                 brand={item.brand}
                 loading={eager ? 'eager' : 'lazy'}
-                className={clsx(
-                    'h-[58px] max-w-full rounded-2xl bg-white shadow-sm shadow-slate-200/60 ring-1 ring-inset ring-slate-200 transition group-hover:ring-blue-200',
-                    hasLogo ? 'w-[76px]' : 'w-[58px]'
-                )}
+                className="h-[72px] w-[72px] rounded-[18px] bg-white shadow-sm shadow-slate-300/70 transition after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-inset after:ring-slate-900/10 group-hover:after:ring-blue-300"
                 imageClassName="p-0.5"
             />
-            <span className="mt-2 line-clamp-2 min-h-[38px] w-full break-keep text-[15px] font-black leading-[1.28] tracking-[-0.025em] text-slate-900 [overflow-wrap:anywhere]">
+            <span className="mt-1.5 line-clamp-2 w-full break-keep text-[14px] font-bold leading-[1.25] tracking-[-0.02em] text-slate-800 [overflow-wrap:anywhere]">
                 {item.brand.name}
             </span>
         </button>
@@ -100,6 +97,8 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
     const [selectedScope, setSelectedScope] = useState(POPULAR_SCOPE);
     const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_COUNT);
     const searchInputRef = useRef<HTMLInputElement>(null);
+    const sectionRef = useRef<HTMLElement>(null);
+    const isBottomNavVisible = useIsBottomNavVisible();
 
     const rankedBrands = useMemo(
         () => rankBrands(brands, history, favoriteBrandIds),
@@ -182,6 +181,11 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
     const changeSearchQuery = (value: string) => {
         setSearchQuery(value);
         setVisibleLimit(INITIAL_VISIBLE_COUNT);
+        // Results render at the top of the list, so bring that into view while typing.
+        const section = sectionRef.current;
+        if (!section) return;
+        const listTop = section.getBoundingClientRect().top + window.scrollY - STICKY_HEADER_OFFSET;
+        if (window.scrollY > listTop) window.scrollTo({ top: listTop });
     };
     const selectBrand = (brand: Brand) => {
         const suggestion = suggestionByBrandId.get(brand.id);
@@ -196,48 +200,59 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
     };
 
     return (
-        <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-[#f7f8fa] px-3 pb-7 pt-5 shadow-sm">
-            <div className="px-1">
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-blue-600">
-                    빠른 결제 찾기
-                </p>
-                <h2 className="mt-1 text-[26px] font-black tracking-[-0.05em] text-slate-950">
-                    어디에서 결제하나요?
-                </h2>
-                <p className="mt-1 text-[12px] font-semibold leading-relaxed text-slate-500">
-                    브랜드나 결제 상황을 검색해 빠르게 골라보세요
-                </p>
-            </div>
-
-            <label className="relative mt-4 block">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400" />
-                <input
-                    ref={searchInputRef}
-                    value={searchQuery}
-                    onChange={event => changeSearchQuery(event.target.value)}
-                    placeholder="브랜드·결제 상황 검색"
-                    aria-label="브랜드·결제 상황 검색"
-                    autoComplete="off"
-                    enterKeyHint="search"
-                    className="h-[52px] w-full rounded-[1.1rem] border border-slate-200 bg-white pl-11 pr-11 text-[15px] font-bold text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                />
-                {searchQuery && (
+        <section ref={sectionRef} aria-label="빠른 결제 찾기" className="pb-32">
+            {/* Pinned above the bottom nav so search stays in thumb reach while browsing. */}
+            <div
+                className="fixed inset-x-0 z-40 mx-auto max-w-md border-t border-slate-200 bg-white px-5 pb-3 pt-4 shadow-[0_-8px_20px_rgba(15,23,42,0.08)]"
+                style={{
+                    bottom: isBottomNavVisible
+                        ? 'calc(3.5rem + env(safe-area-inset-bottom))'
+                        : 'env(safe-area-inset-bottom)',
+                }}
+            >
+                <label className="relative block">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-600" />
+                    <input
+                        ref={searchInputRef}
+                        value={searchQuery}
+                        onChange={event => changeSearchQuery(event.target.value)}
+                        placeholder="브랜드·결제 상황 검색"
+                        aria-label="브랜드·결제 상황 검색"
+                        autoComplete="off"
+                        enterKeyHint="search"
+                        {...{ [HIDE_BOTTOM_NAV_ATTRIBUTE]: '' }}
+                        className="h-11 w-full rounded-full border border-slate-300 bg-slate-50 pl-11 pr-11 text-[14px] font-bold text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
+                    />
+                    {searchQuery && (
+                        <button
+                            type="button"
+                            aria-label="검색어 지우기"
+                            // Keep focus in the input so the nav does not flash back in.
+                            onPointerDown={event => event.preventDefault()}
+                            onClick={() => {
+                                changeSearchQuery('');
+                                searchInputRef.current?.focus();
+                            }}
+                            className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    )}
+                </label>
+                {(visibleBrands.length > 0 || matchingScenarios.length > 0) && (
                     <button
                         type="button"
-                        aria-label="검색어 지우기"
-                        onClick={() => {
-                            changeSearchQuery('');
-                            searchInputRef.current?.focus();
-                        }}
-                        className="absolute right-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100"
+                        onClick={selectGeneralPayment}
+                        className="mb-0.5 mt-2.5 flex h-8 w-full items-center justify-center gap-1 rounded-lg text-[12px] font-semibold text-slate-500 transition hover:text-blue-600"
                     >
-                        <X className="h-4 w-4" />
+                        브랜드가 없다면 일반 결제
+                        <ChevronRight className="h-3.5 w-3.5" />
                     </button>
                 )}
-            </label>
+            </div>
 
             {!isSearching && (
-                <div className="-mx-3 mt-3 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="-mx-5 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     <div role="tablist" aria-label="브랜드 범위" className="flex w-max gap-2">
                         <button
                             type="button"
@@ -326,7 +341,7 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
             )}
 
             {visibleBrands.length > 0 ? (
-                <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="mt-3 grid grid-cols-[repeat(3,116px)] justify-center gap-y-3">
                     {visibleBrands.map((item, index) => (
                         <MainBrandCard
                             key={item.brand.id}
@@ -359,20 +374,10 @@ export function BrandDiscovery(props: BrandDiscoveryProps) {
                 <button
                     type="button"
                     onClick={() => setVisibleLimit(current => current + MORE_VISIBLE_COUNT)}
-                    className="mt-3 flex min-h-12 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white text-[13px] font-black text-slate-600 shadow-sm transition hover:border-blue-200 hover:text-blue-600"
+                    className="mx-auto mt-2 flex min-h-11 items-center justify-center gap-1 px-4 text-[13px] font-bold text-slate-500 transition hover:text-blue-600"
                 >
-                    브랜드 더 보기
-                </button>
-            )}
-
-            {(visibleBrands.length > 0 || matchingScenarios.length > 0) && (
-                <button
-                    type="button"
-                    onClick={selectGeneralPayment}
-                    className="mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl text-[12px] font-black text-slate-400 transition hover:bg-white hover:text-blue-600"
-                >
-                    브랜드가 없다면 일반 결제
-                    <ChevronRight className="h-3.5 w-3.5" />
+                    더보기
+                    <ChevronDown className="h-4 w-4" />
                 </button>
             )}
         </section>

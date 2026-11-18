@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getBrandLogoUrl } from './brandVisuals';
+import { getBrandLogoUrl, usesCoverBrandLogo } from './brandVisuals';
 
 describe('brand logo URLs', () => {
     it.each([
@@ -11,17 +11,19 @@ describe('brand logo URLs', () => {
     });
 
     it.each([
+        ['emart24', '이마트24', '/brand-logos/collected/emart24-co-kr.jpg'],
+        ['tous_les_jours', '뚜레쥬르', '/brand-logos/collected/tlj-co-kr.jpg'],
+    ])('uses the reviewed full-bleed app icon for %s', (id, name, expected) => {
+        expect(getBrandLogoUrl({ id, name })).toBe(expected);
+    });
+
+    it.each([
         ['daiso', '다이소'],
         ['twosome', '투썸플레이스'],
         ['starbucks', '스타벅스'],
     ])('uses a collected high-resolution local logo for %s', (id, name) => {
         expect(getBrandLogoUrl({ id, name }))
             .toMatch(/^\/brand-logos\/collected\/.+\.(?:ico|jpe?g|png|svg|webp)$/);
-    });
-
-    it('uses the reviewed official wordmark for Emart24', () => {
-        expect(getBrandLogoUrl({ id: 'emart24' }))
-            .toBe('/brand-logos/collected/emart24-co-kr.png');
     });
 
     it('uses the reviewed 512px app icon for Olive Young', () => {
@@ -50,6 +52,16 @@ describe('brand logo URLs', () => {
     ])('maps %s to a collected local asset', (id, name) => {
         expect(getBrandLogoUrl({ id, name }))
             .toMatch(/^\/brand-logos\/collected\//);
+    });
+
+    it.each([
+        ['starbucks', '스타벅스', true],
+        ['emart24', '이마트24', true],
+        ['gs25', 'GS25', false],
+        ['official_933878a563e25745', '교보문고', false],
+        ['hsk', 'HSK', false],
+    ])('fills the tile only with a full-bleed app icon for %s', (id, name, expected) => {
+        expect(usesCoverBrandLogo({ id, name })).toBe(expected);
     });
 
     it('uses a crisp monogram instead of a low-resolution remote fallback', () => {

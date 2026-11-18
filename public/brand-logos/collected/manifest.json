@@ -267,10 +267,10 @@
   },
   {
     "domain": "emart24.co.kr",
-    "path": "/brand-logos/collected/emart24-co-kr.png",
-    "sourceUrl": "https://emart24.co.kr/assets/assets/imgs/logo.png",
-    "width": 294,
-    "height": 57
+    "path": "/brand-logos/collected/emart24-co-kr.jpg",
+    "sourceUrl": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/1b/ef/01/1bef015d-bb6f-bb26-832b-719cfc86e85b/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/512x512bb.jpg",
+    "width": 512,
+    "height": 512
   },
   {
     "domain": "etlandmall.co.kr",
@@ -302,8 +302,8 @@
   },
   {
     "domain": "gong-cha.co.kr",
-    "path": "/brand-logos/collected/gong-cha-co-kr.png",
-    "sourceUrl": "https://www.gong-cha.co.kr/favicon/android-chrome-512x512.png",
+    "path": "/brand-logos/collected/gong-cha-co-kr.jpg",
+    "sourceUrl": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/d3/5f/b8/d35fb809-1813-ba55-d505-c786a3e8353f/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/512x512bb.jpg",
     "width": 512,
     "height": 512
   },
@@ -603,10 +603,10 @@
   },
   {
     "domain": "paris.co.kr",
-    "path": "/brand-logos/collected/paris-co-kr.png",
-    "sourceUrl": "https://d2afncas1tel3t.cloudfront.net/wp-content/uploads/2019/09/cropped-PB_favicon-270x270.png",
-    "width": 270,
-    "height": 270
+    "path": "/brand-logos/collected/paris-co-kr.jpg",
+    "sourceUrl": "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/2a/70/40/2a704043-a227-b91a-518d-52e619db6976/AppIcon-0-0-1x_U007emarketing-0-6-0-85-220.png/512x512bb.jpg",
+    "width": 512,
+    "height": 512
   },
   {
     "domain": "paulbassett.co.kr",
@@ -719,6 +719,13 @@
     "sourceUrl": "https://ticketimage.interpark.com/favicons/ticket/favicon-96x96.png",
     "width": 96,
     "height": 96
+  },
+  {
+    "domain": "tlj.co.kr",
+    "path": "/brand-logos/collected/tlj-co-kr.jpg",
+    "sourceUrl": "https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/45/70/09/457009c7-7dc2-d395-ed9e-4d40ae25fb7c/AppIcon_2-0-0-1x_U007epad-0-1-85-220.png/512x512bb.jpg",
+    "width": 512,
+    "height": 512
   },
   {
     "domain": "tmon.co.kr",
