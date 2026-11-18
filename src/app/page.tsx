@@ -9,6 +9,7 @@ import {
     Check,
     CheckCircle2,
     ChevronDown,
+    ChevronLeft,
     ChevronRight,
     Coins,
     CreditCard,
@@ -29,6 +30,7 @@ import { IconByName } from '@/components/ui/IconByName';
 import { NumericKeypad } from '@/components/ui/NumericKeypad';
 import { MonthlyPerformanceReminder } from '@/components/performance/MonthlyPerformanceReminder';
 import { AmountPicker } from './quick-pay/AmountPicker';
+import { BrandLogo } from '@/components/design-lab/BrandLogo';
 import { BrandDiscovery } from '@/components/brand/BrandDiscovery';
 import { CardBenefitSupportCard } from '@/components/catalog/CardBenefitSupportCard';
 import { apiClient, getErrorMessage } from '@/lib/api-client';
@@ -1001,9 +1003,12 @@ function HomePageContent() {
         });
     };
 
+    const quickPayBrandFromList = useRef<string | null>(null);
+
     const handleSelectBrand = (brandId: string, simulationAmount?: number) => {
         const brand = brands.find(item => item.id === brandId);
         if (!brand) return;
+        if (quickPay) quickPayBrandFromList.current = brandId;
         setIsGeneralPaymentSelected(false);
         setSelectedPurchaseScenarioId('');
         setGeneralPaymentLabel(GENERAL_PAYMENT_LABEL);
@@ -1403,6 +1408,30 @@ function HomePageContent() {
                         onToggleFavorite={toggleFavorite}
                         onRequestLocation={handleRequestLocation}
                     />
+                ) : quickPay && currentPaymentTarget.kind === 'BRAND' ? (
+                    <section aria-label="선택한 브랜드" className="flex items-center justify-between gap-3 rounded-[2rem] border border-gray-100 bg-white px-4 py-3 shadow-sm">
+                        <button
+                            type="button"
+                            aria-label="브랜드 목록으로 뒤로가기"
+                            onClick={() => {
+                                if (quickPayBrandFromList.current === currentPaymentTarget.brand.id) {
+                                    router.back();
+                                } else {
+                                    router.replace(pathname);
+                                }
+                            }}
+                            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline-rose-600"
+                        >
+                            <ChevronLeft size={20} aria-hidden="true" />뒤로
+                        </button>
+                        <div className="flex min-w-0 items-center justify-end gap-2.5 text-right">
+                            <BrandLogo key={currentPaymentTarget.brand.id} brand={currentPaymentTarget.brand} className="size-10 shrink-0 rounded-xl" />
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-bold text-slate-500">선택한 브랜드</p>
+                                <h2 className="break-words text-lg font-black leading-tight text-slate-950">{currentPaymentTarget.brand.name}</h2>
+                            </div>
+                        </div>
+                    </section>
                 ) : (
                     <section className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm">
                         <div className="flex items-center justify-between gap-3">
