@@ -131,14 +131,23 @@ function useOpenMode() {
     ), [payment, preferences.preferredModes]);
 }
 
+const QUICK_APP_STYLES = {
+    kakaotalk: { logo: 'kakaopay', color: 'bg-[#ffeb57] text-[#302700]' },
+    kakaopay: { logo: 'kakaopay', color: 'bg-[#fff4a9] text-[#302700]' },
+    naverpay: { logo: 'naverpay', color: 'bg-[#b4f4cf] text-[#073c27]' },
+    tmembership: { logo: 'skt', color: 'bg-[#ffe8df] text-[#552619]' },
+} as const;
+
 function PaymentAppButton({
     action,
     platform,
     origin,
+    preview,
 }: {
     action: PaymentAppAction;
     platform: PaymentAppPlatform;
     origin: string;
+    preview: boolean;
 }) {
     const { preferences, setHidden } = usePaymentAppPreferences();
     const { notOpenedAppId, watch, clear } = useAppOpenWatcher();
@@ -159,20 +168,33 @@ function PaymentAppButton({
 
     const link = pickLink(action.links, openModeFor(action));
 
+    const style = QUICK_APP_STYLES[action.appId];
+    const label = action.appId === 'tmembership' ? 'T멤버십 바코드'
+        : link.label === '굿딜' ? '카카오페이 굿딜' : action.title ?? app.name;
+    const buttonClass = 'flex min-h-14 w-full items-center justify-center gap-1.5 rounded-xl px-1.5 text-[13px] font-bold ' + style.color;
+    const contents = preview && <>
+        {/* eslint-disable-next-line @next/next/no-img-element -- local provider logo */}
+        <img src={'/brand-logos/providers/' + style.logo + '.png'} alt="" className="size-7 shrink-0 rounded-lg object-contain" />
+        <span>{label}</span>
+    </>;
+    if (preview && platform === 'other') return (
+        <button type="button" disabled title="휴대폰에서 열기" className={buttonClass}>{contents}</button>
+    );
     return (
         <div className="space-y-2" data-testid={`payment-app-${action.appId}`}>
             <a
                 href={buildPaymentAppHref(action.appId, link, platform, origin)}
                 onClick={() => watch(action.appId)}
-                className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-2xl bg-gray-900 px-4 text-xs font-black text-white"
+                aria-label={preview ? (action.title ?? app.name) + ' ' + link.label + ' 열기' : undefined}
+                className={preview ? buttonClass : 'flex min-h-11 w-full items-center justify-center gap-1.5 rounded-2xl bg-gray-900 px-4 text-xs font-black text-white'}
             >
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                {action.title ?? app.name} {link.label} 열기
+                {preview ? contents : <><ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                    {action.title ?? app.name} {link.label} 열기</>}
             </a>
-            {action.hint && (
+            {!preview && action.hint && (
                 <p className="text-[10px] font-bold leading-relaxed opacity-70">{action.hint}</p>
             )}
-            {action.payId && action.links.length > 1 && (
+            {!preview && action.payId && action.links.length > 1 && (
                 <p className="text-[10px] font-bold opacity-60">
                     여는 방식은{' '}
                     <Link href="/settings#payment-methods" className="underline underline-offset-2">
@@ -196,14 +218,15 @@ function PaymentAppButton({
 }
 
 /** Buttons that open the payment or membership app. Shown only on phones. */
-export function PaymentAppButtons({ actions }: { actions: PaymentAppAction[] }) {
+export function PaymentAppButtons({ actions, preview = false }: { actions: PaymentAppAction[]; preview?: boolean }) {
     const platform = usePaymentAppPlatform();
     const origin = useOrigin();
-    if (platform === 'other' || actions.length === 0) return null;
+    if (actions.length === 0) return null;
+    if (platform === 'other' && !preview) return null;
     return (
-        <div className="mt-3 space-y-3">
+        <div className={preview ? clsx('mt-2 grid gap-2', actions.length === 2 && 'grid-cols-2') : 'mt-3 space-y-3'}>
             {actions.map(action => (
-                <PaymentAppButton key={action.appId} action={action} platform={platform} origin={origin} />
+                <PaymentAppButton key={action.appId} action={action} platform={platform} origin={origin} preview={preview} />
             ))}
         </div>
     );
